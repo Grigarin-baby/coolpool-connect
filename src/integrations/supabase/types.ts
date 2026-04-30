@@ -14,16 +14,265 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      bookings: {
+        Row: {
+          created_at: string
+          from_stop_index: number
+          id: string
+          passenger_name: string
+          passenger_phone: string
+          seats_booked: number
+          segment_price: number
+          status: Database["public"]["Enums"]["booking_status"]
+          to_stop_index: number
+          traveler_id: string
+          trip_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          from_stop_index: number
+          id?: string
+          passenger_name: string
+          passenger_phone: string
+          seats_booked: number
+          segment_price: number
+          status?: Database["public"]["Enums"]["booking_status"]
+          to_stop_index: number
+          traveler_id: string
+          trip_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          from_stop_index?: number
+          id?: string
+          passenger_name?: string
+          passenger_phone?: string
+          seats_booked?: number
+          segment_price?: number
+          status?: Database["public"]["Enums"]["booking_status"]
+          to_stop_index?: number
+          traveler_id?: string
+          trip_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bookings_trip_id_fkey"
+            columns: ["trip_id"]
+            isOneToOne: false
+            referencedRelation: "trips"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pricing_rules: {
+        Row: {
+          id: string
+          max_price_per_km: number
+          min_price_per_km: number
+          route_match_tolerance_km: number
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          max_price_per_km?: number
+          min_price_per_km?: number
+          route_match_tolerance_km?: number
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          max_price_per_km?: number
+          min_price_per_km?: number
+          route_match_tolerance_km?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          full_name: string | null
+          host_rating: number | null
+          id: string
+          phone: string | null
+          total_trips_hosted: number
+          total_trips_taken: number
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          full_name?: string | null
+          host_rating?: number | null
+          id: string
+          phone?: string | null
+          total_trips_hosted?: number
+          total_trips_taken?: number
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          full_name?: string | null
+          host_rating?: number | null
+          id?: string
+          phone?: string | null
+          total_trips_hosted?: number
+          total_trips_taken?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      trip_stops: {
+        Row: {
+          created_at: string
+          distance_from_origin_km: number
+          id: string
+          lat: number
+          lng: number
+          location: string
+          stop_index: number
+          stop_type: Database["public"]["Enums"]["stop_type"]
+          trip_id: string
+        }
+        Insert: {
+          created_at?: string
+          distance_from_origin_km: number
+          id?: string
+          lat: number
+          lng: number
+          location: string
+          stop_index: number
+          stop_type?: Database["public"]["Enums"]["stop_type"]
+          trip_id: string
+        }
+        Update: {
+          created_at?: string
+          distance_from_origin_km?: number
+          id?: string
+          lat?: number
+          lng?: number
+          location?: string
+          stop_index?: number
+          stop_type?: Database["public"]["Enums"]["stop_type"]
+          trip_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "trip_stops_trip_id_fkey"
+            columns: ["trip_id"]
+            isOneToOne: false
+            referencedRelation: "trips"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      trips: {
+        Row: {
+          created_at: string
+          departure_at: string
+          from_lat: number
+          from_lng: number
+          from_location: string
+          host_id: string
+          id: string
+          notes: string | null
+          polyline: string
+          price_per_km: number
+          status: Database["public"]["Enums"]["trip_status"]
+          to_lat: number
+          to_lng: number
+          to_location: string
+          total_distance_km: number
+          total_price: number
+          total_seats: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          departure_at: string
+          from_lat: number
+          from_lng: number
+          from_location: string
+          host_id: string
+          id?: string
+          notes?: string | null
+          polyline: string
+          price_per_km: number
+          status?: Database["public"]["Enums"]["trip_status"]
+          to_lat: number
+          to_lng: number
+          to_location: string
+          total_distance_km: number
+          total_price: number
+          total_seats: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          departure_at?: string
+          from_lat?: number
+          from_lng?: number
+          from_location?: string
+          host_id?: string
+          id?: string
+          notes?: string | null
+          polyline?: string
+          price_per_km?: number
+          status?: Database["public"]["Enums"]["trip_status"]
+          to_lat?: number
+          to_lng?: number
+          to_location?: string
+          total_distance_km?: number
+          total_price?: number
+          total_seats?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "host" | "traveler"
+      booking_status: "pending" | "confirmed" | "cancelled" | "completed"
+      stop_type: "pickup" | "drop" | "both"
+      trip_status: "scheduled" | "in_progress" | "completed" | "cancelled"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +399,11 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "host", "traveler"],
+      booking_status: ["pending", "confirmed", "cancelled", "completed"],
+      stop_type: ["pickup", "drop", "both"],
+      trip_status: ["scheduled", "in_progress", "completed", "cancelled"],
+    },
   },
 } as const
