@@ -15,6 +15,11 @@ import { Route as HowItWorksRouteImport } from './routes/how-it-works'
 import { Route as HostRouteImport } from './routes/host'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AdminIndexRouteImport } from './routes/admin/index'
+import { Route as DriverOnboardingRouteImport } from './routes/driver/onboarding'
+import { Route as DriverLoginRouteImport } from './routes/driver/login'
+import { Route as DriverDashboardRouteImport } from './routes/driver/dashboard'
+import { Route as AdminDashboardRouteImport } from './routes/admin/dashboard'
 
 const TripsRoute = TripsRouteImport.update({
   id: '/trips',
@@ -46,6 +51,31 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminIndexRoute = AdminIndexRouteImport.update({
+  id: '/admin/',
+  path: '/admin/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DriverOnboardingRoute = DriverOnboardingRouteImport.update({
+  id: '/driver/onboarding',
+  path: '/driver/onboarding',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DriverLoginRoute = DriverLoginRouteImport.update({
+  id: '/driver/login',
+  path: '/driver/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DriverDashboardRoute = DriverDashboardRouteImport.update({
+  id: '/driver/dashboard',
+  path: '/driver/dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminDashboardRoute = AdminDashboardRouteImport.update({
+  id: '/admin/dashboard',
+  path: '/admin/dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -54,6 +84,11 @@ export interface FileRoutesByFullPath {
   '/how-it-works': typeof HowItWorksRoute
   '/search': typeof SearchRoute
   '/trips': typeof TripsRoute
+  '/admin/dashboard': typeof AdminDashboardRoute
+  '/driver/dashboard': typeof DriverDashboardRoute
+  '/driver/login': typeof DriverLoginRoute
+  '/driver/onboarding': typeof DriverOnboardingRoute
+  '/admin/': typeof AdminIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -62,6 +97,11 @@ export interface FileRoutesByTo {
   '/how-it-works': typeof HowItWorksRoute
   '/search': typeof SearchRoute
   '/trips': typeof TripsRoute
+  '/admin/dashboard': typeof AdminDashboardRoute
+  '/driver/dashboard': typeof DriverDashboardRoute
+  '/driver/login': typeof DriverLoginRoute
+  '/driver/onboarding': typeof DriverOnboardingRoute
+  '/admin': typeof AdminIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -71,12 +111,39 @@ export interface FileRoutesById {
   '/how-it-works': typeof HowItWorksRoute
   '/search': typeof SearchRoute
   '/trips': typeof TripsRoute
+  '/admin/dashboard': typeof AdminDashboardRoute
+  '/driver/dashboard': typeof DriverDashboardRoute
+  '/driver/login': typeof DriverLoginRoute
+  '/driver/onboarding': typeof DriverOnboardingRoute
+  '/admin/': typeof AdminIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/auth' | '/host' | '/how-it-works' | '/search' | '/trips'
+  fullPaths:
+    | '/'
+    | '/auth'
+    | '/host'
+    | '/how-it-works'
+    | '/search'
+    | '/trips'
+    | '/admin/dashboard'
+    | '/driver/dashboard'
+    | '/driver/login'
+    | '/driver/onboarding'
+    | '/admin/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/auth' | '/host' | '/how-it-works' | '/search' | '/trips'
+  to:
+    | '/'
+    | '/auth'
+    | '/host'
+    | '/how-it-works'
+    | '/search'
+    | '/trips'
+    | '/admin/dashboard'
+    | '/driver/dashboard'
+    | '/driver/login'
+    | '/driver/onboarding'
+    | '/admin'
   id:
     | '__root__'
     | '/'
@@ -85,6 +152,11 @@ export interface FileRouteTypes {
     | '/how-it-works'
     | '/search'
     | '/trips'
+    | '/admin/dashboard'
+    | '/driver/dashboard'
+    | '/driver/login'
+    | '/driver/onboarding'
+    | '/admin/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -94,6 +166,11 @@ export interface RootRouteChildren {
   HowItWorksRoute: typeof HowItWorksRoute
   SearchRoute: typeof SearchRoute
   TripsRoute: typeof TripsRoute
+  AdminDashboardRoute: typeof AdminDashboardRoute
+  DriverDashboardRoute: typeof DriverDashboardRoute
+  DriverLoginRoute: typeof DriverLoginRoute
+  DriverOnboardingRoute: typeof DriverOnboardingRoute
+  AdminIndexRoute: typeof AdminIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -140,6 +217,41 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/': {
+      id: '/admin/'
+      path: '/admin'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AdminIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/driver/onboarding': {
+      id: '/driver/onboarding'
+      path: '/driver/onboarding'
+      fullPath: '/driver/onboarding'
+      preLoaderRoute: typeof DriverOnboardingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/driver/login': {
+      id: '/driver/login'
+      path: '/driver/login'
+      fullPath: '/driver/login'
+      preLoaderRoute: typeof DriverLoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/driver/dashboard': {
+      id: '/driver/dashboard'
+      path: '/driver/dashboard'
+      fullPath: '/driver/dashboard'
+      preLoaderRoute: typeof DriverDashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/dashboard': {
+      id: '/admin/dashboard'
+      path: '/admin/dashboard'
+      fullPath: '/admin/dashboard'
+      preLoaderRoute: typeof AdminDashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -150,7 +262,21 @@ const rootRouteChildren: RootRouteChildren = {
   HowItWorksRoute: HowItWorksRoute,
   SearchRoute: SearchRoute,
   TripsRoute: TripsRoute,
+  AdminDashboardRoute: AdminDashboardRoute,
+  DriverDashboardRoute: DriverDashboardRoute,
+  DriverLoginRoute: DriverLoginRoute,
+  DriverOnboardingRoute: DriverOnboardingRoute,
+  AdminIndexRoute: AdminIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { createStart } from '@tanstack/react-start'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+  }
+}

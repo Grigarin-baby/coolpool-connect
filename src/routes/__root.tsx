@@ -1,8 +1,19 @@
 import { Outlet, createRootRoute, HeadContent, Scripts } from "@tanstack/react-router";
 import { AuthProvider } from "@/hooks/useAuth";
 import { Toaster } from "@/components/ui/sonner";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import "antd/dist/reset.css";
 
 import appCss from "../styles.css?url";
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 1000 * 60 * 5, // 5 minutes
+      retry: 1,
+    },
+  },
+});
 
 function NotFoundComponent() {
   return (
@@ -30,10 +41,17 @@ export const Route = createRootRoute({
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: "Coolpool — Smart intercity ride-sharing" },
-      { name: "description", content: "Share rides between cities. Hosts post trips, travelers book the seats they need. Fair, dynamic, per-kilometer pricing." },
+      {
+        name: "description",
+        content:
+          "Share rides between cities. Hosts post trips, travelers book the seats they need. Fair, dynamic, per-kilometer pricing.",
+      },
       { name: "author", content: "Coolpool" },
       { property: "og:title", content: "Coolpool — Smart intercity ride-sharing" },
-      { property: "og:description", content: "Share rides between cities with fair per-kilometer pricing." },
+      {
+        property: "og:description",
+        content: "Share rides between cities with fair per-kilometer pricing.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
@@ -60,9 +78,11 @@ function RootShell({ children }: { children: React.ReactNode }) {
 
 function RootComponent() {
   return (
-    <AuthProvider>
-      <Outlet />
-      <Toaster />
-    </AuthProvider>
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <Outlet />
+        <Toaster />
+      </AuthProvider>
+    </QueryClientProvider>
   );
 }

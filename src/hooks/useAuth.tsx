@@ -1,16 +1,20 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
-import type { Session, User } from "@supabase/supabase-js";
-import { supabase } from "@/integrations/supabase/client";
+import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
+import { ID, type Models } from "appwrite";
+import { account } from "@/integrations/appwrite/client";
+import { listUserRoles } from "@/data/appwrite-repository";
+import type { AppRole } from "@/lib/domain";
 
-export type AppRole = "admin" | "host" | "traveler";
+type AppwriteUser = Models.User<Models.Preferences>;
 
 interface AuthContextValue {
-  session: Session | null;
-  user: User | null;
+  session: { userId: string } | null;
+  user: AppwriteUser | null;
   roles: AppRole[];
   loading: boolean;
-  isHost: boolean;
+  isDriver: boolean;
   isAdmin: boolean;
+  signIn: (email: string, password: string) => Promise<void>;
+  signUp: (name: string, email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
   refreshRoles: () => Promise<void>;
 }
@@ -18,48 +22,78 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [session, setSession] = useState<Session | null>(null);
-  const [user, setUser] = useState<User | null>(null);
+  const [session, setSession] = useState<{ userId: string } | null>(null);
+  const [user, setUser] = useState<AppwriteUser | null>(null);
   const [roles, setRoles] = useState<AppRole[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const loadRoles = async (uid: string) => {
-    const { data } = await supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", uid);
-    setRoles((data ?? []).map((r) => r.role as AppRole));
+  const loadRoles = async (currentUser: AppwriteUser) => {
+    try {
+      const dbRoles = await listUserRoles(currentUser.$id);
+      if (dbRoles.length > 0) {
+        setRoles(dbRoles);
+        return;
+      }
+    } catch {
+      // Fallback to prefs when backend collections are not configured yet.
+    }
+
+    const candidateRoles = currentUser.prefs?.roles;
+    if (!Array.isArray(candidateRoles)) {
+      setRoles(["user"]);
+      return;
+    }
+
+    const parsedRoles = candidateRoles.filter((role): role is AppRole =>
+      ["admin", "driver", "user"].includes(String(role)),
+    );
+    setRoles(parsedRoles.length > 0 ? parsedRoles : ["user"]);
   };
 
-  useEffect(() => {
-    // Set up listener FIRST, then check session
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, sess) => {
-      setSession(sess);
-      setUser(sess?.user ?? null);
-      if (sess?.user) {
-        // Defer Supabase calls to avoid deadlock
-        setTimeout(() => loadRoles(sess.user.id), 0);
-      } else {
-        setRoles([]);
-      }
-    });
-
-    supabase.auth.getSession().then(({ data: { session: sess } }) => {
-      setSession(sess);
-      setUser(sess?.user ?? null);
-      if (sess?.user) loadRoles(sess.user.id).finally(() => setLoading(false));
-      else setLoading(false);
-    });
-
-    return () => subscription.unsubscribe();
+  const refreshSession = useCallback(async () => {
+    try {
+      const currentUser = await account.get();
+      setUser(currentUser);
+      setSession({ userId: currentUser.$id });
+      await loadRoles(currentUser);
+    } catch {
+      setUser(null);
+      setSession(null);
+      setRoles([]);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
+  useEffect(() => {
+    void refreshSession();
+  }, [refreshSession]);
+
   const refreshRoles = async () => {
-    if (user) await loadRoles(user.id);
+    if (user) await loadRoles(user);
+  };
+
+  const signIn = async (email: string, password: string) => {
+    await account.createEmailPasswordSession(email, password);
+    await refreshSession();
+  };
+
+  const signUp = async (name: string, email: string, password: string) => {
+    await account.create(ID.unique(), email, password, name);
+    await account.createEmailPasswordSession(email, password);
+    await account.updatePrefs({ roles: ["user"], fullName: name });
+    await refreshSession();
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    try {
+      await account.deleteSession("current");
+    } finally {
+      await refreshSession();
+      if (typeof window !== "undefined") {
+        window.location.assign("/");
+      }
+    }
   };
 
   return (
@@ -69,8 +103,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user,
         roles,
         loading,
-        isHost: roles.includes("host"),
+        isDriver: roles.includes("driver"),
         isAdmin: roles.includes("admin"),
+        signIn,
+        signUp,
         signOut,
         refreshRoles,
       }}

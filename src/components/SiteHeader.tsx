@@ -13,9 +13,10 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 export function SiteHeader() {
-  const { user, isHost, isAdmin, signOut } = useAuth();
+  const { user, isDriver, isAdmin, signOut } = useAuth();
   const pathname = useRouterState({ select: (r) => r.location.pathname });
   const [open, setOpen] = useState(false);
+  const dashboardPath = isAdmin ? "/admin/dashboard" : isDriver ? "/driver/dashboard" : null;
 
   const navLinks = [
     { to: "/search", label: "Find a ride" },
@@ -51,45 +52,55 @@ export function SiteHeader() {
 
         <div className="hidden md:flex items-center gap-2">
           {user ? (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="rounded-full h-10 px-4 gap-2">
-                  <div className="h-7 w-7 rounded-full bg-gradient-primary flex items-center justify-center text-xs font-bold text-primary-foreground">
-                    {(user.email?.[0] ?? "U").toUpperCase()}
-                  </div>
-                  <span className="text-sm">Account</span>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56 rounded-2xl">
-                <DropdownMenuLabel className="font-normal text-xs text-muted-foreground truncate">
-                  {user.email}
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem asChild>
-                  <Link to="/trips" className="cursor-pointer">
-                    <UserIcon className="h-4 w-4 mr-2" /> My trips
+            <>
+              {dashboardPath && (
+                <Button asChild variant="hero" className="rounded-full">
+                  <Link to={dashboardPath}>
+                    <LayoutDashboard className="h-4 w-4 mr-2" />
+                    Dashboard
                   </Link>
-                </DropdownMenuItem>
-                {isHost && (
+                </Button>
+              )}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="rounded-full h-10 px-4 gap-2">
+                    <div className="h-7 w-7 rounded-full bg-gradient-primary flex items-center justify-center text-xs font-bold text-primary-foreground">
+                      {(user.email?.[0] ?? "U").toUpperCase()}
+                    </div>
+                    <span className="text-sm">Account</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56 rounded-2xl">
+                  <DropdownMenuLabel className="font-normal text-xs text-muted-foreground truncate">
+                    {user.email}
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
                   <DropdownMenuItem asChild>
-                    <Link to="/host/dashboard" className="cursor-pointer">
-                      <LayoutDashboard className="h-4 w-4 mr-2" /> Host dashboard
+                    <Link to="/trips" className="cursor-pointer">
+                      <UserIcon className="h-4 w-4 mr-2" /> My trips
                     </Link>
                   </DropdownMenuItem>
-                )}
-                {isAdmin && (
-                  <DropdownMenuItem asChild>
-                    <Link to="/admin" className="cursor-pointer">
-                      <Shield className="h-4 w-4 mr-2" /> Admin
-                    </Link>
+                  {isDriver && (
+                    <DropdownMenuItem asChild>
+                      <Link to="/driver/dashboard" className="cursor-pointer">
+                        <LayoutDashboard className="h-4 w-4 mr-2" /> Driver dashboard
+                      </Link>
+                    </DropdownMenuItem>
+                  )}
+                  {isAdmin && (
+                    <DropdownMenuItem asChild>
+                      <Link to="/admin/dashboard" className="cursor-pointer">
+                        <Shield className="h-4 w-4 mr-2" /> Admin
+                      </Link>
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={signOut} className="cursor-pointer text-destructive">
+                    <LogOut className="h-4 w-4 mr-2" /> Sign out
                   </DropdownMenuItem>
-                )}
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={signOut} className="cursor-pointer text-destructive">
-                  <LogOut className="h-4 w-4 mr-2" /> Sign out
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </>
           ) : (
             <>
               <Button asChild variant="ghost" className="rounded-full">
@@ -127,14 +138,55 @@ export function SiteHeader() {
             <div className="h-px bg-border my-2" />
             {user ? (
               <>
-                <Link to="/trips" onClick={() => setOpen(false)} className="px-4 py-3 rounded-xl text-sm font-medium hover:bg-secondary">My trips</Link>
-                {isHost && <Link to="/host/dashboard" onClick={() => setOpen(false)} className="px-4 py-3 rounded-xl text-sm font-medium hover:bg-secondary">Host dashboard</Link>}
-                {isAdmin && <Link to="/admin" onClick={() => setOpen(false)} className="px-4 py-3 rounded-xl text-sm font-medium hover:bg-secondary">Admin</Link>}
-                <button onClick={() => { setOpen(false); signOut(); }} className="text-left px-4 py-3 rounded-xl text-sm font-medium text-destructive hover:bg-secondary">Sign out</button>
+                {dashboardPath && (
+                  <Link
+                    to={dashboardPath}
+                    onClick={() => setOpen(false)}
+                    className="px-4 py-3 rounded-xl text-sm font-medium hover:bg-secondary"
+                  >
+                    Dashboard
+                  </Link>
+                )}
+                <Link
+                  to="/trips"
+                  onClick={() => setOpen(false)}
+                  className="px-4 py-3 rounded-xl text-sm font-medium hover:bg-secondary"
+                >
+                  My trips
+                </Link>
+                {isDriver && (
+                  <Link
+                    to="/driver/dashboard"
+                    onClick={() => setOpen(false)}
+                    className="px-4 py-3 rounded-xl text-sm font-medium hover:bg-secondary"
+                  >
+                    Driver dashboard
+                  </Link>
+                )}
+                {isAdmin && (
+                  <Link
+                    to="/admin/dashboard"
+                    onClick={() => setOpen(false)}
+                    className="px-4 py-3 rounded-xl text-sm font-medium hover:bg-secondary"
+                  >
+                    Admin
+                  </Link>
+                )}
+                <button
+                  onClick={() => {
+                    setOpen(false);
+                    signOut();
+                  }}
+                  className="text-left px-4 py-3 rounded-xl text-sm font-medium text-destructive hover:bg-secondary"
+                >
+                  Sign out
+                </button>
               </>
             ) : (
               <Button asChild variant="hero" className="rounded-full mt-2">
-                <Link to="/auth" onClick={() => setOpen(false)}>Get started</Link>
+                <Link to="/auth" onClick={() => setOpen(false)}>
+                  Get started
+                </Link>
               </Button>
             )}
           </div>

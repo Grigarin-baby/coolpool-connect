@@ -1,0 +1,319 @@
+import { Client, Databases, ID } from "node-appwrite";
+
+const endpoint = process.env.APPWRITE_ENDPOINT;
+const projectId = process.env.APPWRITE_PROJECT_ID;
+const databaseId = process.env.APPWRITE_DATABASE_ID;
+const apiKey = process.env.APPWRITE_API_KEY;
+
+if (!endpoint || !projectId || !databaseId || !apiKey) {
+  throw new Error(
+    "Missing one or more required env vars: APPWRITE_ENDPOINT, APPWRITE_PROJECT_ID, APPWRITE_DATABASE_ID, APPWRITE_API_KEY",
+  );
+}
+
+const COLLECTIONS = {
+  trips: "coolpool_trips",
+  tripStops: "coolpool_trip_stops",
+  bookings: "coolpool_bookings",
+  userRoles: "coolpool_user_roles",
+  pricingRules: "coolpool_pricing_rules",
+  profiles: "coolpool_profiles",
+  drivers: "coolpool_drivers",
+  vehicles: "coolpool_vehicles",
+};
+
+const client = new Client().setEndpoint(endpoint).setProject(projectId).setKey(apiKey);
+const databases = new Databases(client);
+
+async function ensureCollection(collectionId, name) {
+  try {
+    await databases.getCollection(databaseId, collectionId);
+    console.log(`Collection exists: ${collectionId}`);
+  } catch {
+    await databases.createCollection(databaseId, collectionId, name, [], true, true);
+    console.log(`Created collection: ${collectionId}`);
+  }
+}
+
+async function ensureStringAttribute(
+  collectionId,
+  key,
+  size,
+  required = false,
+  def = undefined,
+  array = false,
+) {
+  try {
+    await databases.getAttribute(databaseId, collectionId, key);
+    console.log(`Attribute exists: ${collectionId}.${key}`);
+  } catch {
+    await databases.createStringAttribute(
+      databaseId,
+      collectionId,
+      key,
+      size,
+      required,
+      def,
+      array,
+    );
+    console.log(`Created attribute: ${collectionId}.${key}`);
+  }
+}
+
+async function ensureEnumAttribute(
+  collectionId,
+  key,
+  elements,
+  required = false,
+  def = undefined,
+  array = false,
+) {
+  try {
+    const existing = await databases.getAttribute(databaseId, collectionId, key);
+    console.log(`Attribute exists: ${collectionId}.${key}`);
+    if (existing.type !== "enum") {
+      console.warn(
+        `Attribute ${collectionId}.${key} exists as type "${existing.type}", not enum. ` +
+          `Please replace it manually in Appwrite Console with enum values: ${elements.join(", ")}`,
+      );
+    }
+  } catch {
+    await databases.createEnumAttribute(
+      databaseId,
+      collectionId,
+      key,
+      elements,
+      required,
+      def,
+      array,
+    );
+    console.log(`Created enum attribute: ${collectionId}.${key} = [${elements.join(", ")}]`);
+  }
+}
+
+async function ensureFloatAttribute(
+  collectionId,
+  key,
+  required = false,
+  min = undefined,
+  max = undefined,
+  def = undefined,
+  array = false,
+) {
+  try {
+    await databases.getAttribute(databaseId, collectionId, key);
+    console.log(`Attribute exists: ${collectionId}.${key}`);
+  } catch {
+    await databases.createFloatAttribute(
+      databaseId,
+      collectionId,
+      key,
+      required,
+      min,
+      max,
+      def,
+      array,
+    );
+    console.log(`Created attribute: ${collectionId}.${key}`);
+  }
+}
+
+async function ensureIntegerAttribute(
+  collectionId,
+  key,
+  required = false,
+  min = undefined,
+  max = undefined,
+  def = undefined,
+  array = false,
+) {
+  try {
+    await databases.getAttribute(databaseId, collectionId, key);
+    console.log(`Attribute exists: ${collectionId}.${key}`);
+  } catch {
+    await databases.createIntegerAttribute(
+      databaseId,
+      collectionId,
+      key,
+      required,
+      min,
+      max,
+      def,
+      array,
+    );
+    console.log(`Created attribute: ${collectionId}.${key}`);
+  }
+}
+
+async function ensureDatetimeAttribute(
+  collectionId,
+  key,
+  required = false,
+  def = undefined,
+  array = false,
+) {
+  try {
+    await databases.getAttribute(databaseId, collectionId, key);
+    console.log(`Attribute exists: ${collectionId}.${key}`);
+  } catch {
+    await databases.createDatetimeAttribute(databaseId, collectionId, key, required, def, array);
+    console.log(`Created attribute: ${collectionId}.${key}`);
+  }
+}
+
+async function ensureBooleanAttribute(
+  collectionId,
+  key,
+  required = false,
+  def = undefined,
+  array = false,
+) {
+  try {
+    await databases.getAttribute(databaseId, collectionId, key);
+    console.log(`Attribute exists: ${collectionId}.${key}`);
+  } catch {
+    await databases.createBooleanAttribute(databaseId, collectionId, key, required, def, array);
+    console.log(`Created attribute: ${collectionId}.${key}`);
+  }
+}
+
+async function ensureIndex(collectionId, key, type, attributes) {
+  try {
+    await databases.getIndex(databaseId, collectionId, key);
+    console.log(`Index exists: ${collectionId}.${key}`);
+  } catch {
+    try {
+      await databases.createIndex(databaseId, collectionId, key, type, attributes);
+      console.log(`Created index: ${collectionId}.${key}`);
+    } catch (error) {
+      console.warn(
+        `Skipped index (will retry later if needed): ${collectionId}.${key}`,
+        error?.message || error,
+      );
+    }
+  }
+}
+
+async function run() {
+  await ensureCollection(COLLECTIONS.trips, "Trips");
+  await ensureCollection(COLLECTIONS.tripStops, "Trip Stops");
+  await ensureCollection(COLLECTIONS.bookings, "Bookings");
+  await ensureCollection(COLLECTIONS.userRoles, "User Roles");
+  await ensureCollection(COLLECTIONS.pricingRules, "Pricing Rules");
+  await ensureCollection(COLLECTIONS.profiles, "Profiles");
+  await ensureCollection(COLLECTIONS.drivers, "Drivers");
+  await ensureCollection(COLLECTIONS.vehicles, "Vehicles");
+
+  // trips
+  await ensureStringAttribute(COLLECTIONS.trips, "host_id", 64, true);
+  await ensureStringAttribute(COLLECTIONS.trips, "from_location", 256, true);
+  await ensureFloatAttribute(COLLECTIONS.trips, "from_lat", true);
+  await ensureFloatAttribute(COLLECTIONS.trips, "from_lng", true);
+  await ensureStringAttribute(COLLECTIONS.trips, "to_location", 256, true);
+  await ensureFloatAttribute(COLLECTIONS.trips, "to_lat", true);
+  await ensureFloatAttribute(COLLECTIONS.trips, "to_lng", true);
+  await ensureStringAttribute(COLLECTIONS.trips, "polyline", 100000, true);
+  await ensureFloatAttribute(COLLECTIONS.trips, "total_distance_km", true);
+  await ensureFloatAttribute(COLLECTIONS.trips, "total_price", true);
+  await ensureFloatAttribute(COLLECTIONS.trips, "price_per_km", true);
+  await ensureIntegerAttribute(COLLECTIONS.trips, "total_seats", true, 1);
+  await ensureDatetimeAttribute(COLLECTIONS.trips, "departure_at", true);
+  await ensureStringAttribute(COLLECTIONS.trips, "status", 32, true);
+  await ensureStringAttribute(COLLECTIONS.trips, "notes", 2000, false);
+
+  // trip stops
+  await ensureStringAttribute(COLLECTIONS.tripStops, "trip_id", 64, true);
+  await ensureIntegerAttribute(COLLECTIONS.tripStops, "stop_index", true, 0);
+  await ensureStringAttribute(COLLECTIONS.tripStops, "location", 256, true);
+  await ensureFloatAttribute(COLLECTIONS.tripStops, "lat", true);
+  await ensureFloatAttribute(COLLECTIONS.tripStops, "lng", true);
+  await ensureStringAttribute(COLLECTIONS.tripStops, "stop_type", 16, true);
+  await ensureFloatAttribute(COLLECTIONS.tripStops, "distance_from_origin_km", true, 0);
+
+  // bookings
+  await ensureStringAttribute(COLLECTIONS.bookings, "trip_id", 64, true);
+  await ensureStringAttribute(COLLECTIONS.bookings, "traveler_id", 64, true);
+  await ensureIntegerAttribute(COLLECTIONS.bookings, "from_stop_index", true, 0);
+  await ensureIntegerAttribute(COLLECTIONS.bookings, "to_stop_index", true, 0);
+  await ensureIntegerAttribute(COLLECTIONS.bookings, "seats_booked", true, 1);
+  await ensureFloatAttribute(COLLECTIONS.bookings, "segment_price", true, 0);
+  await ensureStringAttribute(COLLECTIONS.bookings, "passenger_name", 120, true);
+  await ensureStringAttribute(COLLECTIONS.bookings, "passenger_phone", 40, true);
+  await ensureStringAttribute(COLLECTIONS.bookings, "status", 32, true);
+  await ensureDatetimeAttribute(COLLECTIONS.bookings, "created_at", false);
+
+  // user roles
+  await ensureStringAttribute(COLLECTIONS.userRoles, "user_id", 64, true);
+  await ensureEnumAttribute(COLLECTIONS.userRoles, "role", ["admin", "driver", "user"], true);
+
+  // pricing rules
+  await ensureFloatAttribute(COLLECTIONS.pricingRules, "min_price_per_km", true, 0);
+  await ensureFloatAttribute(COLLECTIONS.pricingRules, "max_price_per_km", true, 0);
+  await ensureFloatAttribute(COLLECTIONS.pricingRules, "route_match_tolerance_km", true, 0);
+  await ensureDatetimeAttribute(COLLECTIONS.pricingRules, "updated_at", false);
+
+  // profiles
+  await ensureStringAttribute(COLLECTIONS.profiles, "user_id", 64, true);
+  await ensureStringAttribute(COLLECTIONS.profiles, "full_name", 120, false);
+  await ensureStringAttribute(COLLECTIONS.profiles, "phone", 40, false);
+  await ensureStringAttribute(COLLECTIONS.profiles, "avatar_url", 2000, false);
+  await ensureFloatAttribute(COLLECTIONS.profiles, "host_rating", false, 0, 5);
+  await ensureIntegerAttribute(COLLECTIONS.profiles, "total_trips_hosted", false, 0);
+  await ensureIntegerAttribute(COLLECTIONS.profiles, "total_trips_taken", false, 0);
+
+  // drivers
+  await ensureStringAttribute(COLLECTIONS.drivers, "user_id", 64, true);
+  await ensureStringAttribute(COLLECTIONS.drivers, "full_name", 120, true);
+  await ensureStringAttribute(COLLECTIONS.drivers, "email", 200, true);
+  await ensureStringAttribute(COLLECTIONS.drivers, "phone", 40, true);
+  await ensureStringAttribute(COLLECTIONS.drivers, "license_number", 80, true);
+  await ensureStringAttribute(COLLECTIONS.drivers, "city", 120, true);
+
+  // vehicles
+  await ensureStringAttribute(COLLECTIONS.vehicles, "driver_user_id", 64, true);
+  await ensureStringAttribute(COLLECTIONS.vehicles, "model_name", 120, true);
+  await ensureStringAttribute(COLLECTIONS.vehicles, "plate_number", 40, true);
+  await ensureIntegerAttribute(COLLECTIONS.vehicles, "seat_capacity", true, 1);
+  await ensureStringAttribute(COLLECTIONS.vehicles, "color", 40, false);
+  await ensureStringAttribute(COLLECTIONS.vehicles, "registration_doc", 2000, false);
+  await ensureStringAttribute(COLLECTIONS.vehicles, "insurance_doc", 2000, false);
+
+  // indexes for app queries
+  await ensureIndex(COLLECTIONS.trips, "idx_trips_host_id", "key", ["host_id"]);
+  await ensureIndex(COLLECTIONS.trips, "idx_trips_departure_at", "key", ["departure_at"]);
+  await ensureIndex(COLLECTIONS.tripStops, "idx_trip_stops_trip_id", "key", ["trip_id"]);
+  await ensureIndex(COLLECTIONS.tripStops, "idx_trip_stops_trip_stop", "key", [
+    "trip_id",
+    "stop_index",
+  ]);
+  await ensureIndex(COLLECTIONS.bookings, "idx_bookings_trip_id", "key", ["trip_id"]);
+  await ensureIndex(COLLECTIONS.bookings, "idx_bookings_traveler_id", "key", ["traveler_id"]);
+  await ensureIndex(COLLECTIONS.userRoles, "idx_user_roles_user_id", "key", ["user_id"]);
+  await ensureIndex(COLLECTIONS.pricingRules, "idx_pricing_rules_updated", "key", ["updated_at"]);
+  await ensureIndex(COLLECTIONS.profiles, "idx_profiles_user_id", "key", ["user_id"]);
+  await ensureIndex(COLLECTIONS.drivers, "idx_drivers_user_id", "key", ["user_id"]);
+  await ensureIndex(COLLECTIONS.drivers, "idx_drivers_license_number", "key", ["license_number"]);
+  await ensureIndex(COLLECTIONS.vehicles, "idx_vehicles_driver_user_id", "key", ["driver_user_id"]);
+  await ensureIndex(COLLECTIONS.vehicles, "idx_vehicles_plate_number", "key", ["plate_number"]);
+
+  // seed default pricing rule if absent
+  const pricingRules = await databases.listDocuments(databaseId, COLLECTIONS.pricingRules);
+  if (pricingRules.total === 0) {
+    await databases.createDocument(databaseId, COLLECTIONS.pricingRules, ID.unique(), {
+      min_price_per_km: 1,
+      max_price_per_km: 100,
+      route_match_tolerance_km: 5,
+      updated_at: new Date().toISOString(),
+    });
+    console.log("Seeded default pricing rule");
+  }
+
+  console.log("Appwrite migration complete.");
+  console.log("Collection IDs:");
+  console.log(JSON.stringify(COLLECTIONS, null, 2));
+}
+
+run().catch((error) => {
+  console.error("Migration failed:", error);
+  process.exit(1);
+});

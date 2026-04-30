@@ -1,0 +1,57 @@
+export interface AppwriteCollectionIds {
+  trips: string;
+  tripStops: string;
+  bookings: string;
+  userRoles: string;
+  pricingRules: string;
+  profiles: string;
+  drivers: string;
+  vehicles: string;
+}
+
+function requireCollectionId(value: string | undefined, name: string): string {
+  if (!value) {
+    throw new Error(`Missing ${name}. Add it in environment variables.`);
+  }
+  return value;
+}
+
+export function getCollectionIds(): AppwriteCollectionIds {
+  return {
+    trips: requireCollectionId(
+      import.meta.env.VITE_APPWRITE_COLLECTION_TRIPS || process.env.APPWRITE_COLLECTION_TRIPS,
+      "VITE_APPWRITE_COLLECTION_TRIPS / APPWRITE_COLLECTION_TRIPS",
+    ),
+    tripStops: requireCollectionId(
+      import.meta.env.VITE_APPWRITE_COLLECTION_TRIP_STOPS ||
+        process.env.APPWRITE_COLLECTION_TRIP_STOPS,
+      "VITE_APPWRITE_COLLECTION_TRIP_STOPS / APPWRITE_COLLECTION_TRIP_STOPS",
+    ),
+    bookings: requireCollectionId(
+      import.meta.env.VITE_APPWRITE_COLLECTION_BOOKINGS || process.env.APPWRITE_COLLECTION_BOOKINGS,
+      "VITE_APPWRITE_COLLECTION_BOOKINGS / APPWRITE_COLLECTION_BOOKINGS",
+    ),
+    userRoles: requireCollectionId(
+      import.meta.env.VITE_APPWRITE_COLLECTION_USER_ROLES ||
+        process.env.APPWRITE_COLLECTION_USER_ROLES,
+      "VITE_APPWRITE_COLLECTION_USER_ROLES / APPWRITE_COLLECTION_USER_ROLES",
+    ),
+    pricingRules: requireCollectionId(
+      import.meta.env.VITE_APPWRITE_COLLECTION_PRICING_RULES ||
+        process.env.APPWRITE_COLLECTION_PRICING_RULES,
+      "VITE_APPWRITE_COLLECTION_PRICING_RULES / APPWRITE_COLLECTION_PRICING_RULES",
+    ),
+    profiles: requireCollectionId(
+      import.meta.env.VITE_APPWRITE_COLLECTION_PROFILES || process.env.APPWRITE_COLLECTION_PROFILES,
+      "VITE_APPWRITE_COLLECTION_PROFILES / APPWRITE_COLLECTION_PROFILES",
+    ),
+    drivers: requireCollectionId(
+      import.meta.env.VITE_APPWRITE_COLLECTION_DRIVERS || process.env.APPWRITE_COLLECTION_DRIVERS,
+      "VITE_APPWRITE_COLLECTION_DRIVERS / APPWRITE_COLLECTION_DRIVERS",
+    ),
+    vehicles: requireCollectionId(
+      import.meta.env.VITE_APPWRITE_COLLECTION_VEHICLES || process.env.APPWRITE_COLLECTION_VEHICLES,
+      "VITE_APPWRITE_COLLECTION_VEHICLES / APPWRITE_COLLECTION_VEHICLES",
+    ),
+  };
+}
