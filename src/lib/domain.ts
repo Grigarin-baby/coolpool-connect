@@ -65,6 +65,14 @@ export interface DriverProfile {
   city: string;
 }
 
+/** One claimed seat on a trip — stored without traveler PII for public seat maps */
+export interface TripSeatReservation {
+  id: string;
+  tripId: string;
+  seatCode: string;
+  bookingId: string;
+}
+
 export interface DriverVehicle {
   id: string;
   driverUserId: string;

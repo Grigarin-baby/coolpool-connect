@@ -11,50 +11,37 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { memberPortalLinkSearch } from "@/lib/travelerResumeRedirect";
+
+const navLinks = [{ to: "/" as const, label: "Home" }];
 
 export function SiteHeader() {
   const { user, isDriver, isAdmin, signOut } = useAuth();
-  const pathname = useRouterState({ select: (r) => r.location.pathname });
+  const memberSearch = useRouterState({
+    select: (r) => {
+      const search = memberPortalLinkSearch(r.location.href);
+      return { redirect: search.redirect, google_auth: undefined as undefined };
+    },
+  });
   const [open, setOpen] = useState(false);
   const dashboardPath = isAdmin ? "/admin/dashboard" : isDriver ? "/driver/dashboard" : null;
-
-  const navLinks = [
-    { to: "/search", label: "Find a ride" },
-    { to: "/host", label: "Host a ride" },
-    { to: "/how-it-works", label: "How it works" },
-  ];
 
   return (
     <header className="sticky top-0 z-50 backdrop-blur-xl bg-background/70 border-b border-border/60">
       <div className="container mx-auto px-4 h-16 flex items-center justify-between max-w-7xl">
         <Link to="/" className="flex items-center gap-2 group">
-          <div className="h-9 w-9 rounded-2xl bg-gradient-primary flex items-center justify-center shadow-glow group-hover:scale-105 transition-base">
+          <div className="h-9 w-9 rounded-none bg-gradient-primary flex items-center justify-center shadow-glow group-hover:scale-105 transition-base">
             <Sparkles className="h-5 w-5 text-primary-foreground" />
           </div>
-          <span className="text-xl font-bold tracking-tight">Coolpool</span>
+          <span className="text-lg sm:text-xl font-bold tracking-tight">Coolpool</span>
         </Link>
 
-        <nav className="hidden md:flex items-center gap-1">
-          {navLinks.map((l) => (
-            <Link
-              key={l.to}
-              to={l.to}
-              className={`px-4 py-2 rounded-full text-sm font-medium transition-base ${
-                pathname === l.to
-                  ? "bg-secondary text-foreground"
-                  : "text-muted-foreground hover:text-foreground hover:bg-secondary/60"
-              }`}
-            >
-              {l.label}
-            </Link>
-          ))}
-        </nav>
 
         <div className="hidden md:flex items-center gap-2">
           {user ? (
             <>
               {dashboardPath && (
-                <Button asChild variant="hero" className="rounded-full">
+                <Button asChild variant="hero" className="rounded-none">
                   <Link to={dashboardPath}>
                     <LayoutDashboard className="h-4 w-4 mr-2" />
                     Dashboard
@@ -63,14 +50,14 @@ export function SiteHeader() {
               )}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="rounded-full h-10 px-4 gap-2">
-                    <div className="h-7 w-7 rounded-full bg-gradient-primary flex items-center justify-center text-xs font-bold text-primary-foreground">
+                  <Button variant="ghost" className="rounded-none h-10 px-4 gap-2">
+                    <div className="h-7 w-7 rounded-none bg-gradient-primary flex items-center justify-center text-xs font-bold text-primary-foreground">
                       {(user.email?.[0] ?? "U").toUpperCase()}
                     </div>
                     <span className="text-sm">Account</span>
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56 rounded-2xl">
+                <DropdownMenuContent align="end" className="w-56 rounded-none">
                   <DropdownMenuLabel className="font-normal text-xs text-muted-foreground truncate">
                     {user.email}
                   </DropdownMenuLabel>
@@ -103,18 +90,20 @@ export function SiteHeader() {
             </>
           ) : (
             <>
-              <Button asChild variant="ghost" className="rounded-full">
-                <Link to="/auth">Sign in</Link>
+              <Button asChild variant="outline" className="rounded-none border-border/80 bg-card/40">
+                {/* <Link to="/members" search={memberSearch}>
+                  Become a member
+                </Link> */}
               </Button>
-              <Button asChild variant="hero" className="rounded-full">
-                <Link to="/auth">Get started</Link>
+              <Button asChild variant="ghost" className="rounded-none">
+                <Link to="/auth">Login</Link>
               </Button>
             </>
           )}
         </div>
 
         <button
-          className="md:hidden h-10 w-10 rounded-full flex items-center justify-center hover:bg-secondary"
+          className="md:hidden h-10 w-10 rounded-none flex items-center justify-center hover:bg-secondary"
           onClick={() => setOpen((v) => !v)}
           aria-label="Toggle menu"
         >
@@ -130,7 +119,7 @@ export function SiteHeader() {
                 key={l.to}
                 to={l.to}
                 onClick={() => setOpen(false)}
-                className="px-4 py-3 rounded-xl text-sm font-medium hover:bg-secondary"
+                className="px-4 py-3 rounded-none text-sm font-medium hover:bg-secondary"
               >
                 {l.label}
               </Link>
@@ -142,7 +131,7 @@ export function SiteHeader() {
                   <Link
                     to={dashboardPath}
                     onClick={() => setOpen(false)}
-                    className="px-4 py-3 rounded-xl text-sm font-medium hover:bg-secondary"
+                    className="px-4 py-3 rounded-none text-sm font-medium hover:bg-secondary"
                   >
                     Dashboard
                   </Link>
@@ -150,7 +139,7 @@ export function SiteHeader() {
                 <Link
                   to="/trips"
                   onClick={() => setOpen(false)}
-                  className="px-4 py-3 rounded-xl text-sm font-medium hover:bg-secondary"
+                  className="px-4 py-3 rounded-none text-sm font-medium hover:bg-secondary"
                 >
                   My trips
                 </Link>
@@ -158,7 +147,7 @@ export function SiteHeader() {
                   <Link
                     to="/driver/dashboard"
                     onClick={() => setOpen(false)}
-                    className="px-4 py-3 rounded-xl text-sm font-medium hover:bg-secondary"
+                    className="px-4 py-3 rounded-none text-sm font-medium hover:bg-secondary"
                   >
                     Driver dashboard
                   </Link>
@@ -167,7 +156,7 @@ export function SiteHeader() {
                   <Link
                     to="/admin/dashboard"
                     onClick={() => setOpen(false)}
-                    className="px-4 py-3 rounded-xl text-sm font-medium hover:bg-secondary"
+                    className="px-4 py-3 rounded-none text-sm font-medium hover:bg-secondary"
                   >
                     Admin
                   </Link>
@@ -177,17 +166,29 @@ export function SiteHeader() {
                     setOpen(false);
                     signOut();
                   }}
-                  className="text-left px-4 py-3 rounded-xl text-sm font-medium text-destructive hover:bg-secondary"
+                  className="text-left px-4 py-3 rounded-none text-sm font-medium text-destructive hover:bg-secondary"
                 >
                   Sign out
                 </button>
               </>
             ) : (
-              <Button asChild variant="hero" className="rounded-full mt-2">
-                <Link to="/auth" onClick={() => setOpen(false)}>
-                  Get started
+              <>
+                <Link
+                  to="/members"
+                  search={memberSearch}
+                  onClick={() => setOpen(false)}
+                  className="px-4 py-3 rounded-none text-sm font-medium hover:bg-secondary"
+                >
+                  Become a member
                 </Link>
-              </Button>
+                <Link
+                  to="/auth"
+                  onClick={() => setOpen(false)}
+                  className="px-4 py-3 rounded-none text-sm font-medium hover:bg-secondary"
+                >
+                  Login
+                </Link>
+              </>
             )}
           </div>
         </div>
@@ -195,3 +196,4 @@ export function SiteHeader() {
     </header>
   );
 }
+

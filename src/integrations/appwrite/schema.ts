@@ -1,6 +1,7 @@
 export interface AppwriteCollectionIds {
   trips: string;
   tripStops: string;
+  tripSeatReservations: string;
   bookings: string;
   userRoles: string;
   pricingRules: string;
@@ -26,6 +27,11 @@ export function getCollectionIds(): AppwriteCollectionIds {
       import.meta.env.VITE_APPWRITE_COLLECTION_TRIP_STOPS ||
         process.env.APPWRITE_COLLECTION_TRIP_STOPS,
       "VITE_APPWRITE_COLLECTION_TRIP_STOPS / APPWRITE_COLLECTION_TRIP_STOPS",
+    ),
+    tripSeatReservations: requireCollectionId(
+      import.meta.env.VITE_APPWRITE_COLLECTION_TRIP_SEAT_RESERVATIONS ||
+        process.env.APPWRITE_COLLECTION_TRIP_SEAT_RESERVATIONS,
+      "VITE_APPWRITE_COLLECTION_TRIP_SEAT_RESERVATIONS / APPWRITE_COLLECTION_TRIP_SEAT_RESERVATIONS",
     ),
     bookings: requireCollectionId(
       import.meta.env.VITE_APPWRITE_COLLECTION_BOOKINGS || process.env.APPWRITE_COLLECTION_BOOKINGS,

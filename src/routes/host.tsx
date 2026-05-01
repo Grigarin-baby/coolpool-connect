@@ -37,7 +37,7 @@ function HostPage() {
       <main className="container mx-auto px-4 py-20 max-w-6xl flex-1">
         <div className="grid gap-12 lg:grid-cols-2 items-center">
           <div>
-            <div className="inline-flex items-center gap-2 rounded-lg bg-primary/10 px-3 py-1 text-xs font-bold text-primary uppercase tracking-wider mb-6">
+            <div className="inline-flex items-center gap-2 rounded-none bg-primary/10 px-3 py-1 text-xs font-bold text-primary uppercase tracking-wider mb-6">
               <Car className="h-3.5 w-3.5" />
               For Professionals
             </div>
@@ -64,9 +64,9 @@ function HostPage() {
           </div>
 
           <div className="grid gap-6">
-            <Card className="p-6 rounded-2xl border-none shadow-soft bg-white/80 backdrop-blur-md transition-base hover:shadow-card group">
+            <Card className="p-6 rounded-none border-none shadow-soft bg-white/80 backdrop-blur-md transition-base hover:shadow-card group">
               <div className="flex gap-4">
-                <div className="h-12 w-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0 group-hover:bg-primary group-hover:text-white transition-all">
+                <div className="h-12 w-12 rounded-none bg-primary/10 text-primary flex items-center justify-center shrink-0 group-hover:bg-primary group-hover:text-white transition-all">
                   <Car size={24} />
                 </div>
                 <div>
@@ -79,9 +79,9 @@ function HostPage() {
               </div>
             </Card>
 
-            <Card className="p-6 rounded-2xl border-none shadow-soft bg-white/80 backdrop-blur-md transition-base hover:shadow-card group">
+            <Card className="p-6 rounded-none border-none shadow-soft bg-white/80 backdrop-blur-md transition-base hover:shadow-card group">
               <div className="flex gap-4">
-                <div className="h-12 w-12 rounded-xl bg-purple-100 text-purple-600 flex items-center justify-center shrink-0 group-hover:bg-purple-600 group-hover:text-white transition-all">
+                <div className="h-12 w-12 rounded-none bg-purple-100 text-purple-600 flex items-center justify-center shrink-0 group-hover:bg-purple-600 group-hover:text-white transition-all">
                   <LogIn size={24} />
                 </div>
                 <div>
@@ -110,3 +110,4 @@ function HostPage() {
     </div>
   );
 }
+

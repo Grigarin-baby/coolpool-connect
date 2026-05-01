@@ -188,7 +188,7 @@ function DriverOnboardingPage() {
     <div className="min-h-screen flex flex-col">
       <SiteHeader />
       <main className="container mx-auto px-4 py-12 max-w-3xl flex-1">
-        <Card className="rounded-3xl border-border/60 p-6 md:p-8 shadow-card">
+        <Card className="rounded-none border-border/60 p-6 md:p-8 shadow-card">
           <h1 className="text-2xl md:text-3xl font-bold">Driver onboarding</h1>
           <p className="mt-2 text-sm text-muted-foreground">Step {step} of 3</p>
           <Steps
@@ -368,3 +368,4 @@ function DriverOnboardingPage() {
     </div>
   );
 }
+

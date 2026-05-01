@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
-import { useState, type FormEvent } from "react";
-import { Sparkles, Loader2 } from "lucide-react";
+import { useState, type FormEvent, useEffect } from "react";
+import { Sparkles, Loader2, Shield, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,42 +8,87 @@ import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
-import { useEffect } from "react";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/auth")({
   head: () => ({
     meta: [
-      { title: "Sign in — Coolpool" },
+      { title: "Login — Hosts & admins — Coolpool" },
       {
         name: "description",
-        content: "Sign in or create your Coolpool account to book and host rides.",
+        content: "Sign in to manage trips, onboarding, and dashboards.",
       },
     ],
   }),
   component: AuthPage,
 });
 
+function PasswordField({
+  id,
+  value,
+  onChange,
+  autoComplete,
+  required,
+  minLength,
+  placeholder,
+}: {
+  id: string;
+  value: string;
+  onChange: (v: string) => void;
+  autoComplete?: string;
+  required?: boolean;
+  minLength?: number;
+  placeholder?: string;
+}) {
+  const [visible, setVisible] = useState(false);
+
+  return (
+    <div className="relative">
+      <Input
+        id={id}
+        type={visible ? "text" : "password"}
+        autoComplete={autoComplete}
+        required={required}
+        minLength={minLength}
+        value={value}
+        placeholder={placeholder}
+        onChange={(e) => onChange(e.target.value)}
+        className={cn(
+          "h-11 rounded-none border-border/80 bg-background/80 pr-10 placeholder:text-xs md:text-sm",
+          "[&::-ms-reveal]:hidden [&::-ms-clear]:hidden",
+        )}
+      />
+      <button
+        type="button"
+        className="absolute right-0 top-0 z-10 flex h-11 w-10 items-center justify-center rounded-none text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background"
+        aria-label={visible ? "Hide password" : "Show password"}
+        aria-pressed={visible}
+        onClick={() => setVisible((v) => !v)}
+      >
+        {visible ? <EyeOff className="h-4 w-4 shrink-0" aria-hidden /> : <Eye className="h-4 w-4 shrink-0" aria-hidden />}
+      </button>
+    </div>
+  );
+}
+
 function AuthPage() {
   const navigate = useNavigate();
   const { user, loading, roles, signIn, signUp, isAdmin, isDriver } = useAuth();
   const [busy, setBusy] = useState(false);
 
-  // Sign in
   const [signInEmail, setSignInEmail] = useState("");
   const [signInPassword, setSignInPassword] = useState("");
 
-  // Sign up
   const [name, setName] = useState("");
   const [signUpEmail, setSignUpEmail] = useState("");
   const [signUpPassword, setSignUpPassword] = useState("");
 
   useEffect(() => {
     if (!loading && user) {
-      // Wait until role resolution completes to avoid premature fallback to "/".
       if (roles.length === 0) return;
-      if (isAdmin) navigate({ to: "/admin/dashboard" });
-      else if (isDriver) navigate({ to: "/driver/dashboard" });
-      else navigate({ to: "/" });
+      if (isAdmin) void navigate({ to: "/admin/dashboard" });
+      else if (isDriver) void navigate({ to: "/driver/dashboard" });
+      else void navigate({ to: "/" });
     }
   }, [user, loading, roles, isAdmin, isDriver, navigate]);
 
@@ -52,9 +97,9 @@ function AuthPage() {
     setBusy(true);
     try {
       await signIn(signInEmail, signInPassword);
-      toast.success("Welcome back!");
+      toast.success("Logged in.");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Unable to sign in.");
+      toast.error(error instanceof Error ? error.message : "Unable to log in.");
     } finally {
       setBusy(false);
     }
@@ -74,103 +119,140 @@ function AuthPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-hero flex flex-col">
-      <header className="container mx-auto px-4 py-6 max-w-7xl">
-        <Link to="/" className="inline-flex items-center gap-2">
-          <div className="h-9 w-9 rounded-2xl bg-gradient-primary flex items-center justify-center shadow-glow">
+    <div className="min-h-dvh bg-gradient-hero flex flex-col relative overflow-hidden">
+      <div className="absolute inset-0 bg-gradient-mesh opacity-75 pointer-events-none" />
+      <div className="absolute top-1/4 right-0 h-72 w-72 rounded-none bg-primary-glow/25 blur-3xl pointer-events-none" />
+
+      <header className="relative shrink-0 container mx-auto px-4 sm:px-5 py-4 max-w-7xl">
+        <Link
+          to="/"
+          className="inline-flex items-center gap-2.5 group rounded-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background"
+        >
+          <div className="h-10 w-10 rounded-none bg-gradient-primary flex items-center justify-center shadow-glow group-hover:scale-[1.02] transition-base">
             <Sparkles className="h-5 w-5 text-primary-foreground" />
           </div>
-          <span className="text-xl font-bold">Coolpool</span>
+          <span className="text-lg sm:text-xl font-bold tracking-tight font-heading">Coolpool</span>
         </Link>
       </header>
 
-      <main className="flex-1 flex items-center justify-center px-4 py-10">
-        <Card className="w-full max-w-md p-8 rounded-3xl shadow-elevated border-border/60 bg-card/95 backdrop-blur-xl">
-          <div className="text-center mb-6">
-            <h1 className="text-3xl font-bold tracking-tight">Welcome to Coolpool</h1>
-            <p className="text-sm text-muted-foreground mt-2">
-              Sign in or create an account to get started.
+      <main className="relative flex-1 flex flex-col items-center justify-center px-4 sm:px-5 py-6 min-h-0">
+        <Card className="w-full max-w-[380px] p-6 sm:p-7 rounded-none shadow-elevated border-border/70 bg-card/92 backdrop-blur-xl ring-1 ring-primary/10">
+          <div className="flex flex-col items-center text-center mb-6">
+            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-none bg-gradient-primary text-primary-foreground shadow-glow">
+              <Shield className="h-6 w-6" aria-hidden />
+            </div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-primary mb-1.5">
+              Hosts &amp; admins
             </p>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight font-heading text-balance">Login</h1>
           </div>
 
-          <Tabs defaultValue="signin" className="w-full">
-            <TabsList className="grid w-full grid-cols-2 rounded-full p-1 bg-secondary">
-              <TabsTrigger value="signin" className="rounded-full">
-                Sign in
+          <Tabs defaultValue="login" className="w-full">
+            <TabsList className="grid w-full grid-cols-2 rounded-none h-10 p-1 bg-muted/80 border border-border/60">
+              <TabsTrigger value="login" className="rounded-none data-[state=active]:shadow-soft text-sm font-semibold">
+                Login
               </TabsTrigger>
-              <TabsTrigger value="signup" className="rounded-full">
+              <TabsTrigger value="signup" className="rounded-none data-[state=active]:shadow-soft text-sm font-semibold">
                 Sign up
               </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="signin" className="mt-6">
+            <TabsContent value="login" className="mt-6 outline-none">
               <form onSubmit={handleSignIn} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="si-email">Email</Label>
+                  <Label htmlFor="si-email" className="text-sm font-medium">
+                    Email
+                  </Label>
                   <Input
                     id="si-email"
                     type="email"
+                    autoComplete="email"
                     required
                     value={signInEmail}
+                    placeholder="you@company.com"
                     onChange={(e) => setSignInEmail(e.target.value)}
-                    className="h-11 rounded-xl"
+                    className="h-11 rounded-none border-border/80 bg-background/80 placeholder:text-xs md:text-sm"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="si-password">Password</Label>
-                  <Input
+                  <Label htmlFor="si-password" className="text-sm font-medium">
+                    Password
+                  </Label>
+                  <PasswordField
                     id="si-password"
-                    type="password"
-                    required
                     value={signInPassword}
-                    onChange={(e) => setSignInPassword(e.target.value)}
-                    className="h-11 rounded-xl"
+                    onChange={setSignInPassword}
+                    autoComplete="current-password"
+                    required
+                    placeholder="Enter your password"
                   />
                 </div>
-                <Button type="submit" variant="hero" size="lg" className="w-full" disabled={busy}>
-                  {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Sign in"}
+                <Button
+                  type="submit"
+                  variant="hero"
+                  size="lg"
+                  className="w-full rounded-none h-11 font-semibold shadow-glow mt-1"
+                  disabled={busy}
+                >
+                  {busy ? <Loader2 className="h-5 w-5 animate-spin" /> : "Login"}
                 </Button>
               </form>
             </TabsContent>
 
-            <TabsContent value="signup" className="mt-6">
+            <TabsContent value="signup" className="mt-6 outline-none">
               <form onSubmit={handleSignUp} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="su-name">Full name</Label>
+                  <Label htmlFor="su-name" className="text-sm font-medium">
+                    Full name
+                  </Label>
                   <Input
                     id="su-name"
+                    autoComplete="name"
                     required
                     value={name}
+                    placeholder="Jane Doe"
                     onChange={(e) => setName(e.target.value)}
-                    className="h-11 rounded-xl"
+                    className="h-11 rounded-none border-border/80 bg-background/80 placeholder:text-xs md:text-sm"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="su-email">Email</Label>
+                  <Label htmlFor="su-email" className="text-sm font-medium">
+                    Email
+                  </Label>
                   <Input
                     id="su-email"
                     type="email"
+                    autoComplete="email"
                     required
                     value={signUpEmail}
+                    placeholder="you@company.com"
                     onChange={(e) => setSignUpEmail(e.target.value)}
-                    className="h-11 rounded-xl"
+                    className="h-11 rounded-none border-border/80 bg-background/80 placeholder:text-xs md:text-sm"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="su-password">Password</Label>
-                  <Input
+                  <Label htmlFor="su-password" className="text-sm font-medium">
+                    Password
+                  </Label>
+                  <PasswordField
                     id="su-password"
-                    type="password"
+                    value={signUpPassword}
+                    onChange={setSignUpPassword}
+                    autoComplete="new-password"
                     required
                     minLength={6}
-                    value={signUpPassword}
-                    onChange={(e) => setSignUpPassword(e.target.value)}
-                    className="h-11 rounded-xl"
+                    placeholder="Create a password (min. 6 characters)"
                   />
-                  <p className="text-xs text-muted-foreground">Minimum 6 characters.</p>
+                  <p className="text-xs text-muted-foreground">At least 6 characters.</p>
                 </div>
-                <Button type="submit" variant="hero" size="lg" className="w-full" disabled={busy}>
-                  {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Create account"}
+                <Button
+                  type="submit"
+                  variant="hero"
+                  size="lg"
+                  className="w-full rounded-none h-11 font-semibold shadow-glow mt-1"
+                  disabled={busy}
+                >
+                  {busy ? <Loader2 className="h-5 w-5 animate-spin" /> : "Create account"}
                 </Button>
               </form>
             </TabsContent>

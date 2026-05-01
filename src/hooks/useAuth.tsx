@@ -1,8 +1,14 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
-import { ID, type Models } from "appwrite";
+import { ID, OAuthProvider, type Models } from "appwrite";
 import { account } from "@/integrations/appwrite/client";
 import { listUserRoles } from "@/data/appwrite-repository";
 import type { AppRole } from "@/lib/domain";
+import { parseTravelerResumeRedirectParam } from "@/lib/travelerResumeRedirect";
+
+export type MemberGoogleOAuthOptions = {
+  /** Same values allowed as `/members?redirect=` — forwarded through Google redirect */
+  resumeRedirect?: string;
+};
 
 type AppwriteUser = Models.User<Models.Preferences>;
 
@@ -15,6 +21,8 @@ interface AuthContextValue {
   isAdmin: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (name: string, email: string, password: string) => Promise<void>;
+  /** Starts Appwrite Google OAuth (redirects away). Configure Google in Appwrite Auth settings. */
+  signInWithGoogle: (opts?: MemberGoogleOAuthOptions) => void;
   signOut: () => Promise<void>;
   refreshRoles: () => Promise<void>;
 }
@@ -85,6 +93,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await refreshSession();
   };
 
+  const signInWithGoogle = useCallback((opts?: MemberGoogleOAuthOptions) => {
+    if (typeof window === "undefined") return;
+    const envOrigin = import.meta.env.VITE_APP_ORIGIN?.replace(/\/$/, "");
+    const origin = envOrigin || window.location.origin;
+
+    let success = `${origin}/members`;
+    const safeRedirect = opts?.resumeRedirect
+      ? parseTravelerResumeRedirectParam(opts.resumeRedirect)
+      : undefined;
+    if (safeRedirect) {
+      success = `${origin}/members?redirect=${encodeURIComponent(safeRedirect)}`;
+    }
+
+    const failureParams = new URLSearchParams({ google_auth: "failed" });
+    if (safeRedirect) failureParams.set("redirect", safeRedirect);
+    const failure = `${origin}/members?${failureParams.toString()}`;
+
+    account.createOAuth2Session({
+      provider: OAuthProvider.Google,
+      success,
+      failure,
+    });
+  }, []);
+
   const signOut = async () => {
     try {
       await account.deleteSession("current");
@@ -107,6 +139,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isAdmin: roles.includes("admin"),
         signIn,
         signUp,
+        signInWithGoogle,
         signOut,
         refreshRoles,
       }}
@@ -121,3 +154,4 @@ export function useAuth() {
   if (!ctx) throw new Error("useAuth must be used inside AuthProvider");
   return ctx;
 }
+

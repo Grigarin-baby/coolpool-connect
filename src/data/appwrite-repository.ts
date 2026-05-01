@@ -10,6 +10,7 @@ import type {
   PricingRule,
   StopType,
   Trip,
+  TripSeatReservation,
   TripStatus,
   TripStop,
 } from "@/lib/domain";
@@ -85,6 +86,15 @@ function toDriverProfile(doc: Doc): DriverProfile {
     phone: String(doc.phone),
     licenseNumber: String(doc.license_number),
     city: String(doc.city),
+  };
+}
+
+function toTripSeatReservation(doc: Doc): TripSeatReservation {
+  return {
+    id: doc.$id,
+    tripId: String(doc.trip_id),
+    seatCode: String(doc.seat_code),
+    bookingId: String(doc.booking_id),
   };
 }
 
@@ -256,20 +266,145 @@ export async function listTravelerBookings(travelerId: string): Promise<Booking[
   return result.documents.map(toBooking);
 }
 
-export async function createBooking(input: CreateBookingInput): Promise<Booking> {
+export async function createBooking(
+  input: CreateBookingInput & { hostIdForPermissions?: string },
+): Promise<Booking> {
   const c = ids();
-  const doc = await databases.createDocument(appwriteConfig.databaseId, c.bookings, ID.unique(), {
-    trip_id: input.tripId,
-    traveler_id: input.travelerId,
-    from_stop_index: input.fromStopIndex,
-    to_stop_index: input.toStopIndex,
-    seats_booked: input.seatsBooked,
-    segment_price: input.segmentPrice,
-    passenger_name: input.passengerName,
-    passenger_phone: input.passengerPhone,
-    status: input.status ?? "pending",
-  });
+  const hostId = input.hostIdForPermissions;
+  const permissions =
+    hostId != null
+      ? [
+          Permission.read(Role.user(input.travelerId)),
+          Permission.read(Role.user(hostId)),
+          Permission.update(Role.user(input.travelerId)),
+          Permission.delete(Role.user(input.travelerId)),
+        ]
+      : undefined;
+
+  const doc = await databases.createDocument(
+    appwriteConfig.databaseId,
+    c.bookings,
+    ID.unique(),
+    {
+      trip_id: input.tripId,
+      traveler_id: input.travelerId,
+      from_stop_index: input.fromStopIndex,
+      to_stop_index: input.toStopIndex,
+      seats_booked: input.seatsBooked,
+      segment_price: input.segmentPrice,
+      passenger_name: input.passengerName,
+      passenger_phone: input.passengerPhone,
+      status: input.status ?? "pending",
+    },
+    permissions,
+  );
   return toBooking(doc);
+}
+
+export async function deleteBooking(bookingId: string): Promise<void> {
+  const c = ids();
+  await databases.deleteDocument(appwriteConfig.databaseId, c.bookings, bookingId);
+}
+
+/** Stable doc id for optimistic locking (one reservation per trip + seat code). */
+export function tripSeatReservationDocumentId(tripId: string, seatCode: string): string {
+  const slug = seatCode.replace(/[^a-zA-Z0-9]/g, "_");
+  const joined = `${tripId}_${slug}`;
+  if (joined.length <= 36) return joined;
+  return `${tripId.slice(-14)}_${slug}`.slice(0, 36);
+}
+
+export async function getVehicleByDriverUserId(driverUserId: string): Promise<DriverVehicle | null> {
+  const c = ids();
+  const result = await databases.listDocuments(appwriteConfig.databaseId, c.vehicles, [
+    Query.equal("driver_user_id", driverUserId),
+    Query.limit(1),
+  ]);
+  const doc = result.documents[0];
+  return doc ? toDriverVehicle(doc) : null;
+}
+
+export async function listTripSeatReservations(tripId: string): Promise<TripSeatReservation[]> {
+  const c = ids();
+  const result = await databases.listDocuments(appwriteConfig.databaseId, c.tripSeatReservations, [
+    Query.equal("trip_id", tripId),
+    Query.limit(100),
+  ]);
+  return result.documents.map(toTripSeatReservation);
+}
+
+async function createTripSeatReservation(input: {
+  tripId: string;
+  bookingId: string;
+  seatCode: string;
+  travelerId: string;
+  hostId: string;
+}): Promise<TripSeatReservation> {
+  const c = ids();
+  const docId = tripSeatReservationDocumentId(input.tripId, input.seatCode);
+  const doc = await databases.createDocument(
+    appwriteConfig.databaseId,
+    c.tripSeatReservations,
+    docId,
+    {
+      trip_id: input.tripId,
+      seat_code: input.seatCode,
+      booking_id: input.bookingId,
+    },
+    [
+      Permission.read(Role.any()),
+      Permission.delete(Role.user(input.travelerId)),
+      Permission.delete(Role.user(input.hostId)),
+    ],
+  );
+  return toTripSeatReservation(doc);
+}
+
+async function deleteTripSeatReservation(documentId: string): Promise<void> {
+  const c = ids();
+  await databases.deleteDocument(appwriteConfig.databaseId, c.tripSeatReservations, documentId);
+}
+
+export async function createBookingWithSeatReservations(
+  input: CreateBookingInput & { seatCodes: string[]; hostId: string },
+): Promise<Booking> {
+  const occupied = new Set((await listTripSeatReservations(input.tripId)).map((r) => r.seatCode));
+  for (const code of input.seatCodes) {
+    if (occupied.has(code)) {
+      throw new Error(`Seat ${code} is no longer available. Refresh and try again.`);
+    }
+  }
+
+  const booking = await createBooking({ ...input, hostIdForPermissions: input.hostId });
+  const createdIds: string[] = [];
+
+  try {
+    for (const seatCode of input.seatCodes) {
+      await createTripSeatReservation({
+        tripId: input.tripId,
+        bookingId: booking.id,
+        seatCode,
+        travelerId: input.travelerId,
+        hostId: input.hostId,
+      });
+      createdIds.push(tripSeatReservationDocumentId(input.tripId, seatCode));
+    }
+    return booking;
+  } catch (error) {
+    for (const id of createdIds) {
+      try {
+        await deleteTripSeatReservation(id);
+      } catch {
+        /* ignore */
+      }
+    }
+    try {
+      await deleteBooking(booking.id);
+    } catch {
+      /* ignore */
+    }
+    throw error;
+  }
 }
 
 export async function listTripBookings(tripId: string): Promise<Booking[]> {

@@ -10,8 +10,8 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as TripsRouteImport } from './routes/trips'
-import { Route as SearchRouteImport } from './routes/search'
-import { Route as HowItWorksRouteImport } from './routes/how-it-works'
+import { Route as MembersRouteImport } from './routes/members'
+import { Route as MemberRouteImport } from './routes/member'
 import { Route as HostRouteImport } from './routes/host'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as IndexRouteImport } from './routes/index'
@@ -19,6 +19,7 @@ import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as DriverOnboardingRouteImport } from './routes/driver/onboarding'
 import { Route as DriverLoginRouteImport } from './routes/driver/login'
 import { Route as DriverDashboardRouteImport } from './routes/driver/dashboard'
+import { Route as BookingTripIdRouteImport } from './routes/booking/$tripId'
 import { Route as AdminDashboardRouteImport } from './routes/admin/dashboard'
 
 const TripsRoute = TripsRouteImport.update({
@@ -26,14 +27,14 @@ const TripsRoute = TripsRouteImport.update({
   path: '/trips',
   getParentRoute: () => rootRouteImport,
 } as any)
-const SearchRoute = SearchRouteImport.update({
-  id: '/search',
-  path: '/search',
+const MembersRoute = MembersRouteImport.update({
+  id: '/members',
+  path: '/members',
   getParentRoute: () => rootRouteImport,
 } as any)
-const HowItWorksRoute = HowItWorksRouteImport.update({
-  id: '/how-it-works',
-  path: '/how-it-works',
+const MemberRoute = MemberRouteImport.update({
+  id: '/member',
+  path: '/member',
   getParentRoute: () => rootRouteImport,
 } as any)
 const HostRoute = HostRouteImport.update({
@@ -71,6 +72,11 @@ const DriverDashboardRoute = DriverDashboardRouteImport.update({
   path: '/driver/dashboard',
   getParentRoute: () => rootRouteImport,
 } as any)
+const BookingTripIdRoute = BookingTripIdRouteImport.update({
+  id: '/booking/$tripId',
+  path: '/booking/$tripId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminDashboardRoute = AdminDashboardRouteImport.update({
   id: '/admin/dashboard',
   path: '/admin/dashboard',
@@ -81,10 +87,11 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/host': typeof HostRoute
-  '/how-it-works': typeof HowItWorksRoute
-  '/search': typeof SearchRoute
+  '/member': typeof MemberRoute
+  '/members': typeof MembersRoute
   '/trips': typeof TripsRoute
   '/admin/dashboard': typeof AdminDashboardRoute
+  '/booking/$tripId': typeof BookingTripIdRoute
   '/driver/dashboard': typeof DriverDashboardRoute
   '/driver/login': typeof DriverLoginRoute
   '/driver/onboarding': typeof DriverOnboardingRoute
@@ -94,10 +101,11 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/host': typeof HostRoute
-  '/how-it-works': typeof HowItWorksRoute
-  '/search': typeof SearchRoute
+  '/member': typeof MemberRoute
+  '/members': typeof MembersRoute
   '/trips': typeof TripsRoute
   '/admin/dashboard': typeof AdminDashboardRoute
+  '/booking/$tripId': typeof BookingTripIdRoute
   '/driver/dashboard': typeof DriverDashboardRoute
   '/driver/login': typeof DriverLoginRoute
   '/driver/onboarding': typeof DriverOnboardingRoute
@@ -108,10 +116,11 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/host': typeof HostRoute
-  '/how-it-works': typeof HowItWorksRoute
-  '/search': typeof SearchRoute
+  '/member': typeof MemberRoute
+  '/members': typeof MembersRoute
   '/trips': typeof TripsRoute
   '/admin/dashboard': typeof AdminDashboardRoute
+  '/booking/$tripId': typeof BookingTripIdRoute
   '/driver/dashboard': typeof DriverDashboardRoute
   '/driver/login': typeof DriverLoginRoute
   '/driver/onboarding': typeof DriverOnboardingRoute
@@ -123,10 +132,11 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/host'
-    | '/how-it-works'
-    | '/search'
+    | '/member'
+    | '/members'
     | '/trips'
     | '/admin/dashboard'
+    | '/booking/$tripId'
     | '/driver/dashboard'
     | '/driver/login'
     | '/driver/onboarding'
@@ -136,10 +146,11 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/host'
-    | '/how-it-works'
-    | '/search'
+    | '/member'
+    | '/members'
     | '/trips'
     | '/admin/dashboard'
+    | '/booking/$tripId'
     | '/driver/dashboard'
     | '/driver/login'
     | '/driver/onboarding'
@@ -149,10 +160,11 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/host'
-    | '/how-it-works'
-    | '/search'
+    | '/member'
+    | '/members'
     | '/trips'
     | '/admin/dashboard'
+    | '/booking/$tripId'
     | '/driver/dashboard'
     | '/driver/login'
     | '/driver/onboarding'
@@ -163,10 +175,11 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthRoute: typeof AuthRoute
   HostRoute: typeof HostRoute
-  HowItWorksRoute: typeof HowItWorksRoute
-  SearchRoute: typeof SearchRoute
+  MemberRoute: typeof MemberRoute
+  MembersRoute: typeof MembersRoute
   TripsRoute: typeof TripsRoute
   AdminDashboardRoute: typeof AdminDashboardRoute
+  BookingTripIdRoute: typeof BookingTripIdRoute
   DriverDashboardRoute: typeof DriverDashboardRoute
   DriverLoginRoute: typeof DriverLoginRoute
   DriverOnboardingRoute: typeof DriverOnboardingRoute
@@ -182,18 +195,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TripsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/search': {
-      id: '/search'
-      path: '/search'
-      fullPath: '/search'
-      preLoaderRoute: typeof SearchRouteImport
+    '/members': {
+      id: '/members'
+      path: '/members'
+      fullPath: '/members'
+      preLoaderRoute: typeof MembersRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/how-it-works': {
-      id: '/how-it-works'
-      path: '/how-it-works'
-      fullPath: '/how-it-works'
-      preLoaderRoute: typeof HowItWorksRouteImport
+    '/member': {
+      id: '/member'
+      path: '/member'
+      fullPath: '/member'
+      preLoaderRoute: typeof MemberRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/host': {
@@ -245,6 +258,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DriverDashboardRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/booking/$tripId': {
+      id: '/booking/$tripId'
+      path: '/booking/$tripId'
+      fullPath: '/booking/$tripId'
+      preLoaderRoute: typeof BookingTripIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/dashboard': {
       id: '/admin/dashboard'
       path: '/admin/dashboard'
@@ -259,10 +279,11 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthRoute: AuthRoute,
   HostRoute: HostRoute,
-  HowItWorksRoute: HowItWorksRoute,
-  SearchRoute: SearchRoute,
+  MemberRoute: MemberRoute,
+  MembersRoute: MembersRoute,
   TripsRoute: TripsRoute,
   AdminDashboardRoute: AdminDashboardRoute,
+  BookingTripIdRoute: BookingTripIdRoute,
   DriverDashboardRoute: DriverDashboardRoute,
   DriverLoginRoute: DriverLoginRoute,
   DriverOnboardingRoute: DriverOnboardingRoute,

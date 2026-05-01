@@ -35,6 +35,7 @@ import {
 } from "antd";
 import { useAuth } from "@/hooks/useAuth";
 import { createTrip, listHostTrips } from "@/data/appwrite-repository";
+import { APP_FONT_FAMILY } from "@/lib/fonts";
 import { calcPricePerKm } from "@/lib/pricing";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
@@ -334,14 +335,14 @@ function DriverDashboardPage() {
   if (!isDriver) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gradient-hero p-4">
-        <Card className="max-w-md text-center shadow-elevated rounded-2xl border-none">
+        <Card className="max-w-md text-center shadow-elevated rounded-none border-none">
           <Text type="danger" strong>
             ACCESS DENIED
           </Text>
           <p className="mt-2 text-muted-foreground">
             This workspace is only for driver accounts. Please complete driver onboarding.
           </p>
-          <Button type="primary" className="mt-4 rounded-xl" onClick={() => void signOut()}>
+          <Button type="primary" className="mt-4 rounded-none" onClick={() => void signOut()}>
             Sign out
           </Button>
         </Card>
@@ -355,7 +356,7 @@ function DriverDashboardPage() {
         token: {
           colorPrimary: "#6b46c1",
           borderRadius: 12,
-          fontFamily: "Inter, sans-serif",
+          fontFamily: APP_FONT_FAMILY,
         },
         components: {
           Layout: {
@@ -380,7 +381,7 @@ function DriverDashboardPage() {
           style={{ position: "sticky", top: 0, height: "100vh", left: 0, zIndex: 100 }}
         >
           <div className="p-6 flex items-center gap-3">
-            <div className="h-10 w-10 rounded-2xl bg-gradient-primary text-primary-foreground flex items-center justify-center shadow-glow">
+            <div className="h-10 w-10 rounded-none bg-gradient-primary text-primary-foreground flex items-center justify-center shadow-glow">
               <Sparkles className="h-6 w-6" />
             </div>
             <div>
@@ -423,7 +424,7 @@ function DriverDashboardPage() {
           />
 
           <div className="absolute bottom-0 left-0 right-0 p-4">
-            <Card className="rounded-2xl bg-secondary/40 border-none backdrop-blur-md">
+            <Card className="rounded-none bg-secondary/40 border-none backdrop-blur-md">
               <div className="flex items-center gap-3">
                 <Badge count={trips.length} overflowCount={99} offset={[0, 0]} color="#6b46c1">
                   <Avatar icon={<RouteIcon size={16} />} className="bg-primary/20 text-primary" />
@@ -444,7 +445,7 @@ function DriverDashboardPage() {
                 {activeModule === "dashboard" ? "Dashboard Overview" : "Publish Trip"}
               </Title>
               <div className="sm:hidden flex items-center gap-2">
-                <div className="h-8 w-8 rounded-xl bg-gradient-primary text-primary-foreground flex items-center justify-center">
+                <div className="h-8 w-8 rounded-none bg-gradient-primary text-primary-foreground flex items-center justify-center">
                   <Sparkles className="h-4 w-4" />
                 </div>
                 <Text strong>Coolpool</Text>
@@ -513,18 +514,18 @@ function DriverDashboardPage() {
                 </div>
 
                 <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                  <Card className="rounded-2xl border-none shadow-soft hover:shadow-card transition-base bg-white/80 backdrop-blur-sm group">
+                  <Card className="rounded-none border-none shadow-soft hover:shadow-card transition-base bg-white/80 backdrop-blur-sm group">
                     <Text type="secondary" className="group-hover:text-primary transition-colors">
                       Total Rides
                     </Text>
                     <Title level={2} style={{ margin: "8px 0" }}>
                       {tripsLoading ? <Spin size="small" /> : trips.length}
                     </Title>
-                    <Tag color="purple" className="rounded-full px-3 border-none">
+                    <Tag color="purple" className="rounded-none px-3 border-none">
                       +12% growth
                     </Tag>
                   </Card>
-                  <Card className="rounded-2xl border-none shadow-soft hover:shadow-card transition-base bg-white/80 backdrop-blur-sm group">
+                  <Card className="rounded-none border-none shadow-soft hover:shadow-card transition-base bg-white/80 backdrop-blur-sm group">
                     <Text type="secondary" className="group-hover:text-primary transition-colors">
                       Earnings
                     </Text>
@@ -533,7 +534,7 @@ function DriverDashboardPage() {
                     </Title>
                     <Text type="secondary">Settlement pending</Text>
                   </Card>
-                  <Card className="rounded-2xl border-none shadow-soft hover:shadow-card transition-base bg-white/80 backdrop-blur-sm group">
+                  <Card className="rounded-none border-none shadow-soft hover:shadow-card transition-base bg-white/80 backdrop-blur-sm group">
                     <Text type="secondary" className="group-hover:text-primary transition-colors">
                       Performance
                     </Text>
@@ -558,7 +559,7 @@ function DriverDashboardPage() {
                       </Title>
                       <Button type="link">View all</Button>
                     </div>
-                    <Card className="rounded-2xl border-none shadow-soft bg-white/80 backdrop-blur-sm p-0 overflow-hidden">
+                    <Card className="rounded-none border-none shadow-soft bg-white/80 backdrop-blur-sm p-0 overflow-hidden">
                       <List
                         className="px-4"
                         itemLayout="horizontal"
@@ -583,7 +584,7 @@ function DriverDashboardPage() {
                           >
                             <List.Item.Meta
                               avatar={
-                                <div className="h-12 w-12 rounded-2xl bg-secondary flex items-center justify-center">
+                                <div className="h-12 w-12 rounded-none bg-secondary flex items-center justify-center">
                                   <RouteIcon size={20} className="text-primary" />
                                 </div>
                               }
@@ -615,10 +616,10 @@ function DriverDashboardPage() {
                     <div className="grid grid-cols-2 gap-4">
                       <Card
                         hoverable
-                        className="rounded-2xl border-none shadow-soft text-center p-2 group bg-white/60"
+                        className="rounded-none border-none shadow-soft text-center p-2 group bg-white/60"
                         onClick={() => setActiveModule("trips")}
                       >
-                        <div className="h-10 w-10 mx-auto rounded-xl bg-purple-100 text-purple-600 flex items-center justify-center mb-2 group-hover:bg-purple-600 group-hover:text-white transition-all">
+                        <div className="h-10 w-10 mx-auto rounded-none bg-purple-100 text-purple-600 flex items-center justify-center mb-2 group-hover:bg-purple-600 group-hover:text-white transition-all">
                           <PlusCircle size={20} />
                         </div>
                         <Text strong className="text-xs">
@@ -627,9 +628,9 @@ function DriverDashboardPage() {
                       </Card>
                       <Card
                         hoverable
-                        className="rounded-2xl border-none shadow-soft text-center p-2 group bg-white/60 opacity-60"
+                        className="rounded-none border-none shadow-soft text-center p-2 group bg-white/60 opacity-60"
                       >
-                        <div className="h-10 w-10 mx-auto rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center mb-2">
+                        <div className="h-10 w-10 mx-auto rounded-none bg-blue-100 text-blue-600 flex items-center justify-center mb-2">
                           <History size={20} />
                         </div>
                         <Text strong className="text-xs">
@@ -638,9 +639,9 @@ function DriverDashboardPage() {
                       </Card>
                       <Card
                         hoverable
-                        className="rounded-2xl border-none shadow-soft text-center p-2 group bg-white/60 opacity-60"
+                        className="rounded-none border-none shadow-soft text-center p-2 group bg-white/60 opacity-60"
                       >
-                        <div className="h-10 w-10 mx-auto rounded-xl bg-orange-100 text-orange-600 flex items-center justify-center mb-2">
+                        <div className="h-10 w-10 mx-auto rounded-none bg-orange-100 text-orange-600 flex items-center justify-center mb-2">
                           <User size={20} />
                         </div>
                         <Text strong className="text-xs">
@@ -649,9 +650,9 @@ function DriverDashboardPage() {
                       </Card>
                       <Card
                         hoverable
-                        className="rounded-2xl border-none shadow-soft text-center p-2 group bg-white/60 opacity-60"
+                        className="rounded-none border-none shadow-soft text-center p-2 group bg-white/60 opacity-60"
                       >
-                        <div className="h-10 w-10 mx-auto rounded-xl bg-gray-100 text-gray-600 flex items-center justify-center mb-2">
+                        <div className="h-10 w-10 mx-auto rounded-none bg-gray-100 text-gray-600 flex items-center justify-center mb-2">
                           <Settings size={20} />
                         </div>
                         <Text strong className="text-xs">
@@ -660,7 +661,7 @@ function DriverDashboardPage() {
                       </Card>
                     </div>
 
-                    <Card className="rounded-2xl border-none bg-gradient-primary text-white p-6 shadow-glow relative overflow-hidden mt-8">
+                    <Card className="rounded-none border-none bg-gradient-primary text-white p-6 shadow-glow relative overflow-hidden mt-8">
                       <Sparkles
                         size={80}
                         className="absolute -right-6 -bottom-6 opacity-20 rotate-12"
@@ -673,7 +674,7 @@ function DriverDashboardPage() {
                       </p>
                       <Button
                         ghost
-                        className="mt-4 border-white/40 text-white rounded-xl hover:bg-white/10"
+                        className="mt-4 border-white/40 text-white rounded-none hover:bg-white/10"
                       >
                         Learn more
                       </Button>
@@ -694,7 +695,7 @@ function DriverDashboardPage() {
                   </Text>
                 </div>
 
-                <Card className="rounded-2xl border-none shadow-soft bg-white/80 backdrop-blur-sm p-6 md:p-8">
+                <Card className="rounded-none border-none shadow-soft bg-white/80 backdrop-blur-sm p-6 md:p-8">
                   <Form
                     form={form}
                     layout="vertical"
@@ -799,7 +800,7 @@ function DriverDashboardPage() {
                             formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")}
                           />
                         </Form.Item>
-                        <Card className="rounded-2xl border border-border/60 bg-secondary/40">
+                        <Card className="rounded-none border border-border/60 bg-secondary/40">
                           <Text type="secondary">Estimated total value</Text>
                           <Title level={4} style={{ margin: "6px 0 0 0" }}>
                             ₹
@@ -824,7 +825,7 @@ function DriverDashboardPage() {
                       <Button
                         type="text"
                         size="large"
-                        className="h-12 rounded-xl px-6"
+                        className="h-12 rounded-none px-6"
                         onClick={() => setActiveModule("dashboard")}
                       >
                         Cancel
@@ -840,3 +841,4 @@ function DriverDashboardPage() {
     </ConfigProvider>
   );
 }
+

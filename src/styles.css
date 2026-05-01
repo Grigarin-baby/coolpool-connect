@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap");
+/* Fonts: loaded via `<link>` in `__root.tsx` (preconnect + stylesheet). */
 @import "tailwindcss" source(none);
 @source "../src";
 @import "tw-animate-css";
@@ -52,11 +52,15 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
 
-  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-sans:
+    "Lexend", "Montserrat", "Cabin", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-heading:
+    "Montserrat", "Lexend", "Cabin", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "Roboto Slab", ui-serif, Georgia, serif;
 }
 
 :root {
-  --radius: 1rem;
+  --radius: 0;
 
   /* Surfaces */
   --background: oklch(0.99 0.005 260);
@@ -188,6 +192,17 @@
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
   }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: var(--font-heading);
+    /* Default weight; antd reset + unlayered cascade — see `antd-reset-overrides.css` imported after antd */
+    font-weight: 700;
+  }
 }
 
 @layer utilities {
@@ -222,66 +237,83 @@
     box-shadow: var(--shadow-glow);
   }
   .transition-base {
-    transition: all var(--transition-base);
+    transition: var(--transition-base);
+  }
+
+  /* Ant Design global polish */
+  .ant-input,
+  .ant-input-affix-wrapper,
+  .ant-select-selector,
+  .ant-picker,
+  .ant-upload-wrapper .ant-upload-select,
+  .ant-btn {
+    border-radius: 0 !important;
+  }
+
+  .ant-form-item-label > label {
+    color: var(--color-foreground) !important;
+    font-weight: 600;
+  }
+
+  .ant-steps .ant-steps-item-title {
+    font-weight: 600;
+  }
+
+  /* Driver Dashboard Specific Styles */
+  .ant-layout-sider {
+    background: transparent !important;
+  }
+
+  .ant-menu-inline,
+  .ant-menu-vertical {
+    border-inline-end: none !important;
+  }
+
+  .ant-menu-item {
+    border-radius: 0 !important;
+    margin-block: 4px !important;
+    width: 100% !important;
+    margin-inline: 0 !important;
+  }
+
+  .ant-menu-item-selected {
+    background: var(--gradient-soft) !important;
+    box-shadow: var(--shadow-soft);
+  }
+
+  .ant-layout-header {
+    padding: 0 24px !important;
+  }
+
+  .ant-card {
+    border: 1px solid var(--color-border) !important;
+    transition: var(--transition-base) !important;
+  }
+
+  .ant-card:hover {
+    border-color: var(--color-primary) !important;
+  }
+
+  .dashboard-glass {
+    background: rgba(255, 255, 255, 0.7) !important;
+    backdrop-filter: blur(12px) !important;
+    -webkit-backdrop-filter: blur(12px) !important;
   }
 }
 
-/* Ant Design global polish */
-.ant-input,
-.ant-input-affix-wrapper,
-.ant-select-selector,
-.ant-picker,
-.ant-upload-wrapper .ant-upload-select,
-.ant-btn {
-  border-radius: 6px !important;
+/*
+ * Shadcn `hero` buttons often render as `<a>` (TanStack Link). Ant/layout styles can
+ * assign link-blue after Tailwind layers, so label disappears on the gradient.
+ */
+a.inline-flex.bg-gradient-primary {
+  color: var(--color-primary-foreground) !important;
+  text-decoration: none !important;
+}
+a.inline-flex.bg-gradient-primary:visited,
+a.inline-flex.bg-gradient-primary:hover,
+a.inline-flex.bg-gradient-primary:active,
+a.inline-flex.bg-gradient-primary:focus,
+a.inline-flex.bg-gradient-primary:focus-visible {
+  color: var(--color-primary-foreground) !important;
 }
 
-.ant-form-item-label > label {
-  color: var(--color-foreground) !important;
-  font-weight: 600;
-}
-
-.ant-steps .ant-steps-item-title {
-  font-weight: 600;
-}
-
-/* Driver Dashboard Specific Styles */
-.ant-layout-sider {
-  background: transparent !important;
-}
-
-.ant-menu-inline, 
-.ant-menu-vertical {
-  border-inline-end: none !important;
-}
-
-.ant-menu-item {
-  border-radius: 6px !important;
-  margin-block: 4px !important;
-  width: calc(100% - 16px) !important;
-  margin-inline: 8px !important;
-}
-
-.ant-menu-item-selected {
-  background: var(--gradient-soft) !important;
-  box-shadow: var(--shadow-soft);
-}
-
-.ant-layout-header {
-  padding: 0 24px !important;
-}
-
-.ant-card {
-  border: 1px solid var(--color-border) !important;
-  transition: var(--transition-base) !important;
-}
-
-.ant-card:hover {
-  border-color: var(--color-primary) !important;
-}
-
-.dashboard-glass {
-  background: rgba(255, 255, 255, 0.7) !important;
-  backdrop-filter: blur(12px) !important;
-  -webkit-backdrop-filter: blur(12px) !important;
-}

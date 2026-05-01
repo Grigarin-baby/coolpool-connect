@@ -1,19 +1,23 @@
 import { Client, Databases, ID } from "node-appwrite";
 
-const endpoint = process.env.APPWRITE_ENDPOINT;
-const projectId = process.env.APPWRITE_PROJECT_ID;
-const databaseId = process.env.APPWRITE_DATABASE_ID;
-const apiKey = process.env.APPWRITE_API_KEY;
+const endpoint =
+  process.env.APPWRITE_ENDPOINT || process.env.VITE_APPWRITE_ENDPOINT || "";
+const projectId =
+  process.env.APPWRITE_PROJECT_ID || process.env.VITE_APPWRITE_PROJECT_ID || "";
+const databaseId =
+  process.env.APPWRITE_DATABASE_ID || process.env.VITE_APPWRITE_DATABASE_ID || "";
+const apiKey = process.env.APPWRITE_API_KEY || "";
 
 if (!endpoint || !projectId || !databaseId || !apiKey) {
   throw new Error(
-    "Missing one or more required env vars: APPWRITE_ENDPOINT, APPWRITE_PROJECT_ID, APPWRITE_DATABASE_ID, APPWRITE_API_KEY",
+    "Missing env: APPWRITE_API_KEY plus endpoint/project/database (APPWRITE_* or VITE_APPWRITE_*).",
   );
 }
 
 const COLLECTIONS = {
   trips: "coolpool_trips",
   tripStops: "coolpool_trip_stops",
+  tripSeatReservations: "coolpool_trip_seat_reservations",
   bookings: "coolpool_bookings",
   userRoles: "coolpool_user_roles",
   pricingRules: "coolpool_pricing_rules",
@@ -30,8 +34,16 @@ async function ensureCollection(collectionId, name) {
     await databases.getCollection(databaseId, collectionId);
     console.log(`Collection exists: ${collectionId}`);
   } catch {
-    await databases.createCollection(databaseId, collectionId, name, [], true, true);
-    console.log(`Created collection: ${collectionId}`);
+    try {
+      await databases.createCollection(databaseId, collectionId, name, [], true, true);
+      console.log(`Created collection: ${collectionId}`);
+    } catch (error) {
+      if (error?.code === 409 || error?.type === "collection_already_exists") {
+        console.log(`Collection already exists: ${collectionId}`);
+        return;
+      }
+      throw error;
+    }
   }
 }
 
@@ -197,6 +209,7 @@ async function ensureIndex(collectionId, key, type, attributes) {
 async function run() {
   await ensureCollection(COLLECTIONS.trips, "Trips");
   await ensureCollection(COLLECTIONS.tripStops, "Trip Stops");
+  await ensureCollection(COLLECTIONS.tripSeatReservations, "Trip seat reservations");
   await ensureCollection(COLLECTIONS.bookings, "Bookings");
   await ensureCollection(COLLECTIONS.userRoles, "User Roles");
   await ensureCollection(COLLECTIONS.pricingRules, "Pricing Rules");
@@ -229,6 +242,11 @@ async function run() {
   await ensureFloatAttribute(COLLECTIONS.tripStops, "lng", true);
   await ensureStringAttribute(COLLECTIONS.tripStops, "stop_type", 16, true);
   await ensureFloatAttribute(COLLECTIONS.tripStops, "distance_from_origin_km", true, 0);
+
+  // trip seat reservations (public seat map — no PII)
+  await ensureStringAttribute(COLLECTIONS.tripSeatReservations, "trip_id", 64, true);
+  await ensureStringAttribute(COLLECTIONS.tripSeatReservations, "seat_code", 32, true);
+  await ensureStringAttribute(COLLECTIONS.tripSeatReservations, "booking_id", 64, true);
 
   // bookings
   await ensureStringAttribute(COLLECTIONS.bookings, "trip_id", 64, true);
@@ -286,6 +304,7 @@ async function run() {
     "trip_id",
     "stop_index",
   ]);
+  await ensureIndex(COLLECTIONS.tripSeatReservations, "idx_trip_seats_trip_id", "key", ["trip_id"]);
   await ensureIndex(COLLECTIONS.bookings, "idx_bookings_trip_id", "key", ["trip_id"]);
   await ensureIndex(COLLECTIONS.bookings, "idx_bookings_traveler_id", "key", ["traveler_id"]);
   await ensureIndex(COLLECTIONS.userRoles, "idx_user_roles_user_id", "key", ["user_id"]);

@@ -3,8 +3,12 @@ import { AuthProvider } from "@/hooks/useAuth";
 import { Toaster } from "@/components/ui/sonner";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import "antd/dist/reset.css";
+import "../antd-reset-overrides.css";
 
 import appCss from "../styles.css?url";
+
+const GOOGLE_FONTS_CSS =
+  "https://fonts.googleapis.com/css2?family=Cabin:ital,wght@0,400..700;1,400..700&family=Lexend:wght@100..900&family=Montserrat:ital,wght@0,100..900;1,100..900&family=Roboto+Slab:wght@100..900&display=swap";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -26,7 +30,7 @@ function NotFoundComponent() {
         </p>
         <a
           href="/"
-          className="mt-6 inline-flex items-center justify-center rounded-full bg-gradient-primary px-6 h-12 text-sm font-medium text-primary-foreground shadow-glow hover:opacity-95 transition-base"
+          className="mt-6 inline-flex items-center justify-center rounded-none bg-gradient-primary px-6 h-12 text-sm font-medium text-primary-foreground shadow-glow hover:opacity-95 transition-base"
         >
           Back to home
         </a>
@@ -55,7 +59,12 @@ export const Route = createRootRoute({
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
-    links: [{ rel: "stylesheet", href: appCss }],
+    links: [
+      { rel: "preconnect", href: "https://fonts.googleapis.com" },
+      { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
+      { rel: "stylesheet", href: GOOGLE_FONTS_CSS },
+      { rel: "stylesheet", href: appCss },
+    ],
   }),
   shellComponent: RootShell,
   component: RootComponent,
@@ -86,3 +95,4 @@ function RootComponent() {
     </QueryClientProvider>
   );
 }
+
