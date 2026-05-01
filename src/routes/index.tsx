@@ -52,7 +52,7 @@ function Home() {
               <h1 className="mt-6 text-5xl md:text-7xl font-bold tracking-tight leading-[1.02]">
                 Share the road,
                 <br />
-                <span className="text-gradient-primary">split the cost.</span>
+                <span className="text-gradient-primary">split the fun.</span>
               </h1>
               <p className="mt-6 text-lg md:text-xl text-muted-foreground max-w-2xl">
                 Coolpool connects Ride Hosts and Travelers on the same intercity route. Book only
