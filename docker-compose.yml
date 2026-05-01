@@ -1,0 +1,21 @@
+version: "3.8"
+
+services:
+  coolpool-frontend:
+    build: .
+    container_name: coolpool-frontend
+    restart: unless-stopped
+    networks:
+      - coolify
+    ports:
+      - "8081:80"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.coolpool.rule=Host(`coolpool.in`) || Host(`www.coolpool.in`)"
+      - "traefik.http.routers.coolpool.entrypoints=http,https"
+      - "traefik.http.services.coolpool.loadbalancer.server.port=80"
+      - "traefik.http.routers.coolpool.tls=true"
+
+networks:
+  coolify:
+    external: true
