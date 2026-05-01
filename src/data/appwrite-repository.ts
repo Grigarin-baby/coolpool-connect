@@ -223,7 +223,8 @@ export async function createTrip(input: CreateTripInput): Promise<Trip> {
       notes: input.notes ?? null,
     },
     [
-      Permission.read(Role.users()),
+      // Public read so travelers can search trips without an Appwrite session (e.g. homepage modal).
+      Permission.read(Role.any()),
       Permission.update(Role.user(input.hostId)),
       Permission.delete(Role.user(input.hostId)),
     ],

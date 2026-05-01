@@ -16,6 +16,7 @@ import {
   message,
 } from "antd";
 import { listTrips } from "@/data/appwrite-repository";
+import { routeCitySegmentsMatch } from "@/lib/geo";
 import { formatCurrency } from "@/lib/pricing";
 import { appwriteConfig } from "@/integrations/appwrite/client";
 
@@ -133,35 +134,72 @@ function SearchPage() {
     });
   };
 
-  const normalizeLocation = (value: string) =>
-    value.toLowerCase().split(",")[0].replace(/\s+/g, " ").trim();
+  const squashLower = (value: string) => value.toLowerCase().replace(/\s+/g, " ").trim();
 
+  const primarySegment = (value: string) => squashLower(value).split(",")[0]?.trim() ?? "";
+
+  /** Match full address substring first, then primary city (with known aliases). */
   const matchesLocation = (tripLocation: string, searchLocation: string) => {
-    const tripNorm = normalizeLocation(tripLocation);
-    const searchNorm = normalizeLocation(searchLocation);
-    if (!searchNorm) return true;
-    return tripNorm.includes(searchNorm) || searchNorm.includes(tripNorm);
+    const tripFull = squashLower(tripLocation);
+    const searchFull = squashLower(searchLocation);
+    if (!searchFull) return true;
+    if (tripFull.includes(searchFull) || searchFull.includes(tripFull)) return true;
+    return routeCitySegmentsMatch(primarySegment(tripLocation), primarySegment(searchLocation));
   };
 
   const onSearch = async (values: { from: string; to: string }) => {
+    const fromNeedle = values.from.trim();
+    const toNeedle = values.to.trim();
+
+    console.log("[Coolpool /search] Search trips fired", {
+      from: fromNeedle,
+      to: toNeedle,
+      at: new Date().toISOString(),
+    });
+
     setLoading(true);
     try {
       const allTrips = await listTrips(200);
-      const fromNeedle = values.from.trim();
-      const toNeedle = values.to.trim();
+
+      console.log("[Coolpool /search] listTrips() returned", {
+        documentCount: allTrips.length,
+        trips: allTrips.map((t) => ({
+          id: t.id,
+          fromLocation: t.fromLocation,
+          toLocation: t.toLocation,
+        })),
+      });
 
       const filtered = allTrips
         .filter((trip) => {
-          return (
-            matchesLocation(trip.fromLocation, fromNeedle) &&
-            matchesLocation(trip.toLocation, toNeedle)
-          );
+          const fromOk = matchesLocation(trip.fromLocation, fromNeedle);
+          const toOk = matchesLocation(trip.toLocation, toNeedle);
+          return fromOk && toOk;
         })
         .sort((a, b) => new Date(a.departureAt).getTime() - new Date(b.departureAt).getTime());
+
+      if (allTrips.length > 0 && filtered.length === 0) {
+        console.warn(
+          "[Coolpool /search] API returned trips but none matched your from/to. Row-wise match check:",
+          allTrips.map((trip) => ({
+            id: trip.id,
+            fromLocation: trip.fromLocation,
+            toLocation: trip.toLocation,
+            fromMatchesSearch: matchesLocation(trip.fromLocation, fromNeedle),
+            toMatchesSearch: matchesLocation(trip.toLocation, toNeedle),
+          })),
+        );
+      }
+
+      console.log("[Coolpool /search] After client-side route filter", {
+        matchedCount: filtered.length,
+        ids: filtered.map((t) => t.id),
+      });
 
       setResults(filtered);
       setSearched(true);
     } catch (error) {
+      console.error("[Coolpool /search] listTrips or filter failed", error);
       message.error(error instanceof Error ? error.message : "Unable to search trips.");
     } finally {
       setLoading(false);

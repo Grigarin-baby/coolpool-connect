@@ -140,7 +140,14 @@ function DriverDashboardPage() {
 
   const { mutate: performCreateTrip, isPending: creating } = useMutation({
     mutationFn: createTrip,
-    onSuccess: () => {
+    onSuccess: (trip) => {
+      if (import.meta.env.DEV) {
+        console.log("[publish trip] Appwrite document saved:", {
+          id: trip.id,
+          fromLocation: trip.fromLocation,
+          toLocation: trip.toLocation,
+        });
+      }
       message.success("Trip created.");
       form.resetFields();
       void queryClient.invalidateQueries({ queryKey: ["host-trips"] });
@@ -222,7 +229,7 @@ function DriverDashboardPage() {
     const totalPrice = seatPrice * totalSeats;
     const totalDistanceKm = 1;
 
-    performCreateTrip({
+    const payload = {
       hostId: user.$id,
       fromLocation: resolvedFrom.label,
       fromLat: resolvedFrom.lat,
@@ -237,7 +244,20 @@ function DriverDashboardPage() {
       totalSeats,
       departureAt: values.departureAt.toISOString(),
       notes: `Created from driver trip module. Price per seat: ₹${seatPrice}.`,
-    });
+    };
+
+    if (import.meta.env.DEV) {
+      console.log("[publish trip] createTrip payload (strings stored in DB):", {
+        from_location: payload.fromLocation,
+        to_location: payload.toLocation,
+        fromLat: payload.fromLat,
+        fromLng: payload.fromLng,
+        toLat: payload.toLat,
+        toLng: payload.toLng,
+      });
+    }
+
+    performCreateTrip(payload);
   };
 
   const searchCities = async (query: string, target: "from" | "to") => {

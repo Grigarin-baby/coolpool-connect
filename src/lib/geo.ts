@@ -90,3 +90,30 @@ export function distanceAlongPolylineKm(polyline: LatLng[], uptoIdx: number): nu
   }
   return total;
 }
+
+/** Alternate names for the same place (keys and values lowercase). Extend as needed for route search. */
+const CITY_NAME_ALIASES: Record<string, readonly string[]> = {
+  calicut: ["kozhikode"],
+  kozhikode: ["calicut"],
+  kochi: ["ernakulam"],
+  ernakulam: ["kochi"],
+};
+
+function expandCityAliases(segment: string): string[] {
+  const s = segment.toLowerCase().trim();
+  const extra = CITY_NAME_ALIASES[s] ?? [];
+  return [s, ...extra];
+}
+
+/** Compare primary city labels from addresses (handles Kozhikode vs Calicut, substring overlap). */
+export function routeCitySegmentsMatch(tripSegment: string, searchSegment: string): boolean {
+  const variantsA = expandCityAliases(tripSegment);
+  const variantsB = expandCityAliases(searchSegment);
+  for (const a of variantsA) {
+    for (const b of variantsB) {
+      if (!a || !b) continue;
+      if (a === b || a.includes(b) || b.includes(a)) return true;
+    }
+  }
+  return false;
+}
