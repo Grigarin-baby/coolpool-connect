@@ -678,19 +678,7 @@ function DriverDashboardPage() {
                 <Text strong className="text-lg">Coolpool</Text>
               </div>
             </div>
-            <div className="flex items-center gap-5">
-              <div className="text-right hidden md:flex flex-col justify-center bg-white/40 px-4 py-1.5 rounded-full border border-white/60 shadow-sm backdrop-blur-sm">
-                <Text strong className="text-sm leading-tight block text-gray-800">
-                  {user?.name || "Ride Host"}
-                </Text>
-                <div className="flex items-center gap-1 mt-0.5">
-                  <div className="h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse"></div>
-                  <Text className="text-[10px] text-green-700 font-bold uppercase tracking-wider leading-tight">
-                    Verified Ride Host
-                  </Text>
-                </div>
-              </div>
-
+            <div className="flex items-center gap-4">
               <Dropdown
                 menu={{
                   items: [
@@ -709,13 +697,28 @@ function DriverDashboardPage() {
                 trigger={["click"]}
                 placement="bottomRight"
               >
-                <Badge dot status="processing" offset={[-4, 32]} color="#6b46c1">
-                  <Avatar
-                    icon={<User size={20} />}
-                    className="bg-gradient-primary cursor-pointer shadow-soft border-2 border-white/50"
-                    size={40}
-                  />
-                </Badge>
+                <div className="group flex items-center gap-3 bg-white/40 hover:bg-white/60 pl-4 pr-1.5 py-1.5 rounded-full border border-white/60 shadow-sm backdrop-blur-md transition-all duration-300 cursor-pointer hover:scale-[1.02] active:scale-[0.98]">
+                  <div className="text-right hidden md:flex flex-col justify-center">
+                    <Text strong className="text-[13px] leading-tight block text-gray-800">
+                      {user?.name || "Ride Host"}
+                    </Text>
+                    <div className="flex items-center gap-1 mt-1 justify-end">
+                      <div className="flex items-center gap-1 bg-emerald-500/10 px-1.5 py-0.5 rounded-full border border-emerald-500/20">
+                        <CheckCircle size={8} className="text-emerald-600 fill-emerald-600/10" />
+                        <Text className="text-[9px] text-emerald-700 font-bold uppercase tracking-wider leading-none">
+                          Verified
+                        </Text>
+                      </div>
+                    </div>
+                  </div>
+                  <Badge dot status="processing" offset={[-2, 30]} color="#6b46c1">
+                    <Avatar
+                      icon={<User size={18} />}
+                      className="bg-gradient-primary shadow-soft border-2 border-white/80 group-hover:border-white transition-all"
+                      size={36}
+                    />
+                  </Badge>
+                </div>
               </Dropdown>
             </div>
           </Header>
