@@ -10,6 +10,10 @@ import {
   History,
   Settings,
   MoreVertical,
+  Car,
+  CheckCircle,
+  XCircle,
+  Banknote,
 } from "lucide-react";
 import {
   Layout,
@@ -33,6 +37,8 @@ import {
   AutoComplete,
   message,
   Drawer,
+  Switch,
+  Divider,
 } from "antd";
 import { useAuth } from "@/hooks/useAuth";
 import { createTrip, listHostTrips } from "@/data/appwrite-repository";
@@ -435,13 +441,11 @@ function DriverDashboardPage() {
                 key: "history",
                 icon: <History size={18} />,
                 label: "Ride History",
-                disabled: true,
               },
               {
                 key: "settings",
                 icon: <Settings size={18} />,
                 label: "Vehicle Settings",
-                disabled: true,
               },
             ]}
           />
@@ -466,7 +470,9 @@ function DriverDashboardPage() {
           <Header className="px-6 flex items-center justify-between border-b border-white/20 sticky top-0 z-50 h-20" style={{ backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)" }}>
             <div>
               <Title level={4} style={{ margin: 0 }} className="hidden sm:block font-bold">
-                {activeModule === "dashboard" ? "Dashboard Overview" : "Publish Trip"}
+                {activeModule === "dashboard" ? "Dashboard Overview" : 
+                 activeModule === "trips" ? "Publish Trip" :
+                 activeModule === "history" ? "Ride History" : "Vehicle Settings"}
               </Title>
               <div className="sm:hidden flex items-center gap-2">
                 <div className="h-8 w-8 rounded-lg bg-gradient-primary text-white flex items-center justify-center shadow-glow">
@@ -701,9 +707,10 @@ function DriverDashboardPage() {
                       </Card>
                       <Card
                         hoverable
-                        className="rounded-2xl border border-white/60 shadow-soft text-center p-3 group bg-white/60 opacity-70"
+                        className="rounded-2xl border border-white/60 shadow-soft text-center p-3 group bg-white/60 hover:bg-white transition-all"
+                        onClick={() => setActiveModule("history")}
                       >
-                        <div className="h-12 w-12 mx-auto rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center mb-3">
+                        <div className="h-12 w-12 mx-auto rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center mb-3 group-hover:bg-blue-600 group-hover:text-white transition-all group-hover:scale-110 duration-300">
                           <History size={22} />
                         </div>
                         <Text strong className="text-sm">
@@ -712,24 +719,14 @@ function DriverDashboardPage() {
                       </Card>
                       <Card
                         hoverable
-                        className="rounded-2xl border border-white/60 shadow-soft text-center p-3 group bg-white/60 opacity-70"
+                        className="rounded-2xl border border-white/60 shadow-soft text-center p-3 group bg-white/60 hover:bg-white transition-all"
+                        onClick={() => setActiveModule("settings")}
                       >
-                        <div className="h-12 w-12 mx-auto rounded-xl bg-orange-100 text-orange-600 flex items-center justify-center mb-3">
-                          <User size={22} />
-                        </div>
-                        <Text strong className="text-sm">
-                          Profile
-                        </Text>
-                      </Card>
-                      <Card
-                        hoverable
-                        className="rounded-2xl border border-white/60 shadow-soft text-center p-3 group bg-white/60 opacity-70"
-                      >
-                        <div className="h-12 w-12 mx-auto rounded-xl bg-gray-100 text-gray-600 flex items-center justify-center mb-3">
+                        <div className="h-12 w-12 mx-auto rounded-xl bg-gray-100 text-gray-600 flex items-center justify-center mb-3 group-hover:bg-gray-600 group-hover:text-white transition-all group-hover:scale-110 duration-300">
                           <Settings size={22} />
                         </div>
                         <Text strong className="text-sm">
-                          Settings
+                          Vehicle Settings
                         </Text>
                       </Card>
                     </div>
@@ -1058,6 +1055,221 @@ function DriverDashboardPage() {
                 </div>
               </div>
             )}
+
+            {activeModule === "history" && (
+              <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
+                <div className="flex flex-col gap-1">
+                  <Title level={2} style={{ margin: 0 }}>
+                    Ride History
+                  </Title>
+                  <Text type="secondary" className="text-lg">
+                    Review your past trips and earnings ledger.
+                  </Text>
+                </div>
+
+                <div className="grid gap-6 sm:grid-cols-2">
+                  <Card className="rounded-2xl border border-white/60 shadow-soft backdrop-blur-md group overflow-hidden relative bg-emerald-50/50">
+                    <div className="absolute -right-6 -bottom-6 w-24 h-24 bg-emerald-500/20 rounded-full blur-xl"></div>
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="p-2 bg-emerald-100 rounded-lg text-emerald-600">
+                        <Banknote size={20} />
+                      </div>
+                      <Text type="secondary" className="font-medium text-emerald-800">Lifetime Earnings</Text>
+                    </div>
+                    <Title level={2} style={{ margin: "12px 0 0 0" }} className="text-emerald-900">
+                      ₹12,450
+                    </Title>
+                  </Card>
+                  
+                  <Card className="rounded-2xl border border-white/60 shadow-soft backdrop-blur-md group overflow-hidden relative bg-purple-50/50">
+                    <div className="absolute -right-6 -bottom-6 w-24 h-24 bg-purple-500/20 rounded-full blur-xl"></div>
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="p-2 bg-purple-100 rounded-lg text-purple-600">
+                        <CheckCircle size={20} />
+                      </div>
+                      <Text type="secondary" className="font-medium text-purple-800">Total Completed Rides</Text>
+                    </div>
+                    <Title level={2} style={{ margin: "12px 0 0 0" }} className="text-purple-900">
+                      24
+                    </Title>
+                  </Card>
+                </div>
+
+                <Card className="rounded-2xl border border-white/60 shadow-card bg-white/80 backdrop-blur-md overflow-hidden">
+                  <div className="p-6 border-b border-gray-100 flex items-center justify-between">
+                    <Title level={4} style={{ margin: 0 }}>Transaction Ledger</Title>
+                    <div className="flex gap-2">
+                      <Tag color="purple" className="px-4 py-1 rounded-full cursor-pointer text-sm m-0 border-primary">All</Tag>
+                      <Tag className="px-4 py-1 rounded-full cursor-pointer text-sm m-0 bg-white border-gray-200 text-gray-500">Completed</Tag>
+                      <Tag className="px-4 py-1 rounded-full cursor-pointer text-sm m-0 bg-white border-gray-200 text-gray-500 hidden sm:inline-flex">Cancelled</Tag>
+                    </div>
+                  </div>
+                  
+                  <List
+                    className="p-0"
+                    itemLayout="horizontal"
+                    dataSource={[
+                      { id: 1, date: "2023-10-25", from: "Mumbai", to: "Pune", amount: 1500, status: "completed" },
+                      { id: 2, date: "2023-10-20", from: "Mumbai", to: "Lonavala", amount: 800, status: "completed" },
+                      { id: 3, date: "2023-10-15", from: "Pune", to: "Mumbai", amount: 0, status: "cancelled" },
+                      { id: 4, date: "2023-10-10", from: "Mumbai", to: "Nashik", amount: 2200, status: "completed" },
+                    ]}
+                    renderItem={(item) => (
+                      <List.Item className="p-6 hover:bg-gray-50 transition-colors cursor-pointer group border-b border-gray-50">
+                        <div className="w-full flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                          <div className="flex items-center gap-4">
+                            <div className={`h-12 w-12 rounded-xl flex items-center justify-center ${item.status === 'completed' ? 'bg-emerald-100 text-emerald-600' : 'bg-red-100 text-red-600'}`}>
+                              {item.status === 'completed' ? <CheckCircle size={20} /> : <XCircle size={20} />}
+                            </div>
+                            <div>
+                              <Text strong className="text-base text-gray-800 block mb-1">
+                                {item.from} → {item.to}
+                              </Text>
+                              <Text type="secondary" className="text-xs uppercase tracking-wider font-semibold">
+                                {dayjs(item.date).format("MMM D, YYYY")}
+                              </Text>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-center justify-between sm:flex-col sm:items-end gap-1">
+                            <Text strong className={`text-lg ${item.status === 'completed' ? 'text-emerald-600' : 'text-gray-400 line-through'}`}>
+                              ₹{item.amount}
+                            </Text>
+                            <Tag color={item.status === 'completed' ? 'success' : 'error'} className="m-0 rounded-full border-none px-2 uppercase text-[10px] tracking-wider font-bold">
+                              {item.status}
+                            </Tag>
+                          </div>
+                        </div>
+                      </List.Item>
+                    )}
+                  />
+                </Card>
+              </div>
+            )}
+
+            {activeModule === "settings" && (
+              <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
+                <div className="flex flex-col gap-1">
+                  <Title level={2} style={{ margin: 0 }}>
+                    Vehicle Settings
+                  </Title>
+                  <Text type="secondary" className="text-lg">
+                    Manage your registered vehicle and amenities.
+                  </Text>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                  {/* Digital Vehicle Card */}
+                  <div className="lg:col-span-1">
+                    <div className="sticky top-24">
+                      <div className="bg-gradient-to-br from-gray-900 to-gray-800 rounded-3xl p-6 sm:p-8 text-white shadow-[0_20px_40px_-15px_rgba(0,0,0,0.5)] relative overflow-hidden">
+                        {/* Shimmer/Glare effect */}
+                        <div className="absolute inset-0 bg-gradient-to-tr from-white/0 via-white/5 to-white/0 -skew-x-12 translate-x-[-100%] animate-[shimmer_8s_infinite]"></div>
+                        
+                        <div className="flex justify-between items-start mb-8 relative z-10">
+                          <div>
+                            <Text className="text-gray-400 text-xs uppercase tracking-widest font-bold block mb-1">Registered Vehicle</Text>
+                            <div className="flex items-center gap-2">
+                              <div className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></div>
+                              <Text className="text-emerald-400 text-xs font-bold uppercase tracking-wider">Approved</Text>
+                            </div>
+                          </div>
+                          <Car size={32} className="text-white/20" />
+                        </div>
+                        
+                        <div className="mb-8 relative z-10">
+                          <Title level={3} style={{ color: "white", margin: 0 }} className="font-bold">
+                            Honda City
+                          </Title>
+                          <Text className="text-gray-300 text-sm">2021 • Crystal Black</Text>
+                        </div>
+                        
+                        <div className="bg-white/10 rounded-2xl p-4 backdrop-blur-md border border-white/10 relative z-10">
+                          <Text className="text-gray-400 text-[10px] uppercase tracking-widest font-bold block mb-1">License Plate</Text>
+                          <Text className="text-white font-mono text-xl tracking-widest">MH 01 AB 1234</Text>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Edit Form */}
+                  <div className="lg:col-span-2">
+                    <Card className="rounded-2xl border border-white/60 shadow-card bg-white/80 backdrop-blur-md p-6 md:p-8">
+                      <Form layout="vertical" requiredMark={false} initialValues={{ make: "Honda", model: "City", year: 2021, color: "Black", plate: "MH 01 AB 1234" }}>
+                        <Title level={5} className="mb-6 flex items-center gap-2">
+                          <Car size={18} className="text-primary" /> Basic Details
+                        </Title>
+                        
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-8">
+                          <Form.Item label={<span className="font-semibold text-gray-700">Make</span>} name="make" className="mb-0">
+                            <Input size="large" className="h-14 rounded-xl text-lg" />
+                          </Form.Item>
+                          <Form.Item label={<span className="font-semibold text-gray-700">Model</span>} name="model" className="mb-0">
+                            <Input size="large" className="h-14 rounded-xl text-lg" />
+                          </Form.Item>
+                          <Form.Item label={<span className="font-semibold text-gray-700">Year</span>} name="year" className="mb-0">
+                            <InputNumber size="large" className="w-full h-14 rounded-xl text-lg flex items-center" />
+                          </Form.Item>
+                          <Form.Item label={<span className="font-semibold text-gray-700">Color</span>} name="color" className="mb-0">
+                            <Input size="large" className="h-14 rounded-xl text-lg" />
+                          </Form.Item>
+                        </div>
+
+                        <Form.Item label={<span className="font-semibold text-gray-700">License Plate</span>} name="plate">
+                          <Input size="large" className="h-14 rounded-xl text-lg font-mono tracking-widest" />
+                        </Form.Item>
+
+                        <Divider className="my-8" />
+
+                        <Title level={5} className="mb-6 flex items-center gap-2">
+                          <Sparkles size={18} className="text-primary" /> Comfort & Amenities
+                        </Title>
+                        
+                        <div className="space-y-4 bg-gray-50/50 p-6 rounded-2xl border border-gray-100">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <Text strong className="block text-gray-800">Air Conditioning</Text>
+                              <Text type="secondary" className="text-xs">Provide a cool ride</Text>
+                            </div>
+                            <Switch defaultChecked />
+                          </div>
+                          <Divider className="my-0" />
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <Text strong className="block text-gray-800">Extra Luggage Space</Text>
+                              <Text type="secondary" className="text-xs">Empty trunk available</Text>
+                            </div>
+                            <Switch defaultChecked />
+                          </div>
+                          <Divider className="my-0" />
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <Text strong className="block text-gray-800">Music / Aux Cable</Text>
+                              <Text type="secondary" className="text-xs">Let passengers play music</Text>
+                            </div>
+                            <Switch defaultChecked />
+                          </div>
+                          <Divider className="my-0" />
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <Text strong className="block text-gray-800">Pets Allowed</Text>
+                              <Text type="secondary" className="text-xs">Comfortable with small pets</Text>
+                            </div>
+                            <Switch />
+                          </div>
+                        </div>
+
+                        <div className="mt-10 flex justify-end">
+                          <Button type="primary" size="large" className="h-14 rounded-xl px-10 bg-gradient-primary border-none font-bold shadow-glow w-full sm:w-auto hover:scale-[1.02] transition-transform">
+                            Save Changes
+                          </Button>
+                        </div>
+                      </Form>
+                    </Card>
+                  </div>
+                </div>
+              </div>
+            )}
           </Content>
         </Layout>
       </Layout>
@@ -1085,18 +1297,18 @@ function DriverDashboardPage() {
           
           <button 
             className={`flex flex-col items-center justify-center w-full h-full space-y-1 transition-colors ${activeModule === 'history' ? 'text-primary' : 'text-gray-400'}`}
-            onClick={() => {}}
+            onClick={() => setActiveModule('history')}
           >
-            <History size={22} />
+            <History size={22} className={activeModule === 'history' ? 'fill-primary/20' : ''} />
             <span className="text-[10px] font-semibold">History</span>
           </button>
           
           <button 
-            className={`flex flex-col items-center justify-center w-full h-full space-y-1 transition-colors ${activeModule === 'profile' ? 'text-primary' : 'text-gray-400'}`}
-            onClick={() => {}}
+            className={`flex flex-col items-center justify-center w-full h-full space-y-1 transition-colors ${activeModule === 'settings' ? 'text-primary' : 'text-gray-400'}`}
+            onClick={() => setActiveModule('settings')}
           >
-            <User size={22} />
-            <span className="text-[10px] font-semibold">Profile</span>
+            <Settings size={22} className={activeModule === 'settings' ? 'fill-primary/20' : ''} />
+            <span className="text-[10px] font-semibold">Vehicle</span>
           </button>
         </div>
       </div>
