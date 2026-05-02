@@ -413,8 +413,9 @@ function DriverDashboardPage() {
       });
 
       const totalDistanceKm = Math.max(0.1, Math.round(currentDist * 10) / 10);
-      const totalPrice = Number(values.totalTripPrice);
+      const seatPrice = Number(values.totalTripPrice);
       const totalSeats = Number(values.totalSeats);
+      const totalPrice = seatPrice * totalSeats;
 
       const payload = {
         tripData: {
@@ -1154,10 +1155,10 @@ function DriverDashboardPage() {
                           </Title>
                           <div className="bg-purple-50/50 p-5 rounded-2xl border border-purple-100">
                             <Form.Item
-                              label={<span className="font-semibold text-gray-700">Total Trip Price</span>}
+                              label={<span className="font-semibold text-gray-700">Total per seat price</span>}
                               name="totalTripPrice"
-                              rules={[{ required: true, message: "Please enter total trip price" }]}
-                              extra="Set the price for the entire route. Segment pricing is automatically calculated."
+                              rules={[{ required: true, message: "Please enter total per seat price" }]}
+                              extra="Set the price for one seat for the entire route. Segment pricing is automatically calculated."
                               className="mb-0"
                             >
                               <InputNumber
@@ -1193,13 +1194,7 @@ function DriverDashboardPage() {
                       </div>
 
                       {/* Mobile Sticky Earnings Bar */}
-                      <div className="xl:hidden fixed bottom-20 left-0 right-0 bg-white/90 backdrop-blur-md border-t border-gray-200 p-4 shadow-[0_-10px_20px_rgba(0,0,0,0.05)] z-40 flex items-center justify-between">
-                        <div>
-                          <Text type="secondary" className="block text-[10px] uppercase tracking-wider font-bold mb-0.5">Total Earnings</Text>
-                          <Title level={3} className="m-0 text-emerald-600 font-bold leading-none">
-                            ₹{(Number(totalPriceWatch || 0)).toLocaleString()}
-                          </Title>
-                        </div>
+                      <div className="xl:hidden fixed bottom-20 left-0 right-0 bg-white/90 backdrop-blur-md border-t border-gray-200 p-4 shadow-[0_-10px_20px_rgba(0,0,0,0.05)] z-40 flex items-center justify-end">
                         <Button 
                           type="default" 
                           className="rounded-xl border-primary/30 text-primary font-medium"
@@ -1218,12 +1213,7 @@ function DriverDashboardPage() {
                         Live Preview
                       </Title>
                       <Card className="rounded-2xl border-none shadow-soft bg-white p-5">
-                        <div className="text-center pb-5 border-b border-gray-100 mb-5">
-                          <Text type="secondary" className="block text-xs uppercase tracking-wider font-semibold mb-1">Total Estimated Earnings</Text>
-                          <Title level={2} className="m-0 text-emerald-600 font-bold">
-                            ₹{(Number(totalPriceWatch || 0)).toLocaleString()}
-                          </Title>
-                        </div>
+                        {/* Earnings removed as per request */}
                         
                         <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
                           <Text type="secondary" className="text-xs block mb-3 font-semibold uppercase tracking-wider text-center">What travelers see</Text>
