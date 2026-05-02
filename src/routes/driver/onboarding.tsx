@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ID } from "appwrite";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { account, appwriteConfig, storage } from "@/integrations/appwrite/client";
@@ -53,6 +53,16 @@ function DriverOnboardingPage() {
   const [password, setPassword] = useState("");
   const pwStrength = calcPasswordStrength(password);
 
+  // Pre-fill form with logged-in user's data
+  useEffect(() => {
+    if (user) {
+      form.setFieldsValue({
+        fullName: user.name || "",
+        email: user.email || "",
+      });
+    }
+  }, [user, form]);
+
   // Live vehicle preview
   const modelWatch = Form.useWatch("modelName", form) as string | undefined;
   const plateWatch = Form.useWatch("plateNumber", form) as string | undefined;
@@ -69,7 +79,13 @@ function DriverOnboardingPage() {
   };
 
   const nextStep = async () => {
-    if (step === 1) await form.validateFields(["fullName","email","phone","licenseNumber","city"]);
+    if (step === 1) {
+      // If logged in, name & email are pre-filled — only validate driver-specific fields
+      const fields = user
+        ? ["phone", "licenseNumber", "city"]
+        : ["fullName", "email", "phone", "licenseNumber", "city"];
+      await form.validateFields(fields);
+    }
     if (step === 2) await form.validateFields(["modelName","plateNumber","seatCapacity"]);
     if (step < 3) setStep((p) => (p + 1) as Step);
   };
@@ -244,23 +260,45 @@ function DriverOnboardingPage() {
               {/* ── STEP 1: Personal details ── */}
               {step === 1 && (
                 <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-400">
-                  <p className="text-sm text-muted-foreground mb-6">Tell us about yourself so passengers can trust you.</p>
-                  {[
-                    { name: "fullName", label: "Full name", icon: User, placeholder: "Ashiq Rahman", rules: [{ required: true, message: "Required" }] },
-                    { name: "email", label: "Email address", icon: Mail, placeholder: "you@email.com", rules: [{ required: true, type: "email" as const, message: "Valid email required" }] },
-                    { name: "phone", label: "Phone number", icon: Phone, placeholder: "+91 98765 43210", rules: [{ required: true, message: "Required" }] },
-                    { name: "licenseNumber", label: "Driving license number", icon: CreditCard, placeholder: "TN01 20150012345", rules: [{ required: true, message: "Required" }] },
-                    { name: "city", label: "City", icon: MapPin, placeholder: "Chennai", rules: [{ required: true, message: "Required" }] },
-                  ].map((f) => (
-                    <Form.Item key={f.name} name={f.name} label={<span className="font-semibold text-gray-700 text-sm">{f.label}</span>} rules={f.rules} className="mb-0">
-                      <Input
-                        size="large"
-                        placeholder={f.placeholder}
-                        prefix={<f.icon size={16} className="text-gray-400 mr-1" />}
-                        className="h-14 rounded-2xl text-base border-gray-200 focus:border-primary"
-                      />
-                    </Form.Item>
-                  ))}
+                  <p className="text-sm text-muted-foreground mb-2">Tell us about yourself so passengers can trust you.</p>
+
+                  {/* Show identity banner if already logged in, otherwise show name/email fields */}
+                  {user ? (
+                    <div className="flex items-center gap-3 p-4 rounded-2xl bg-emerald-50 border border-emerald-200 mb-2">
+                      <div className="h-10 w-10 rounded-full bg-gradient-to-br from-violet-600 to-purple-700 flex items-center justify-center text-white font-bold text-lg shrink-0">
+                        {(user.name?.[0] || user.email?.[0] || "U").toUpperCase()}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-semibold text-gray-800 text-sm truncate">{user.name}</p>
+                        <p className="text-xs text-gray-500 truncate">{user.email}</p>
+                      </div>
+                      <div className="ml-auto shrink-0">
+                        <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-700 bg-emerald-100 px-2.5 py-1 rounded-full">
+                          <CheckCircle size={12} /> Logged in
+                        </span>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <Form.Item name="fullName" label={<span className="font-semibold text-gray-700 text-sm">Full name</span>} rules={[{ required: true, message: "Required" }]} className="mb-0">
+                        <Input size="large" placeholder="Ashiq Rahman" prefix={<User size={16} className="text-gray-400 mr-1" />} className="h-14 rounded-2xl text-base border-gray-200 focus:border-primary" />
+                      </Form.Item>
+                      <Form.Item name="email" label={<span className="font-semibold text-gray-700 text-sm">Email address</span>} rules={[{ required: true, type: "email", message: "Valid email required" }]} className="mb-0">
+                        <Input size="large" placeholder="you@email.com" prefix={<Mail size={16} className="text-gray-400 mr-1" />} className="h-14 rounded-2xl text-base border-gray-200 focus:border-primary" />
+                      </Form.Item>
+                    </>
+                  )}
+
+                  {/* Always-visible fields */}
+                  <Form.Item name="phone" label={<span className="font-semibold text-gray-700 text-sm">Phone number</span>} rules={[{ required: true, message: "Required" }]} className="mb-0">
+                    <Input size="large" placeholder="+91 98765 43210" prefix={<Phone size={16} className="text-gray-400 mr-1" />} className="h-14 rounded-2xl text-base border-gray-200 focus:border-primary" />
+                  </Form.Item>
+                  <Form.Item name="licenseNumber" label={<span className="font-semibold text-gray-700 text-sm">Driving license number</span>} rules={[{ required: true, message: "Required" }]} className="mb-0">
+                    <Input size="large" placeholder="TN01 20150012345" prefix={<CreditCard size={16} className="text-gray-400 mr-1" />} className="h-14 rounded-2xl text-base border-gray-200 focus:border-primary" />
+                  </Form.Item>
+                  <Form.Item name="city" label={<span className="font-semibold text-gray-700 text-sm">City</span>} rules={[{ required: true, message: "Required" }]} className="mb-0">
+                    <Input size="large" placeholder="Chennai" prefix={<MapPin size={16} className="text-gray-400 mr-1" />} className="h-14 rounded-2xl text-base border-gray-200 focus:border-primary" />
+                  </Form.Item>
                 </div>
               )}
 
