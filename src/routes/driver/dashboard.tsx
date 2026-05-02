@@ -975,6 +975,7 @@ function DriverDashboardPage() {
             )}
           </Content>
         </Layout>
+      </Layout>
       </div>
     </ConfigProvider>
   );
