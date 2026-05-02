@@ -32,6 +32,7 @@ import {
   Spin,
   AutoComplete,
   message,
+  Drawer,
 } from "antd";
 import { useAuth } from "@/hooks/useAuth";
 import { createTrip, listHostTrips } from "@/data/appwrite-repository";
@@ -111,6 +112,7 @@ function DriverDashboardPage() {
   const [selectedFrom, setSelectedFrom] = useState<CityOption | null>(null);
   const [selectedTo, setSelectedTo] = useState<CityOption | null>(null);
   const [mapsReady, setMapsReady] = useState(false);
+  const [mobilePreviewOpen, setMobilePreviewOpen] = useState(false);
   const autocompleteServiceRef = useRef<PlacesAutocompleteServiceLike | null>(null);
   const geocoderRef = useRef<GeocoderLike | null>(null);
   const seatsWatch = Form.useWatch("totalSeats", form);
@@ -515,7 +517,7 @@ function DriverDashboardPage() {
             </div>
           </Header>
 
-          <Content className="p-6 md:p-10 max-w-7xl mx-auto w-full">
+          <Content className="p-4 sm:p-6 md:p-10 max-w-7xl mx-auto w-full pb-24 lg:pb-10">
             {activeModule === "dashboard" && (
               <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
                 <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
@@ -909,6 +911,23 @@ function DriverDashboardPage() {
                           {creating ? "Publishing..." : "Publish Trip to Search"}
                         </Button>
                       </div>
+
+                      {/* Mobile Sticky Earnings Bar */}
+                      <div className="xl:hidden fixed bottom-20 left-0 right-0 bg-white/90 backdrop-blur-md border-t border-gray-200 p-4 shadow-[0_-10px_20px_rgba(0,0,0,0.05)] z-40 flex items-center justify-between">
+                        <div>
+                          <Text type="secondary" className="block text-[10px] uppercase tracking-wider font-bold mb-0.5">Total Earnings</Text>
+                          <Title level={3} className="m-0 text-emerald-600 font-bold leading-none">
+                            ₹{(Number(seatPriceWatch || 0) * Number(seatsWatch || 0)).toLocaleString()}
+                          </Title>
+                        </div>
+                        <Button 
+                          type="default" 
+                          className="rounded-xl border-primary/30 text-primary font-medium"
+                          onClick={() => setMobilePreviewOpen(true)}
+                        >
+                          Preview Card
+                        </Button>
+                      </div>
                     </Form>
                   </Card>
 
@@ -970,12 +989,117 @@ function DriverDashboardPage() {
                       </Card>
                     </div>
                   </div>
+
+                  {/* Mobile Preview Drawer */}
+                  <Drawer
+                    title="Live Preview"
+                    placement="bottom"
+                    onClose={() => setMobilePreviewOpen(false)}
+                    open={mobilePreviewOpen}
+                    height="auto"
+                    className="rounded-t-3xl"
+                    styles={{ body: { padding: "20px" } }}
+                  >
+                    <div className="bg-gray-50 rounded-2xl p-5 border border-gray-100 shadow-sm mb-4">
+                      <Text type="secondary" className="text-xs block mb-4 font-semibold uppercase tracking-wider text-center">What travelers see</Text>
+                      <div className="flex items-center justify-between mb-5">
+                        <Tag color="purple" className="rounded-full border-none px-3 py-1 font-semibold text-xs m-0">
+                          {form.getFieldValue("departureAt") ? dayjs(form.getFieldValue("departureAt")).format("MMM D • h:mm A") : "Select date"}
+                        </Tag>
+                        <Text strong className="text-xl text-emerald-600">₹{seatPriceWatch || 500}</Text>
+                      </div>
+                      
+                      <div className="flex items-stretch gap-4">
+                        <div className="flex flex-col items-center justify-between py-1 w-5">
+                          <div className="w-3 h-3 rounded-full border-2 border-primary bg-white z-10"></div>
+                          <div className="w-0.5 bg-gray-200 flex-1 my-1"></div>
+                          <div className="w-3 h-3 rounded-full bg-primary z-10"></div>
+                        </div>
+                        <div className="flex-1 flex flex-col justify-between py-0.5 gap-4">
+                          <div>
+                            <Text strong className="text-base text-gray-800 line-clamp-1">
+                              {form.getFieldValue("fromLocation") || "Origin"}
+                            </Text>
+                          </div>
+                          <div>
+                            <Text strong className="text-base text-gray-800 line-clamp-1">
+                              {form.getFieldValue("toLocation") || "Destination"}
+                            </Text>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="mt-5 pt-4 border-t border-gray-200 flex items-center justify-between text-sm text-gray-500">
+                        <div className="flex items-center gap-1.5">
+                          <User size={16} />
+                          <span>{seatsWatch || 4} seats</span>
+                        </div>
+                        <div className="flex gap-1">
+                          {[...Array(Math.min(Number(seatsWatch) || 4, 10))].map((_, i) => (
+                            <div key={i} className="w-2.5 h-2.5 rounded-full bg-primary/20"></div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                    <Button 
+                      type="primary" 
+                      block 
+                      size="large" 
+                      className="h-14 rounded-xl bg-gradient-primary border-none font-bold shadow-glow"
+                      onClick={() => {
+                        setMobilePreviewOpen(false);
+                        form.submit();
+                      }}
+                      loading={creating}
+                    >
+                      Publish Now
+                    </Button>
+                  </Drawer>
                 </div>
               </div>
             )}
           </Content>
         </Layout>
       </Layout>
+
+      {/* App-like Mobile Bottom Navigation */}
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-lg border-t border-gray-200 pb-safe z-50 shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
+        <div className="flex justify-around items-center h-16">
+          <button 
+            className={`flex flex-col items-center justify-center w-full h-full space-y-1 transition-colors ${activeModule === 'dashboard' ? 'text-primary' : 'text-gray-400'}`}
+            onClick={() => setActiveModule('dashboard')}
+          >
+            <LayoutDashboard size={22} className={activeModule === 'dashboard' ? 'fill-primary/20' : ''} />
+            <span className="text-[10px] font-semibold">Home</span>
+          </button>
+          
+          <button 
+            className={`flex flex-col items-center justify-center w-full h-full space-y-1 transition-colors ${activeModule === 'trips' ? 'text-primary' : 'text-gray-400'}`}
+            onClick={() => setActiveModule('trips')}
+          >
+            <div className={`p-2 rounded-full ${activeModule === 'trips' ? 'bg-primary/10' : ''}`}>
+              <PlusCircle size={24} className={activeModule === 'trips' ? 'fill-primary/20' : ''} />
+            </div>
+            <span className="text-[10px] font-semibold -mt-1">Add Trip</span>
+          </button>
+          
+          <button 
+            className={`flex flex-col items-center justify-center w-full h-full space-y-1 transition-colors ${activeModule === 'history' ? 'text-primary' : 'text-gray-400'}`}
+            onClick={() => {}}
+          >
+            <History size={22} />
+            <span className="text-[10px] font-semibold">History</span>
+          </button>
+          
+          <button 
+            className={`flex flex-col items-center justify-center w-full h-full space-y-1 transition-colors ${activeModule === 'profile' ? 'text-primary' : 'text-gray-400'}`}
+            onClick={() => {}}
+          >
+            <User size={22} />
+            <span className="text-[10px] font-semibold">Profile</span>
+          </button>
+        </div>
+      </div>
       </div>
     </ConfigProvider>
   );
