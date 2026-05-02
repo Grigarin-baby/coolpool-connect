@@ -59,6 +59,7 @@ import {
   createTeamDriver,
   updateTeamDriver,
   deleteTeamDriver,
+  createTripStop,
   type CreateTeamDriverInput,
 } from "@/data/appwrite-repository";
 import { APP_FONT_FAMILY } from "@/lib/fonts";
@@ -86,7 +87,7 @@ interface TripFormValues {
   toLocation: string;
   departureAt: dayjs.Dayjs;
   totalSeats: number;
-  seatPrice: number;
+  totalTripPrice: number;
   vehicleId: string;
   driverId: string;
 }
@@ -103,6 +104,36 @@ interface GeocoderAddressResult {
       lng: () => number;
     };
   };
+}
+
+interface IntermediateStopState {
+  id: string;
+  value: string;
+  options: CityOption[];
+  selected: CityOption | null;
+}
+
+interface DirectionsRequest {
+  origin: { lat: number; lng: number };
+  destination: { lat: number; lng: number };
+  waypoints?: { location: { lat: number; lng: number }; stopover: boolean }[];
+  travelMode: string;
+}
+
+interface DirectionsResult {
+  routes: {
+    overview_polyline: string;
+    legs: {
+      distance: { value: number; text: string };
+    }[];
+  }[];
+}
+
+interface DirectionsServiceLike {
+  route: (
+    request: DirectionsRequest,
+    callback: (result: DirectionsResult | null, status: string) => void
+  ) => void;
 }
 
 interface PlacesAutocompleteServiceLike {
@@ -138,6 +169,7 @@ function DriverDashboardPage() {
   const [toOptions, setToOptions] = useState<CityOption[]>([]);
   const [selectedFrom, setSelectedFrom] = useState<CityOption | null>(null);
   const [selectedTo, setSelectedTo] = useState<CityOption | null>(null);
+  const [intermediateStops, setIntermediateStops] = useState<IntermediateStopState[]>([]);
   const [mapsReady, setMapsReady] = useState(false);
   const [mobilePreviewOpen, setMobilePreviewOpen] = useState(false);
   const [vehicleForm] = Form.useForm();
@@ -149,8 +181,9 @@ function DriverDashboardPage() {
   const [editingDriverId, setEditingDriverId] = useState<string | null>(null);
   const autocompleteServiceRef = useRef<PlacesAutocompleteServiceLike | null>(null);
   const geocoderRef = useRef<GeocoderLike | null>(null);
+  const directionsServiceRef = useRef<DirectionsServiceLike | null>(null);
   const seatsWatch = Form.useWatch("totalSeats", form);
-  const seatPriceWatch = Form.useWatch("seatPrice", form);
+  const totalPriceWatch = Form.useWatch("totalTripPrice", form);
 
   const initGoogleServices = () => {
     const w = window as Window & {
@@ -158,13 +191,15 @@ function DriverDashboardPage() {
         maps?: {
           places?: { AutocompleteService: new () => PlacesAutocompleteServiceLike };
           Geocoder?: new () => GeocoderLike;
+          DirectionsService?: new () => DirectionsServiceLike;
         };
       };
     };
     const maps = w.google?.maps;
-    if (!maps?.places?.AutocompleteService || !maps?.Geocoder) return false;
+    if (!maps?.places?.AutocompleteService || !maps?.Geocoder || !maps?.DirectionsService) return false;
     autocompleteServiceRef.current = new maps.places.AutocompleteService();
     geocoderRef.current = new maps.Geocoder();
+    directionsServiceRef.current = new maps.DirectionsService();
     setMapsReady(true);
     return true;
   };
@@ -246,7 +281,13 @@ function DriverDashboardPage() {
         );
 
   const { mutate: performCreateTrip, isPending: creating } = useMutation({
-    mutationFn: createTrip,
+    mutationFn: async (payload: any) => {
+      const trip = await createTrip(payload.tripData);
+      for (const stop of payload.stopsData) {
+        await createTripStop({ ...stop, tripId: trip.id });
+      }
+      return trip;
+    },
     onSuccess: (trip) => {
       if (import.meta.env.DEV) {
         console.log("[publish trip] Appwrite document saved:", {
@@ -331,45 +372,85 @@ function DriverDashboardPage() {
       selectedTo && selectedTo.value === normalizedTo
         ? selectedTo
         : { label: normalizedTo, value: normalizedTo, lat: 0, lng: 0 };
-    const seatPrice = Number(values.seatPrice);
-    const totalSeats = Number(values.totalSeats);
-    const totalPrice = seatPrice * totalSeats;
-    const totalDistanceKm = 1;
+    const validIntermediateStops = intermediateStops.filter(s => s.selected !== null).map(s => s.selected!);
+    const allStops = [resolvedFrom, ...validIntermediateStops, resolvedTo];
 
-    const payload = {
-      hostId: user.$id,
-      fromLocation: resolvedFrom.label,
-      fromLat: resolvedFrom.lat,
-      fromLng: resolvedFrom.lng,
-      toLocation: resolvedTo.label,
-      toLat: resolvedTo.lat,
-      toLng: resolvedTo.lng,
-      polyline: "",
-      totalDistanceKm,
-      totalPrice,
-      pricePerKm: calcPricePerKm(totalPrice, totalDistanceKm),
-      totalSeats,
-      departureAt: values.departureAt.toISOString(),
-      notes: `Created from ride host trip module. Price per seat: ₹${seatPrice}.`,
-      vehicleId: values.vehicleId,
-      assignedDriverId: values.driverId,
-    };
-
-    if (import.meta.env.DEV) {
-      console.log("[publish trip] createTrip payload (strings stored in DB):", {
-        from_location: payload.fromLocation,
-        to_location: payload.toLocation,
-        fromLat: payload.fromLat,
-        fromLng: payload.fromLng,
-        toLat: payload.toLat,
-        toLng: payload.toLng,
-      });
+    const dirService = directionsServiceRef.current;
+    if (!dirService) {
+      message.error("Maps service not ready");
+      return;
     }
 
-    performCreateTrip(payload);
+    const request: DirectionsRequest = {
+      origin: { lat: resolvedFrom.lat, lng: resolvedFrom.lng },
+      destination: { lat: resolvedTo.lat, lng: resolvedTo.lng },
+      waypoints: validIntermediateStops.map(stop => ({ location: { lat: stop.lat, lng: stop.lng }, stopover: true })),
+      travelMode: "DRIVING",
+    };
+
+    dirService.route(request, (result, status) => {
+      if (status !== "OK" || !result) {
+        message.error("Failed to calculate route. Please check your stops.");
+        return;
+      }
+      
+      const route = result.routes[0];
+      const polyline = route.overview_polyline;
+      
+      let currentDist = 0;
+      const stopsData = allStops.map((stop, i) => {
+        if (i > 0) {
+          currentDist += (route.legs[i - 1].distance.value / 1000); // converting meters to km
+        }
+        return {
+          stopIndex: i,
+          location: stop.label,
+          lat: stop.lat,
+          lng: stop.lng,
+          stopType: i === 0 ? "pickup" as const : (i === allStops.length - 1 ? "drop" as const : "both" as const),
+          distanceFromOriginKm: Math.round(currentDist * 10) / 10
+        };
+      });
+
+      const totalDistanceKm = Math.max(0.1, Math.round(currentDist * 10) / 10);
+      const totalPrice = Number(values.totalTripPrice);
+      const totalSeats = Number(values.totalSeats);
+
+      const payload = {
+        tripData: {
+          hostId: user.$id,
+          fromLocation: resolvedFrom.label,
+          fromLat: resolvedFrom.lat,
+          fromLng: resolvedFrom.lng,
+          toLocation: resolvedTo.label,
+          toLat: resolvedTo.lat,
+          toLng: resolvedTo.lng,
+          polyline,
+          totalDistanceKm,
+          totalPrice,
+          pricePerKm: calcPricePerKm(totalPrice, totalDistanceKm),
+          totalSeats,
+          departureAt: values.departureAt.toISOString(),
+          notes: `Created from ride host trip module. Total price: ₹${totalPrice}.`,
+          vehicleId: values.vehicleId,
+          assignedDriverId: values.driverId,
+        },
+        stopsData
+      };
+
+      if (import.meta.env.DEV) {
+        console.log("[publish trip] createTrip payload (strings stored in DB):", {
+          totalDistanceKm: payload.tripData.totalDistanceKm,
+          totalPrice: payload.tripData.totalPrice,
+          stopsData: payload.stopsData,
+        });
+      }
+
+      performCreateTrip(payload);
+    });
   };
 
-  const searchCities = async (query: string, target: "from" | "to") => {
+  const searchCities = async (query: string, target: "from" | "to" | "stop", stopId?: string) => {
     if (target === "from") {
       console.log("[fromLocation] searchCities called", {
         query,
@@ -380,7 +461,8 @@ function DriverDashboardPage() {
     }
     if (!query || query.trim().length < 2) {
       if (target === "from") setFromOptions([]);
-      else setToOptions([]);
+      else if (target === "to") setToOptions([]);
+      else if (target === "stop" && stopId) setIntermediateStops(stops => stops.map(s => s.id === stopId ? { ...s, options: [] } : s));
       return;
     }
     const service = autocompleteServiceRef.current;
@@ -396,7 +478,8 @@ function DriverDashboardPage() {
       }
       if (status !== "OK" || !predictions) {
         if (target === "from") setFromOptions([]);
-        else setToOptions([]);
+        else if (target === "to") setToOptions([]);
+        else if (target === "stop" && stopId) setIntermediateStops(stops => stops.map(s => s.id === stopId ? { ...s, options: [] } : s));
         return;
       }
 
@@ -409,19 +492,25 @@ function DriverDashboardPage() {
       }));
 
       if (target === "from") setFromOptions(options);
-      else setToOptions(options);
+      else if (target === "to") setToOptions(options);
+      else if (target === "stop" && stopId) setIntermediateStops(stops => stops.map(s => s.id === stopId ? { ...s, options } : s));
     });
   };
 
-  const onSelectCity = (value: string, target: "from" | "to") => {
-    const sourceOptions = target === "from" ? fromOptions : toOptions;
+  const onSelectCity = (value: string, target: "from" | "to" | "stop", stopId?: string) => {
+    let sourceOptions: CityOption[] = [];
+    if (target === "from") sourceOptions = fromOptions;
+    else if (target === "to") sourceOptions = toOptions;
+    else if (target === "stop" && stopId) sourceOptions = intermediateStops.find(s => s.id === stopId)?.options || [];
+
     const selected = sourceOptions.find((option) => option.value === value);
     if (!selected) return;
 
     const geocoder = geocoderRef.current;
     if (!geocoder || !selected.placeId) {
       if (target === "from") setSelectedFrom(selected);
-      else setSelectedTo(selected);
+      else if (target === "to") setSelectedTo(selected);
+      else if (target === "stop" && stopId) setIntermediateStops(stops => stops.map(s => s.id === stopId ? { ...s, selected, value: selected.label } : s));
       return;
     }
 
@@ -436,7 +525,8 @@ function DriverDashboardPage() {
         lng: results[0].geometry.location.lng(),
       };
       if (target === "from") setSelectedFrom(withCoords);
-      else setSelectedTo(withCoords);
+      else if (target === "to") setSelectedTo(withCoords);
+      else if (target === "stop" && stopId) setIntermediateStops(stops => stops.map(s => s.id === stopId ? { ...s, selected: withCoords, value: withCoords.label } : s));
     });
   };
 
@@ -878,7 +968,7 @@ function DriverDashboardPage() {
                       form={form}
                       layout="vertical"
                       onFinish={onFinish}
-                      initialValues={{ totalSeats: 4, seatPrice: 500, driverId: user?.$id }}
+                      initialValues={{ totalSeats: 4, totalTripPrice: 2000, driverId: user?.$id }}
                       requiredMark={false}
                     >
                       <div className="space-y-8">
@@ -912,6 +1002,50 @@ function DriverDashboardPage() {
                             
                             <div className="relative h-6 flex items-center justify-center">
                               <div className="absolute left-6 top-0 bottom-0 w-0.5 bg-gradient-to-b from-gray-300 to-gray-300"></div>
+                            </div>
+
+                            {intermediateStops.map((stop, index) => (
+                              <div key={stop.id}>
+                                <div className="flex items-end gap-2 mb-0">
+                                  <div className="flex-1 relative">
+                                    <span className="font-semibold text-gray-700 block mb-2">Stop {index + 1}</span>
+                                    <AutoComplete
+                                      options={stop.options}
+                                      value={stop.value}
+                                      disabled={!mapsReady}
+                                      onSearch={(text) => {
+                                        setIntermediateStops(stops => stops.map(s => s.id === stop.id ? { ...s, value: text, selected: null } : s));
+                                        void searchCities(text, "stop", stop.id);
+                                      }}
+                                      onSelect={(value) => onSelectCity(value, "stop", stop.id)}
+                                      onChange={(val) => setIntermediateStops(stops => stops.map(s => s.id === stop.id ? { ...s, value: val } : s))}
+                                      className="w-full"
+                                    >
+                                      <Input
+                                        placeholder={`Enter intermediate stop`}
+                                        size="large"
+                                        className="h-14 rounded-xl text-lg"
+                                      />
+                                    </AutoComplete>
+                                  </div>
+                                  <Button 
+                                    danger 
+                                    type="text" 
+                                    icon={<Trash2 size={18} />} 
+                                    className="mb-2 h-10 w-10 flex items-center justify-center rounded-xl hover:bg-red-50"
+                                    onClick={() => setIntermediateStops(stops => stops.filter(s => s.id !== stop.id))} 
+                                  />
+                                </div>
+                                <div className="relative h-6 flex items-center justify-center">
+                                  <div className="absolute left-6 top-0 bottom-0 w-0.5 bg-gradient-to-b from-gray-300 to-gray-300"></div>
+                                </div>
+                              </div>
+                            ))}
+
+                            <div className="pl-0 sm:pl-4">
+                               <Button type="dashed" className="rounded-xl mt-0 mb-2 h-10 border-primary/30 text-primary hover:border-primary/60 hover:text-primary-dark font-medium" onClick={() => setIntermediateStops([...intermediateStops, { id: Math.random().toString(), options: [], selected: null, value: "" }])}>
+                                 <Plus size={14} className="mr-1" /> Add Stop
+                               </Button>
                             </div>
 
                             <Form.Item
@@ -1020,10 +1154,10 @@ function DriverDashboardPage() {
                           </Title>
                           <div className="bg-purple-50/50 p-5 rounded-2xl border border-purple-100">
                             <Form.Item
-                              label={<span className="font-semibold text-gray-700">Price per seat</span>}
-                              name="seatPrice"
-                              rules={[{ required: true, message: "Please enter seat price" }]}
-                              extra="You set the per-seat amount. The total trip value is calculated for you."
+                              label={<span className="font-semibold text-gray-700">Total Trip Price</span>}
+                              name="totalTripPrice"
+                              rules={[{ required: true, message: "Please enter total trip price" }]}
+                              extra="Set the price for the entire route. Segment pricing is automatically calculated."
                               className="mb-0"
                             >
                               <InputNumber
@@ -1063,7 +1197,7 @@ function DriverDashboardPage() {
                         <div>
                           <Text type="secondary" className="block text-[10px] uppercase tracking-wider font-bold mb-0.5">Total Earnings</Text>
                           <Title level={3} className="m-0 text-emerald-600 font-bold leading-none">
-                            ₹{(Number(seatPriceWatch || 0) * Number(seatsWatch || 0)).toLocaleString()}
+                            ₹{(Number(totalPriceWatch || 0)).toLocaleString()}
                           </Title>
                         </div>
                         <Button 
@@ -1087,7 +1221,7 @@ function DriverDashboardPage() {
                         <div className="text-center pb-5 border-b border-gray-100 mb-5">
                           <Text type="secondary" className="block text-xs uppercase tracking-wider font-semibold mb-1">Total Estimated Earnings</Text>
                           <Title level={2} className="m-0 text-emerald-600 font-bold">
-                            ₹{(Number(seatPriceWatch || 0) * Number(seatsWatch || 0)).toLocaleString()}
+                            ₹{(Number(totalPriceWatch || 0)).toLocaleString()}
                           </Title>
                         </div>
                         
