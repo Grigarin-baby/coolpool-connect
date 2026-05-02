@@ -363,31 +363,44 @@ function DriverDashboardPage() {
       theme={{
         token: {
           colorPrimary: "#6b46c1",
-          borderRadius: 12,
+          borderRadius: 16,
           fontFamily: APP_FONT_FAMILY,
+          colorBgContainer: "rgba(255, 255, 255, 0.7)",
+          colorBgElevated: "rgba(255, 255, 255, 0.9)",
         },
         components: {
           Layout: {
-            headerBg: "rgba(255, 255, 255, 0.7)",
-            siderBg: "transparent",
+            headerBg: "rgba(255, 255, 255, 0.6)",
+            siderBg: "rgba(255, 255, 255, 0.7)",
             bodyBg: "transparent",
           },
           Menu: {
             itemBg: "transparent",
-            itemSelectedBg: "rgba(107, 70, 193, 0.1)",
+            itemSelectedBg: "rgba(107, 70, 193, 0.15)",
             itemSelectedColor: "#6b46c1",
+            itemBorderRadius: 12,
+          },
+          Card: {
+            colorBgContainer: "rgba(255, 255, 255, 0.8)",
           },
         },
       }}
     >
-      <Layout className="min-h-screen bg-gradient-hero">
-        <Sider
-          breakpoint="lg"
-          collapsedWidth="0"
-          width={280}
-          className="border-r border-border/60 backdrop-blur-xl hidden lg:block"
-          style={{ position: "sticky", top: 0, height: "100vh", left: 0, zIndex: 100 }}
-        >
+      <div className="min-h-screen bg-gradient-hero bg-fixed">
+        <Layout className="bg-transparent max-w-[1600px] mx-auto relative flex">
+          <Sider
+            breakpoint="lg"
+            collapsedWidth="0"
+            width={280}
+            className="hidden lg:block m-4 rounded-2xl border border-white/40 shadow-soft overflow-hidden"
+            style={{ 
+              position: "sticky", 
+              top: 16, 
+              height: "calc(100vh - 32px)", 
+              backdropFilter: "blur(16px)",
+              WebkitBackdropFilter: "blur(16px)"
+            }}
+          >
           <div className="p-6 flex items-center gap-3">
             <div className="h-10 w-10 rounded-none bg-gradient-primary text-primary-foreground flex items-center justify-center shadow-glow">
               <Sparkles className="h-6 w-6" />
@@ -431,42 +444,46 @@ function DriverDashboardPage() {
             ]}
           />
 
-          <div className="absolute bottom-0 left-0 right-0 p-4">
-            <Card className="rounded-none bg-secondary/40 border-none backdrop-blur-md">
-              <div className="flex items-center gap-3">
-                <Badge count={trips.length} overflowCount={99} offset={[0, 0]} color="#6b46c1">
-                  <Avatar icon={<RouteIcon size={16} />} className="bg-primary/20 text-primary" />
-                </Badge>
+          <div className="absolute bottom-4 left-4 right-4">
+            <Card className="rounded-xl bg-gradient-primary border-none shadow-glow text-white overflow-hidden relative">
+              <Sparkles className="absolute -right-4 -bottom-4 opacity-20 rotate-12 w-16 h-16" />
+              <div className="flex items-center gap-3 relative z-10">
+                <div className="h-10 w-10 rounded-full bg-white/20 flex items-center justify-center backdrop-blur-sm">
+                  <RouteIcon size={18} className="text-white" />
+                </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">Active Trips</p>
-                  <p className="text-lg font-bold">{tripsLoading ? "..." : trips.length}</p>
+                  <p className="text-xs text-white/80 uppercase tracking-wider font-semibold">Active Trips</p>
+                  <p className="text-2xl font-bold leading-none mt-1">{tripsLoading ? "..." : trips.length}</p>
                 </div>
               </div>
             </Card>
           </div>
         </Sider>
 
-        <Layout>
-          <Header className="px-6 flex items-center justify-between border-b border-border/60 backdrop-blur-md sticky top-0 z-10 h-16 bg-background/60">
+        <Layout className="bg-transparent flex-1">
+          <Header className="px-6 flex items-center justify-between border-b border-white/20 sticky top-0 z-50 h-20" style={{ backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)" }}>
             <div>
-              <Title level={4} style={{ margin: 0 }} className="hidden sm:block">
+              <Title level={4} style={{ margin: 0 }} className="hidden sm:block font-bold">
                 {activeModule === "dashboard" ? "Dashboard Overview" : "Publish Trip"}
               </Title>
               <div className="sm:hidden flex items-center gap-2">
-                <div className="h-8 w-8 rounded-none bg-gradient-primary text-primary-foreground flex items-center justify-center">
+                <div className="h-8 w-8 rounded-lg bg-gradient-primary text-white flex items-center justify-center shadow-glow">
                   <Sparkles className="h-4 w-4" />
                 </div>
-                <Text strong>Coolpool</Text>
+                <Text strong className="text-lg">Coolpool</Text>
               </div>
             </div>
-            <div className="flex items-center gap-4">
-              <div className="text-right hidden md:flex flex-col justify-center">
-                <Text strong className="text-sm leading-tight block">
+            <div className="flex items-center gap-5">
+              <div className="text-right hidden md:flex flex-col justify-center bg-white/40 px-4 py-1.5 rounded-full border border-white/60 shadow-sm backdrop-blur-sm">
+                <Text strong className="text-sm leading-tight block text-gray-800">
                   {user?.name || "Driver"}
                 </Text>
-                <Text className="text-[10px] text-primary font-bold uppercase tracking-wider leading-tight">
-                  Verified Driver
-                </Text>
+                <div className="flex items-center gap-1 mt-0.5">
+                  <div className="h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse"></div>
+                  <Text className="text-[10px] text-green-700 font-bold uppercase tracking-wider leading-tight">
+                    Verified Driver
+                  </Text>
+                </div>
               </div>
 
               <Dropdown
@@ -522,39 +539,55 @@ function DriverDashboardPage() {
                 </div>
 
                 <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                  <Card className="rounded-none border-none shadow-soft hover:shadow-card transition-base bg-white/80 backdrop-blur-sm group">
-                    <Text type="secondary" className="group-hover:text-primary transition-colors">
-                      Total Rides
-                    </Text>
-                    <Title level={2} style={{ margin: "8px 0" }}>
+                  <Card className="rounded-2xl border border-white/60 shadow-soft hover:shadow-card transition-all duration-300 backdrop-blur-md group overflow-hidden relative">
+                    <div className="absolute -right-6 -top-6 w-24 h-24 bg-purple-500/10 rounded-full blur-xl group-hover:bg-purple-500/20 transition-all"></div>
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="p-2 bg-purple-100 rounded-lg text-purple-600">
+                        <RouteIcon size={20} />
+                      </div>
+                      <Text type="secondary" className="font-medium text-gray-500">Total Rides</Text>
+                    </div>
+                    <Title level={2} style={{ margin: "12px 0 8px 0" }} className="text-gray-800">
                       {tripsLoading ? <Spin size="small" /> : trips.length}
                     </Title>
-                    <Tag color="purple" className="rounded-none px-3 border-none">
-                      +12% growth
-                    </Tag>
+                    <div className="flex items-center gap-2">
+                      <Tag color="purple" className="rounded-full px-3 border-none font-medium">
+                        +12% this month
+                      </Tag>
+                    </div>
                   </Card>
-                  <Card className="rounded-none border-none shadow-soft hover:shadow-card transition-base bg-white/80 backdrop-blur-sm group">
-                    <Text type="secondary" className="group-hover:text-primary transition-colors">
-                      Earnings
-                    </Text>
-                    <Title level={2} style={{ margin: "8px 0" }}>
+
+                  <Card className="rounded-2xl border border-white/60 shadow-soft hover:shadow-card transition-all duration-300 backdrop-blur-md group overflow-hidden relative">
+                    <div className="absolute -right-6 -bottom-6 w-24 h-24 bg-emerald-500/10 rounded-full blur-xl group-hover:bg-emerald-500/20 transition-all"></div>
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="p-2 bg-emerald-100 rounded-lg text-emerald-600">
+                        <span className="font-bold text-lg">₹</span>
+                      </div>
+                      <Text type="secondary" className="font-medium text-gray-500">Total Earnings</Text>
+                    </div>
+                    <Title level={2} style={{ margin: "12px 0 8px 0" }} className="text-gray-800">
                       ₹0
                     </Title>
-                    <Text type="secondary">Settlement pending</Text>
+                    <Text type="secondary" className="text-sm">Settlement pending</Text>
                   </Card>
-                  <Card className="rounded-none border-none shadow-soft hover:shadow-card transition-base bg-white/80 backdrop-blur-sm group">
-                    <Text type="secondary" className="group-hover:text-primary transition-colors">
-                      Performance
-                    </Text>
-                    <Title level={2} style={{ margin: "8px 0" }}>
-                      5.0
-                    </Title>
-                    <div className="flex gap-1 text-yellow-500">
-                      <Sparkles size={14} className="fill-yellow-500" />
-                      <Sparkles size={14} className="fill-yellow-500" />
-                      <Sparkles size={14} className="fill-yellow-500" />
-                      <Sparkles size={14} className="fill-yellow-500" />
-                      <Sparkles size={14} className="fill-yellow-500" />
+
+                  <Card className="rounded-2xl border border-white/60 shadow-soft hover:shadow-card transition-all duration-300 backdrop-blur-md group overflow-hidden relative">
+                    <div className="absolute -left-6 -top-6 w-24 h-24 bg-yellow-500/10 rounded-full blur-xl group-hover:bg-yellow-500/20 transition-all"></div>
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-yellow-100 rounded-lg text-yellow-600">
+                          <Sparkles size={20} />
+                        </div>
+                        <Text type="secondary" className="font-medium text-gray-500">Performance</Text>
+                      </div>
+                      <Title level={2} style={{ margin: 0 }} className="text-gray-800">
+                        5.0
+                      </Title>
+                    </div>
+                    <div className="mt-4 flex gap-1.5 text-yellow-500 bg-yellow-50/50 p-2 rounded-xl inline-flex border border-yellow-100">
+                      {[...Array(5)].map((_, i) => (
+                        <Sparkles key={i} size={16} className="fill-yellow-500" />
+                      ))}
                     </div>
                   </Card>
                 </div>
@@ -562,59 +595,89 @@ function DriverDashboardPage() {
                 <div className="grid gap-8 lg:grid-cols-3">
                   <div className="lg:col-span-2 space-y-6">
                     <div className="flex items-center justify-between">
-                      <Title level={4} style={{ margin: 0 }}>
-                        Recent Trips
+                      <Title level={4} style={{ margin: 0 }} className="font-bold">
+                        Upcoming & Recent Trips
                       </Title>
-                      <Button type="link">View all</Button>
+                      <Button type="link" className="font-medium">View all history</Button>
                     </div>
-                    <Card className="rounded-none border-none shadow-soft bg-white/80 backdrop-blur-sm p-0 overflow-hidden">
-                      <List
-                        className="px-4"
-                        itemLayout="horizontal"
-                        dataSource={trips.slice(0, 5)}
-                        loading={tripsLoading}
-                        locale={{ emptyText: "No trips published yet." }}
-                        renderItem={(item) => (
-                          <List.Item
-                            actions={[
-                              <Dropdown
-                                menu={{
-                                  items: [
-                                    { key: "edit", label: "Edit" },
-                                    { key: "cancel", label: "Cancel", danger: true },
-                                  ],
-                                }}
-                                trigger={["click"]}
-                              >
-                                <Button type="text" icon={<MoreVertical size={16} />} />
-                              </Dropdown>,
-                            ]}
-                          >
-                            <List.Item.Meta
-                              avatar={
-                                <div className="h-12 w-12 rounded-none bg-secondary flex items-center justify-center">
-                                  <RouteIcon size={20} className="text-primary" />
+                    
+                    {tripsLoading ? (
+                      <div className="py-12 text-center bg-white/40 rounded-2xl border border-white/60 backdrop-blur-md">
+                        <Spin size="large" />
+                      </div>
+                    ) : trips.length === 0 ? (
+                      <div className="py-16 text-center bg-white/40 rounded-2xl border border-white/60 backdrop-blur-md shadow-soft flex flex-col items-center justify-center">
+                        <div className="w-20 h-20 bg-purple-100 rounded-full flex items-center justify-center mb-4">
+                          <RouteIcon size={32} className="text-purple-500" />
+                        </div>
+                        <Title level={4}>No trips published yet</Title>
+                        <Text type="secondary" className="max-w-md mt-2">
+                          Your published trips will appear here. Start sharing your empty seats to earn money on your journeys.
+                        </Text>
+                        <Button 
+                          type="primary" 
+                          size="large" 
+                          className="mt-6 bg-gradient-primary border-none rounded-xl"
+                          onClick={() => setActiveModule("trips")}
+                        >
+                          Publish your first trip
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        {trips.slice(0, 5).map(item => (
+                          <div key={item.$id} className="bg-white/80 rounded-2xl border border-white shadow-soft p-5 hover:shadow-card transition-all duration-300 group">
+                            <div className="flex items-center justify-between mb-4">
+                              <Tag color="purple" className="rounded-full border-none px-3 py-1 font-semibold text-xs m-0">
+                                {dayjs(item.departureAt).format("MMM D, YYYY • h:mm A")}
+                              </Tag>
+                              <div className="flex items-center gap-2">
+                                <Text strong className="text-lg text-emerald-600">₹{item.totalPrice}</Text>
+                                <Dropdown
+                                  menu={{
+                                    items: [
+                                      { key: "edit", label: "Edit trip details" },
+                                      { key: "cancel", label: "Cancel trip", danger: true },
+                                    ],
+                                  }}
+                                  trigger={["click"]}
+                                >
+                                  <Button type="text" icon={<MoreVertical size={18} />} className="text-gray-400 hover:text-gray-700" />
+                                </Dropdown>
+                              </div>
+                            </div>
+                            
+                            <div className="flex items-stretch gap-4">
+                              <div className="flex flex-col items-center justify-between py-1 w-6">
+                                <div className="w-3 h-3 rounded-full border-2 border-primary bg-white z-10"></div>
+                                <div className="w-0.5 bg-gray-200 flex-1 my-1"></div>
+                                <div className="w-3 h-3 rounded-full bg-primary z-10"></div>
+                              </div>
+                              <div className="flex-1 flex flex-col justify-between py-0.5 gap-4">
+                                <div>
+                                  <Text className="text-xs text-gray-500 uppercase tracking-wider font-semibold block mb-0.5">Origin</Text>
+                                  <Text strong className="text-base text-gray-800 line-clamp-1">{item.fromLocation}</Text>
                                 </div>
-                              }
-                              title={
-                                <Text strong>
-                                  {item.fromLocation} → {item.toLocation}
-                                </Text>
-                              }
-                              description={
-                                <Space split={<Text type="secondary">·</Text>}>
-                                  <Text type="secondary">{dayjs(item.departureAt).fromNow()}</Text>
-                                  <Text type="secondary">{item.totalSeats} seats</Text>
-                                  <Text strong className="text-primary">
-                                    ₹{item.totalPrice}
-                                  </Text>
-                                </Space>
-                              }
-                            />
-                          </List.Item>
-                        )}
-                      />
-                    </Card>
+                                <div>
+                                  <Text className="text-xs text-gray-500 uppercase tracking-wider font-semibold block mb-0.5">Destination</Text>
+                                  <Text strong className="text-base text-gray-800 line-clamp-1">{item.toLocation}</Text>
+                                </div>
+                              </div>
+                            </div>
+                            
+                            <div className="mt-5 pt-4 border-t border-gray-100 flex items-center justify-between">
+                              <div className="flex items-center gap-2 text-sm text-gray-600">
+                                <User size={16} />
+                                <span>{item.totalSeats} seats total</span>
+                              </div>
+                              <Button type="link" className="p-0 text-primary font-medium group-hover:underline">
+                                Manage Passengers
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
 
                   <div className="space-y-6">
@@ -624,52 +687,52 @@ function DriverDashboardPage() {
                     <div className="grid grid-cols-2 gap-4">
                       <Card
                         hoverable
-                        className="rounded-none border-none shadow-soft text-center p-2 group bg-white/60"
+                        className="rounded-2xl border border-white/60 shadow-soft text-center p-3 group bg-white/60 hover:bg-white transition-all"
                         onClick={() => setActiveModule("trips")}
                       >
-                        <div className="h-10 w-10 mx-auto rounded-none bg-purple-100 text-purple-600 flex items-center justify-center mb-2 group-hover:bg-purple-600 group-hover:text-white transition-all">
-                          <PlusCircle size={20} />
+                        <div className="h-12 w-12 mx-auto rounded-xl bg-purple-100 text-purple-600 flex items-center justify-center mb-3 group-hover:bg-purple-600 group-hover:text-white transition-all group-hover:scale-110 duration-300">
+                          <PlusCircle size={22} />
                         </div>
-                        <Text strong className="text-xs">
+                        <Text strong className="text-sm">
                           New Trip
                         </Text>
                       </Card>
                       <Card
                         hoverable
-                        className="rounded-none border-none shadow-soft text-center p-2 group bg-white/60 opacity-60"
+                        className="rounded-2xl border border-white/60 shadow-soft text-center p-3 group bg-white/60 opacity-70"
                       >
-                        <div className="h-10 w-10 mx-auto rounded-none bg-blue-100 text-blue-600 flex items-center justify-center mb-2">
-                          <History size={20} />
+                        <div className="h-12 w-12 mx-auto rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center mb-3">
+                          <History size={22} />
                         </div>
-                        <Text strong className="text-xs">
+                        <Text strong className="text-sm">
                           History
                         </Text>
                       </Card>
                       <Card
                         hoverable
-                        className="rounded-none border-none shadow-soft text-center p-2 group bg-white/60 opacity-60"
+                        className="rounded-2xl border border-white/60 shadow-soft text-center p-3 group bg-white/60 opacity-70"
                       >
-                        <div className="h-10 w-10 mx-auto rounded-none bg-orange-100 text-orange-600 flex items-center justify-center mb-2">
-                          <User size={20} />
+                        <div className="h-12 w-12 mx-auto rounded-xl bg-orange-100 text-orange-600 flex items-center justify-center mb-3">
+                          <User size={22} />
                         </div>
-                        <Text strong className="text-xs">
+                        <Text strong className="text-sm">
                           Profile
                         </Text>
                       </Card>
                       <Card
                         hoverable
-                        className="rounded-none border-none shadow-soft text-center p-2 group bg-white/60 opacity-60"
+                        className="rounded-2xl border border-white/60 shadow-soft text-center p-3 group bg-white/60 opacity-70"
                       >
-                        <div className="h-10 w-10 mx-auto rounded-none bg-gray-100 text-gray-600 flex items-center justify-center mb-2">
-                          <Settings size={20} />
+                        <div className="h-12 w-12 mx-auto rounded-xl bg-gray-100 text-gray-600 flex items-center justify-center mb-3">
+                          <Settings size={22} />
                         </div>
-                        <Text strong className="text-xs">
+                        <Text strong className="text-sm">
                           Settings
                         </Text>
                       </Card>
                     </div>
 
-                    <Card className="rounded-none border-none bg-gradient-primary text-white p-6 shadow-glow relative overflow-hidden mt-8">
+                    <Card className="rounded-2xl border-none bg-gradient-primary text-white p-6 shadow-glow relative overflow-hidden mt-8 hover:scale-[1.02] transition-transform duration-300 cursor-pointer">
                       <Sparkles
                         size={80}
                         className="absolute -right-6 -bottom-6 opacity-20 rotate-12"
@@ -703,149 +766,216 @@ function DriverDashboardPage() {
                   </Text>
                 </div>
 
-                <Card className="rounded-none border-none shadow-soft bg-white/80 backdrop-blur-sm p-6 md:p-8">
-                  <Form
-                    form={form}
-                    layout="vertical"
-                    onFinish={onFinish}
-                    initialValues={{ totalSeats: 4, seatPrice: 500 }}
-                    requiredMark={false}
-                  >
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-2">
-                      <div className="space-y-6">
-                        <Title level={5} className="mb-4">
-                          Route Information
-                        </Title>
-                        <Form.Item
-                          label="From Location"
-                          name="fromLocation"
-                          rules={[{ required: true, message: "Please enter origin" }]}
-                        >
-                          <AutoComplete
-                            options={fromOptions}
-                            disabled={!mapsReady}
-                            onSearch={(text) => {
-                              console.log("[fromLocation] onSearch fired", {
-                                text,
-                                mapsReady,
-                                disabled: !mapsReady,
-                              });
-                              setSelectedFrom(null);
-                              void searchCities(text, "from");
-                            }}
-                            onSelect={(value) => onSelectCity(value, "from")}
-                          >
-                            <Input
-                              placeholder="Search city and select"
-                              size="large"
-                              className="h-12"
-                            />
-                          </AutoComplete>
-                        </Form.Item>
-                        <Form.Item
-                          label="To Location"
-                          name="toLocation"
-                          rules={[{ required: true, message: "Please enter destination" }]}
-                        >
-                          <AutoComplete
-                            options={toOptions}
-                            disabled={!mapsReady}
-                            onSearch={(text) => {
-                              setSelectedTo(null);
-                              void searchCities(text, "to");
-                            }}
-                            onSelect={(value) => onSelectCity(value, "to")}
-                          >
-                            <Input
-                              placeholder="Search city and select"
-                              size="large"
-                              className="h-12"
-                            />
-                          </AutoComplete>
-                        </Form.Item>
-                      </div>
+                <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
+                  <Card className="rounded-2xl border border-white/60 shadow-card bg-white/80 backdrop-blur-md p-6 md:p-8 xl:col-span-2 relative overflow-hidden">
+                    <div className="absolute top-0 left-0 w-full h-2 bg-gradient-primary"></div>
+                    <Form
+                      form={form}
+                      layout="vertical"
+                      onFinish={onFinish}
+                      initialValues={{ totalSeats: 4, seatPrice: 500 }}
+                      requiredMark={false}
+                    >
+                      <div className="space-y-8">
+                        <div>
+                          <Title level={5} className="mb-4 flex items-center gap-2">
+                            <RouteIcon size={18} className="text-primary" /> Route Information
+                          </Title>
+                          <div className="bg-gray-50/50 p-5 rounded-2xl border border-gray-100 space-y-4">
+                            <Form.Item
+                              label={<span className="font-semibold text-gray-700">From Location</span>}
+                              name="fromLocation"
+                              rules={[{ required: true, message: "Please enter origin" }]}
+                              className="mb-0"
+                            >
+                              <AutoComplete
+                                options={fromOptions}
+                                disabled={!mapsReady}
+                                onSearch={(text) => {
+                                  setSelectedFrom(null);
+                                  void searchCities(text, "from");
+                                }}
+                                onSelect={(value) => onSelectCity(value, "from")}
+                              >
+                                <Input
+                                  placeholder="Search city and select"
+                                  size="large"
+                                  className="h-14 rounded-xl text-lg"
+                                />
+                              </AutoComplete>
+                            </Form.Item>
+                            
+                            <div className="relative h-6 flex items-center justify-center">
+                              <div className="absolute left-6 top-0 bottom-0 w-0.5 bg-gradient-to-b from-gray-300 to-gray-300"></div>
+                            </div>
 
-                      <div className="space-y-6">
-                        <Title level={5} className="mb-4">
-                          Schedule & Capacity
-                        </Title>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                          <Form.Item
-                            label="Departure Time"
-                            name="departureAt"
-                            rules={[{ required: true, message: "Please select time" }]}
-                          >
-                            <DatePicker
-                              showTime
-                              size="large"
-                              className="w-full h-12"
-                              format="YYYY-MM-DD HH:mm"
-                              disabledDate={(current) =>
-                                current && current < dayjs().startOf("day")
-                              }
-                            />
-                          </Form.Item>
-                          <Form.Item
-                            label="Total Seats"
-                            name="totalSeats"
-                            rules={[{ required: true, message: "Required" }]}
-                          >
-                            <InputNumber min={1} max={10} size="large" className="w-full h-12" />
-                          </Form.Item>
+                            <Form.Item
+                              label={<span className="font-semibold text-gray-700">To Location</span>}
+                              name="toLocation"
+                              rules={[{ required: true, message: "Please enter destination" }]}
+                              className="mb-0"
+                            >
+                              <AutoComplete
+                                options={toOptions}
+                                disabled={!mapsReady}
+                                onSearch={(text) => {
+                                  setSelectedTo(null);
+                                  void searchCities(text, "to");
+                                }}
+                                onSelect={(value) => onSelectCity(value, "to")}
+                              >
+                                <Input
+                                  placeholder="Search city and select"
+                                  size="large"
+                                  className="h-14 rounded-xl text-lg"
+                                />
+                              </AutoComplete>
+                            </Form.Item>
+                          </div>
                         </div>
 
-                        <Form.Item
-                          label="Price per seat"
-                          name="seatPrice"
-                          rules={[{ required: true, message: "Please enter seat price" }]}
-                          extra="Driver enters per-seat amount. Total trip value is calculated automatically."
-                        >
-                          <InputNumber
-                            min={1}
-                            size="large"
-                            className="w-full h-12"
-                            prefix="₹"
-                            formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")}
-                          />
-                        </Form.Item>
-                        <Card className="rounded-none border border-border/60 bg-secondary/40">
-                          <Text type="secondary">Estimated total value</Text>
-                          <Title level={4} style={{ margin: "6px 0 0 0" }}>
-                            ₹
-                            {(
-                              Number(seatPriceWatch || 0) * Number(seatsWatch || 0)
-                            ).toLocaleString()}
+                        <div>
+                          <Title level={5} className="mb-4 flex items-center gap-2">
+                            <Sparkles size={18} className="text-primary" /> Schedule & Capacity
                           </Title>
-                        </Card>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                            <Form.Item
+                              label={<span className="font-semibold text-gray-700">Departure Time</span>}
+                              name="departureAt"
+                              rules={[{ required: true, message: "Please select time" }]}
+                              className="mb-0"
+                            >
+                              <DatePicker
+                                showTime
+                                size="large"
+                                className="w-full h-14 rounded-xl text-lg"
+                                format="YYYY-MM-DD h:mm A"
+                                disabledDate={(current) =>
+                                  current && current < dayjs().startOf("day")
+                                }
+                              />
+                            </Form.Item>
+                            <Form.Item
+                              label={<span className="font-semibold text-gray-700">Total Seats</span>}
+                              name="totalSeats"
+                              rules={[{ required: true, message: "Required" }]}
+                              className="mb-0"
+                            >
+                              <InputNumber min={1} max={10} size="large" className="w-full h-14 rounded-xl text-lg flex items-center" />
+                            </Form.Item>
+                          </div>
+                        </div>
+                        
+                        <div>
+                          <Title level={5} className="mb-4 flex items-center gap-2">
+                            <span className="font-bold text-lg text-primary">₹</span> Pricing
+                          </Title>
+                          <div className="bg-purple-50/50 p-5 rounded-2xl border border-purple-100">
+                            <Form.Item
+                              label={<span className="font-semibold text-gray-700">Price per seat</span>}
+                              name="seatPrice"
+                              rules={[{ required: true, message: "Please enter seat price" }]}
+                              extra="You set the per-seat amount. The total trip value is calculated for you."
+                              className="mb-0"
+                            >
+                              <InputNumber
+                                min={1}
+                                size="large"
+                                className="w-full h-14 rounded-xl text-lg flex items-center font-bold text-primary"
+                                prefix="₹"
+                                formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")}
+                              />
+                            </Form.Item>
+                          </div>
+                        </div>
                       </div>
-                    </div>
 
-                    <div className="mt-12 flex items-center gap-4">
-                      <Button
-                        type="primary"
-                        htmlType="submit"
-                        size="large"
-                        loading={creating}
-                        className="bg-gradient-primary border-none font-semibold px-8"
-                      >
-                        {creating ? "Publishing..." : "Publish Trip"}
-                      </Button>
-                      <Button
-                        type="text"
-                        size="large"
-                        className="h-12 rounded-none px-6"
-                        onClick={() => setActiveModule("dashboard")}
-                      >
-                        Cancel
-                      </Button>
+                      <div className="mt-10 flex flex-col-reverse sm:flex-row items-center gap-4">
+                        <Button
+                          type="text"
+                          size="large"
+                          className="h-14 rounded-xl px-8 w-full sm:w-auto font-medium text-gray-500 hover:bg-gray-100"
+                          onClick={() => setActiveModule("dashboard")}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          type="primary"
+                          htmlType="submit"
+                          size="large"
+                          loading={creating}
+                          className="h-14 rounded-xl px-10 w-full sm:w-auto bg-gradient-primary border-none font-bold shadow-glow hover:scale-[1.02] transition-transform"
+                        >
+                          {creating ? "Publishing..." : "Publish Trip to Search"}
+                        </Button>
+                      </div>
+                    </Form>
+                  </Card>
+
+                  {/* Right Column: Live Preview Panel */}
+                  <div className="hidden xl:block">
+                    <div className="sticky top-24">
+                      <Title level={5} className="mb-4 text-gray-600">
+                        Live Preview
+                      </Title>
+                      <Card className="rounded-2xl border-none shadow-soft bg-white p-5">
+                        <div className="text-center pb-5 border-b border-gray-100 mb-5">
+                          <Text type="secondary" className="block text-xs uppercase tracking-wider font-semibold mb-1">Total Estimated Earnings</Text>
+                          <Title level={2} className="m-0 text-emerald-600 font-bold">
+                            ₹{(Number(seatPriceWatch || 0) * Number(seatsWatch || 0)).toLocaleString()}
+                          </Title>
+                        </div>
+                        
+                        <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
+                          <Text type="secondary" className="text-xs block mb-3 font-semibold uppercase tracking-wider text-center">What travelers see</Text>
+                          <div className="flex items-center justify-between mb-4">
+                            <Tag color="purple" className="rounded-full border-none px-2 py-0.5 font-semibold text-[10px] m-0">
+                              {form.getFieldValue("departureAt") ? dayjs(form.getFieldValue("departureAt")).format("MMM D • h:mm A") : "Select date"}
+                            </Tag>
+                            <Text strong className="text-lg text-emerald-600">₹{seatPriceWatch || 500}</Text>
+                          </div>
+                          
+                          <div className="flex items-stretch gap-3">
+                            <div className="flex flex-col items-center justify-between py-1 w-4">
+                              <div className="w-2.5 h-2.5 rounded-full border-2 border-primary bg-white z-10"></div>
+                              <div className="w-0.5 bg-gray-200 flex-1 my-1"></div>
+                              <div className="w-2.5 h-2.5 rounded-full bg-primary z-10"></div>
+                            </div>
+                            <div className="flex-1 flex flex-col justify-between py-0.5 gap-3">
+                              <div>
+                                <Text strong className="text-sm text-gray-800 line-clamp-1">
+                                  {form.getFieldValue("fromLocation") || "Origin"}
+                                </Text>
+                              </div>
+                              <div>
+                                <Text strong className="text-sm text-gray-800 line-clamp-1">
+                                  {form.getFieldValue("toLocation") || "Destination"}
+                                </Text>
+                              </div>
+                            </div>
+                          </div>
+                          
+                          <div className="mt-4 pt-3 border-t border-gray-200 flex items-center justify-between text-xs text-gray-500">
+                            <div className="flex items-center gap-1.5">
+                              <User size={14} />
+                              <span>{seatsWatch || 4} seats</span>
+                            </div>
+                            <div className="flex gap-0.5">
+                              {[...Array(Math.min(Number(seatsWatch) || 4, 10))].map((_, i) => (
+                                <div key={i} className="w-2 h-2 rounded-full bg-primary/20"></div>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      </Card>
                     </div>
-                  </Form>
-                </Card>
+                  </div>
+                </div>
               </div>
             )}
           </Content>
         </Layout>
-      </Layout>
+      </div>
     </ConfigProvider>
   );
 }
