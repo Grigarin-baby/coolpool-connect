@@ -35,6 +35,8 @@ function toTrip(doc: Doc): Trip {
     departureAt: String(doc.departure_at),
     status: String(doc.status) as TripStatus,
     notes: doc.notes ? String(doc.notes) : null,
+    vehicleId: doc.vehicle_id ? String(doc.vehicle_id) : undefined,
+    assignedDriverId: doc.assigned_driver_id ? String(doc.assigned_driver_id) : undefined,
   };
 }
 
@@ -127,6 +129,8 @@ export interface CreateTripInput {
   departureAt: string;
   notes?: string | null;
   status?: TripStatus;
+  vehicleId?: string;
+  assignedDriverId?: string;
 }
 
 export interface CreateTripStopInput {
@@ -231,6 +235,8 @@ export async function createTrip(input: CreateTripInput): Promise<Trip> {
       departure_at: input.departureAt,
       status: input.status ?? "scheduled",
       notes: input.notes ?? null,
+      vehicle_id: input.vehicleId ?? null,
+      assigned_driver_id: input.assignedDriverId ?? null,
     },
     [
       // Public read so travelers can search trips without an Appwrite session (e.g. homepage modal).

@@ -45,6 +45,7 @@ import {
   Divider,
   Modal,
   Popconfirm,
+  Select,
 } from "antd";
 import { useAuth } from "@/hooks/useAuth";
 import {
@@ -86,6 +87,8 @@ interface TripFormValues {
   departureAt: dayjs.Dayjs;
   totalSeats: number;
   seatPrice: number;
+  vehicleId: string;
+  driverId: string;
 }
 
 interface PlacePrediction {
@@ -348,6 +351,8 @@ function DriverDashboardPage() {
       totalSeats,
       departureAt: values.departureAt.toISOString(),
       notes: `Created from ride host trip module. Price per seat: ₹${seatPrice}.`,
+      vehicleId: values.vehicleId,
+      assignedDriverId: values.driverId,
     };
 
     if (import.meta.env.DEV) {
@@ -873,7 +878,7 @@ function DriverDashboardPage() {
                       form={form}
                       layout="vertical"
                       onFinish={onFinish}
-                      initialValues={{ totalSeats: 4, seatPrice: 500 }}
+                      initialValues={{ totalSeats: 4, seatPrice: 500, driverId: user?.$id }}
                       requiredMark={false}
                     >
                       <div className="space-y-8">
@@ -930,6 +935,49 @@ function DriverDashboardPage() {
                                   className="h-14 rounded-xl text-lg"
                                 />
                               </AutoComplete>
+                            </Form.Item>
+                          </div>
+                        </div>
+
+                        <div>
+                          <Title level={5} className="mb-4 flex items-center gap-2">
+                            <Car size={18} className="text-primary" /> Assignment
+                          </Title>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-8">
+                            <Form.Item
+                              label={<span className="font-semibold text-gray-700">Vehicle</span>}
+                              name="vehicleId"
+                              rules={[{ required: true, message: "Please select a vehicle" }]}
+                              className="mb-0"
+                            >
+                              <Select
+                                size="large"
+                                placeholder="Select vehicle"
+                                className="h-14 w-full"
+                                options={vehicles.map(v => ({ label: `${v.modelName} · ${v.plateNumber} · ${v.seatCapacity} seats`, value: v.id }))}
+                                onChange={(val) => {
+                                  const selectedVeh = vehicles.find(v => v.id === val);
+                                  if (selectedVeh) {
+                                    form.setFieldsValue({ totalSeats: selectedVeh.seatCapacity });
+                                  }
+                                }}
+                              />
+                            </Form.Item>
+                            <Form.Item
+                              label={<span className="font-semibold text-gray-700">Driver</span>}
+                              name="driverId"
+                              rules={[{ required: true, message: "Please select a driver" }]}
+                              className="mb-0"
+                            >
+                              <Select
+                                size="large"
+                                placeholder="Select driver"
+                                className="h-14 w-full"
+                                options={[
+                                  { label: `You (${user?.name?.split(" ")[0] || "Owner"})`, value: user?.$id || "" },
+                                  ...teamDrivers.map(d => ({ label: `${d.fullName} · ${d.city}`, value: d.id }))
+                                ]}
+                              />
                             </Form.Item>
                           </div>
                         </div>

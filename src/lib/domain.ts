@@ -39,6 +39,8 @@ export interface Trip {
   departureAt: string;
   status: TripStatus;
   notes: string | null;
+  vehicleId?: string;
+  assignedDriverId?: string;
 }
 
 export interface Booking {
