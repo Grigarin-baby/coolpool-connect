@@ -22,11 +22,11 @@ import { toast } from "sonner";
 export const Route = createFileRoute("/driver/onboarding")({
   head: () => ({
     meta: [
-      { title: "Driver onboarding — Coolpool" },
+      { title: "Ride Host onboarding — Coolpool" },
       {
         name: "description",
         content:
-          "Complete driver onboarding with personal details, vehicle information, documents, and password setup.",
+          "Complete ride host onboarding with personal details, vehicle information, documents, and password setup.",
       },
     ],
   }),
@@ -186,7 +186,7 @@ function DriverOnboardingPage() {
 
       await refreshRoles();
 
-      toast.success("Driver account is ready.");
+      toast.success("Ride Host account is ready.");
       navigate({ to: "/driver/dashboard" });
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Unable to complete onboarding.");
@@ -207,7 +207,7 @@ function DriverOnboardingPage() {
       <SiteHeader />
       <main className="container mx-auto px-4 py-12 max-w-3xl flex-1">
         <Card className="rounded-none border-border/60 p-6 md:p-8 shadow-card">
-          <h1 className="text-2xl md:text-3xl font-bold">Driver onboarding</h1>
+          <h1 className="text-2xl md:text-3xl font-bold">Ride Host onboarding</h1>
           <p className="mt-2 text-sm text-muted-foreground">Step {step} of 3</p>
           <Steps
             className="mt-5"
@@ -379,7 +379,7 @@ function DriverOnboardingPage() {
                   htmlType="submit"
                   loading={submitting}
                 >
-                  Create driver account
+                  Create Ride Host account
                 </AntButton>
               )}
             </div>

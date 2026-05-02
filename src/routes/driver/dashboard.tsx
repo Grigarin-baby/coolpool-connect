@@ -101,8 +101,8 @@ interface GeocoderLike {
 export const Route = createFileRoute("/driver/dashboard")({
   head: () => ({
     meta: [
-      { title: "Driver dashboard — Coolpool" },
-      { name: "description", content: "Manage your rides and bookings as a Coolpool driver." },
+      { title: "Ride Host dashboard — Coolpool" },
+      { name: "description", content: "Manage your rides and bookings as a Coolpool ride host." },
     ],
   }),
   component: DriverDashboardPage,
@@ -302,7 +302,7 @@ function DriverDashboardPage() {
       pricePerKm: calcPricePerKm(totalPrice, totalDistanceKm),
       totalSeats,
       departureAt: values.departureAt.toISOString(),
-      notes: `Created from driver trip module. Price per seat: ₹${seatPrice}.`,
+      notes: `Created from ride host trip module. Price per seat: ₹${seatPrice}.`,
     };
 
     if (import.meta.env.DEV) {
@@ -406,7 +406,7 @@ function DriverDashboardPage() {
             ACCESS DENIED
           </Text>
           <p className="mt-2 text-muted-foreground">
-            This workspace is only for driver accounts. Please complete driver onboarding.
+            This workspace is only for ride host accounts. Please complete ride host onboarding.
           </p>
           <Button type="primary" className="mt-4 rounded-none" onClick={() => void signOut()}>
             Sign out
@@ -466,7 +466,7 @@ function DriverDashboardPage() {
             <div>
               <p className="font-bold text-lg leading-none">Coolpool</p>
               <p className="text-[10px] uppercase tracking-widest text-muted-foreground mt-1">
-                Driver Operations
+                Ride Host Operations
               </p>
             </div>
           </div>
@@ -534,12 +534,12 @@ function DriverDashboardPage() {
             <div className="flex items-center gap-5">
               <div className="text-right hidden md:flex flex-col justify-center bg-white/40 px-4 py-1.5 rounded-full border border-white/60 shadow-sm backdrop-blur-sm">
                 <Text strong className="text-sm leading-tight block text-gray-800">
-                  {user?.name || "Driver"}
+                  {user?.name || "Ride Host"}
                 </Text>
                 <div className="flex items-center gap-1 mt-0.5">
                   <div className="h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse"></div>
                   <Text className="text-[10px] text-green-700 font-bold uppercase tracking-wider leading-tight">
-                    Verified Driver
+                    Verified Ride Host
                   </Text>
                 </div>
               </div>
@@ -787,7 +787,7 @@ function DriverDashboardPage() {
                         className="absolute -right-6 -bottom-6 opacity-20 rotate-12"
                       />
                       <Title level={4} style={{ color: "white", margin: 0 }}>
-                        Pro Driver Tips
+                        Pro Ride Host Tips
                       </Title>
                       <p className="mt-2 text-white/80 text-sm">
                         Consistent high ratings lead to better visibility and more ride requests.

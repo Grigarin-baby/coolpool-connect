@@ -70,7 +70,7 @@ export function SiteHeader() {
                   {isDriver && (
                     <DropdownMenuItem asChild>
                       <Link to="/driver/dashboard" className="cursor-pointer">
-                        <LayoutDashboard className="h-4 w-4 mr-2" /> Driver dashboard
+                        <LayoutDashboard className="h-4 w-4 mr-2" /> Ride Host dashboard
                       </Link>
                     </DropdownMenuItem>
                   )}
@@ -149,7 +149,7 @@ export function SiteHeader() {
                     onClick={() => setOpen(false)}
                     className="px-4 py-3 rounded-none text-sm font-medium hover:bg-secondary"
                   >
-                    Driver dashboard
+                    Ride Host dashboard
                   </Link>
                 )}
                 {isAdmin && (

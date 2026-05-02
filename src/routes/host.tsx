@@ -45,12 +45,12 @@ function HostPage() {
               Turn your journey into <span className="text-gradient-primary">earnings.</span>
             </h1>
             <p className="mt-6 text-lg text-muted-foreground leading-relaxed">
-              Join Coolpool's verified driver network. Share your intercity route, help travelers
+              Join Coolpool's verified ride host network. Share your intercity route, help travelers
               reach their destination, and cover your trip costs with ease.
             </p>
             <div className="mt-10 flex flex-col sm:flex-row gap-4">
               <Button asChild variant="hero" size="xl" className="px-8">
-                <Link to="/driver/onboarding">Become a Driver</Link>
+                <Link to="/driver/onboarding">Become a Ride Host</Link>
               </Button>
               <Button
                 asChild
@@ -85,7 +85,7 @@ function HostPage() {
                   <LogIn size={24} />
                 </div>
                 <div>
-                  <h3 className="text-lg font-bold">Driver Dashboard</h3>
+                  <h3 className="text-lg font-bold">Ride Host Dashboard</h3>
                   <p className="mt-1 text-sm text-muted-foreground leading-relaxed">
                     Manage bookings, track earnings, and coordinate pickups through our unified
                     operations port.

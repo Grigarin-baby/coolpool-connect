@@ -199,7 +199,7 @@ function BookingTripPage() {
           <Card className="p-8 rounded-none text-center space-y-4">
             <p className="font-semibold">You cannot book your own trip.</p>
             <Button asChild variant="outline">
-              <Link to="/driver/dashboard">Driver dashboard</Link>
+              <Link to="/driver/dashboard">Ride Host dashboard</Link>
             </Button>
           </Card>
         </main>
@@ -248,7 +248,7 @@ function BookingTripPage() {
           </div>
           {vehicleMissing && (
             <p className="mt-3 text-xs text-amber-700 dark:text-amber-400">
-              Vehicle profile not found — layout uses trip seat count + driver seat as an estimate.
+              Vehicle profile not found — layout uses trip seat count + ride host seat as an estimate.
             </p>
           )}
         </Card>
