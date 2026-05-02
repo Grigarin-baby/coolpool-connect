@@ -1,8 +1,10 @@
+import { useState } from "react";
 import type { SeatSlot } from "@/lib/seatLayout";
 import { cn } from "@/lib/utils";
 import { Check } from "lucide-react";
-import sedanInterior from "@/assets/sedan-interior.png";
-import suvInterior from "@/assets/suv-interior.png";
+import { Skeleton } from "@/components/ui/skeleton";
+import sedanInterior from "@/assets/sedan-interior.jpg";
+import suvInterior from "@/assets/suv-interior.jpg";
 
 interface SeatMapProps {
   slots: SeatSlot[];
@@ -43,6 +45,7 @@ export function SeatMap({
   maxSelectable,
   disabled = false,
 }: SeatMapProps) {
+  const [imageLoaded, setImageLoaded] = useState(false);
   const isLargeVehicle = slots.length >= 6;
   const vType = isLargeVehicle ? "SUV" : "SEDAN";
 
@@ -50,18 +53,25 @@ export function SeatMap({
     <div className="space-y-6">
       <div className="relative mx-auto max-w-[450px] aspect-square group">
         {/* Realistic Car Interior Background */}
-        <div className="absolute inset-0 rounded-[40px] overflow-hidden shadow-2xl border-8 border-slate-900/10">
+        <div className="absolute inset-0 rounded-[40px] overflow-hidden shadow-2xl border-8 border-slate-900/10 bg-slate-100">
+          {!imageLoaded && (
+            <Skeleton className="absolute inset-0 rounded-[32px] bg-slate-200" />
+          )}
           <img 
             src={isLargeVehicle ? suvInterior : sedanInterior} 
             alt="Car Interior" 
-            className="w-full h-full object-cover select-none pointer-events-none transition-opacity duration-700"
+            onLoad={() => setImageLoaded(true)}
+            className={cn(
+              "w-full h-full object-cover select-none pointer-events-none transition-all duration-700",
+              imageLoaded ? "opacity-100 blur-0 scale-100" : "opacity-0 blur-lg scale-105"
+            )}
           />
           {/* Vignette Overlay */}
           <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-black/30 pointer-events-none" />
         </div>
 
         {/* Interactive Overlays */}
-        {slots.map((slot) => {
+        {imageLoaded && slots.map((slot) => {
           let seatId = `${vType}-${slot.seatCode}`;
           
           // Special case: 4-seater Sedan. R1-C1 should be the Right-Back seat (not center).
