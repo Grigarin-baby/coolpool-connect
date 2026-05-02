@@ -23,22 +23,22 @@ export function SeatMap({
 
   return (
     <div className="space-y-6">
-      <div className="relative mx-auto max-w-sm">
+      <div className="relative mx-auto max-w-[300px]">
         {/* Car Chassis */}
-        <div className="relative bg-slate-50/80 backdrop-blur-md rounded-[48px] border-[6px] border-slate-200/50 p-8 pb-12 shadow-xl overflow-hidden">
+        <div className="relative bg-slate-50/80 backdrop-blur-md rounded-[56px] border-[6px] border-slate-200/50 p-8 pb-14 shadow-xl overflow-hidden">
           {/* Windshield / Hood */}
           <div className="absolute top-0 left-0 right-0 h-16 bg-slate-200/30 border-b border-slate-300/30 flex items-center justify-center">
-            <div className="w-32 h-1 bg-slate-300/50 rounded-full mb-4" />
+            <div className="w-24 h-1 bg-slate-300/50 rounded-full mb-4" />
           </div>
 
           <div className="relative z-10 flex flex-col gap-10 mt-12 items-center">
             {rows.map((row) => {
               const rowSlots = slots.filter((s) => s.row === row).sort((a, b) => a.col - b.col);
               return (
-                <div key={row} className={cn(
-                  "flex justify-center gap-6 w-full",
-                  row === 0 ? "justify-around px-4" : "gap-4"
-                )}>
+                <div key={row} className="flex justify-between gap-10 w-full px-2">
+                  {/* Handle 1-seat rows (like a single back seat) by centering or spacing */}
+                  {rowSlots.length === 1 && rowSlots[0].col === 1 ? <div className="w-14 md:w-16" /> : null}
+                  
                   {rowSlots.map((slot) => {
                     const isDriver = slot.kind === "driver";
                     const taken = occupiedCodes.has(slot.seatCode);

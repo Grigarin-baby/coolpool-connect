@@ -42,10 +42,10 @@ export function buildSeatLayout(seatCapacity: number): SeatSlot[] {
   // Driver on Right (Col 1)
   push(0, 1, "driver", "Drv");
 
-  // Row 1+: Back Rows (3 seats per row)
+  // Row 1+: Back Rows (2 seats per row - Captain Seat style)
   let row = 1;
   while (slots.length < cap) {
-    for (let c = 0; c < 3 && slots.length < cap; c++) {
+    for (let c = 0; c < 2 && slots.length < cap; c++) {
       push(row, c, "passenger", String(passengerNo));
       passengerNo++;
     }
