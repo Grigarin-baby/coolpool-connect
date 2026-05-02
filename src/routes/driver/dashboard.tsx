@@ -994,7 +994,7 @@ function DriverDashboardPage() {
                               className="mb-0"
                             >
                               <DatePicker
-                                showTime
+                                showTime={{ format: 'h:mm A', use12Hours: true, minuteStep: 15 }}
                                 size="large"
                                 className="w-full h-14 rounded-xl text-lg"
                                 format="YYYY-MM-DD h:mm A"
