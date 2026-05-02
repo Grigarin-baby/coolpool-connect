@@ -969,7 +969,7 @@ function DriverDashboardPage() {
                       form={form}
                       layout="vertical"
                       onFinish={onFinish}
-                      initialValues={{ totalSeats: 4, totalTripPrice: 2000, driverId: user?.$id }}
+                      initialValues={{ totalSeats: 4, driverId: user?.$id }}
                       requiredMark={false}
                     >
                       <div className="space-y-8">
@@ -1221,7 +1221,7 @@ function DriverDashboardPage() {
                             <Tag color="purple" className="rounded-full border-none px-2 py-0.5 font-semibold text-[10px] m-0">
                               {form.getFieldValue("departureAt") ? dayjs(form.getFieldValue("departureAt")).format("MMM D • h:mm A") : "Select date"}
                             </Tag>
-                            <Text strong className="text-lg text-emerald-600">₹{totalPriceWatch || 2000}</Text>
+                            <Text strong className="text-lg text-emerald-600">₹{totalPriceWatch || "—"}</Text>
                           </div>
                           
                           <div className="flex items-stretch gap-3">
@@ -1276,7 +1276,7 @@ function DriverDashboardPage() {
                         <Tag color="purple" className="rounded-full border-none px-3 py-1 font-semibold text-xs m-0">
                           {form.getFieldValue("departureAt") ? dayjs(form.getFieldValue("departureAt")).format("MMM D • h:mm A") : "Select date"}
                         </Tag>
-                        <Text strong className="text-xl text-emerald-600">₹{totalPriceWatch || 2000}</Text>
+                        <Text strong className="text-xl text-emerald-600">₹{totalPriceWatch || "—"}</Text>
                       </div>
                       
                       <div className="flex items-stretch gap-4">
