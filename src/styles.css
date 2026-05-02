@@ -236,6 +236,9 @@
   .shadow-glow {
     box-shadow: var(--shadow-glow);
   }
+  .shadow-glow-purple {
+    box-shadow: 0 0 20px oklch(0.65 0.24 295 / 0.4), 0 0 40px oklch(0.65 0.24 295 / 0.2);
+  }
   .transition-base {
     transition: var(--transition-base);
   }

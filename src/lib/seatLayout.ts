@@ -30,14 +30,16 @@ export function buildSeatLayout(seatCapacity: number): SeatSlot[] {
     });
   };
 
+  // Row 0: Driver + Front Passenger
   push(0, 0, "driver", "Drv");
-
+  
   let passengerNo = 1;
-  if (slots.length < cap) {
+  if (cap > 1) {
     push(0, 1, "passenger", String(passengerNo));
     passengerNo++;
   }
 
+  // Row 1+: Back Rows (3 seats per row)
   let row = 1;
   while (slots.length < cap) {
     for (let c = 0; c < 3 && slots.length < cap; c++) {

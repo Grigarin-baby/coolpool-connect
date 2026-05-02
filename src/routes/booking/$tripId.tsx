@@ -60,10 +60,11 @@ function BookingTripPage() {
   });
 
   const layoutCapacity = useMemo(() => {
-    const vehicleCap = vehicleQuery.data?.seatCapacity;
-    if (vehicleCap != null && vehicleCap >= 2) return Math.min(12, vehicleCap);
-    const fallback = (tripQuery.data?.totalSeats ?? 0) + 1;
-    return Math.min(12, Math.max(2, fallback));
+    const vehicleCap = vehicleQuery.data?.seatCapacity ?? 0;
+    const tripCap = (tripQuery.data?.totalSeats ?? 0) + 1;
+    // Always use the larger of the two to ensure all seats are shown
+    const finalCap = Math.max(vehicleCap, tripCap);
+    return Math.min(12, Math.max(2, finalCap));
   }, [vehicleQuery.data?.seatCapacity, tripQuery.data?.totalSeats]);
 
   const layout = useMemo(() => buildSeatLayout(layoutCapacity), [layoutCapacity]);
