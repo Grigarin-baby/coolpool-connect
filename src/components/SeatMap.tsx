@@ -130,10 +130,6 @@ export function SeatMap({
           );
         })}
 
-        {/* Vehicle Label Indicator */}
-        <div className="absolute top-12 left-1/2 -translate-x-1/2 px-4 py-1 bg-black/40 backdrop-blur-md text-white text-[9px] font-black uppercase tracking-[0.4em] rounded-full z-30 border border-white/10 pointer-events-none">
-          {vType === "SUV" ? "Premium SUV" : "Executive Sedan"}
-        </div>
       </div>
 
       <div className="flex justify-center gap-6 text-[10px] font-bold uppercase tracking-widest text-slate-500">
