@@ -41,7 +41,7 @@ import {
   Divider,
 } from "antd";
 import { useAuth } from "@/hooks/useAuth";
-import { createTrip, listHostTrips } from "@/data/appwrite-repository";
+import { createTrip, listHostTrips, getVehicleByDriverUserId, upsertDriverVehicle } from "@/data/appwrite-repository";
 import { APP_FONT_FAMILY } from "@/lib/fonts";
 import { calcPricePerKm } from "@/lib/pricing";
 import dayjs from "dayjs";
@@ -119,6 +119,8 @@ function DriverDashboardPage() {
   const [selectedTo, setSelectedTo] = useState<CityOption | null>(null);
   const [mapsReady, setMapsReady] = useState(false);
   const [mobilePreviewOpen, setMobilePreviewOpen] = useState(false);
+  const [vehicleForm] = Form.useForm();
+  const [historyFilter, setHistoryFilter] = useState<"all" | "completed" | "cancelled">("all");
   const autocompleteServiceRef = useRef<PlacesAutocompleteServiceLike | null>(null);
   const geocoderRef = useRef<GeocoderLike | null>(null);
   const seatsWatch = Form.useWatch("totalSeats", form);
@@ -146,6 +148,54 @@ function DriverDashboardPage() {
     queryFn: () => (user ? listHostTrips(user.$id) : Promise.resolve([])),
     enabled: !!user,
   });
+
+  const { data: vehicle, isLoading: vehicleLoading } = useQuery({
+    queryKey: ["driver-vehicle", user?.$id],
+    queryFn: () => (user ? getVehicleByDriverUserId(user.$id) : Promise.resolve(null)),
+    enabled: !!user,
+  });
+
+  // Populate vehicle form whenever data arrives
+  useEffect(() => {
+    if (vehicle) {
+      const parts = vehicle.modelName.split(" ");
+      vehicleForm.setFieldsValue({
+        make: parts[0] ?? "",
+        model: parts.slice(1).join(" ") || vehicle.modelName,
+        color: vehicle.color ?? "",
+        plate: vehicle.plateNumber,
+        seats: vehicle.seatCapacity,
+      });
+    }
+  }, [vehicle, vehicleForm]);
+
+  const { mutate: saveVehicle, isPending: savingVehicle } = useMutation({
+    mutationFn: (vals: { make: string; model: string; color: string; plate: string; seats: number }) =>
+      user
+        ? upsertDriverVehicle({
+            driverUserId: user.$id,
+            modelName: `${vals.make} ${vals.model}`.trim(),
+            plateNumber: vals.plate,
+            seatCapacity: vals.seats,
+            color: vals.color,
+          })
+        : Promise.reject(new Error("Not logged in")),
+    onSuccess: () => {
+      message.success("Vehicle details saved!");
+      void queryClient.invalidateQueries({ queryKey: ["driver-vehicle"] });
+    },
+    onError: () => message.error("Failed to save vehicle details."),
+  });
+
+  // Derived history stats from real trips
+  const completedTrips = trips.filter((t) => t.status === "completed");
+  const lifetimeEarnings = completedTrips.reduce((sum, t) => sum + (t.totalPrice ?? 0), 0);
+  const filteredHistory =
+    historyFilter === "all"
+      ? trips
+      : trips.filter((t) =>
+          historyFilter === "completed" ? t.status === "completed" : t.status === "cancelled",
+        );
 
   const { mutate: performCreateTrip, isPending: creating } = useMutation({
     mutationFn: createTrip,
@@ -1077,7 +1127,7 @@ function DriverDashboardPage() {
                       <Text type="secondary" className="font-medium text-emerald-800">Lifetime Earnings</Text>
                     </div>
                     <Title level={2} style={{ margin: "12px 0 0 0" }} className="text-emerald-900">
-                      ₹12,450
+                      ₹{lifetimeEarnings.toLocaleString("en-IN")}
                     </Title>
                   </Card>
                   
@@ -1090,7 +1140,7 @@ function DriverDashboardPage() {
                       <Text type="secondary" className="font-medium text-purple-800">Total Completed Rides</Text>
                     </div>
                     <Title level={2} style={{ margin: "12px 0 0 0" }} className="text-purple-900">
-                      24
+                      {tripsLoading ? <Spin size="small" /> : completedTrips.length}
                     </Title>
                   </Card>
                 </div>
@@ -1099,44 +1149,50 @@ function DriverDashboardPage() {
                   <div className="p-6 border-b border-gray-100 flex items-center justify-between">
                     <Title level={4} style={{ margin: 0 }}>Transaction Ledger</Title>
                     <div className="flex gap-2">
-                      <Tag color="purple" className="px-4 py-1 rounded-full cursor-pointer text-sm m-0 border-primary">All</Tag>
-                      <Tag className="px-4 py-1 rounded-full cursor-pointer text-sm m-0 bg-white border-gray-200 text-gray-500">Completed</Tag>
-                      <Tag className="px-4 py-1 rounded-full cursor-pointer text-sm m-0 bg-white border-gray-200 text-gray-500 hidden sm:inline-flex">Cancelled</Tag>
+                      {(["all", "completed", "cancelled"] as const).map((f) => (
+                        <Tag
+                          key={f}
+                          color={historyFilter === f ? "purple" : undefined}
+                          className={`px-4 py-1 rounded-full cursor-pointer text-sm m-0 capitalize ${historyFilter === f ? "border-primary" : "bg-white border-gray-200 text-gray-500"} ${f === "cancelled" ? "hidden sm:inline-flex" : ""}`}
+                          onClick={() => setHistoryFilter(f)}
+                        >
+                          {f.charAt(0).toUpperCase() + f.slice(1)}
+                        </Tag>
+                      ))}
                     </div>
                   </div>
-                  
+
                   <List
                     className="p-0"
                     itemLayout="horizontal"
-                    dataSource={[
-                      { id: 1, date: "2023-10-25", from: "Mumbai", to: "Pune", amount: 1500, status: "completed" },
-                      { id: 2, date: "2023-10-20", from: "Mumbai", to: "Lonavala", amount: 800, status: "completed" },
-                      { id: 3, date: "2023-10-15", from: "Pune", to: "Mumbai", amount: 0, status: "cancelled" },
-                      { id: 4, date: "2023-10-10", from: "Mumbai", to: "Nashik", amount: 2200, status: "completed" },
-                    ]}
-                    renderItem={(item) => (
+                    loading={tripsLoading}
+                    locale={{ emptyText: "No trips found" }}
+                    dataSource={filteredHistory}
+                    renderItem={(trip) => (
                       <List.Item className="p-6 hover:bg-gray-50 transition-colors cursor-pointer group border-b border-gray-50">
                         <div className="w-full flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                           <div className="flex items-center gap-4">
-                            <div className={`h-12 w-12 rounded-xl flex items-center justify-center ${item.status === 'completed' ? 'bg-emerald-100 text-emerald-600' : 'bg-red-100 text-red-600'}`}>
-                              {item.status === 'completed' ? <CheckCircle size={20} /> : <XCircle size={20} />}
+                            <div className={`h-12 w-12 rounded-xl flex items-center justify-center ${trip.status === 'completed' ? 'bg-emerald-100 text-emerald-600' : trip.status === 'cancelled' ? 'bg-red-100 text-red-600' : 'bg-blue-100 text-blue-600'}`}>
+                              {trip.status === 'completed' ? <CheckCircle size={20} /> : trip.status === 'cancelled' ? <XCircle size={20} /> : <RouteIcon size={20} />}
                             </div>
                             <div>
                               <Text strong className="text-base text-gray-800 block mb-1">
-                                {item.from} → {item.to}
+                                {trip.fromLocation} → {trip.toLocation}
                               </Text>
                               <Text type="secondary" className="text-xs uppercase tracking-wider font-semibold">
-                                {dayjs(item.date).format("MMM D, YYYY")}
+                                {dayjs(trip.departureAt).format("MMM D, YYYY • h:mm A")}
                               </Text>
                             </div>
                           </div>
-                          
                           <div className="flex items-center justify-between sm:flex-col sm:items-end gap-1">
-                            <Text strong className={`text-lg ${item.status === 'completed' ? 'text-emerald-600' : 'text-gray-400 line-through'}`}>
-                              ₹{item.amount}
+                            <Text strong className={`text-lg ${trip.status === 'completed' ? 'text-emerald-600' : 'text-gray-400'}`}>
+                              ₹{(trip.totalPrice ?? 0).toLocaleString("en-IN")}
                             </Text>
-                            <Tag color={item.status === 'completed' ? 'success' : 'error'} className="m-0 rounded-full border-none px-2 uppercase text-[10px] tracking-wider font-bold">
-                              {item.status}
+                            <Tag
+                              color={trip.status === 'completed' ? 'success' : trip.status === 'cancelled' ? 'error' : 'processing'}
+                              className="m-0 rounded-full border-none px-2 uppercase text-[10px] tracking-wider font-bold"
+                            >
+                              {trip.status}
                             </Tag>
                           </div>
                         </div>
@@ -1162,44 +1218,52 @@ function DriverDashboardPage() {
                   {/* Digital Vehicle Card */}
                   <div className="lg:col-span-1">
                     <div className="sticky top-24">
-                      <div className="bg-gradient-to-br from-gray-900 to-gray-800 rounded-3xl p-6 sm:p-8 text-white shadow-[0_20px_40px_-15px_rgba(0,0,0,0.5)] relative overflow-hidden">
-                        {/* Shimmer/Glare effect */}
-                        <div className="absolute inset-0 bg-gradient-to-tr from-white/0 via-white/5 to-white/0 -skew-x-12 translate-x-[-100%] animate-[shimmer_8s_infinite]"></div>
-                        
-                        <div className="flex justify-between items-start mb-8 relative z-10">
-                          <div>
-                            <Text className="text-gray-400 text-xs uppercase tracking-widest font-bold block mb-1">Registered Vehicle</Text>
-                            <div className="flex items-center gap-2">
-                              <div className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></div>
-                              <Text className="text-emerald-400 text-xs font-bold uppercase tracking-wider">Approved</Text>
+                      {vehicleLoading ? (
+                        <div className="flex items-center justify-center h-48"><Spin /></div>
+                      ) : (
+                        <div className="bg-gradient-to-br from-gray-900 to-gray-800 rounded-3xl p-6 sm:p-8 text-white shadow-[0_20px_40px_-15px_rgba(0,0,0,0.5)] relative overflow-hidden">
+                          <div className="absolute inset-0 bg-gradient-to-tr from-white/0 via-white/5 to-white/0 -skew-x-12"></div>
+                          <div className="flex justify-between items-start mb-8 relative z-10">
+                            <div>
+                              <Text className="text-gray-400 text-xs uppercase tracking-widest font-bold block mb-1">Registered Vehicle</Text>
+                              <div className="flex items-center gap-2">
+                                <div className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></div>
+                                <Text className="text-emerald-400 text-xs font-bold uppercase tracking-wider">Approved</Text>
+                              </div>
                             </div>
+                            <Car size={32} className="text-white/20" />
                           </div>
-                          <Car size={32} className="text-white/20" />
+                          <div className="mb-8 relative z-10">
+                            <Title level={3} style={{ color: "white", margin: 0 }} className="font-bold">
+                              {vehicle ? vehicle.modelName : "No vehicle registered"}
+                            </Title>
+                            <Text className="text-gray-300 text-sm">
+                              {vehicle?.color ?? "—"}
+                            </Text>
+                          </div>
+                          <div className="bg-white/10 rounded-2xl p-4 backdrop-blur-md border border-white/10 relative z-10">
+                            <Text className="text-gray-400 text-[10px] uppercase tracking-widest font-bold block mb-1">License Plate</Text>
+                            <Text className="text-white font-mono text-xl tracking-widest">
+                              {vehicle?.plateNumber ?? "—"}
+                            </Text>
+                          </div>
                         </div>
-                        
-                        <div className="mb-8 relative z-10">
-                          <Title level={3} style={{ color: "white", margin: 0 }} className="font-bold">
-                            Honda City
-                          </Title>
-                          <Text className="text-gray-300 text-sm">2021 • Crystal Black</Text>
-                        </div>
-                        
-                        <div className="bg-white/10 rounded-2xl p-4 backdrop-blur-md border border-white/10 relative z-10">
-                          <Text className="text-gray-400 text-[10px] uppercase tracking-widest font-bold block mb-1">License Plate</Text>
-                          <Text className="text-white font-mono text-xl tracking-widest">MH 01 AB 1234</Text>
-                        </div>
-                      </div>
+                      )}
                     </div>
                   </div>
 
                   {/* Edit Form */}
                   <div className="lg:col-span-2">
                     <Card className="rounded-2xl border border-white/60 shadow-card bg-white/80 backdrop-blur-md p-6 md:p-8">
-                      <Form layout="vertical" requiredMark={false} initialValues={{ make: "Honda", model: "City", year: 2021, color: "Black", plate: "MH 01 AB 1234" }}>
+                      <Form
+                        form={vehicleForm}
+                        layout="vertical"
+                        requiredMark={false}
+                        onFinish={(vals) => saveVehicle(vals as { make: string; model: string; color: string; plate: string; seats: number })}
+                      >
                         <Title level={5} className="mb-6 flex items-center gap-2">
                           <Car size={18} className="text-primary" /> Basic Details
                         </Title>
-                        
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-8">
                           <Form.Item label={<span className="font-semibold text-gray-700">Make</span>} name="make" className="mb-0">
                             <Input size="large" className="h-14 rounded-xl text-lg" />
@@ -1207,24 +1271,20 @@ function DriverDashboardPage() {
                           <Form.Item label={<span className="font-semibold text-gray-700">Model</span>} name="model" className="mb-0">
                             <Input size="large" className="h-14 rounded-xl text-lg" />
                           </Form.Item>
-                          <Form.Item label={<span className="font-semibold text-gray-700">Year</span>} name="year" className="mb-0">
-                            <InputNumber size="large" className="w-full h-14 rounded-xl text-lg flex items-center" />
-                          </Form.Item>
                           <Form.Item label={<span className="font-semibold text-gray-700">Color</span>} name="color" className="mb-0">
                             <Input size="large" className="h-14 rounded-xl text-lg" />
                           </Form.Item>
+                          <Form.Item label={<span className="font-semibold text-gray-700">Seat Capacity</span>} name="seats" className="mb-0">
+                            <InputNumber size="large" className="w-full h-14 rounded-xl text-lg flex items-center" min={1} max={10} />
+                          </Form.Item>
                         </div>
-
                         <Form.Item label={<span className="font-semibold text-gray-700">License Plate</span>} name="plate">
                           <Input size="large" className="h-14 rounded-xl text-lg font-mono tracking-widest" />
                         </Form.Item>
-
                         <Divider className="my-8" />
-
                         <Title level={5} className="mb-6 flex items-center gap-2">
-                          <Sparkles size={18} className="text-primary" /> Comfort & Amenities
+                          <Sparkles size={18} className="text-primary" /> Comfort &amp; Amenities
                         </Title>
-                        
                         <div className="space-y-4 bg-gray-50/50 p-6 rounded-2xl border border-gray-100">
                           <div className="flex items-center justify-between">
                             <div>
@@ -1258,9 +1318,14 @@ function DriverDashboardPage() {
                             <Switch />
                           </div>
                         </div>
-
                         <div className="mt-10 flex justify-end">
-                          <Button type="primary" size="large" className="h-14 rounded-xl px-10 bg-gradient-primary border-none font-bold shadow-glow w-full sm:w-auto hover:scale-[1.02] transition-transform">
+                          <Button
+                            type="primary"
+                            htmlType="submit"
+                            size="large"
+                            loading={savingVehicle}
+                            className="h-14 rounded-xl px-10 bg-gradient-primary border-none font-bold shadow-glow w-full sm:w-auto hover:scale-[1.02] transition-transform"
+                          >
                             Save Changes
                           </Button>
                         </div>
