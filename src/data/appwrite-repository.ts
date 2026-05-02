@@ -324,6 +324,120 @@ export async function getVehicleByDriverUserId(driverUserId: string): Promise<Dr
   return doc ? toDriverVehicle(doc) : null;
 }
 
+export async function listVehiclesByDriverUserId(driverUserId: string): Promise<DriverVehicle[]> {
+  const c = ids();
+  const result = await databases.listDocuments(appwriteConfig.databaseId, c.vehicles, [
+    Query.equal("driver_user_id", driverUserId),
+    Query.orderDesc("$createdAt"),
+    Query.limit(50),
+  ]);
+  return result.documents.map(toDriverVehicle);
+}
+
+export async function deleteDriverVehicle(vehicleId: string): Promise<void> {
+  const c = ids();
+  await databases.deleteDocument(appwriteConfig.databaseId, c.vehicles, vehicleId);
+}
+
+export async function createDriverVehicle(input: CreateDriverVehicleInput): Promise<DriverVehicle> {
+  const c = ids();
+  const doc = await databases.createDocument(
+    appwriteConfig.databaseId,
+    c.vehicles,
+    ID.unique(),
+    {
+      driver_user_id: input.driverUserId,
+      model_name: input.modelName,
+      plate_number: input.plateNumber,
+      seat_capacity: input.seatCapacity,
+      color: input.color ?? null,
+      registration_doc: input.registrationDoc ?? null,
+      insurance_doc: input.insuranceDoc ?? null,
+    },
+  );
+  return toDriverVehicle(doc);
+}
+
+// ── Team Drivers (sub-drivers added by the ride host) ──
+// Stored in the same drivers collection.
+// NOTE: Requires an `owner_user_id` attribute (string, optional) in the Appwrite `drivers` collection.
+
+function toDriverProfileWithOwner(doc: Models.Document): DriverProfile {
+  return {
+    id: doc.$id,
+    userId: String(doc.user_id),
+    fullName: String(doc.full_name),
+    email: String(doc.email),
+    phone: String(doc.phone),
+    licenseNumber: String(doc.license_number),
+    city: String(doc.city),
+    ownerUserId: doc.owner_user_id ? String(doc.owner_user_id) : undefined,
+  };
+}
+
+export async function listTeamDrivers(ownerUserId: string): Promise<DriverProfile[]> {
+  const c = ids();
+  const result = await databases.listDocuments(appwriteConfig.databaseId, c.drivers, [
+    Query.equal("owner_user_id", ownerUserId),
+    Query.orderDesc("$createdAt"),
+    Query.limit(100),
+  ]);
+  return result.documents.map(toDriverProfileWithOwner);
+}
+
+export interface CreateTeamDriverInput {
+  ownerUserId: string;
+  fullName: string;
+  email: string;
+  phone: string;
+  licenseNumber: string;
+  city: string;
+}
+
+export async function createTeamDriver(input: CreateTeamDriverInput): Promise<DriverProfile> {
+  const c = ids();
+  const doc = await databases.createDocument(
+    appwriteConfig.databaseId,
+    c.drivers,
+    ID.unique(),
+    {
+      user_id: `team_${ID.unique()}`,
+      owner_user_id: input.ownerUserId,
+      full_name: input.fullName,
+      email: input.email,
+      phone: input.phone,
+      license_number: input.licenseNumber,
+      city: input.city,
+    },
+  );
+  return toDriverProfileWithOwner(doc);
+}
+
+export async function updateTeamDriver(
+  driverProfileId: string,
+  input: Omit<CreateTeamDriverInput, "ownerUserId">,
+): Promise<DriverProfile> {
+  const c = ids();
+  const doc = await databases.updateDocument(
+    appwriteConfig.databaseId,
+    c.drivers,
+    driverProfileId,
+    {
+      full_name: input.fullName,
+      email: input.email,
+      phone: input.phone,
+      license_number: input.licenseNumber,
+      city: input.city,
+    },
+  );
+  return toDriverProfileWithOwner(doc);
+}
+
+export async function deleteTeamDriver(driverProfileId: string): Promise<void> {
+  const c = ids();
+  await databases.deleteDocument(appwriteConfig.databaseId, c.drivers, driverProfileId);
+}
+
 export async function listTripSeatReservations(tripId: string): Promise<TripSeatReservation[]> {
   const c = ids();
   const result = await databases.listDocuments(appwriteConfig.databaseId, c.tripSeatReservations, [

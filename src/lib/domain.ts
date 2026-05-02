@@ -63,6 +63,7 @@ export interface DriverProfile {
   phone: string;
   licenseNumber: string;
   city: string;
+  ownerUserId?: string;
 }
 
 /** One claimed seat on a trip — stored without traveler PII for public seat maps */

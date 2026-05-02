@@ -14,6 +14,10 @@ import {
   CheckCircle,
   XCircle,
   Banknote,
+  Users2,
+  Plus,
+  Trash2,
+  Pencil,
 } from "lucide-react";
 import {
   Layout,
@@ -39,9 +43,23 @@ import {
   Drawer,
   Switch,
   Divider,
+  Modal,
+  Popconfirm,
 } from "antd";
 import { useAuth } from "@/hooks/useAuth";
-import { createTrip, listHostTrips, getVehicleByDriverUserId, upsertDriverVehicle } from "@/data/appwrite-repository";
+import {
+  createTrip,
+  listHostTrips,
+  listVehiclesByDriverUserId,
+  createDriverVehicle,
+  deleteDriverVehicle,
+  upsertDriverVehicle,
+  listTeamDrivers,
+  createTeamDriver,
+  updateTeamDriver,
+  deleteTeamDriver,
+  type CreateTeamDriverInput,
+} from "@/data/appwrite-repository";
 import { APP_FONT_FAMILY } from "@/lib/fonts";
 import { calcPricePerKm } from "@/lib/pricing";
 import dayjs from "dayjs";
@@ -120,7 +138,12 @@ function DriverDashboardPage() {
   const [mapsReady, setMapsReady] = useState(false);
   const [mobilePreviewOpen, setMobilePreviewOpen] = useState(false);
   const [vehicleForm] = Form.useForm();
+  const [driverForm] = Form.useForm();
   const [historyFilter, setHistoryFilter] = useState<"all" | "completed" | "cancelled">("all");
+  const [vehicleDrawerOpen, setVehicleDrawerOpen] = useState(false);
+  const [editingVehicleId, setEditingVehicleId] = useState<string | null>(null);
+  const [driverDrawerOpen, setDriverDrawerOpen] = useState(false);
+  const [editingDriverId, setEditingDriverId] = useState<string | null>(null);
   const autocompleteServiceRef = useRef<PlacesAutocompleteServiceLike | null>(null);
   const geocoderRef = useRef<GeocoderLike | null>(null);
   const seatsWatch = Form.useWatch("totalSeats", form);
@@ -149,42 +172,64 @@ function DriverDashboardPage() {
     enabled: !!user,
   });
 
-  const { data: vehicle, isLoading: vehicleLoading } = useQuery({
-    queryKey: ["driver-vehicle", user?.$id],
-    queryFn: () => (user ? getVehicleByDriverUserId(user.$id) : Promise.resolve(null)),
+  // Fleet: all vehicles for this user
+  const { data: vehicles = [], isLoading: vehiclesLoading } = useQuery({
+    queryKey: ["driver-vehicles", user?.$id],
+    queryFn: () => (user ? listVehiclesByDriverUserId(user.$id) : Promise.resolve([])),
     enabled: !!user,
   });
-
-  // Populate vehicle form whenever data arrives
-  useEffect(() => {
-    if (vehicle) {
-      const parts = vehicle.modelName.split(" ");
-      vehicleForm.setFieldsValue({
-        make: parts[0] ?? "",
-        model: parts.slice(1).join(" ") || vehicle.modelName,
-        color: vehicle.color ?? "",
-        plate: vehicle.plateNumber,
-        seats: vehicle.seatCapacity,
-      });
-    }
-  }, [vehicle, vehicleForm]);
 
   const { mutate: saveVehicle, isPending: savingVehicle } = useMutation({
     mutationFn: (vals: { make: string; model: string; color: string; plate: string; seats: number }) =>
       user
-        ? upsertDriverVehicle({
-            driverUserId: user.$id,
-            modelName: `${vals.make} ${vals.model}`.trim(),
-            plateNumber: vals.plate,
-            seatCapacity: vals.seats,
-            color: vals.color,
-          })
+        ? editingVehicleId
+          ? upsertDriverVehicle({ driverUserId: user.$id, modelName: `${vals.make} ${vals.model}`.trim(), plateNumber: vals.plate, seatCapacity: vals.seats, color: vals.color })
+          : createDriverVehicle({ driverUserId: user.$id, modelName: `${vals.make} ${vals.model}`.trim(), plateNumber: vals.plate, seatCapacity: vals.seats, color: vals.color })
         : Promise.reject(new Error("Not logged in")),
     onSuccess: () => {
-      message.success("Vehicle details saved!");
-      void queryClient.invalidateQueries({ queryKey: ["driver-vehicle"] });
+      message.success(editingVehicleId ? "Vehicle updated!" : "Vehicle added!");
+      void queryClient.invalidateQueries({ queryKey: ["driver-vehicles"] });
+      setVehicleDrawerOpen(false);
+      vehicleForm.resetFields();
+      setEditingVehicleId(null);
     },
-    onError: () => message.error("Failed to save vehicle details."),
+    onError: () => message.error("Failed to save vehicle."),
+  });
+
+  const { mutate: removeVehicle } = useMutation({
+    mutationFn: (id: string) => deleteDriverVehicle(id),
+    onSuccess: () => { message.success("Vehicle removed."); void queryClient.invalidateQueries({ queryKey: ["driver-vehicles"] }); },
+    onError: () => message.error("Failed to remove vehicle."),
+  });
+
+  // Team drivers
+  const { data: teamDrivers = [], isLoading: driversLoading } = useQuery({
+    queryKey: ["team-drivers", user?.$id],
+    queryFn: () => (user ? listTeamDrivers(user.$id) : Promise.resolve([])),
+    enabled: !!user,
+  });
+
+  const { mutate: saveDriver, isPending: savingDriver } = useMutation({
+    mutationFn: (vals: Omit<CreateTeamDriverInput, "ownerUserId">) =>
+      user
+        ? editingDriverId
+          ? updateTeamDriver(editingDriverId, vals)
+          : createTeamDriver({ ownerUserId: user.$id, ...vals })
+        : Promise.reject(new Error("Not logged in")),
+    onSuccess: () => {
+      message.success(editingDriverId ? "Driver updated!" : "Driver added!");
+      void queryClient.invalidateQueries({ queryKey: ["team-drivers"] });
+      setDriverDrawerOpen(false);
+      driverForm.resetFields();
+      setEditingDriverId(null);
+    },
+    onError: () => message.error("Failed to save driver."),
+  });
+
+  const { mutate: removeDriver } = useMutation({
+    mutationFn: (id: string) => deleteTeamDriver(id),
+    onSuccess: () => { message.success("Driver removed."); void queryClient.invalidateQueries({ queryKey: ["team-drivers"] }); },
+    onError: () => message.error("Failed to remove driver."),
   });
 
   // Derived history stats from real trips
@@ -493,9 +538,14 @@ function DriverDashboardPage() {
                 label: "Ride History",
               },
               {
+                key: "drivers",
+                icon: <Users2 size={18} />,
+                label: "Drivers",
+              },
+              {
                 key: "settings",
                 icon: <Settings size={18} />,
-                label: "Vehicle Settings",
+                label: "Vehicle Fleet",
               },
             ]}
           />
@@ -522,7 +572,8 @@ function DriverDashboardPage() {
               <Title level={4} style={{ margin: 0 }} className="hidden sm:block font-bold">
                 {activeModule === "dashboard" ? "Dashboard Overview" : 
                  activeModule === "trips" ? "Publish Trip" :
-                 activeModule === "history" ? "Ride History" : "Vehicle Settings"}
+                 activeModule === "history" ? "Ride History" :
+                 activeModule === "drivers" ? "Drivers" : "Vehicle Fleet"}
               </Title>
               <div className="sm:hidden flex items-center gap-2">
                 <div className="h-8 w-8 rounded-lg bg-gradient-primary text-white flex items-center justify-center shadow-glow">
@@ -1203,136 +1254,223 @@ function DriverDashboardPage() {
               </div>
             )}
 
+            {/* ── DRIVERS MODULE ── */}
+            {activeModule === "drivers" && (
+              <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Title level={2} style={{ margin: 0 }}>Drivers</Title>
+                    <Text type="secondary" className="text-lg">Manage your team of drivers.</Text>
+                  </div>
+                  <Button
+                    type="primary"
+                    icon={<Plus size={16} />}
+                    size="large"
+                    className="bg-gradient-primary border-none rounded-xl font-bold shadow-glow flex items-center gap-2"
+                    onClick={() => { setEditingDriverId(null); driverForm.resetFields(); setDriverDrawerOpen(true); }}
+                  >
+                    Add Driver
+                  </Button>
+                </div>
+
+                {driversLoading ? (
+                  <div className="flex justify-center py-16"><Spin size="large" /></div>
+                ) : teamDrivers.length === 0 ? (
+                  <Card className="rounded-2xl border border-white/60 shadow-soft bg-white/80 backdrop-blur-md text-center py-16">
+                    <Users2 size={48} className="mx-auto text-gray-300 mb-4" />
+                    <Text type="secondary" className="text-lg block">No team drivers yet.</Text>
+                    <Text type="secondary" className="text-sm">Add drivers who operate under your account.</Text>
+                    <div className="mt-6">
+                      <Button type="primary" icon={<Plus size={16} />} className="bg-gradient-primary border-none rounded-xl"
+                        onClick={() => { setEditingDriverId(null); driverForm.resetFields(); setDriverDrawerOpen(true); }}>
+                        Add first driver
+                      </Button>
+                    </div>
+                  </Card>
+                ) : (
+                  <div className="space-y-4">
+                    {teamDrivers.map((d) => (
+                      <Card key={d.id} className="rounded-2xl border border-white/60 shadow-soft bg-white/80 backdrop-blur-md hover:shadow-card transition-all">
+                        <div className="flex items-center gap-4">
+                          <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-violet-600 to-purple-700 flex items-center justify-center text-white font-bold text-xl shrink-0">
+                            {d.fullName[0]?.toUpperCase()}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-bold text-gray-800 text-base truncate">{d.fullName}</p>
+                            <div className="flex flex-wrap gap-2 mt-1">
+                              <span className="text-xs text-gray-500">{d.phone}</span>
+                              <span className="text-gray-300">·</span>
+                              <span className="text-xs text-gray-500">{d.city}</span>
+                              <span className="text-gray-300">·</span>
+                              <span className="text-xs text-gray-500 font-mono">{d.licenseNumber}</span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <Button
+                              size="small"
+                              icon={<Pencil size={14} />}
+                              className="rounded-lg"
+                              onClick={() => {
+                                setEditingDriverId(d.id);
+                                driverForm.setFieldsValue({ fullName: d.fullName, email: d.email, phone: d.phone, licenseNumber: d.licenseNumber, city: d.city });
+                                setDriverDrawerOpen(true);
+                              }}
+                            />
+                            <Popconfirm title="Remove this driver?" onConfirm={() => removeDriver(d.id)} okText="Remove" okButtonProps={{ danger: true }}>
+                              <Button size="small" danger icon={<Trash2 size={14} />} className="rounded-lg" />
+                            </Popconfirm>
+                          </div>
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+
+                {/* Add/Edit Driver Drawer */}
+                <Drawer
+                  title={editingDriverId ? "Edit Driver" : "Add Driver"}
+                  placement="right"
+                  width={420}
+                  open={driverDrawerOpen}
+                  onClose={() => { setDriverDrawerOpen(false); driverForm.resetFields(); setEditingDriverId(null); }}
+                  footer={
+                    <Button type="primary" loading={savingDriver} block size="large"
+                      className="bg-gradient-primary border-none rounded-xl font-bold h-12"
+                      onClick={() => driverForm.submit()}>
+                      {editingDriverId ? "Save Changes" : "Add Driver"}
+                    </Button>
+                  }
+                >
+                  <Form form={driverForm} layout="vertical"
+                    onFinish={(vals) => saveDriver(vals as Omit<CreateTeamDriverInput, "ownerUserId">)}>
+                    {[
+                      { name: "fullName", label: "Full Name", rules: [{ required: true, message: "Required" }] },
+                      { name: "email", label: "Email", rules: [{ required: true, type: "email" as const, message: "Valid email required" }] },
+                      { name: "phone", label: "Phone", rules: [{ required: true, message: "Required" }] },
+                      { name: "licenseNumber", label: "License Number", rules: [{ required: true, message: "Required" }] },
+                      { name: "city", label: "City", rules: [{ required: true, message: "Required" }] },
+                    ].map((f) => (
+                      <Form.Item key={f.name} name={f.name} label={<span className="font-semibold text-gray-700">{f.label}</span>} rules={f.rules}>
+                        <Input size="large" className="rounded-xl h-12" />
+                      </Form.Item>
+                    ))}
+                  </Form>
+                </Drawer>
+              </div>
+            )}
+
+            {/* ── VEHICLE FLEET MODULE ── */}
             {activeModule === "settings" && (
               <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
-                <div className="flex flex-col gap-1">
-                  <Title level={2} style={{ margin: 0 }}>
-                    Vehicle Settings
-                  </Title>
-                  <Text type="secondary" className="text-lg">
-                    Manage your registered vehicle and amenities.
-                  </Text>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Title level={2} style={{ margin: 0 }}>Vehicle Fleet</Title>
+                    <Text type="secondary" className="text-lg">Manage all your registered vehicles.</Text>
+                  </div>
+                  <Button
+                    type="primary"
+                    icon={<Plus size={16} />}
+                    size="large"
+                    className="bg-gradient-primary border-none rounded-xl font-bold shadow-glow flex items-center gap-2"
+                    onClick={() => { setEditingVehicleId(null); vehicleForm.resetFields(); setVehicleDrawerOpen(true); }}
+                  >
+                    Add Vehicle
+                  </Button>
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                  {/* Digital Vehicle Card */}
-                  <div className="lg:col-span-1">
-                    <div className="sticky top-24">
-                      {vehicleLoading ? (
-                        <div className="flex items-center justify-center h-48"><Spin /></div>
-                      ) : (
-                        <div className="bg-gradient-to-br from-gray-900 to-gray-800 rounded-3xl p-6 sm:p-8 text-white shadow-[0_20px_40px_-15px_rgba(0,0,0,0.5)] relative overflow-hidden">
-                          <div className="absolute inset-0 bg-gradient-to-tr from-white/0 via-white/5 to-white/0 -skew-x-12"></div>
-                          <div className="flex justify-between items-start mb-8 relative z-10">
-                            <div>
-                              <Text className="text-gray-400 text-xs uppercase tracking-widest font-bold block mb-1">Registered Vehicle</Text>
-                              <div className="flex items-center gap-2">
-                                <div className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></div>
-                                <Text className="text-emerald-400 text-xs font-bold uppercase tracking-wider">Approved</Text>
-                              </div>
-                            </div>
-                            <Car size={32} className="text-white/20" />
-                          </div>
-                          <div className="mb-8 relative z-10">
-                            <Title level={3} style={{ color: "white", margin: 0 }} className="font-bold">
-                              {vehicle ? vehicle.modelName : "No vehicle registered"}
-                            </Title>
-                            <Text className="text-gray-300 text-sm">
-                              {vehicle?.color ?? "—"}
-                            </Text>
-                          </div>
-                          <div className="bg-white/10 rounded-2xl p-4 backdrop-blur-md border border-white/10 relative z-10">
-                            <Text className="text-gray-400 text-[10px] uppercase tracking-widest font-bold block mb-1">License Plate</Text>
-                            <Text className="text-white font-mono text-xl tracking-widest">
-                              {vehicle?.plateNumber ?? "—"}
-                            </Text>
-                          </div>
-                        </div>
-                      )}
+                {vehiclesLoading ? (
+                  <div className="flex justify-center py-16"><Spin size="large" /></div>
+                ) : vehicles.length === 0 ? (
+                  <Card className="rounded-2xl border border-white/60 shadow-soft bg-white/80 backdrop-blur-md text-center py-16">
+                    <Car size={48} className="mx-auto text-gray-300 mb-4" />
+                    <Text type="secondary" className="text-lg block">No vehicles registered yet.</Text>
+                    <Text type="secondary" className="text-sm">Add your first vehicle to start hosting trips.</Text>
+                    <div className="mt-6">
+                      <Button type="primary" icon={<Plus size={16} />} className="bg-gradient-primary border-none rounded-xl"
+                        onClick={() => { setEditingVehicleId(null); vehicleForm.resetFields(); setVehicleDrawerOpen(true); }}>
+                        Add vehicle
+                      </Button>
                     </div>
+                  </Card>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                    {vehicles.map((v) => (
+                      <div key={v.id} className="bg-gradient-to-br from-gray-900 to-gray-800 rounded-3xl p-6 text-white shadow-xl relative overflow-hidden group">
+                        <div className="absolute inset-0 bg-gradient-to-tr from-white/0 via-white/5 to-white/0 pointer-events-none" />
+                        <div className="flex justify-between items-start mb-4 relative z-10">
+                          <div>
+                            <p className="text-gray-400 text-[10px] uppercase tracking-widest font-bold">Registered Vehicle</p>
+                            <div className="flex items-center gap-1.5 mt-1">
+                              <div className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                              <p className="text-emerald-400 text-xs font-bold uppercase tracking-wider">Active</p>
+                            </div>
+                          </div>
+                          <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button
+                              className="h-8 w-8 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors"
+                              onClick={() => {
+                                setEditingVehicleId(v.id);
+                                const parts = v.modelName.split(" ");
+                                vehicleForm.setFieldsValue({ make: parts[0] ?? "", model: parts.slice(1).join(" ") || v.modelName, color: v.color ?? "", plate: v.plateNumber, seats: v.seatCapacity });
+                                setVehicleDrawerOpen(true);
+                              }}
+                            >
+                              <Pencil size={14} />
+                            </button>
+                            <Popconfirm title="Remove this vehicle?" onConfirm={() => removeVehicle(v.id)} okText="Remove" okButtonProps={{ danger: true }}>
+                              <button className="h-8 w-8 rounded-lg bg-red-500/20 hover:bg-red-500/40 flex items-center justify-center transition-colors">
+                                <Trash2 size={14} />
+                              </button>
+                            </Popconfirm>
+                          </div>
+                        </div>
+                        <p className="text-xl font-bold relative z-10">{v.modelName}</p>
+                        <p className="text-gray-400 text-sm relative z-10">{v.color || "—"} · {v.seatCapacity} seats</p>
+                        <div className="mt-4 bg-white/10 rounded-2xl p-3 border border-white/10 relative z-10">
+                          <p className="text-gray-400 text-[10px] uppercase tracking-widest font-bold mb-0.5">Plate</p>
+                          <p className="text-white font-mono text-lg tracking-widest">{v.plateNumber}</p>
+                        </div>
+                      </div>
+                    ))}
                   </div>
+                )}
 
-                  {/* Edit Form */}
-                  <div className="lg:col-span-2">
-                    <Card className="rounded-2xl border border-white/60 shadow-card bg-white/80 backdrop-blur-md p-6 md:p-8">
-                      <Form
-                        form={vehicleForm}
-                        layout="vertical"
-                        requiredMark={false}
-                        onFinish={(vals) => saveVehicle(vals as { make: string; model: string; color: string; plate: string; seats: number })}
-                      >
-                        <Title level={5} className="mb-6 flex items-center gap-2">
-                          <Car size={18} className="text-primary" /> Basic Details
-                        </Title>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-8">
-                          <Form.Item label={<span className="font-semibold text-gray-700">Make</span>} name="make" className="mb-0">
-                            <Input size="large" className="h-14 rounded-xl text-lg" />
-                          </Form.Item>
-                          <Form.Item label={<span className="font-semibold text-gray-700">Model</span>} name="model" className="mb-0">
-                            <Input size="large" className="h-14 rounded-xl text-lg" />
-                          </Form.Item>
-                          <Form.Item label={<span className="font-semibold text-gray-700">Color</span>} name="color" className="mb-0">
-                            <Input size="large" className="h-14 rounded-xl text-lg" />
-                          </Form.Item>
-                          <Form.Item label={<span className="font-semibold text-gray-700">Seat Capacity</span>} name="seats" className="mb-0">
-                            <InputNumber size="large" className="w-full h-14 rounded-xl text-lg flex items-center" min={1} max={10} />
-                          </Form.Item>
-                        </div>
-                        <Form.Item label={<span className="font-semibold text-gray-700">License Plate</span>} name="plate">
-                          <Input size="large" className="h-14 rounded-xl text-lg font-mono tracking-widest" />
-                        </Form.Item>
-                        <Divider className="my-8" />
-                        <Title level={5} className="mb-6 flex items-center gap-2">
-                          <Sparkles size={18} className="text-primary" /> Comfort &amp; Amenities
-                        </Title>
-                        <div className="space-y-4 bg-gray-50/50 p-6 rounded-2xl border border-gray-100">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <Text strong className="block text-gray-800">Air Conditioning</Text>
-                              <Text type="secondary" className="text-xs">Provide a cool ride</Text>
-                            </div>
-                            <Switch defaultChecked />
-                          </div>
-                          <Divider className="my-0" />
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <Text strong className="block text-gray-800">Extra Luggage Space</Text>
-                              <Text type="secondary" className="text-xs">Empty trunk available</Text>
-                            </div>
-                            <Switch defaultChecked />
-                          </div>
-                          <Divider className="my-0" />
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <Text strong className="block text-gray-800">Music / Aux Cable</Text>
-                              <Text type="secondary" className="text-xs">Let passengers play music</Text>
-                            </div>
-                            <Switch defaultChecked />
-                          </div>
-                          <Divider className="my-0" />
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <Text strong className="block text-gray-800">Pets Allowed</Text>
-                              <Text type="secondary" className="text-xs">Comfortable with small pets</Text>
-                            </div>
-                            <Switch />
-                          </div>
-                        </div>
-                        <div className="mt-10 flex justify-end">
-                          <Button
-                            type="primary"
-                            htmlType="submit"
-                            size="large"
-                            loading={savingVehicle}
-                            className="h-14 rounded-xl px-10 bg-gradient-primary border-none font-bold shadow-glow w-full sm:w-auto hover:scale-[1.02] transition-transform"
-                          >
-                            Save Changes
-                          </Button>
-                        </div>
-                      </Form>
-                    </Card>
-                  </div>
-                </div>
+                {/* Add/Edit Vehicle Drawer */}
+                <Drawer
+                  title={editingVehicleId ? "Edit Vehicle" : "Add Vehicle"}
+                  placement="right"
+                  width={420}
+                  open={vehicleDrawerOpen}
+                  onClose={() => { setVehicleDrawerOpen(false); vehicleForm.resetFields(); setEditingVehicleId(null); }}
+                  footer={
+                    <Button type="primary" loading={savingVehicle} block size="large"
+                      className="bg-gradient-primary border-none rounded-xl font-bold h-12"
+                      onClick={() => vehicleForm.submit()}>
+                      {editingVehicleId ? "Save Changes" : "Add Vehicle"}
+                    </Button>
+                  }
+                >
+                  <Form form={vehicleForm} layout="vertical"
+                    onFinish={(vals) => saveVehicle(vals as { make: string; model: string; color: string; plate: string; seats: number })}>
+                    <div className="grid grid-cols-2 gap-4">
+                      <Form.Item name="make" label={<span className="font-semibold text-gray-700">Make</span>} rules={[{ required: true, message: "Required" }]}>
+                        <Input size="large" placeholder="Honda" className="rounded-xl h-12" />
+                      </Form.Item>
+                      <Form.Item name="model" label={<span className="font-semibold text-gray-700">Model</span>} rules={[{ required: true, message: "Required" }]}>
+                        <Input size="large" placeholder="City" className="rounded-xl h-12" />
+                      </Form.Item>
+                    </div>
+                    <Form.Item name="color" label={<span className="font-semibold text-gray-700">Color</span>}>
+                      <Input size="large" placeholder="White, Black…" className="rounded-xl h-12" />
+                    </Form.Item>
+                    <Form.Item name="plate" label={<span className="font-semibold text-gray-700">License Plate</span>} rules={[{ required: true, message: "Required" }]}>
+                      <Input size="large" placeholder="TN 01 AB 1234" className="rounded-xl h-12 font-mono tracking-widest" />
+                    </Form.Item>
+                    <Form.Item name="seats" label={<span className="font-semibold text-gray-700">Seat Capacity</span>} rules={[{ required: true }]}>
+                      <InputNumber min={1} max={12} size="large" className="w-full rounded-xl" />
+                    </Form.Item>
+                  </Form>
+                </Drawer>
               </div>
             )}
           </Content>
@@ -1346,7 +1484,7 @@ function DriverDashboardPage() {
             className={`flex flex-col items-center justify-center w-full h-full space-y-1 transition-colors ${activeModule === 'dashboard' ? 'text-primary' : 'text-gray-400'}`}
             onClick={() => setActiveModule('dashboard')}
           >
-            <LayoutDashboard size={22} className={activeModule === 'dashboard' ? 'fill-primary/20' : ''} />
+            <LayoutDashboard size={20} />
             <span className="text-[10px] font-semibold">Home</span>
           </button>
           
@@ -1354,26 +1492,34 @@ function DriverDashboardPage() {
             className={`flex flex-col items-center justify-center w-full h-full space-y-1 transition-colors ${activeModule === 'trips' ? 'text-primary' : 'text-gray-400'}`}
             onClick={() => setActiveModule('trips')}
           >
-            <div className={`p-2 rounded-full ${activeModule === 'trips' ? 'bg-primary/10' : ''}`}>
-              <PlusCircle size={24} className={activeModule === 'trips' ? 'fill-primary/20' : ''} />
+            <div className={`p-1.5 rounded-full ${activeModule === 'trips' ? 'bg-primary/10' : ''}`}>
+              <PlusCircle size={22} />
             </div>
-            <span className="text-[10px] font-semibold -mt-1">Add Trip</span>
+            <span className="text-[10px] font-semibold -mt-1">New Trip</span>
           </button>
           
           <button 
             className={`flex flex-col items-center justify-center w-full h-full space-y-1 transition-colors ${activeModule === 'history' ? 'text-primary' : 'text-gray-400'}`}
             onClick={() => setActiveModule('history')}
           >
-            <History size={22} className={activeModule === 'history' ? 'fill-primary/20' : ''} />
+            <History size={20} />
             <span className="text-[10px] font-semibold">History</span>
+          </button>
+
+          <button 
+            className={`flex flex-col items-center justify-center w-full h-full space-y-1 transition-colors ${activeModule === 'drivers' ? 'text-primary' : 'text-gray-400'}`}
+            onClick={() => setActiveModule('drivers')}
+          >
+            <Users2 size={20} />
+            <span className="text-[10px] font-semibold">Drivers</span>
           </button>
           
           <button 
             className={`flex flex-col items-center justify-center w-full h-full space-y-1 transition-colors ${activeModule === 'settings' ? 'text-primary' : 'text-gray-400'}`}
             onClick={() => setActiveModule('settings')}
           >
-            <Settings size={22} className={activeModule === 'settings' ? 'fill-primary/20' : ''} />
-            <span className="text-[10px] font-semibold">Vehicle</span>
+            <Car size={20} />
+            <span className="text-[10px] font-semibold">Fleet</span>
           </button>
         </div>
       </div>
