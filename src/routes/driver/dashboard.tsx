@@ -697,23 +697,23 @@ function DriverDashboardPage() {
                 trigger={["click"]}
                 placement="bottomRight"
               >
-                <div className="group flex items-center gap-3 bg-white/50 hover:bg-white/80 pl-4 pr-1.5 py-1.5 rounded-full border border-white/80 shadow-card backdrop-blur-xl transition-all duration-300 cursor-pointer">
-                  <div className="text-right hidden md:flex flex-col justify-center">
-                    <div className="flex items-center gap-1 justify-end">
+                <div className="group flex items-center h-12 gap-3 bg-white/40 hover:bg-white/60 pl-4 pr-1.5 rounded-full border border-white/20 shadow-sm backdrop-blur-xl transition-all duration-300 cursor-pointer">
+                  <div className="hidden md:flex flex-col items-end justify-center h-full gap-0.5">
+                    <div className="flex items-center gap-1">
                       <Text strong className="text-[14px] text-gray-800 leading-none">
                         {user?.name || "Ride Host"}
                       </Text>
-                      <CheckCircle size={14} className="text-blue-500 fill-blue-500/10" />
+                      <CheckCircle size={13} className="text-blue-500 fill-blue-500/10" />
                     </div>
-                    <Text className="text-[10px] text-gray-500 font-bold uppercase tracking-[0.08em] leading-none mt-1.5">
+                    <Text className="text-[9px] text-gray-500 font-bold uppercase tracking-[0.05em] leading-none">
                       Verified Host
                     </Text>
                   </div>
-                  <Badge dot status="processing" offset={[-1, 28]} color="#6b46c1">
+                  <Badge dot status="processing" offset={[-1, 26]} color="#6b46c1">
                     <Avatar
                       icon={<User size={18} />}
-                      className="bg-gradient-primary shadow-soft border-2 border-white/90 group-hover:border-white transition-all"
-                      size={36}
+                      className="bg-gradient-primary shadow-sm border border-white/40 group-hover:border-white/80 transition-all"
+                      size={34}
                     />
                   </Badge>
                 </div>
