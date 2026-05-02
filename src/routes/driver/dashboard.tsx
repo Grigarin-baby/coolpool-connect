@@ -1231,7 +1231,7 @@ function DriverDashboardPage() {
                             <Tag color="purple" className="rounded-full border-none px-2 py-0.5 font-semibold text-[10px] m-0">
                               {form.getFieldValue("departureAt") ? dayjs(form.getFieldValue("departureAt")).format("MMM D • h:mm A") : "Select date"}
                             </Tag>
-                            <Text strong className="text-lg text-emerald-600">₹{seatPriceWatch || 500}</Text>
+                            <Text strong className="text-lg text-emerald-600">₹{totalPriceWatch || 2000}</Text>
                           </div>
                           
                           <div className="flex items-stretch gap-3">
@@ -1286,7 +1286,7 @@ function DriverDashboardPage() {
                         <Tag color="purple" className="rounded-full border-none px-3 py-1 font-semibold text-xs m-0">
                           {form.getFieldValue("departureAt") ? dayjs(form.getFieldValue("departureAt")).format("MMM D • h:mm A") : "Select date"}
                         </Tag>
-                        <Text strong className="text-xl text-emerald-600">₹{seatPriceWatch || 500}</Text>
+                        <Text strong className="text-xl text-emerald-600">₹{totalPriceWatch || 2000}</Text>
                       </div>
                       
                       <div className="flex items-stretch gap-4">
