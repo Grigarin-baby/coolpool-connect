@@ -37,7 +37,7 @@ type Step = 1 | 2 | 3;
 
 function DriverOnboardingPage() {
   const navigate = useNavigate();
-  const { refreshRoles } = useAuth();
+  const { user, refreshRoles } = useAuth();
   const [form] = Form.useForm();
   const [step, setStep] = useState<Step>(1);
   const [submitting, setSubmitting] = useState(false);
@@ -102,7 +102,7 @@ function DriverOnboardingPage() {
       toast.error("Please complete all required fields before creating account.");
       return;
     }
-    if (!password) {
+    if (!user && !password) {
       toast.error("Password is required.");
       return;
     }
@@ -113,29 +113,37 @@ function DriverOnboardingPage() {
 
     setSubmitting(true);
     try {
-      // Ensure onboarding starts from a clean auth state.
-      try {
-        await account.deleteSession("current");
-      } catch {
-        // No active session is fine.
-      }
+      let userId = user?.$id;
 
-      try {
-        await account.create(ID.unique(), email, password, fullName);
-      } catch (error) {
-        if (isUserAlreadyExists(error)) {
-          toast.error("This email is already registered. Please use Existing Driver Login.");
-          return;
+      if (!user) {
+        // Ensure onboarding starts from a clean auth state.
+        try {
+          await account.deleteSession("current");
+        } catch {
+          // No active session is fine.
         }
-        throw error;
-      }
 
-      try {
-        await account.createEmailPasswordSession(email, password);
-      } catch (error) {
-        if (!isSessionAlreadyExists(error)) throw error;
+        try {
+          await account.create(ID.unique(), email, password, fullName);
+        } catch (error) {
+          if (isUserAlreadyExists(error)) {
+            toast.error("This email is already registered. Please log in first, then complete onboarding.");
+            return;
+          }
+          throw error;
+        }
+
+        try {
+          await account.createEmailPasswordSession(email, password);
+        } catch (error) {
+          if (!isSessionAlreadyExists(error)) throw error;
+        }
+        
+        const me = await account.get();
+        userId = me.$id;
       }
-      const me = await account.get();
+      
+      if (!userId) throw new Error("User ID is missing.");
       const registrationUpload = await storage.createFile(
         appwriteConfig.driverDocsBucketId,
         ID.unique(),
@@ -148,7 +156,7 @@ function DriverOnboardingPage() {
       );
 
       await upsertDriverProfile({
-        userId: me.$id,
+        userId: userId,
         fullName,
         email,
         phone,
@@ -156,7 +164,7 @@ function DriverOnboardingPage() {
         city,
       });
       await upsertDriverVehicle({
-        driverUserId: me.$id,
+        driverUserId: userId,
         modelName,
         plateNumber,
         seatCapacity: Number(values.seatCapacity ?? 4),
@@ -164,9 +172,15 @@ function DriverOnboardingPage() {
         registrationDoc: registrationUpload.$id,
         insuranceDoc: insuranceUpload.$id,
       });
-      await assignRole(me.$id, "driver");
+      await assignRole(userId, "driver");
+      
+      // If user is already logged in, preserve their existing roles
+      const existingRoles = user?.prefs?.roles || [];
+      const newRoles = Array.from(new Set([...existingRoles, "driver"]));
+      
       await account.updatePrefs({
-        roles: ["driver"],
+        ...(user?.prefs || {}),
+        roles: newRoles,
         fullName,
       });
 
@@ -309,33 +323,37 @@ function DriverOnboardingPage() {
                     <AntButton>Upload insurance</AntButton>
                   </Upload>
                 </Form.Item>
-                <Form.Item
-                  label="Create password"
-                  name="password"
-                  rules={[
-                    { required: true, min: 6, message: "Password must be at least 6 characters" },
-                  ]}
-                >
-                  <Input.Password />
-                </Form.Item>
-                <Form.Item
-                  label="Confirm password"
-                  name="confirmPassword"
-                  dependencies={["password"]}
-                  rules={[
-                    { required: true, message: "Please confirm your password" },
-                    ({ getFieldValue }) => ({
-                      validator(_, value) {
-                        if (!value || getFieldValue("password") === value) {
-                          return Promise.resolve();
-                        }
-                        return Promise.reject(new Error("Passwords do not match"));
-                      },
-                    }),
-                  ]}
-                >
-                  <Input.Password />
-                </Form.Item>
+                {!user && (
+                  <>
+                    <Form.Item
+                      label="Create password"
+                      name="password"
+                      rules={[
+                        { required: true, min: 6, message: "Password must be at least 6 characters" },
+                      ]}
+                    >
+                      <Input.Password />
+                    </Form.Item>
+                    <Form.Item
+                      label="Confirm password"
+                      name="confirmPassword"
+                      dependencies={["password"]}
+                      rules={[
+                        { required: true, message: "Please confirm your password" },
+                        ({ getFieldValue }) => ({
+                          validator(_, value) {
+                            if (!value || getFieldValue("password") === value) {
+                              return Promise.resolve();
+                            }
+                            return Promise.reject(new Error("Passwords do not match"));
+                          },
+                        }),
+                      ]}
+                    >
+                      <Input.Password />
+                    </Form.Item>
+                  </>
+                )}
               </>
             )}
 
