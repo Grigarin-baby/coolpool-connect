@@ -55,6 +55,8 @@ export interface Booking {
   passengerPhone: string;
   status: BookingStatus;
   createdAt: string;
+  ratingByHost?: number;
+  commentByHost?: string;
 }
 
 export interface DriverProfile {

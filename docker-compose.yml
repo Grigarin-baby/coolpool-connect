@@ -17,6 +17,25 @@ services:
       - "traefik.http.middlewares.coolpool-compress.compress=true"
       - "traefik.http.routers.coolpool.middlewares=coolpool-compress"
 
+  appwrite-proxy:
+    image: nginx:alpine
+    container_name: appwrite-proxy
+    restart: unless-stopped
+    networks:
+      - coolify
+      - ljdtlive600781krllbzu915
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.coolpool-appwrite.rule=(Host(`coolpool.in`) || Host(`www.coolpool.in`)) && PathPrefix(`/v1`)"
+      - "traefik.http.routers.coolpool-appwrite.priority=1000"
+      - "traefik.http.routers.coolpool-appwrite.entrypoints=http,https"
+      - "traefik.http.routers.coolpool-appwrite.tls=true"
+      - "traefik.http.services.coolpool-appwrite.loadbalancer.server.port=80"
+
 networks:
   coolify:
+    external: true
+  ljdtlive600781krllbzu915:
     external: true

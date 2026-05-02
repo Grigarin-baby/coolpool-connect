@@ -66,6 +66,8 @@ function toBooking(doc: Doc): Booking {
     passengerPhone: String(doc.passenger_phone),
     status: String(doc.status) as BookingStatus,
     createdAt: String(doc.created_at ?? doc.$createdAt),
+    ratingByHost: doc.rating_by_host ? Number(doc.rating_by_host) : undefined,
+    commentByHost: doc.comment_by_host ? String(doc.comment_by_host) : undefined,
   };
 }
 
@@ -535,6 +537,33 @@ export async function listTripBookings(tripId: string): Promise<Booking[]> {
     Query.limit(100),
   ]);
   return result.documents.map(toBooking);
+}
+
+export async function listHostBookings(hostId: string): Promise<Booking[]> {
+  const c = ids();
+  // First get all trip IDs for this host
+  const trips = await databases.listDocuments(appwriteConfig.databaseId, c.trips, [
+    Query.equal("host_id", hostId),
+    Query.limit(100),
+  ]);
+  const tripIds = trips.documents.map(t => t.$id);
+  
+  if (tripIds.length === 0) return [];
+
+  const result = await databases.listDocuments(appwriteConfig.databaseId, c.bookings, [
+    Query.equal("trip_id", tripIds),
+    Query.orderDesc("$createdAt"),
+    Query.limit(100),
+  ]);
+  return result.documents.map(toBooking);
+}
+
+export async function updateBookingRating(bookingId: string, rating: number, comment?: string): Promise<void> {
+  const c = ids();
+  await databases.updateDocument(appwriteConfig.databaseId, c.bookings, bookingId, {
+    rating_by_host: rating,
+    comment_by_host: comment ?? null,
+  });
 }
 
 export async function getPricingRule(): Promise<PricingRule | null> {

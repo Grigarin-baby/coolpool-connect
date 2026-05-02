@@ -18,6 +18,8 @@ import {
   Plus,
   Trash2,
   Pencil,
+  Star,
+  UserCheck,
 } from "lucide-react";
 import {
   Layout,
@@ -60,8 +62,11 @@ import {
   updateTeamDriver,
   deleteTeamDriver,
   createTripStop,
+  listHostBookings,
+  updateBookingRating,
   type CreateTeamDriverInput,
 } from "@/data/appwrite-repository";
+import type { Trip, TripStop, DriverProfile, Booking } from "@/lib/domain";
 import { APP_FONT_FAMILY } from "@/lib/fonts";
 import { calcPricePerKm } from "@/lib/pricing";
 import dayjs from "dayjs";
@@ -179,6 +184,10 @@ function DriverDashboardPage() {
   const [editingVehicleId, setEditingVehicleId] = useState<string | null>(null);
   const [driverDrawerOpen, setDriverDrawerOpen] = useState(false);
   const [editingDriverId, setEditingDriverId] = useState<string | null>(null);
+  const [ratingModalVisible, setRatingModalVisible] = useState(false);
+  const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
+  const [ratingValue, setRatingValue] = useState(5);
+  const [ratingComment, setRatingComment] = useState("");
   const autocompleteServiceRef = useRef<PlacesAutocompleteServiceLike | null>(null);
   const geocoderRef = useRef<GeocoderLike | null>(null);
   const directionsServiceRef = useRef<DirectionsServiceLike | null>(null);
@@ -246,6 +255,12 @@ function DriverDashboardPage() {
     queryFn: () => (user ? listTeamDrivers(user.$id) : Promise.resolve([])),
     enabled: !!user,
   });
+  
+  const { data: bookings = [], isLoading: bookingsLoading } = useQuery({
+    queryKey: ["host-bookings", user?.$id],
+    queryFn: () => (user ? listHostBookings(user.$id) : Promise.resolve([])),
+    enabled: !!user,
+  });
 
   const { mutate: saveDriver, isPending: savingDriver } = useMutation({
     mutationFn: (vals: Omit<CreateTeamDriverInput, "ownerUserId">) =>
@@ -268,6 +283,17 @@ function DriverDashboardPage() {
     mutationFn: (id: string) => deleteTeamDriver(id),
     onSuccess: () => { message.success("Driver removed."); void queryClient.invalidateQueries({ queryKey: ["team-drivers"] }); },
     onError: () => message.error("Failed to remove driver."),
+  });
+
+  const { mutate: submitRating, isPending: submittingRating } = useMutation({
+    mutationFn: (vals: { bookingId: string; rating: number; comment?: string }) =>
+      updateBookingRating(vals.bookingId, vals.rating, vals.comment),
+    onSuccess: () => {
+      message.success("Rating submitted successfully!");
+      setRatingModalVisible(false);
+      void queryClient.invalidateQueries({ queryKey: ["host-bookings"] });
+    },
+    onError: () => message.error("Failed to submit rating."),
   });
 
   // Derived history stats from real trips
@@ -632,6 +658,11 @@ function DriverDashboardPage() {
                 key: "history",
                 icon: <History size={18} />,
                 label: "Ride History",
+              },
+              {
+                key: "customers",
+                icon: <UserCheck size={18} />,
+                label: "Customers",
               },
               {
                 key: "drivers",
@@ -1646,6 +1677,213 @@ function DriverDashboardPage() {
                 </Drawer>
               </div>
             )}
+            {/* ── CUSTOMER HUB MODULE ── */}
+            {activeModule === "customers" && (
+              <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
+                <div className="flex flex-col gap-2">
+                  <Title level={2} className="m-0">Customer Hub</Title>
+                  <Text type="secondary" className="text-lg">Manage relationships and feedback for your passengers.</Text>
+                </div>
+
+                <div className="grid grid-cols-1 gap-6">
+                  {bookingsLoading ? (
+                    <div className="flex justify-center p-20 bg-white/40 rounded-3xl backdrop-blur-md">
+                      <Spin size="large" tip="Loading customer directory..." />
+                    </div>
+                  ) : bookings.length === 0 ? (
+                    <Card className="rounded-3xl border border-white/60 shadow-soft bg-white/60 backdrop-blur-md p-16 text-center">
+                      <div className="mx-auto w-24 h-24 bg-purple-100 rounded-full flex items-center justify-center text-purple-600 mb-6">
+                        <Users2 size={40} />
+                      </div>
+                      <Title level={3}>No customers yet</Title>
+                      <Text type="secondary" className="text-lg block mb-8">Your passengers will appear here once they start booking your trips.</Text>
+                      <Button type="primary" size="large" onClick={() => setActiveModule("trips")} className="bg-gradient-primary border-none h-12 px-8 rounded-xl font-bold">
+                        Publish Your First Trip
+                      </Button>
+                    </Card>
+                  ) : (
+                    <div className="space-y-6">
+                      {/* Grouping bookings by passenger */}
+                      {Object.values(bookings.reduce((acc: any, booking) => {
+                        if (!acc[booking.travelerId]) {
+                          acc[booking.travelerId] = {
+                            travelerId: booking.travelerId,
+                            name: booking.passengerName,
+                            phone: booking.passengerPhone,
+                            totalTrips: 0,
+                            avgRating: 0,
+                            ratingsCount: 0,
+                            latestBookings: []
+                          };
+                        }
+                        acc[booking.travelerId].totalTrips += 1;
+                        acc[booking.travelerId].latestBookings.push(booking);
+                        if (booking.ratingByHost) {
+                          acc[booking.travelerId].ratingsCount += 1;
+                          acc[booking.travelerId].avgRating += booking.ratingByHost;
+                        }
+                        return acc;
+                      }, {})).map((customer: any) => (
+                        <Card key={customer.travelerId} className="rounded-3xl border border-white/60 shadow-soft hover:shadow-card transition-all bg-white/80 backdrop-blur-md overflow-hidden">
+                          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 p-2">
+                            <div className="flex items-center gap-5">
+                              <Avatar size={70} className="bg-gradient-primary shadow-soft flex-shrink-0">
+                                {customer.name[0]}
+                              </Avatar>
+                              <div>
+                                <div className="flex items-center gap-3 flex-wrap">
+                                  <Title level={3} className="m-0">{customer.name}</Title>
+                                  {customer.totalTrips >= 3 && (
+                                    <Tag color="gold" className="rounded-full px-3 border-none font-bold uppercase text-[10px] m-0">Frequent Traveler</Tag>
+                                  )}
+                                  <div className="flex items-center gap-1 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
+                                    <Star size={12} className="text-emerald-600 fill-emerald-600" />
+                                    <Text className="text-[12px] text-emerald-700 font-bold">
+                                      {customer.ratingsCount > 0 ? (customer.avgRating / customer.ratingsCount).toFixed(1) : "New"}
+                                    </Text>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-4 mt-2 text-gray-500 font-medium">
+                                  <Text type="secondary">{customer.phone}</Text>
+                                  <span className="w-1 h-1 bg-gray-300 rounded-full"></span>
+                                  <Text type="secondary">{customer.totalTrips} Total Trips</Text>
+                                </div>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <Button 
+                                type="primary" 
+                                className="h-12 rounded-2xl bg-purple-600 border-none font-bold shadow-soft"
+                                onClick={() => {
+                                  setSelectedBooking(customer.latestBookings[0]);
+                                  setRatingValue(customer.latestBookings[0].ratingByHost || 5);
+                                  setRatingComment(customer.latestBookings[0].commentByHost || "");
+                                  setRatingModalVisible(true);
+                                }}
+                              >
+                                Rate Latest Trip
+                              </Button>
+                            </div>
+                          </div>
+                          
+                          <div className="mt-6 pt-6 border-t border-gray-100">
+                            <Text strong className="text-gray-400 uppercase text-[10px] tracking-widest block mb-4">Trip History with you</Text>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                              {customer.latestBookings.slice(0, 3).map((b: Booking) => (
+                                <div key={b.id} className="bg-gray-50/50 p-4 rounded-2xl border border-gray-100 flex flex-col justify-between">
+                                  <div>
+                                    <Text strong className="block mb-1">{b.passengerName}</Text>
+                                    <Text type="secondary" className="text-[11px] uppercase tracking-wider block mb-2">{dayjs(b.createdAt).format("MMM D, YYYY")}</Text>
+                                    <div className="flex items-center gap-2 mb-1">
+                                      <Tag color={b.status === "confirmed" ? "green" : b.status === "completed" ? "blue" : "orange"} className="rounded-full text-[10px] border-none font-bold uppercase px-2">{b.status}</Tag>
+                                      <Text className="text-xs font-semibold">{b.seatsBooked} Seats • ₹{b.segmentPrice}</Text>
+                                    </div>
+                                  </div>
+                                  {b.ratingByHost && (
+                                    <div className="mt-3 flex items-center gap-2 pt-3 border-t border-gray-100/50">
+                                      <div className="flex items-center gap-1">
+                                        {[...Array(5)].map((_, i) => (
+                                          <Star key={i} size={10} className={i < b.ratingByHost! ? "text-amber-400 fill-amber-400" : "text-gray-200"} />
+                                        ))}
+                                      </div>
+                                      <Text italic className="text-[10px] text-gray-400 line-clamp-1">"{b.commentByHost}"</Text>
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </Card>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <Modal
+                  title={
+                    <div className="flex items-center gap-3 pb-2 border-b border-gray-100">
+                      <div className="p-2 bg-amber-100 rounded-lg text-amber-600">
+                        <Star size={20} fill="currentColor" />
+                      </div>
+                      <div>
+                        <Title level={4} className="m-0">Rate Passenger</Title>
+                        <Text type="secondary" className="text-xs">Your feedback helps the community stay safe.</Text>
+                      </div>
+                    </div>
+                  }
+                  open={ratingModalVisible}
+                  onCancel={() => setRatingModalVisible(false)}
+                  footer={null}
+                  centered
+                  width={500}
+                  className="rounded-3xl overflow-hidden"
+                >
+                  <div className="py-6 space-y-8">
+                    <div className="text-center">
+                      <Text type="secondary" className="uppercase text-[10px] tracking-[0.2em] font-bold block mb-4">Select Rating</Text>
+                      <div className="flex justify-center gap-2">
+                        {[1, 2, 3, 4, 5].map((val) => (
+                          <button
+                            key={val}
+                            onClick={() => setRatingValue(val)}
+                            className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all ${
+                              ratingValue >= val 
+                                ? "bg-amber-400 text-white shadow-glow scale-110" 
+                                : "bg-gray-100 text-gray-300 hover:bg-gray-200"
+                            }`}
+                          >
+                            <Star size={28} fill={ratingValue >= val ? "white" : "transparent"} strokeWidth={2.5} />
+                          </button>
+                        ))}
+                      </div>
+                      <div className="mt-4">
+                        <Title level={5} className="text-amber-600">
+                          {ratingValue === 5 ? "Excellent Traveler" : 
+                           ratingValue === 4 ? "Very Good" : 
+                           ratingValue === 3 ? "Good Experience" : 
+                           ratingValue === 2 ? "Below Average" : "Poor Experience"}
+                        </Title>
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      <Text strong className="text-gray-700">Write a quick note (Optional)</Text>
+                      <Input.TextArea
+                        rows={4}
+                        placeholder="e.g. Very punctual and friendly passenger!"
+                        value={ratingComment}
+                        onChange={(e) => setRatingComment(e.target.value)}
+                        className="rounded-2xl border-gray-200 p-4 focus:ring-2 focus:ring-purple-500/20"
+                      />
+                    </div>
+
+                    <div className="flex gap-4 pt-4">
+                      <Button 
+                        block 
+                        size="large" 
+                        onClick={() => setRatingModalVisible(false)}
+                        className="h-14 rounded-2xl font-bold text-gray-500"
+                      >
+                        Cancel
+                      </Button>
+                      <Button 
+                        type="primary" 
+                        block 
+                        size="large" 
+                        loading={submittingRating}
+                        onClick={() => {
+                          if (!selectedBooking) return;
+                          submitRating({ bookingId: selectedBooking.id, rating: ratingValue, comment: ratingComment });
+                        }}
+                        className="h-14 rounded-2xl bg-gradient-primary border-none font-bold shadow-glow"
+                      >
+                        Submit Feedback
+                      </Button>
+                    </div>
+                  </div>
+                </Modal>
+              </div>
+            )}
           </Content>
         </Layout>
       </Layout>
@@ -1677,6 +1915,14 @@ function DriverDashboardPage() {
           >
             <History size={20} />
             <span className="text-[10px] font-semibold">History</span>
+          </button>
+
+          <button 
+            className={`flex flex-col items-center justify-center w-full h-full space-y-1 transition-colors ${activeModule === 'customers' ? 'text-primary' : 'text-gray-400'}`}
+            onClick={() => setActiveModule('customers')}
+          >
+            <UserCheck size={20} />
+            <span className="text-[10px] font-semibold">Users</span>
           </button>
 
           <button 
