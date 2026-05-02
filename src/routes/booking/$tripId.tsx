@@ -61,7 +61,7 @@ function BookingTripPage() {
 
   const layoutCapacity = useMemo(() => {
     const vehicleCap = vehicleQuery.data?.seatCapacity ?? 0;
-    const tripCap = (tripQuery.data?.totalSeats ?? 0) + 1;
+    const tripCap = (tripQuery.data?.totalSeats ?? 0);
     // Always use the larger of the two to ensure all seats are shown
     const finalCap = Math.max(vehicleCap, tripCap);
     return Math.min(12, Math.max(2, finalCap));
