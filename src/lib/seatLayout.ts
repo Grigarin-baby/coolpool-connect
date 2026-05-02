@@ -42,10 +42,13 @@ export function buildSeatLayout(seatCapacity: number): SeatSlot[] {
   // Driver on Right (Col 1)
   push(0, 1, "driver", "Drv");
 
-  // Row 1+: Back Rows (2 seats per row - Captain Seat style)
+  // Dynamic Row Logic based on vehicle size
   let row = 1;
+  const isLargeVehicle = cap >= 6;
+
   while (slots.length < cap) {
-    for (let c = 0; c < 2 && slots.length < cap; c++) {
+    const seatsInThisRow = isLargeVehicle ? 2 : 3;
+    for (let c = 0; c < seatsInThisRow && slots.length < cap; c++) {
       push(row, c, "passenger", String(passengerNo));
       passengerNo++;
     }

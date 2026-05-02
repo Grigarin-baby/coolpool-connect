@@ -1,7 +1,8 @@
 import type { SeatSlot } from "@/lib/seatLayout";
 import { cn } from "@/lib/utils";
 import { Check } from "lucide-react";
-import carInterior from "@/assets/car-interior.png";
+import sedanInterior from "@/assets/sedan-interior.png";
+import suvInterior from "@/assets/suv-interior.png";
 
 interface SeatMapProps {
   slots: SeatSlot[];
@@ -12,14 +13,26 @@ interface SeatMapProps {
   disabled?: boolean;
 }
 
-const seatPositions: Record<string, { top: string; left: string }> = {
-  "R0-C0": { top: "45.2%", left: "34%" },   // Front Left (Passenger)
-  "R0-C1": { top: "45.2%", left: "66%" },   // Front Right (Driver)
-  "R1-C0": { top: "64.8%", left: "34%" },   // Middle Left
-  "R1-C1": { top: "64.8%", left: "66%" },   // Middle Right
-  "R2-C0": { top: "88.5%", left: "30%" },   // Back Left
-  "R2-C1": { top: "88.5%", left: "70%" },   // Back Right
-  "R2-C2": { top: "88.5%", left: "50%" },   // Back Center
+/** 
+ * Map coordinates for both car types. 
+ * Key format: [VehicleType]-[SeatCode]
+ */
+const COORDINATES: Record<string, { top: string; left: string }> = {
+  // SEDAN (4-5 Seats)
+  "SEDAN-R0-C0": { top: "49.5%", left: "31%" },   // Front L
+  "SEDAN-R0-C1": { top: "49.5%", left: "69%" },   // Front R (Drv)
+  "SEDAN-R1-C0": { top: "83.5%", left: "26%" },   // Back L
+  "SEDAN-R1-C1": { top: "83.5%", left: "50%" },   // Back C
+  "SEDAN-R1-C2": { top: "83.5%", left: "74%" },   // Back R
+  
+  // SUV (6-7 Seats)
+  "SUV-R0-C0": { top: "45.2%", left: "34%" },
+  "SUV-R0-C1": { top: "45.2%", left: "66%" },
+  "SUV-R1-C0": { top: "64.8%", left: "34%" },
+  "SUV-R1-C1": { top: "64.8%", left: "66%" },
+  "SUV-R2-C0": { top: "88.5%", left: "30%" },
+  "SUV-R2-C1": { top: "88.5%", left: "70%" },
+  "SUV-R2-C2": { top: "88.5%", left: "50%" },
 };
 
 export function SeatMap({
@@ -30,15 +43,18 @@ export function SeatMap({
   maxSelectable,
   disabled = false,
 }: SeatMapProps) {
+  const isLargeVehicle = slots.length >= 6;
+  const vType = isLargeVehicle ? "SUV" : "SEDAN";
+
   return (
     <div className="space-y-6">
       <div className="relative mx-auto max-w-[450px] aspect-square group">
         {/* Realistic Car Interior Background */}
         <div className="absolute inset-0 rounded-[40px] overflow-hidden shadow-2xl border-8 border-slate-900/10">
           <img 
-            src={carInterior} 
+            src={isLargeVehicle ? suvInterior : sedanInterior} 
             alt="Car Interior" 
-            className="w-full h-full object-cover select-none pointer-events-none"
+            className="w-full h-full object-cover select-none pointer-events-none transition-opacity duration-700"
           />
           {/* Vignette Overlay */}
           <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-black/30 pointer-events-none" />
@@ -46,7 +62,14 @@ export function SeatMap({
 
         {/* Interactive Overlays */}
         {slots.map((slot) => {
-          const pos = seatPositions[slot.seatCode] || { top: "50%", left: "50%" };
+          let seatId = `${vType}-${slot.seatCode}`;
+          
+          // Special case: 4-seater Sedan. R1-C1 should be the Right-Back seat (not center).
+          if (vType === "SEDAN" && slots.length === 4 && slot.seatCode === "R1-C1") {
+            seatId = "SEDAN-R1-C2";
+          }
+
+          const pos = COORDINATES[seatId] || { top: "50%", left: "50%" };
           const isDriver = slot.kind === "driver";
           const taken = occupiedCodes.has(slot.seatCode);
           const selected = selectedCodes.has(slot.seatCode);
@@ -107,9 +130,9 @@ export function SeatMap({
           );
         })}
 
-        {/* Dashboard Indicator Overlay */}
+        {/* Vehicle Label Indicator */}
         <div className="absolute top-12 left-1/2 -translate-x-1/2 px-4 py-1 bg-black/40 backdrop-blur-md text-white text-[9px] font-black uppercase tracking-[0.4em] rounded-full z-30 border border-white/10 pointer-events-none">
-          Dashboard
+          {vType === "SUV" ? "Premium SUV" : "Executive Sedan"}
         </div>
       </div>
 
