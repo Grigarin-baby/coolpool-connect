@@ -3,6 +3,7 @@ import { ID } from "appwrite";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { account, appwriteConfig, storage } from "@/integrations/appwrite/client";
 import { assignRole, upsertDriverProfile, upsertDriverVehicle } from "@/data/appwrite-repository";
+import { useAuth } from "@/hooks/useAuth";
 import { SiteHeader } from "@/components/SiteHeader";
 import { SiteFooter } from "@/components/SiteFooter";
 import { Card } from "@/components/ui/card";
@@ -36,6 +37,7 @@ type Step = 1 | 2 | 3;
 
 function DriverOnboardingPage() {
   const navigate = useNavigate();
+  const { refreshRoles } = useAuth();
   const [form] = Form.useForm();
   const [step, setStep] = useState<Step>(1);
   const [submitting, setSubmitting] = useState(false);
@@ -167,6 +169,8 @@ function DriverOnboardingPage() {
         roles: ["driver"],
         fullName,
       });
+
+      await refreshRoles();
 
       toast.success("Driver account is ready.");
       navigate({ to: "/driver/dashboard" });

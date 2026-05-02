@@ -102,7 +102,7 @@ export const Route = createFileRoute("/driver/dashboard")({
 });
 
 function DriverDashboardPage() {
-  const { isDriver, user, signOut } = useAuth();
+  const { isDriver, user, signOut, loading } = useAuth();
   const [activeModule, setActiveModule] = useState("dashboard");
   const [form] = Form.useForm();
   const queryClient = useQueryClient();
@@ -331,6 +331,14 @@ function DriverDashboardPage() {
       else setSelectedTo(withCoords);
     });
   };
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gradient-hero p-4">
+        <Spin size="large" />
+      </div>
+    );
+  }
 
   if (!isDriver) {
     return (
