@@ -129,7 +129,7 @@ function AuthPage() {
           to="/"
           className="inline-flex items-center group rounded-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background"
         >
-          <img src={logo} alt="Coolpool Logo" className="h-10 w-auto object-contain" />
+          <img src={logo} alt="Coolpool Logo" className="h-16 w-auto object-contain" />
         </Link>
       </header>
 

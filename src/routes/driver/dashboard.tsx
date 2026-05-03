@@ -670,7 +670,7 @@ function DriverDashboardPage() {
             }}
           >
           <div className="p-6">
-            <img src={logo} alt="Coolpool Logo" className="h-12 w-auto object-contain" />
+            <img src={logo} alt="Coolpool Logo" className="h-16 w-auto object-contain" />
           </div>
 
           <Menu
@@ -748,7 +748,7 @@ function DriverDashboardPage() {
                  activeModule === "drivers" ? "Drivers" : "Vehicle Fleet"}
               </Title>
               <div className="sm:hidden">
-                <img src={logo} alt="Coolpool Logo" className="h-8 w-auto object-contain" />
+                <img src={logo} alt="Coolpool Logo" className="h-10 w-auto object-contain" />
               </div>
             </div>
             <div className="flex items-center gap-4">
