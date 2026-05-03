@@ -25,6 +25,7 @@ import { SiteFooter } from "@/components/SiteFooter";
 import { TripSearchProvider, TripSearchForm, TripSearchResults } from "@/components/TripSearch";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/")({
   head: () => ({
