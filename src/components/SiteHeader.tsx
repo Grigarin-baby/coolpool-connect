@@ -1,4 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
+import logo from "@/assets/logo.png";
 import { useState } from "react";
 import { Menu, X, Sparkles, LogOut, User as UserIcon, LayoutDashboard, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -29,11 +30,8 @@ export function SiteHeader() {
   return (
     <header className="sticky top-0 z-50 backdrop-blur-xl bg-background/70 border-b border-border/60">
       <div className="container mx-auto px-4 h-16 flex items-center justify-between max-w-7xl">
-        <Link to="/" className="flex items-center gap-2 group">
-          <div className="h-9 w-9 rounded-none bg-gradient-primary flex items-center justify-center shadow-glow group-hover:scale-105 transition-base">
-            <Sparkles className="h-5 w-5 text-primary-foreground" />
-          </div>
-          <span className="text-lg sm:text-xl font-bold tracking-tight">Coolpool</span>
+        <Link to="/" className="flex items-center group">
+          <img src={logo} alt="Coolpool Logo" className="h-9 w-auto object-contain" />
         </Link>
 
 

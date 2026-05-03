@@ -1,4 +1,5 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
+import logo from "@/assets/logo.png";
 import { useState, type FormEvent, useEffect } from "react";
 import { Sparkles, Loader2, Shield, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -126,12 +127,9 @@ function AuthPage() {
       <header className="relative shrink-0 container mx-auto px-4 sm:px-5 py-4 max-w-7xl">
         <Link
           to="/"
-          className="inline-flex items-center gap-2.5 group rounded-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background"
+          className="inline-flex items-center group rounded-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background"
         >
-          <div className="h-10 w-10 rounded-none bg-gradient-primary flex items-center justify-center shadow-glow group-hover:scale-[1.02] transition-base">
-            <Sparkles className="h-5 w-5 text-primary-foreground" />
-          </div>
-          <span className="text-lg sm:text-xl font-bold tracking-tight font-heading">Coolpool</span>
+          <img src={logo} alt="Coolpool Logo" className="h-10 w-auto object-contain" />
         </Link>
       </header>
 

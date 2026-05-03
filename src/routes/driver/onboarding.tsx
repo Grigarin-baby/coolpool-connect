@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import logo from "@/assets/logo.png";
 import { ID } from "appwrite";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { account, appwriteConfig, storage } from "@/integrations/appwrite/client";
@@ -161,11 +162,8 @@ function DriverOnboardingPage() {
         <div className="absolute bottom-10 right-0 w-56 h-56 bg-indigo-400/20 rounded-full blur-3xl" />
 
         <div className="relative z-10">
-          <div className="flex items-center gap-3 mb-16">
-            <div className="h-10 w-10 rounded-xl bg-white/20 backdrop-blur flex items-center justify-center shadow-lg">
-              <Sparkles className="h-6 w-6 text-white" />
-            </div>
-            <span className="text-white font-bold text-xl">Coolpool</span>
+          <div className="flex items-center mb-16">
+            <img src={logo} alt="Coolpool Logo" className="h-12 w-auto object-contain" />
           </div>
 
           <h2 className="text-4xl font-extrabold text-white leading-tight">
@@ -214,11 +212,8 @@ function DriverOnboardingPage() {
       {/* ── Right form panel ── */}
       <div className="flex-1 flex flex-col min-h-screen">
         {/* Mobile top bar */}
-        <div className="lg:hidden flex items-center gap-3 px-5 pt-6 pb-4">
-          <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-violet-600 to-purple-700 flex items-center justify-center shadow-glow">
-            <Sparkles className="h-5 w-5 text-white" />
-          </div>
-          <span className="font-bold text-lg">Coolpool</span>
+        <div className="lg:hidden flex items-center px-5 pt-6 pb-4">
+          <img src={logo} alt="Coolpool Logo" className="h-9 w-auto object-contain" />
         </div>
 
         {/* Mobile progress bar */}

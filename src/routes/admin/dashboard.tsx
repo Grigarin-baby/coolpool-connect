@@ -30,6 +30,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { listActiveTrips, listDriverProfiles } from "@/data/appwrite-repository";
+import logo from "@/assets/logo.png";
 import { APP_FONT_FAMILY } from "@/lib/fonts";
 
 const { Header, Sider, Content } = Layout;
@@ -111,14 +112,8 @@ function AdminDashboardPage() {
           className="border-r border-border/60 backdrop-blur-xl hidden lg:block"
           style={{ position: "sticky", top: 0, height: "100vh", left: 0, zIndex: 100 }}
         >
-          <div className="p-6 flex items-center gap-3">
-            <div className="h-10 w-10 rounded-none bg-gradient-primary text-primary-foreground flex items-center justify-center shadow-glow">
-              <Shield className="h-6 w-6" />
-            </div>
-            <div>
-              <p className="font-bold text-lg leading-none">Coolpool</p>
-              <p className="text-[10px] uppercase tracking-widest text-muted-foreground mt-1">Admin Console</p>
-            </div>
+          <div className="p-6">
+            <img src={logo} alt="Coolpool Logo" className="h-10 w-auto object-contain" />
           </div>
 
           <Menu
@@ -176,11 +171,8 @@ function AdminDashboardPage() {
                     ? "Driver Directory"
                     : "Trip Manager"}
               </Title>
-              <div className="sm:hidden flex items-center gap-2">
-                <div className="h-8 w-8 rounded-none bg-gradient-primary text-primary-foreground flex items-center justify-center">
-                  <Shield className="h-4 w-4" />
-                </div>
-                <Text strong>Admin</Text>
+              <div className="sm:hidden">
+                <img src={logo} alt="Coolpool Logo" className="h-8 w-auto object-contain" />
               </div>
             </div>
             <div className="flex items-center gap-4">

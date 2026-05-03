@@ -76,6 +76,8 @@ import relativeTime from "dayjs/plugin/relativeTime";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { appwriteConfig } from "@/integrations/appwrite/client";
 
+import logo from "@/assets/logo.png";
+
 dayjs.extend(relativeTime);
 
 const { Header, Content, Sider } = Layout;
@@ -667,16 +669,8 @@ function DriverDashboardPage() {
               WebkitBackdropFilter: "blur(16px)"
             }}
           >
-          <div className="p-6 flex items-center gap-3">
-            <div className="h-10 w-10 rounded-none bg-gradient-primary text-primary-foreground flex items-center justify-center shadow-glow">
-              <Sparkles className="h-6 w-6" />
-            </div>
-            <div>
-              <p className="font-bold text-lg leading-none">Coolpool</p>
-              <p className="text-[10px] uppercase tracking-widest text-muted-foreground mt-1">
-                Ride Host Operations
-              </p>
-            </div>
+          <div className="p-6">
+            <img src={logo} alt="Coolpool Logo" className="h-12 w-auto object-contain" />
           </div>
 
           <Menu
@@ -753,11 +747,8 @@ function DriverDashboardPage() {
                  activeModule === "history" ? "Ride History" :
                  activeModule === "drivers" ? "Drivers" : "Vehicle Fleet"}
               </Title>
-              <div className="sm:hidden flex items-center gap-2">
-                <div className="h-8 w-8 rounded-lg bg-gradient-primary text-white flex items-center justify-center shadow-glow">
-                  <Sparkles className="h-4 w-4" />
-                </div>
-                <Text strong className="text-lg">Coolpool</Text>
+              <div className="sm:hidden">
+                <img src={logo} alt="Coolpool Logo" className="h-8 w-auto object-contain" />
               </div>
             </div>
             <div className="flex items-center gap-4">

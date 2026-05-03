@@ -1,4 +1,5 @@
 import { Link } from "@tanstack/react-router";
+import logo from "@/assets/logo.png";
 import { Sparkles } from "lucide-react";
 
 export function SiteFooter() {
@@ -7,11 +8,8 @@ export function SiteFooter() {
       <div className="container mx-auto px-4 sm:px-5 py-10 sm:py-12 max-w-7xl">
         <div className="grid gap-10 md:grid-cols-4">
           <div className="md:col-span-2">
-            <Link to="/" className="flex items-center gap-2">
-              <div className="h-9 w-9 rounded-none bg-gradient-primary flex items-center justify-center shadow-glow">
-                <Sparkles className="h-5 w-5 text-primary-foreground" />
-              </div>
-              <span className="text-xl font-bold">Coolpool</span>
+            <Link to="/" className="flex items-center">
+              <img src={logo} alt="Coolpool Logo" className="h-9 w-auto object-contain" />
             </Link>
             <p className="mt-4 text-sm text-muted-foreground max-w-sm">
               Smart intercity ride-sharing — fair prices, friendly hosts, every kilometer counted.
