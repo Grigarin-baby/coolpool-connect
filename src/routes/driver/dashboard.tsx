@@ -910,38 +910,46 @@ function DriverDashboardPage() {
                                     ],
                                     onClick: async ({ key }) => {
                                       if (key === "edit") {
-                                        setEditingTripId(item.$id);
-                                        setIsEditingTrip(true);
-                                        
-                                        // Fetch stops to pre-populate
-                                        const stops = await listTripStops(item.$id);
-                                        const fromStop = stops.find(s => s.stopType === "pickup");
-                                        const toStop = stops.find(s => s.stopType === "drop");
-                                        const middleStops = stops.filter(s => s.stopType === "both" || (s.stopType !== "pickup" && s.stopType !== "drop"));
-                                        
-                                        if (fromStop) setSelectedFrom({ label: fromStop.location, value: fromStop.location, lat: fromStop.lat, lng: fromStop.lng });
-                                        if (toStop) setSelectedTo({ label: toStop.location, value: toStop.location, lat: toStop.lat, lng: toStop.lng });
-                                        
-                                        setIntermediateStops(middleStops.map(s => ({
-                                          id: s.id,
-                                          value: s.location,
-                                          options: [],
-                                          selected: { label: s.location, value: s.location, lat: s.lat, lng: s.lng }
-                                        })));
-                                        
-                                        form.setFieldsValue({
-                                          fromLocation: item.fromLocation,
-                                          toLocation: item.toLocation,
-                                          departureAt: dayjs(item.departureAt),
-                                          totalSeats: item.totalSeats,
-                                          totalTripPrice: item.totalPrice / (item.totalSeats || 1),
-                                          vehicleId: item.vehicleId,
-                                          driverId: item.assignedDriverId,
-                                        });
-                                        
-                                        setActiveModule("trips");
+                                        const hide = message.loading("Fetching trip details...", 0);
+                                        try {
+                                          setEditingTripId(item.$id);
+                                          setIsEditingTrip(true);
+                                          
+                                          // Fetch stops to pre-populate
+                                          const stops = await listTripStops(item.$id);
+                                          const fromStop = stops.find(s => s.stopType === "pickup");
+                                          const toStop = stops.find(s => s.stopType === "drop");
+                                          const middleStops = stops.filter(s => s.stopType === "both" || (s.stopType !== "pickup" && s.stopType !== "drop"));
+                                          
+                                          if (fromStop) setSelectedFrom({ label: fromStop.location, value: fromStop.location, lat: fromStop.lat, lng: fromStop.lng });
+                                          if (toStop) setSelectedTo({ label: toStop.location, value: toStop.location, lat: toStop.lat, lng: toStop.lng });
+                                          
+                                          setIntermediateStops(middleStops.map(s => ({
+                                            id: s.id,
+                                            value: s.location,
+                                            options: [],
+                                            selected: { label: s.location, value: s.location, lat: s.lat, lng: s.lng }
+                                          })));
+                                          
+                                          form.setFieldsValue({
+                                            fromLocation: item.fromLocation,
+                                            toLocation: item.toLocation,
+                                            departureAt: dayjs(item.departureAt),
+                                            totalSeats: item.totalSeats,
+                                            totalTripPrice: Math.round(item.totalPrice / (item.totalSeats || 1)),
+                                            vehicleId: item.vehicleId,
+                                            driverId: item.assignedDriverId,
+                                          });
+                                          
+                                          setActiveModule("trips");
+                                          message.success("Trip loaded for editing.");
+                                        } catch (err) {
+                                          console.error("[EditTrip] Error:", err);
+                                          message.error("Failed to load trip details.");
+                                        } finally {
+                                          hide();
+                                        }
                                       } else if (key === "cancel") {
-                                        // Implement cancel logic if needed
                                         message.info("Cancel functionality coming soon");
                                       }
                                     }
