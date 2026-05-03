@@ -400,7 +400,7 @@ function DriverDashboardPage() {
     document.head.appendChild(script);
   }, []);
 
-  const onFinish = (values: TripFormValues) => {
+  const onFinish = async (values: TripFormValues) => {
     if (!user) return;
     const normalizedFrom = values.fromLocation.trim();
     const normalizedTo = values.toLocation.trim();
@@ -413,7 +413,6 @@ function DriverDashboardPage() {
         ? selectedTo
         : { label: normalizedTo, value: normalizedTo, lat: 0, lng: 0 };
     const validIntermediateStops = intermediateStops.filter(s => s.selected !== null).map(s => s.selected!);
-    const allStops = [resolvedFrom, ...validIntermediateStops, resolvedTo];
 
     const dirService = directionsServiceRef.current;
     if (!dirService) {
@@ -421,16 +420,44 @@ function DriverDashboardPage() {
       return;
     }
 
-    const request: DirectionsRequest = {
-      origin: { lat: resolvedFrom.lat, lng: resolvedFrom.lng },
-      destination: { lat: resolvedTo.lat, lng: resolvedTo.lng },
-      waypoints: validIntermediateStops.map(stop => ({ location: { lat: stop.lat, lng: stop.lng }, stopover: true })),
-      travelMode: "DRIVING",
+    console.log("[Publish] Calculating route:", { resolvedFrom, resolvedTo, stops: intermediateStops.length });
+
+    const getCoords = async (loc: { label: string; lat: number; lng: number }) => {
+      if (loc.lat !== 0 || loc.lng !== 0) return loc;
+      if (!geocoderRef.current) return loc;
+      
+      console.log("[Publish] Geocoding fallback for:", loc.label);
+      return new Promise<{ label: string; lat: number; lng: number }>((resolve) => {
+        geocoderRef.current!.geocode({ address: loc.label }, (results, status) => {
+          if (status === "OK" && results?.[0]?.geometry?.location) {
+            const pos = results[0].geometry.location;
+            resolve({ ...loc, lat: pos.lat(), lng: pos.lng() });
+          } else {
+            console.warn("[Publish] Geocoding failed for:", loc.label, status);
+            resolve(loc);
+          }
+        });
+      });
     };
 
-    dirService.route(request, (result, status) => {
+    const finalFrom = await getCoords(resolvedFrom);
+    const finalTo = await getCoords(resolvedTo);
+    const allStops = [finalFrom, ...validIntermediateStops, finalTo];
+
+    if (finalFrom.lat === 0 || finalTo.lat === 0) {
+      message.error("Could not determine coordinates for origin or destination. Please select from the dropdown.");
+      return;
+    }
+
+    dirService.route({
+      origin: { lat: finalFrom.lat, lng: finalFrom.lng },
+      destination: { lat: finalTo.lat, lng: finalTo.lng },
+      waypoints: validIntermediateStops.map(stop => ({ location: { lat: stop.lat, lng: stop.lng }, stopover: true })),
+      travelMode: google.maps.TravelMode.DRIVING,
+    }, (result, status) => {
       if (status !== "OK" || !result) {
-        message.error("Failed to calculate route. Please check your stops.");
+        console.error("[Publish] Directions API failed:", status, result);
+        message.error(`Route calculation failed: ${status}. Please check your stops.`);
         return;
       }
       
@@ -460,12 +487,12 @@ function DriverDashboardPage() {
       const payload = {
         tripData: {
           hostId: user.$id,
-          fromLocation: resolvedFrom.label,
-          fromLat: resolvedFrom.lat,
-          fromLng: resolvedFrom.lng,
-          toLocation: resolvedTo.label,
-          toLat: resolvedTo.lat,
-          toLng: resolvedTo.lng,
+          fromLocation: finalFrom.label,
+          fromLat: finalFrom.lat,
+          fromLng: finalFrom.lng,
+          toLocation: finalTo.label,
+          toLat: finalTo.lat,
+          toLng: finalTo.lng,
           polyline,
           totalDistanceKm,
           totalPrice,
