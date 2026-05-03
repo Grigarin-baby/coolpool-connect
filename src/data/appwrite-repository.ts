@@ -288,15 +288,25 @@ export async function deleteTripStop(stopId: string): Promise<void> {
 
 export async function createTripStop(input: CreateTripStopInput): Promise<TripStop> {
   const c = ids();
-  const doc = await databases.createDocument(appwriteConfig.databaseId, c.tripStops, ID.unique(), {
-    trip_id: input.tripId,
-    stop_index: input.stopIndex,
-    location: input.location,
-    lat: input.lat,
-    lng: input.lng,
-    stop_type: input.stopType,
-    distance_from_origin_km: input.distanceFromOriginKm,
-  });
+  const doc = await databases.createDocument(
+    appwriteConfig.databaseId,
+    c.tripStops,
+    ID.unique(),
+    {
+      trip_id: input.tripId,
+      stop_index: input.stopIndex,
+      location: input.location,
+      lat: input.lat,
+      lng: input.lng,
+      stop_type: input.stopType,
+      distance_from_origin_km: input.distanceFromOriginKm,
+    },
+    [
+      Permission.read(Role.any()),
+      Permission.update(Role.any()), // Adjust if you want only the host to update
+      Permission.delete(Role.any()), // Adjust if you want only the host to delete
+    ]
+  );
   return toTripStop(doc);
 }
 

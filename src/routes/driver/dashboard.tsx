@@ -895,7 +895,7 @@ function DriverDashboardPage() {
                     ) : (
                       <div className="space-y-4">
                         {trips.slice(0, 5).map(item => (
-                          <div key={item.$id} className="bg-white/80 rounded-2xl border border-white shadow-soft p-5 hover:shadow-card transition-all duration-300 group">
+                          <div key={item.id} className="bg-white/80 rounded-2xl border border-white shadow-soft p-5 hover:shadow-card transition-all duration-300 group">
                             <div className="flex items-center justify-between mb-4">
                               <Tag color="purple" className="rounded-full border-none px-3 py-1 font-semibold text-xs m-0">
                                 {dayjs(item.departureAt).format("MMM D, YYYY • h:mm A")}
@@ -912,11 +912,11 @@ function DriverDashboardPage() {
                                       if (key === "edit") {
                                         const hide = message.loading("Fetching trip details...", 0);
                                         try {
-                                          setEditingTripId(item.$id);
+                                          setEditingTripId(item.id);
                                           setIsEditingTrip(true);
                                           
                                           // Fetch stops to pre-populate
-                                          const stops = await listTripStops(item.$id);
+                                          const stops = await listTripStops(item.id);
                                           const fromStop = stops.find(s => s.stopType === "pickup");
                                           const toStop = stops.find(s => s.stopType === "drop");
                                           const middleStops = stops.filter(s => s.stopType === "both" || (s.stopType !== "pickup" && s.stopType !== "drop"));
