@@ -28,10 +28,18 @@ export function SiteHeader() {
   const dashboardPath = isAdmin ? "/admin/dashboard" : isDriver ? "/driver/dashboard" : null;
 
   return (
-    <header className="sticky top-0 z-50 backdrop-blur-xl bg-background/70 border-b border-border/60">
-      <div className="container mx-auto px-4 h-16 flex items-center justify-between max-w-7xl">
-        <Link to="/" className="flex items-center group">
-          <img src={logo} alt="Coolpool Logo" className="h-10 w-auto object-contain" />
+    <div className="fixed top-0 left-0 right-0 z-50 px-4 pt-4 pointer-events-none">
+      <header 
+        className="container mx-auto max-w-7xl h-20 rounded-full border border-white/20 bg-background/60 backdrop-blur-2xl shadow-glow-sm pointer-events-auto flex items-center justify-between px-6 sm:px-8 transition-all duration-500 hover:shadow-glow-md"
+      >
+        <Link to="/" className="flex items-center gap-3 group transition-transform duration-300 hover:scale-[1.02]">
+          <div className="relative">
+            <div className="absolute inset-0 bg-primary/20 blur-xl rounded-full group-hover:bg-primary/40 transition-colors" />
+            <img src={logo} alt="Coolpool" className="h-12 w-auto object-contain relative z-10" />
+          </div>
+          <span className="text-2xl font-black tracking-tighter font-heading hidden sm:block">
+            COOL<span className="text-primary">POOL</span>
+          </span>
         </Link>
 
 
@@ -101,35 +109,41 @@ export function SiteHeader() {
         </div>
 
         <button
-          className="md:hidden h-10 w-10 rounded-none flex items-center justify-center hover:bg-secondary"
+          className="md:hidden h-12 w-12 rounded-full flex items-center justify-center hover:bg-primary/10 transition-colors"
           onClick={() => setOpen((v) => !v)}
           aria-label="Toggle menu"
         >
-          {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          {open ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
         </button>
-      </div>
+      </header>
+    </div>
 
       {open && (
-        <div className="md:hidden border-t border-border/60 bg-background">
-          <div className="container mx-auto px-4 py-4 flex flex-col gap-1 max-w-7xl">
+        <div className="fixed inset-0 z-[60] bg-background/95 backdrop-blur-2xl md:hidden p-6 animate-in fade-in zoom-in-95 duration-300">
+          <div className="flex justify-end mb-8">
+            <Button variant="ghost" size="icon" onClick={() => setOpen(false)} className="rounded-full">
+              <X className="h-8 w-8" />
+            </Button>
+          </div>
+          <div className="flex flex-col gap-6 text-center">
             {navLinks.map((l) => (
               <Link
                 key={l.to}
                 to={l.to}
                 onClick={() => setOpen(false)}
-                className="px-4 py-3 rounded-none text-sm font-medium hover:bg-secondary"
+                className="text-3xl font-black tracking-tighter uppercase hover:text-primary transition-colors"
               >
                 {l.label}
               </Link>
             ))}
-            <div className="h-px bg-border my-2" />
+            <div className="h-px bg-border/60 my-2" />
             {user ? (
               <>
                 {dashboardPath && (
                   <Link
                     to={dashboardPath}
                     onClick={() => setOpen(false)}
-                    className="px-4 py-3 rounded-none text-sm font-medium hover:bg-secondary"
+                    className="text-2xl font-bold hover:text-primary transition-colors"
                   >
                     Dashboard
                   </Link>
@@ -137,56 +151,28 @@ export function SiteHeader() {
                 <Link
                   to="/trips"
                   onClick={() => setOpen(false)}
-                  className="px-4 py-3 rounded-none text-sm font-medium hover:bg-secondary"
+                  className="text-2xl font-bold hover:text-primary transition-colors"
                 >
                   My trips
                 </Link>
-                {isDriver && (
-                  <Link
-                    to="/driver/dashboard"
-                    onClick={() => setOpen(false)}
-                    className="px-4 py-3 rounded-none text-sm font-medium hover:bg-secondary"
-                  >
-                    Ride Host dashboard
-                  </Link>
-                )}
-                {isAdmin && (
-                  <Link
-                    to="/admin/dashboard"
-                    onClick={() => setOpen(false)}
-                    className="px-4 py-3 rounded-none text-sm font-medium hover:bg-secondary"
-                  >
-                    Admin
-                  </Link>
-                )}
                 <button
                   onClick={() => {
                     setOpen(false);
                     signOut();
                   }}
-                  className="text-left px-4 py-3 rounded-none text-sm font-medium text-destructive hover:bg-secondary"
+                  className="text-2xl font-bold text-destructive"
                 >
                   Sign out
                 </button>
               </>
             ) : (
-              <>
-                <Link
-                  to="/members"
-                  search={memberSearch}
-                  onClick={() => setOpen(false)}
-                  className="px-4 py-3 rounded-none text-sm font-medium hover:bg-secondary"
-                >
-                  Become a member
-                </Link>
-                <Link
-                  to="/auth"
-                  onClick={() => setOpen(false)}
-                  className="px-4 py-3 rounded-none text-sm font-medium hover:bg-secondary"
-                >
-                  Login
-                </Link>
-              </>
+              <Link
+                to="/auth"
+                onClick={() => setOpen(false)}
+                className="text-2xl font-bold hover:text-primary transition-colors"
+              >
+                Login / Register
+              </Link>
             )}
           </div>
         </div>
