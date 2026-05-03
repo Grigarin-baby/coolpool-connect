@@ -12,7 +12,14 @@ import {
   Route as RouteIcon,
   Wallet,
   CheckCircle2,
+  Lock,
+  Star,
+  Info,
+  Car,
+  Plane,
+  Bus,
 } from "lucide-react";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { SiteHeader } from "@/components/SiteHeader";
 import { SiteFooter } from "@/components/SiteFooter";
 import { TripSearchProvider, TripSearchForm, TripSearchResults } from "@/components/TripSearch";
@@ -206,25 +213,175 @@ function Home() {
         </Card>
       </section>
 
+      {/* SAFETY & TRUST */}
+      <section className="bg-secondary/30 border-y border-border/60 py-16 sm:py-24">
+        <div className="container mx-auto px-4 sm:px-5 max-w-7xl">
+          <div className="flex flex-col lg:flex-row items-center gap-12 lg:gap-20">
+            <div className="flex-1 space-y-6">
+              <div className="inline-flex items-center gap-2 rounded-full bg-green-500/10 px-4 py-1 text-xs font-bold uppercase tracking-wider text-green-600">
+                <ShieldCheck className="h-4 w-4" />
+                Verified Safety
+              </div>
+              <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight leading-tight">
+                Your safety is our <span className="text-primary">priority</span>
+              </h2>
+              <p className="text-lg text-muted-foreground leading-relaxed">
+                We've built trust into every kilometer. From identity verification to real-time trip monitoring, we ensure every ride is secure.
+              </p>
+              <div className="grid sm:grid-cols-2 gap-6 pt-4">
+                {[
+                  { icon: <Lock className="text-primary" />, title: "ID Verification", text: "Every host and traveler is verified before their first ride." },
+                  { icon: <ShieldCheck className="text-primary" />, title: "Trip Tracking", text: "Share your live location with friends and family." },
+                  { icon: <Users className="text-primary" />, title: "Community Ratings", text: "Transparent reviews keep our community high-quality." },
+                  { icon: <Zap className="text-primary" />, title: "Instant Support", text: "24/7 assistance for any issues during your journey." },
+                ].map((item, i) => (
+                  <div key={i} className="space-y-2">
+                    <div className="h-10 w-10 rounded-lg bg-card flex items-center justify-center shadow-soft border border-border/40">
+                      {item.icon}
+                    </div>
+                    <h4 className="font-bold">{item.title}</h4>
+                    <p className="text-sm text-muted-foreground">{item.text}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="flex-1 relative">
+              <div className="absolute inset-0 bg-primary/20 blur-[100px] rounded-full" />
+              <Card className="relative p-2 rounded-3xl border-border/40 shadow-elevated bg-card/80 backdrop-blur-xl overflow-hidden">
+                <img 
+                  src="https://images.unsplash.com/photo-1449965408869-eaa3f722e40d?auto=format&fit=crop&q=80&w=1000" 
+                  alt="Safe driving" 
+                  className="rounded-2xl object-cover aspect-[4/3]"
+                />
+              </Card>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* COMPARISON */}
+      <section className="container mx-auto px-4 sm:px-5 py-16 sm:py-24 max-w-7xl">
+        <div className="text-center mb-12 sm:mb-16">
+          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">Why choose <span className="text-primary">Coolpool?</span></h2>
+          <p className="mt-4 text-muted-foreground text-lg">Compare us with your usual travel options.</p>
+        </div>
+        <div className="grid md:grid-cols-3 gap-6">
+          {[
+            { 
+              title: "Public Bus", 
+              icon: <Bus className="h-8 w-8" />, 
+              pros: ["Cheap"], 
+              cons: ["Rigid timing", "Crowded", "Fixed stops"],
+              status: "Frustrating"
+            },
+            { 
+              title: "Coolpool", 
+              icon: <Car className="h-8 w-8 text-primary" />, 
+              pros: ["Flexible timing", "Door-to-door segment", "Comfortable", "Meet new people"], 
+              cons: ["Dependent on hosts"],
+              status: "Premium",
+              highlight: true
+            },
+            { 
+              title: "Private Taxi", 
+              icon: <Plane className="h-8 w-8" />, 
+              pros: ["Private", "Fast"], 
+              cons: ["Very expensive", "Single person cost"],
+              status: "Costly"
+            }
+          ].map((item, i) => (
+            <Card key={i} className={cn(
+              "p-8 border-border/60 rounded-none relative overflow-hidden transition-all duration-300",
+              item.highlight ? "border-primary shadow-glow bg-primary/[0.02] scale-105 z-10" : "bg-card/50"
+            )}>
+              {item.highlight && <div className="absolute top-0 right-0 bg-primary text-primary-foreground px-4 py-1 text-xs font-bold uppercase tracking-widest">Recommended</div>}
+              <div className="mb-6">{item.icon}</div>
+              <h3 className="text-2xl font-bold mb-4">{item.title}</h3>
+              <div className="space-y-6">
+                <div>
+                  <p className="text-xs font-bold uppercase text-green-600 mb-2 tracking-widest">The Good</p>
+                  <ul className="space-y-2">
+                    {item.pros.map((p, j) => <li key={j} className="flex items-center gap-2 text-sm"><CheckCircle2 className="h-4 w-4 text-green-500" /> {p}</li>)}
+                  </ul>
+                </div>
+                <div>
+                  <p className="text-xs font-bold uppercase text-red-500 mb-2 tracking-widest">The Bad</p>
+                  <ul className="space-y-2">
+                    {item.cons.map((c, j) => <li key={j} className="flex items-center gap-2 text-sm opacity-60"><Info className="h-4 w-4" /> {c}</li>)}
+                  </ul>
+                </div>
+              </div>
+            </Card>
+          ))}
+        </div>
+      </section>
+
+      {/* TESTIMONIALS */}
+      <section className="bg-primary/5 py-16 sm:py-24">
+        <div className="container mx-auto px-4 sm:px-5 max-w-7xl">
+          <div className="text-center mb-12 sm:mb-16">
+            <h2 className="text-3xl sm:text-4xl font-bold">Trusted by <span className="text-primary">thousands</span></h2>
+            <p className="mt-4 text-muted-foreground text-lg">Real stories from our intercity travelers.</p>
+          </div>
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {[
+              { name: "Rahul S.", role: "Regular Traveler", text: "The segment booking is a lifesaver. I saved 50% on my commute from Bengaluru to Tumakuru compared to a cab.", rating: 5 },
+              { name: "Ananya M.", role: "Host", text: "Hosting on Coolpool has helped me cover my fuel costs and I've met some amazing people on my weekend trips home.", rating: 5 },
+              { name: "Vikram K.", role: "Tech Professional", text: "Clean, reliable, and way more comfortable than the bus. The app is super intuitive to use.", rating: 4 },
+            ].map((t, i) => (
+              <Card key={i} className="p-8 border-border/40 rounded-none bg-card shadow-soft">
+                <div className="flex gap-1 mb-4">
+                  {[...Array(t.rating)].map((_, j) => <Star key={j} className="h-4 w-4 fill-primary text-primary" />)}
+                </div>
+                <p className="italic text-lg mb-6 leading-relaxed">"{t.text}"</p>
+                <div>
+                  <p className="font-bold">{t.name}</p>
+                  <p className="text-xs text-muted-foreground uppercase tracking-widest">{t.role}</p>
+                </div>
+              </Card>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* FAQ SECTION */}
+      <section className="container mx-auto px-4 sm:px-5 py-16 sm:py-24 max-w-3xl">
+        <div className="text-center mb-12">
+          <h2 className="text-3xl sm:text-4xl font-bold">Frequently Asked <span className="text-primary">Questions</span></h2>
+          <p className="mt-4 text-muted-foreground">Everything you need to know about Coolpool.</p>
+        </div>
+        <Accordion type="single" collapsible className="w-full">
+          {[
+            { q: "How is the price calculated?", a: "Prices are calculated based on the distance of your specific segment (pickup to drop) and the host's per-kilometer rate." },
+            { q: "Is it safe to travel with strangers?", a: "Yes, we verify all users via official IDs. Our rating system ensures high community standards, and you can share your live trip status." },
+            { q: "Can I cancel my booking?", a: "Yes, you can cancel up to 2 hours before the trip for a full refund. Cancellations closer to the trip time may incur a small fee." },
+            { q: "What if the host cancels?", a: "If a host cancels, you receive a 100% refund immediately, and we notify you of alternative rides on the same route." },
+          ].map((faq, i) => (
+            <AccordionItem key={i} value={`item-${i}`} className="border-border/60">
+              <AccordionTrigger className="text-left font-bold text-lg hover:text-primary transition-colors">{faq.q}</AccordionTrigger>
+              <AccordionContent className="text-muted-foreground text-base leading-relaxed">{faq.a}</AccordionContent>
+            </AccordionItem>
+          ))}
+        </Accordion>
+      </section>
+
       {/* FINAL CTA */}
       <section className="container mx-auto px-4 sm:px-5 pb-16 sm:pb-24 max-w-7xl">
-        <Card className="rounded-none border-border/60 p-6 sm:p-8 md:p-12 bg-card shadow-card">
-          <div className="max-w-3xl min-w-0">
-            <h3 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-balance">
-              Plan your next intercity ride in under a minute.
+        <Card className="rounded-none border-0 p-8 sm:p-12 md:p-20 bg-gradient-hero relative overflow-hidden text-center shadow-glow">
+          <div className="absolute inset-0 bg-gradient-mesh opacity-20 pointer-events-none" />
+          <div className="relative max-w-3xl mx-auto space-y-8">
+            <h3 className="text-3xl sm:text-4xl md:text-6xl font-bold tracking-tight text-balance leading-tight">
+              Ready to <span className="text-gradient-primary">start your journey?</span>
             </h3>
-            <p className="mt-3 text-muted-foreground">
-              Search active rides or create your own route. Coolpool handles distance-aware pricing
-              and segment seat logic.
+            <p className="text-lg sm:text-xl text-muted-foreground leading-relaxed">
+              Join thousands of people saving money and making new friends on the road.
             </p>
-            <div className="mt-6 flex flex-col sm:flex-row gap-3 sm:items-center">
-              <Button asChild variant="hero" size="lg" className="rounded-none w-full sm:w-auto justify-center">
-                <a href="#find-a-ride">
-                  Start with search <ArrowRight className="h-4 w-4" />
-                </a>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <Button asChild variant="hero" size="xl" className="rounded-none px-12 h-14 text-lg">
+                <a href="#find-a-ride">Find a Ride <ArrowRight /></a>
               </Button>
-              <Button asChild variant="outline" size="lg" className="rounded-none w-full sm:w-auto justify-center">
-                <Link to="/host">Create a host trip</Link>
+              <Button asChild variant="outline" size="xl" className="rounded-none px-12 h-14 text-lg bg-card/50 backdrop-blur-sm">
+                <Link to="/host">Become a Host</Link>
               </Button>
             </div>
           </div>

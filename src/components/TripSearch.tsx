@@ -11,6 +11,7 @@ import {
 import { Link } from "@tanstack/react-router";
 import {
   AutoComplete,
+  DatePicker,
   Empty,
   Form,
   Spin,
@@ -18,7 +19,8 @@ import {
   Typography,
   message,
 } from "antd";
-import { ArrowRight, MapPin, Navigation } from "lucide-react";
+import { ArrowRight, Calendar, MapPin, Navigation } from "lucide-react";
+import dayjs, { Dayjs } from "dayjs";
 import { Button as UiButton } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { listTrips } from "@/data/appwrite-repository";
@@ -57,7 +59,7 @@ interface TripSearchContextValue {
   fromOptions: { value: string; label: string }[];
   toOptions: { value: string; label: string }[];
   searchPlaces: (query: string, target: "from" | "to") => void;
-  onSearch: (values: { from: string; to: string }) => Promise<void>;
+  onSearch: (values: { from: string; to: string; date?: Dayjs }) => Promise<void>;
   summary: string;
 }
 
@@ -164,9 +166,10 @@ export function TripSearchProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const onSearch = useCallback(async (values: { from: string; to: string }) => {
+  const onSearch = useCallback(async (values: { from: string; to: string; date?: Dayjs }) => {
     const fromNeedle = values.from.trim();
     const toNeedle = values.to.trim();
+    const searchDate = values.date;
 
     setLoading(true);
     try {
@@ -176,7 +179,14 @@ export function TripSearchProvider({ children }: { children: ReactNode }) {
         .filter((trip) => {
           const fromOk = matchesLocation(trip.fromLocation, fromNeedle);
           const toOk = matchesLocation(trip.toLocation, toNeedle);
-          return fromOk && toOk;
+          
+          let dateOk = true;
+          if (searchDate) {
+            const tripDate = dayjs(trip.departureAt);
+            dateOk = tripDate.isSame(searchDate, "day");
+          }
+          
+          return fromOk && toOk && dateOk;
         })
         .sort((a, b) => new Date(a.departureAt).getTime() - new Date(b.departureAt).getTime());
 
@@ -253,49 +263,57 @@ export function TripSearchForm({
             : undefined
         }
       >
-        <div className={cn("grid md:grid-cols-2", variant === "landing" ? "gap-4 md:gap-5" : "gap-4 md:gap-5")}>
+        <div className={cn("grid md:grid-cols-2 lg:grid-cols-3", variant === "landing" ? "gap-4 md:gap-5" : "gap-4 md:gap-5")}>
           <Form.Item
             label={
-              <span
-                className={cn(
-                  "inline-flex items-center gap-2 font-medium",
-                  variant === "landing" && "text-sm sm:text-[15px]",
-                )}
-              >
+              <span className={cn("inline-flex items-center gap-2 font-medium", variant === "landing" && "text-sm sm:text-[15px]")}>
                 <MapPin className="h-4 w-4 text-primary shrink-0" aria-hidden />
                 From
               </span>
             }
             name="from"
-            rules={[{ required: true, message: "Enter a starting city or area" }]}
+            rules={[{ required: true, message: "Enter starting city" }]}
           >
             <AutoComplete
               options={fromOptions}
               onSearch={(text) => searchPlaces(text, "from")}
-              placeholder="e.g. Bengaluru"
+              placeholder="Starting city"
               size="large"
+              className="w-full"
             />
           </Form.Item>
           <Form.Item
             label={
-              <span
-                className={cn(
-                  "inline-flex items-center gap-2 font-medium",
-                  variant === "landing" && "text-sm sm:text-[15px]",
-                )}
-              >
+              <span className={cn("inline-flex items-center gap-2 font-medium", variant === "landing" && "text-sm sm:text-[15px]")}>
                 <MapPin className="h-4 w-4 text-primary shrink-0" aria-hidden />
                 To
               </span>
             }
             name="to"
-            rules={[{ required: true, message: "Enter where you're headed" }]}
+            rules={[{ required: true, message: "Enter destination" }]}
           >
             <AutoComplete
               options={toOptions}
               onSearch={(text) => searchPlaces(text, "to")}
-              placeholder="e.g. Mysuru"
+              placeholder="Destination city"
               size="large"
+              className="w-full"
+            />
+          </Form.Item>
+          <Form.Item
+            label={
+              <span className={cn("inline-flex items-center gap-2 font-medium", variant === "landing" && "text-sm sm:text-[15px]")}>
+                <Calendar className="h-4 w-4 text-primary shrink-0" aria-hidden />
+                Date
+              </span>
+            }
+            name="date"
+          >
+            <DatePicker 
+              className="w-full h-[40px] sm:h-[44px]" 
+              placeholder="When are you going?"
+              disabledDate={(current) => current && current < dayjs().startOf('day')}
+              format="MMM DD, YYYY"
             />
           </Form.Item>
         </div>
@@ -389,43 +407,56 @@ export function TripSearchResults({ variant }: { variant: "landing" | "page" }) 
               {results.length} trip{results.length !== 1 ? "s" : ""} · sorted by departure
             </Typography.Text>
           </div>
-          <ul className="grid w-full min-w-0 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6 lg:gap-8 list-none p-0 m-0">
+          <ul className="grid w-full min-w-0 grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 list-none p-0 m-0">
             {results.map((trip) => (
-              <li key={trip.id} className="min-w-0">
-                <Card className="rounded-none border-border/60 bg-card/95 shadow-card hover:border-primary/25 transition-base overflow-hidden h-full flex flex-col">
-                  <div className="p-4 sm:p-5 flex flex-col gap-4 flex-1 min-h-0">
-                    <div className="space-y-2 min-w-0">
-                      <Typography.Title
-                        level={5}
-                        style={{ margin: 0 }}
-                        className="!font-bold !text-base sm:!text-lg leading-snug text-balance break-words"
+              <li key={trip.id} className="min-w-0 group">
+                <Card className="rounded-none border-border/60 bg-card/95 shadow-card hover:shadow-elevated hover:border-primary/40 transition-all duration-300 overflow-hidden h-full flex flex-col relative">
+                  <div className="absolute top-0 right-0 p-3">
+                    <div className="bg-primary/10 text-primary px-3 py-1 text-xs font-bold rounded-full">
+                      {formatCurrency(trip.totalPrice)}
+                    </div>
+                  </div>
+                  <div className="p-6 flex flex-col gap-6 flex-1 min-h-0">
+                    <div className="flex gap-4 min-w-0">
+                      <div className="flex flex-col items-center gap-1 pt-1">
+                        <div className="h-2 w-2 rounded-full bg-primary" />
+                        <div className="w-0.5 flex-1 bg-border/60 border-dashed border-l" />
+                        <div className="h-2 w-2 rounded-full border-2 border-primary" />
+                      </div>
+                      <div className="flex-1 space-y-4 min-w-0">
+                        <div>
+                          <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-bold mb-0.5">Pickup</p>
+                          <p className="font-bold text-base truncate">{trip.fromLocation}</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-bold mb-0.5">Drop</p>
+                          <p className="font-bold text-base truncate">{trip.toLocation}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="pt-4 border-t border-border/40 space-y-4 mt-auto">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2 text-muted-foreground">
+                          <Calendar className="h-4 w-4" />
+                          <span className="text-xs font-medium">{dayjs(trip.departureAt).format("MMM DD, hh:mm A")}</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-muted-foreground">
+                          <Users className="h-4 w-4" />
+                          <span className="text-xs font-medium">{trip.totalSeats} seats</span>
+                        </div>
+                      </div>
+
+                      <UiButton
+                        asChild
+                        variant="hero"
+                        className="rounded-none w-full justify-center shadow-glow group-hover:scale-[1.02] transition-transform"
                       >
-                        {trip.fromLocation}
-                        <span className="text-primary mx-1 sm:mx-2">→</span>
-                        {trip.toLocation}
-                      </Typography.Title>
-                      <Typography.Text type="secondary" className="text-xs sm:text-sm block">
-                        Departure {new Date(trip.departureAt).toLocaleString()}
-                      </Typography.Text>
+                        <Link to="/booking/$tripId" params={{ tripId: trip.id }}>
+                          View details
+                        </Link>
+                      </UiButton>
                     </div>
-                    <div className="flex flex-wrap gap-2 items-center">
-                      <Tag color="purple" className="rounded-none m-0">
-                        {trip.totalSeats} seats
-                      </Tag>
-                      <Tag color="blue" className="rounded-none m-0">
-                        {formatCurrency(trip.totalPrice)}
-                      </Tag>
-                    </div>
-                    <UiButton
-                      asChild
-                      size="sm"
-                      variant="hero"
-                      className="rounded-none text-primary-foreground no-underline hover:no-underline w-full mt-auto justify-center"
-                    >
-                      <Link to="/booking/$tripId" params={{ tripId: trip.id }}>
-                        Book seats
-                      </Link>
-                    </UiButton>
                   </div>
                 </Card>
               </li>
