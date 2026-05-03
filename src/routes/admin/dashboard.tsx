@@ -112,8 +112,8 @@ function AdminDashboardPage() {
           className="border-r border-border/60 backdrop-blur-xl hidden lg:block"
           style={{ position: "sticky", top: 0, height: "100vh", left: 0, zIndex: 100 }}
         >
-          <div className="p-6">
-            <img src={logo} alt="Coolpool Logo" className="h-16 w-auto object-contain" />
+          <div className="p-6 text-center">
+            <img src={logo} alt="Coolpool Logo" className="h-24 w-auto mx-auto object-contain" />
           </div>
 
           <Menu
@@ -162,7 +162,7 @@ function AdminDashboardPage() {
         </Sider>
 
         <Layout>
-          <Header className="px-6 flex items-center justify-between border-b border-border/60 backdrop-blur-md sticky top-0 z-10 h-16 bg-background/60">
+          <Header className="px-6 flex items-center justify-between border-b border-border/60 backdrop-blur-md sticky top-0 z-10 h-20 bg-background/60">
             <div>
               <Title level={4} style={{ margin: 0 }} className="hidden sm:block">
                 {activeModule === "overview"
@@ -172,7 +172,7 @@ function AdminDashboardPage() {
                     : "Trip Manager"}
               </Title>
               <div className="sm:hidden">
-                <img src={logo} alt="Coolpool Logo" className="h-12 w-auto object-contain" />
+                <img src={logo} alt="Coolpool Logo" className="h-16 w-auto object-contain" />
               </div>
             </div>
             <div className="flex items-center gap-4">

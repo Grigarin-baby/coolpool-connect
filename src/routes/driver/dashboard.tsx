@@ -669,8 +669,8 @@ function DriverDashboardPage() {
               WebkitBackdropFilter: "blur(16px)"
             }}
           >
-          <div className="p-6">
-            <img src={logo} alt="Coolpool Logo" className="h-16 w-auto object-contain" />
+          <div className="p-4 sm:p-6 pb-2 text-center">
+            <img src={logo} alt="Coolpool Logo" className="h-32 w-auto mx-auto object-contain" />
           </div>
 
           <Menu
@@ -739,7 +739,7 @@ function DriverDashboardPage() {
         </Sider>
 
         <Layout className="bg-transparent flex-1">
-          <Header className="px-6 flex items-center justify-between border-b border-white/20 sticky top-0 z-50 h-20" style={{ backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)" }}>
+          <Header className="px-6 flex items-center justify-between border-b border-white/20 sticky top-0 z-50 h-24 sm:h-20" style={{ backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)" }}>
             <div>
               <Title level={4} style={{ margin: 0 }} className="hidden sm:block font-bold">
                 {activeModule === "dashboard" ? "Dashboard Overview" : 
@@ -748,7 +748,7 @@ function DriverDashboardPage() {
                  activeModule === "drivers" ? "Drivers" : "Vehicle Fleet"}
               </Title>
               <div className="sm:hidden">
-                <img src={logo} alt="Coolpool Logo" className="h-10 w-auto object-contain" />
+                <img src={logo} alt="Coolpool Logo" className="h-20 w-auto object-contain" />
               </div>
             </div>
             <div className="flex items-center gap-4">

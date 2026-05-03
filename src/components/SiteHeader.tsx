@@ -29,9 +29,9 @@ export function SiteHeader() {
 
   return (
     <header className="sticky top-0 z-50 backdrop-blur-xl bg-background/70 border-b border-border/60">
-      <div className="container mx-auto px-4 h-16 flex items-center justify-between max-w-7xl">
+      <div className="container mx-auto px-4 h-32 flex items-center justify-between max-w-7xl">
         <Link to="/" className="flex items-center group">
-          <img src={logo} alt="Coolpool Logo" className="h-14 w-auto object-contain" />
+          <img src={logo} alt="Coolpool Logo" className="h-28 w-auto object-contain" />
         </Link>
 
 
