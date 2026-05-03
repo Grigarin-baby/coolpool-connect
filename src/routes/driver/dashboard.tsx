@@ -61,9 +61,11 @@ import {
   createTeamDriver,
   updateTeamDriver,
   deleteTeamDriver,
-  createTripStop,
-  listHostBookings,
   updateBookingRating,
+  updateTrip,
+  deleteTripStop,
+  listTripStops,
+  createTripStop,
   type CreateTeamDriverInput,
 } from "@/data/appwrite-repository";
 import type { Trip, TripStop, DriverProfile, Booking } from "@/lib/domain";
@@ -184,6 +186,8 @@ function DriverDashboardPage() {
   const [editingVehicleId, setEditingVehicleId] = useState<string | null>(null);
   const [driverDrawerOpen, setDriverDrawerOpen] = useState(false);
   const [editingDriverId, setEditingDriverId] = useState<string | null>(null);
+  const [editingTripId, setEditingTripId] = useState<string | null>(null);
+  const [isEditingTrip, setIsEditingTrip] = useState(false);
   const [ratingModalVisible, setRatingModalVisible] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [ratingValue, setRatingValue] = useState(5);
@@ -255,12 +259,6 @@ function DriverDashboardPage() {
     queryFn: () => (user ? listTeamDrivers(user.$id) : Promise.resolve([])),
     enabled: !!user,
   });
-  
-  const { data: bookings = [], isLoading: bookingsLoading } = useQuery({
-    queryKey: ["host-bookings", user?.$id],
-    queryFn: () => (user ? listHostBookings(user.$id) : Promise.resolve([])),
-    enabled: !!user,
-  });
 
   const { mutate: saveDriver, isPending: savingDriver } = useMutation({
     mutationFn: (vals: Omit<CreateTeamDriverInput, "ownerUserId">) =>
@@ -308,7 +306,18 @@ function DriverDashboardPage() {
 
   const { mutate: performCreateTrip, isPending: creating } = useMutation({
     mutationFn: async (payload: any) => {
-      const trip = await createTrip(payload.tripData);
+      let trip;
+      if (editingTripId) {
+        trip = await updateTrip(editingTripId, payload.tripData);
+        // Remove old stops
+        const oldStops = await listTripStops(editingTripId);
+        for (const s of oldStops) {
+          await deleteTripStop(s.id);
+        }
+      } else {
+        trip = await createTrip(payload.tripData);
+      }
+      
       for (const stop of payload.stopsData) {
         await createTripStop({ ...stop, tripId: trip.id });
       }
@@ -322,8 +331,13 @@ function DriverDashboardPage() {
           toLocation: trip.toLocation,
         });
       }
-      message.success("Trip created.");
+      message.success(editingTripId ? "Trip updated." : "Trip created.");
       form.resetFields();
+      setEditingTripId(null);
+      setIsEditingTrip(false);
+      setSelectedFrom(null);
+      setSelectedTo(null);
+      setIntermediateStops([]);
       void queryClient.invalidateQueries({ queryKey: ["host-trips"] });
       setActiveModule("dashboard");
     },
@@ -641,7 +655,17 @@ function DriverDashboardPage() {
           <Menu
             mode="inline"
             selectedKeys={[activeModule]}
-            onClick={({ key }) => setActiveModule(key)}
+            onClick={({ key }) => {
+              setActiveModule(key);
+              if (key === "trips") {
+                setEditingTripId(null);
+                setIsEditingTrip(false);
+                form.resetFields();
+                setSelectedFrom(null);
+                setSelectedTo(null);
+                setIntermediateStops([]);
+              }
+            }}
             className="border-none px-2 mt-4"
             items={[
               {
@@ -764,15 +788,23 @@ function DriverDashboardPage() {
                       Here's what's happening with your trips today.
                     </Text>
                   </div>
-                  <Button
-                    type="primary"
-                    size="large"
-                    icon={<PlusCircle size={18} />}
-                    className="bg-gradient-primary border-none flex items-center gap-2"
-                    onClick={() => setActiveModule("trips")}
-                  >
-                    New Trip
-                  </Button>
+                    <Button
+                      type="primary"
+                      size="large"
+                      icon={<PlusCircle size={18} />}
+                      className="bg-gradient-primary border-none flex items-center gap-2"
+                      onClick={() => {
+                        setEditingTripId(null);
+                        setIsEditingTrip(false);
+                        form.resetFields();
+                        setSelectedFrom(null);
+                        setSelectedTo(null);
+                        setIntermediateStops([]);
+                        setActiveModule("trips");
+                      }}
+                    >
+                      New Trip
+                    </Button>
                 </div>
 
                 <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
@@ -876,6 +908,43 @@ function DriverDashboardPage() {
                                       { key: "edit", label: "Edit trip details" },
                                       { key: "cancel", label: "Cancel trip", danger: true },
                                     ],
+                                    onClick: async ({ key }) => {
+                                      if (key === "edit") {
+                                        setEditingTripId(item.$id);
+                                        setIsEditingTrip(true);
+                                        
+                                        // Fetch stops to pre-populate
+                                        const stops = await listTripStops(item.$id);
+                                        const fromStop = stops.find(s => s.stopType === "pickup");
+                                        const toStop = stops.find(s => s.stopType === "drop");
+                                        const middleStops = stops.filter(s => s.stopType === "both" || (s.stopType !== "pickup" && s.stopType !== "drop"));
+                                        
+                                        if (fromStop) setSelectedFrom({ label: fromStop.location, value: fromStop.location, lat: fromStop.lat, lng: fromStop.lng });
+                                        if (toStop) setSelectedTo({ label: toStop.location, value: toStop.location, lat: toStop.lat, lng: toStop.lng });
+                                        
+                                        setIntermediateStops(middleStops.map(s => ({
+                                          id: s.id,
+                                          value: s.location,
+                                          options: [],
+                                          selected: { label: s.location, value: s.location, lat: s.lat, lng: s.lng }
+                                        })));
+                                        
+                                        form.setFieldsValue({
+                                          fromLocation: item.fromLocation,
+                                          toLocation: item.toLocation,
+                                          departureAt: dayjs(item.departureAt),
+                                          totalSeats: item.totalSeats,
+                                          totalTripPrice: item.totalPrice / (item.totalSeats || 1),
+                                          vehicleId: item.vehicleId,
+                                          driverId: item.assignedDriverId,
+                                        });
+                                        
+                                        setActiveModule("trips");
+                                      } else if (key === "cancel") {
+                                        // Implement cancel logic if needed
+                                        message.info("Cancel functionality coming soon");
+                                      }
+                                    }
                                   }}
                                   trigger={["click"]}
                                 >
@@ -925,7 +994,15 @@ function DriverDashboardPage() {
                       <Card
                         hoverable
                         className="rounded-2xl border border-white/60 shadow-soft text-center p-3 group bg-white/60 hover:bg-white transition-all"
-                        onClick={() => setActiveModule("trips")}
+                        onClick={() => {
+                          setEditingTripId(null);
+                          setIsEditingTrip(false);
+                          form.resetFields();
+                          setSelectedFrom(null);
+                          setSelectedTo(null);
+                          setIntermediateStops([]);
+                          setActiveModule("trips");
+                        }}
                       >
                         <div className="h-12 w-12 mx-auto rounded-xl bg-purple-100 text-purple-600 flex items-center justify-center mb-3 group-hover:bg-purple-600 group-hover:text-white transition-all group-hover:scale-110 duration-300">
                           <PlusCircle size={22} />
@@ -987,7 +1064,7 @@ function DriverDashboardPage() {
               <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
                 <div className="flex flex-col gap-1">
                   <Title level={2} style={{ margin: 0 }}>
-                    Publish a New Trip
+                    {isEditingTrip ? "Update Trip Details" : "Publish a New Trip"}
                   </Title>
                   <Text type="secondary" className="text-lg">
                     Enter your journey details below to offer seats on your upcoming journey.
@@ -1221,7 +1298,7 @@ function DriverDashboardPage() {
                           loading={creating}
                           className="h-14 rounded-xl px-10 w-full sm:w-auto bg-gradient-primary border-none font-bold shadow-glow hover:scale-[1.02] transition-transform"
                         >
-                          {creating ? "Publishing..." : "Publish Trip to Search"}
+                          {isEditingTrip ? "Update Trip Details" : "Publish Journey"}
                         </Button>
                       </div>
 
