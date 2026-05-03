@@ -284,39 +284,7 @@ export async function deleteTripStop(stopId: string): Promise<void> {
   await databases.deleteDocument(appwriteConfig.databaseId, c.tripStops, stopId);
 }
 
-export async function updateTrip(tripId: string, input: Partial<CreateTripInput>): Promise<Trip> {
-  const c = ids();
-  const doc = await databases.updateDocument(
-    appwriteConfig.databaseId,
-    c.trips,
-    tripId,
-    {
-      host_id: input.hostId,
-      from_location: input.fromLocation,
-      from_lat: input.fromLat,
-      from_lng: input.fromLng,
-      to_location: input.toLocation,
-      to_lat: input.toLat,
-      to_lng: input.toLng,
-      polyline: input.polyline,
-      total_distance_km: input.totalDistanceKm,
-      total_price: input.totalPrice,
-      price_per_km: input.pricePerKm,
-      total_seats: input.totalSeats,
-      departure_at: input.departureAt,
-      status: input.status,
-      notes: input.notes,
-      vehicle_id: input.vehicleId,
-      assigned_driver_id: input.assignedDriverId,
-    }
-  );
-  return toTrip(doc);
-}
 
-export async function deleteTripStop(stopId: string): Promise<void> {
-  const c = ids();
-  await databases.deleteDocument(appwriteConfig.databaseId, c.tripStops, stopId);
-}
 
 export async function createTripStop(input: CreateTripStopInput): Promise<TripStop> {
   const c = ids();
