@@ -9,7 +9,7 @@ export function SiteFooter() {
         <div className="grid gap-10 md:grid-cols-4">
           <div className="md:col-span-2">
             <Link to="/" className="flex items-center">
-              <img src={logo} alt="Coolpool Logo" className="h-16 w-auto object-contain mix-blend-multiply" />
+              <img src={logo} alt="Coolpool Logo" className="h-16 w-auto object-contain" />
             </Link>
             <p className="mt-4 text-sm text-muted-foreground max-w-sm">
               Smart intercity ride-sharing — fair prices, friendly hosts, every kilometer counted.

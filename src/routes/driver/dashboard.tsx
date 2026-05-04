@@ -670,7 +670,7 @@ function DriverDashboardPage() {
             }}
           >
           <div className="p-4 sm:p-6 pb-2 text-center">
-            <img src={logo} alt="Coolpool Logo" className="h-16 w-auto mx-auto object-contain mix-blend-multiply" />
+            <img src={logo} alt="Coolpool Logo" className="h-16 w-auto mx-auto object-contain" />
           </div>
 
           <Menu
@@ -748,7 +748,7 @@ function DriverDashboardPage() {
                  activeModule === "drivers" ? "Drivers" : "Vehicle Fleet"}
               </Title>
               <div className="sm:hidden">
-                <img src={logo} alt="Coolpool Logo" className="h-12 w-auto object-contain mix-blend-multiply" />
+                <img src={logo} alt="Coolpool Logo" className="h-12 w-auto object-contain" />
               </div>
             </div>
             <div className="flex items-center gap-4">

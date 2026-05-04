@@ -163,7 +163,7 @@ function DriverOnboardingPage() {
 
         <div className="relative z-10">
           <div className="flex items-center mb-16">
-            <img src={logo} alt="Coolpool Logo" className="h-24 w-auto object-contain mix-blend-multiply" />
+            <img src={logo} alt="Coolpool Logo" className="h-24 w-auto object-contain" />
           </div>
 
           <h2 className="text-4xl font-extrabold text-white leading-tight">
@@ -213,7 +213,7 @@ function DriverOnboardingPage() {
       <div className="flex-1 flex flex-col min-h-screen">
         {/* Mobile top bar */}
         <div className="lg:hidden flex items-center px-5 pt-6 pb-4">
-          <img src={logo} alt="Coolpool Logo" className="h-12 w-auto object-contain mix-blend-multiply" />
+          <img src={logo} alt="Coolpool Logo" className="h-12 w-auto object-contain" />
         </div>
 
         {/* Mobile progress bar */}

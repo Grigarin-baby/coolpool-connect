@@ -36,7 +36,7 @@ export function SiteHeader() {
           <Link to="/" className="flex items-center gap-3 group transition-transform duration-300 hover:scale-[1.02]">
             <div className="relative">
               <div className="absolute inset-0 bg-primary/20 blur-xl rounded-full group-hover:bg-primary/40 transition-colors" />
-              <img src={logo} alt="Coolpool" className="h-16 w-auto object-contain relative z-10 mix-blend-multiply" />
+              <img src={logo} alt="Coolpool" className="h-16 w-auto object-contain relative z-10" />
             </div>
           </Link>
 
