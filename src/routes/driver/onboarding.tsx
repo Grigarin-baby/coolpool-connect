@@ -11,6 +11,7 @@ import {
   User, Mail, Phone, CreditCard, MapPin, Car, Hash, Users, Palette,
   FileText, Shield, Lock, ChevronRight, ChevronLeft, Sparkles, CheckCircle,
 } from "lucide-react";
+import { GoogleLoginButton } from "@/components/GoogleLoginButton";
 
 export const Route = createFileRoute("/driver/onboarding")({
   head: () => ({
@@ -256,6 +257,20 @@ function DriverOnboardingPage() {
               {step === 1 && (
                 <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-400">
                   <p className="text-sm text-muted-foreground mb-2">Tell us about yourself so passengers can trust you.</p>
+
+                  {!user && (
+                    <div className="mb-6">
+                      <GoogleLoginButton busy={submitting} className="!rounded-2xl" />
+                      <div className="relative my-6">
+                        <div className="absolute inset-0 flex items-center">
+                          <span className="w-full border-t border-gray-100" />
+                        </div>
+                        <div className="relative flex justify-center text-[10px] font-semibold uppercase tracking-wider">
+                          <span className="bg-white px-2 text-muted-foreground">Or register manually</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Show identity banner if already logged in, otherwise show name/email fields */}
                   {user ? (

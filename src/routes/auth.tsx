@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
+import { GoogleLoginButton } from "@/components/GoogleLoginButton";
 
 export const Route = createFileRoute("/auth")({
   head: () => ({
@@ -154,8 +155,19 @@ function AuthPage() {
                 Sign up
               </TabsTrigger>
             </TabsList>
+            
+            <GoogleLoginButton busy={busy} className="mt-6 !rounded-none" />
 
-            <TabsContent value="login" className="mt-6 outline-none">
+            <div className="relative my-6">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t border-border" />
+              </div>
+              <div className="relative flex justify-center text-[10px] font-semibold uppercase tracking-wider">
+                <span className="bg-card px-2 text-muted-foreground">Or email password</span>
+              </div>
+            </div>
+
+            <TabsContent value="login" className="mt-0 outline-none">
               <form onSubmit={handleSignIn} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="si-email" className="text-sm font-medium">

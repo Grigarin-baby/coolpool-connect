@@ -9,6 +9,7 @@ import { SiteFooter } from "@/components/SiteFooter";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { parseTravelerResumeRedirectParam } from "@/lib/travelerResumeRedirect";
+import { GoogleLoginButton } from "@/components/GoogleLoginButton";
 
 export const Route = createFileRoute("/members")({
   validateSearch: (search: Record<string, unknown>) => ({
@@ -178,16 +179,7 @@ function MembersPage() {
                     : "Sign in or create a free traveler profile."}
                 </p>
 
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="mt-6 w-full rounded-xl border-border h-11 gap-2 bg-background"
-                  disabled={busy}
-                  onClick={() => signInWithGoogle({ resumeRedirect: redirect })}
-                >
-                  <GoogleGlyph className="h-5 w-5 shrink-0" />
-                  Continue with Google
-                </Button>
+                <GoogleLoginButton busy={busy} redirect={redirect} className="mt-6" />
 
                 <div className="relative my-6">
                   <div className="absolute inset-0 flex items-center">
