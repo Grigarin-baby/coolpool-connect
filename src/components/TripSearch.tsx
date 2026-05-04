@@ -241,13 +241,9 @@ export function TripSearchForm({
       )}
     >
       {variant === "landing" && (
-        <div className="mb-6 space-y-2.5">
-          <div className="inline-flex items-center gap-2 rounded-none bg-primary/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-primary sm:text-[13px]">
-            <Navigation className="h-3.5 w-3.5 shrink-0 sm:h-4 sm:w-4" aria-hidden />
-            Trip finder
-          </div>
-          <h2 className="text-xl sm:text-2xl md:text-[1.75rem] lg:text-[1.9rem] font-bold tracking-tight text-balance font-heading leading-tight">
-            Where are you going?
+        <div className="mb-6 space-y-2.5 text-center sm:text-left">
+          <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-balance font-heading">
+            Book your next ride
           </h2>
         </div>
       )}
@@ -259,93 +255,98 @@ export function TripSearchForm({
         initialValues={{ from: "", to: "" }}
         className={
           variant === "landing"
-            ? "[&_.ant-form-item]:mb-5 [&_.ant-form-item:last-child]:mb-0 [&_.ant-form-item-label>label]:text-sm [&_.ant-form-item-label>label]:sm:text-[15px] [&_.ant-form-item-label>label]:h-auto [&_.ant-input-affix-wrapper]:min-h-[44px] [&_.ant-input-affix-wrapper]:text-sm [&_.ant-input-affix-wrapper]:sm:text-[15px] [&_.ant-input]:text-sm [&_.ant-input]:sm:text-[15px]"
+            ? "[&_.ant-form-item]:mb-4 [&_.ant-form-item:last-child]:mb-0 [&_.ant-form-item-label>label]:text-xs [&_.ant-form-item-label>label]:font-bold [&_.ant-form-item-label>label]:uppercase [&_.ant-form-item-label>label]:tracking-wider [&_.ant-form-item-label>label]:text-muted-foreground [&_.ant-input-affix-wrapper]:min-h-[56px] [&_.ant-input-affix-wrapper]:text-lg [&_.ant-input-affix-wrapper]:rounded-none [&_.ant-input]:text-lg"
             : undefined
         }
       >
-        <div className={cn("grid md:grid-cols-2 lg:grid-cols-3", variant === "landing" ? "gap-4 md:gap-5" : "gap-4 md:gap-5")}>
+        <div className={cn("grid", variant === "landing" ? "grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-0 border border-border/60 divide-y md:divide-y-0 md:divide-x divide-border/60 p-1 bg-card/50" : "grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-5")}>
           <Form.Item
-            label={
-              <span className={cn("inline-flex items-center gap-2 font-medium", variant === "landing" && "text-sm sm:text-[15px]")}>
-                <MapPin className="h-4 w-4 text-primary shrink-0" aria-hidden />
-                From
-              </span>
-            }
+            label={variant === "landing" ? "From" : <span className="inline-flex items-center gap-2 font-medium"><MapPin className="h-4 w-4 text-primary shrink-0" aria-hidden />From</span>}
             name="from"
             rules={[{ required: true, message: "Enter starting city" }]}
+            className={variant === "landing" ? "px-4 pt-3 pb-1 m-0 bg-background/50 hover:bg-muted/30 transition-colors" : ""}
           >
             <AutoComplete
               options={fromOptions}
               onSearch={(text) => searchPlaces(text, "from")}
-              placeholder="Starting city"
+              placeholder="Leaving from"
               size="large"
-              className="w-full"
+              variant={variant === "landing" ? "borderless" : "outlined"}
+              className={cn("w-full", variant === "landing" && "[&_.ant-select-selector]:px-0")}
             />
           </Form.Item>
           <Form.Item
-            label={
-              <span className={cn("inline-flex items-center gap-2 font-medium", variant === "landing" && "text-sm sm:text-[15px]")}>
-                <MapPin className="h-4 w-4 text-primary shrink-0" aria-hidden />
-                To
-              </span>
-            }
+            label={variant === "landing" ? "To" : <span className="inline-flex items-center gap-2 font-medium"><MapPin className="h-4 w-4 text-primary shrink-0" aria-hidden />To</span>}
             name="to"
             rules={[{ required: true, message: "Enter destination" }]}
+            className={variant === "landing" ? "px-4 pt-3 pb-1 m-0 bg-background/50 hover:bg-muted/30 transition-colors" : ""}
           >
             <AutoComplete
               options={toOptions}
               onSearch={(text) => searchPlaces(text, "to")}
-              placeholder="Destination city"
+              placeholder="Going to"
               size="large"
-              className="w-full"
+              variant={variant === "landing" ? "borderless" : "outlined"}
+              className={cn("w-full", variant === "landing" && "[&_.ant-select-selector]:px-0")}
             />
           </Form.Item>
           <Form.Item
-            label={
-              <span className={cn("inline-flex items-center gap-2 font-medium", variant === "landing" && "text-sm sm:text-[15px]")}>
-                <Calendar className="h-4 w-4 text-primary shrink-0" aria-hidden />
-                Date
-              </span>
-            }
+            label={variant === "landing" ? "Departure" : <span className="inline-flex items-center gap-2 font-medium"><Calendar className="h-4 w-4 text-primary shrink-0" aria-hidden />Date</span>}
             name="date"
+            className={variant === "landing" ? "px-4 pt-3 pb-1 m-0 bg-background/50 hover:bg-muted/30 transition-colors" : ""}
           >
             <DatePicker 
-              className="w-full h-[40px] sm:h-[44px]" 
-              placeholder="When are you going?"
+              className={cn("w-full", variant === "landing" ? "h-[56px] px-0" : "h-[40px] sm:h-[44px]")} 
+              placeholder="Add Date"
               disabledDate={(current) => current && current < dayjs().startOf('day')}
               format="MMM DD, YYYY"
+              variant={variant === "landing" ? "borderless" : "outlined"}
             />
           </Form.Item>
+
+          {/* If variant is landing, put the search button right in the grid */}
+          {variant === "landing" && (
+            <div className="flex items-end md:items-center justify-center p-2 bg-background/50">
+               <UiButton
+                type="submit"
+                form="landing-trip-search"
+                variant="hero"
+                size="lg"
+                className="w-full h-full min-h-[56px] rounded-none shadow-glow font-bold text-lg"
+                disabled={loading}
+              >
+                {loading ? "Searching…" : "Search"}
+              </UiButton>
+            </div>
+          )}
         </div>
 
-        <div
-          className={cn(
-            "flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 mt-2",
-            summary ? "sm:justify-between" : "sm:justify-end",
-          )}
-        >
-          {summary ? (
-            <Typography.Text type="secondary" className="text-sm text-center sm:text-start">
-              {summary}
-            </Typography.Text>
-          ) : null}
-          <UiButton
-            type="submit"
-            form={variant === "landing" ? "landing-trip-search" : "page-trip-search"}
-            variant="hero"
-            size="lg"
+        {/* If variant is page, keep the old button layout below the grid */}
+        {variant === "page" && (
+          <div
             className={cn(
-              "rounded-none w-full sm:w-auto shadow-glow justify-center",
-              variant === "landing"
-                ? "sm:min-w-[176px] min-h-11 text-sm sm:text-base [&_svg]:size-4 sm:[&_svg]:size-[1.125rem]"
-                : "sm:min-w-[168px]",
+              "flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 mt-2",
+              summary ? "sm:justify-between" : "sm:justify-end",
             )}
-            disabled={loading}
           >
-            {loading ? "Searching…" : "Search rides"}
-            {!loading && <ArrowRight className="h-4 w-4" aria-hidden />}
-          </UiButton>
-        </div>
+            {summary ? (
+              <Typography.Text type="secondary" className="text-sm text-center sm:text-start">
+                {summary}
+              </Typography.Text>
+            ) : null}
+            <UiButton
+              type="submit"
+              form="page-trip-search"
+              variant="hero"
+              size="lg"
+              className="rounded-none w-full sm:w-auto shadow-glow justify-center sm:min-w-[168px]"
+              disabled={loading}
+            >
+              {loading ? "Searching…" : "Search rides"}
+              {!loading && <ArrowRight className="h-4 w-4" aria-hidden />}
+            </UiButton>
+          </div>
+        )}
       </Form>
     </Card>
   );
