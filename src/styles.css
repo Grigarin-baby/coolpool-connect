@@ -179,6 +179,7 @@
 @layer base {
   * {
     border-color: var(--color-border);
+    text-transform: lowercase !important;
   }
 
   html {
@@ -191,6 +192,7 @@
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
+    text-transform: lowercase !important;
   }
 
   h1,
