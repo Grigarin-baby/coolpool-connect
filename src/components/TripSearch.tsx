@@ -248,7 +248,7 @@ export function TripSearchForm({
     <Card
       id={id}
       className={cn(
-        "rounded-none border-border/60 shadow-elevated scroll-mt-28",
+        "rounded-3xl border-border/60 shadow-elevated scroll-mt-28",
         variant === "landing"
           ? "border-primary/15 bg-card/92 backdrop-blur-xl p-5 sm:p-7 md:p-8 lg:p-9 ring-1 ring-primary/10"
           : "bg-card p-4 sm:p-6 md:p-8 border-border/60",
@@ -270,7 +270,7 @@ export function TripSearchForm({
         initialValues={{ from: "", to: "" }}
         className={
           variant === "landing"
-            ? "[&_.ant-form-item]:mb-4 [&_.ant-form-item:last-child]:mb-0 [&_.ant-form-item-label>label]:text-xs [&_.ant-form-item-label>label]:font-bold [&_.ant-form-item-label>label]:uppercase [&_.ant-form-item-label>label]:tracking-wider [&_.ant-form-item-label>label]:text-muted-foreground [&_.ant-input-affix-wrapper]:min-h-[56px] [&_.ant-input-affix-wrapper]:text-lg [&_.ant-input-affix-wrapper]:rounded-none [&_.ant-input]:text-lg"
+            ? "[&_.ant-form-item]:mb-4 [&_.ant-form-item:last-child]:mb-0 [&_.ant-form-item-label>label]:text-xs [&_.ant-form-item-label>label]:font-bold [&_.ant-form-item-label>label]:uppercase [&_.ant-form-item-label>label]:tracking-wider [&_.ant-form-item-label>label]:text-muted-foreground [&_.ant-input-affix-wrapper]:min-h-[56px] [&_.ant-input-affix-wrapper]:text-lg [&_.ant-input-affix-wrapper]:rounded-3xl [&_.ant-input]:text-lg"
             : undefined
         }
       >
@@ -327,7 +327,7 @@ export function TripSearchForm({
                 form="landing-trip-search"
                 variant="hero"
                 size="lg"
-                className="w-full h-full min-h-[56px] rounded-none shadow-glow font-bold text-lg"
+                className="w-full h-full min-h-[56px] rounded-3xl shadow-glow font-bold text-lg"
                 disabled={loading}
               >
                 {loading ? "Searching…" : "Search"}
@@ -354,7 +354,7 @@ export function TripSearchForm({
               form="page-trip-search"
               variant="hero"
               size="lg"
-              className="rounded-none w-full sm:w-auto shadow-glow justify-center sm:min-w-[168px]"
+              className="rounded-3xl w-full sm:w-auto shadow-glow justify-center sm:min-w-[168px]"
               disabled={loading}
             >
               {loading ? "Searching…" : "Search rides"}
@@ -402,13 +402,13 @@ export function TripSearchResults({ variant }: { variant: "landing" | "page" }) 
       )}
     >
       {loading && (
-        <Card className="rounded-none border-border/60 bg-card/80 p-10 sm:p-16 flex justify-center">
+        <Card className="rounded-3xl border-border/60 bg-card/80 p-10 sm:p-16 flex justify-center">
           <Spin size="large" />
         </Card>
       )}
 
       {!loading && searched && results.length === 0 && (
-        <Card className="rounded-none border-border/60 bg-card/90 backdrop-blur-sm p-8 md:p-12 border-dashed">
+        <Card className="rounded-3xl border-border/60 bg-card/90 backdrop-blur-sm p-8 md:p-12 border-dashed">
           <Empty description="No trips match this route yet. Try nearby cities or check back soon." />
         </Card>
       )}
@@ -426,7 +426,7 @@ export function TripSearchResults({ variant }: { variant: "landing" | "page" }) 
           <ul className="grid w-full min-w-0 grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 list-none p-0 m-0">
             {results.map((trip) => (
               <li key={trip.id} className="min-w-0 group">
-                <Card className="rounded-none border-border/60 bg-card/95 shadow-card hover:shadow-elevated hover:border-primary/40 transition-all duration-300 overflow-hidden h-full flex flex-col relative">
+                <Card className="rounded-3xl border-border/60 bg-card/95 shadow-card hover:shadow-elevated hover:border-primary/40 transition-all duration-300 overflow-hidden h-full flex flex-col relative">
                   <div className="absolute top-0 right-0 p-3">
                     <div className="bg-primary/10 text-primary px-3 py-1 text-xs font-bold rounded-full">
                       {formatCurrency(trip.totalPrice)}
@@ -466,7 +466,7 @@ export function TripSearchResults({ variant }: { variant: "landing" | "page" }) 
                       <UiButton
                         asChild
                         variant="hero"
-                        className="rounded-none w-full justify-center shadow-glow group-hover:scale-[1.02] transition-transform"
+                        className="rounded-3xl w-full justify-center shadow-glow group-hover:scale-[1.02] transition-transform"
                       >
                         <Link to="/booking/$tripId" params={{ tripId: trip.id }}>
                           View details

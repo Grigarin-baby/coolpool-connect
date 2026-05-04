@@ -56,13 +56,13 @@ function PasswordField({
         placeholder={placeholder}
         onChange={(e) => onChange(e.target.value)}
         className={cn(
-          "h-11 rounded-none border-border/80 bg-background/80 pr-10 placeholder:text-xs md:text-sm",
+          "h-11 rounded-3xl border-border/80 bg-background/80 pr-10 placeholder:text-xs md:text-sm",
           "[&::-ms-reveal]:hidden [&::-ms-clear]:hidden",
         )}
       />
       <button
         type="button"
-        className="absolute right-0 top-0 z-10 flex h-11 w-10 items-center justify-center rounded-none text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background"
+        className="absolute right-0 top-0 z-10 flex h-11 w-10 items-center justify-center rounded-3xl text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background"
         aria-label={visible ? "Hide password" : "Show password"}
         aria-pressed={visible}
         onClick={() => setVisible((v) => !v)}
@@ -123,21 +123,21 @@ function AuthPage() {
   return (
     <div className="min-h-dvh bg-gradient-hero flex flex-col relative overflow-hidden">
       <div className="absolute inset-0 bg-gradient-mesh opacity-75 pointer-events-none" />
-      <div className="absolute top-1/4 right-0 h-72 w-72 rounded-none bg-primary-glow/25 blur-3xl pointer-events-none" />
+      <div className="absolute top-1/4 right-0 h-72 w-72 rounded-3xl bg-primary-glow/25 blur-3xl pointer-events-none" />
 
       <header className="relative shrink-0 container mx-auto px-4 sm:px-5 py-4 max-w-7xl">
         <Link
           to="/"
-          className="inline-flex items-center group rounded-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background"
+          className="inline-flex items-center group rounded-3xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background"
         >
           <img src={logo} alt="Coolpool Logo" className="h-16 w-auto object-contain" />
         </Link>
       </header>
 
       <main className="relative flex-1 flex flex-col items-center justify-center px-4 sm:px-5 py-6 min-h-0">
-        <Card className="w-full max-w-[380px] p-6 sm:p-7 rounded-none shadow-elevated border-border/70 bg-card/92 backdrop-blur-xl ring-1 ring-primary/10">
+        <Card className="w-full max-w-[380px] p-6 sm:p-7 rounded-3xl shadow-elevated border-border/70 bg-card/92 backdrop-blur-xl ring-1 ring-primary/10">
           <div className="flex flex-col items-center text-center mb-6">
-            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-none bg-gradient-primary text-primary-foreground shadow-glow">
+            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-3xl bg-gradient-primary text-primary-foreground shadow-glow">
               <Shield className="h-6 w-6" aria-hidden />
             </div>
             <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-primary mb-1.5">
@@ -147,16 +147,16 @@ function AuthPage() {
           </div>
 
           <Tabs defaultValue="login" className="w-full">
-            <TabsList className="grid w-full grid-cols-2 rounded-none h-10 p-1 bg-muted/80 border border-border/60">
-              <TabsTrigger value="login" className="rounded-none data-[state=active]:shadow-soft text-sm font-semibold">
+            <TabsList className="grid w-full grid-cols-2 rounded-3xl h-10 p-1 bg-muted/80 border border-border/60">
+              <TabsTrigger value="login" className="rounded-3xl data-[state=active]:shadow-soft text-sm font-semibold">
                 Login
               </TabsTrigger>
-              <TabsTrigger value="signup" className="rounded-none data-[state=active]:shadow-soft text-sm font-semibold">
+              <TabsTrigger value="signup" className="rounded-3xl data-[state=active]:shadow-soft text-sm font-semibold">
                 Sign up
               </TabsTrigger>
             </TabsList>
             
-            <GoogleLoginButton busy={busy} className="mt-6 !rounded-none" />
+            <GoogleLoginButton busy={busy} className="mt-6 !rounded-3xl" />
 
             <div className="relative my-6">
               <div className="absolute inset-0 flex items-center">
@@ -181,7 +181,7 @@ function AuthPage() {
                     value={signInEmail}
                     placeholder="you@company.com"
                     onChange={(e) => setSignInEmail(e.target.value)}
-                    className="h-11 rounded-none border-border/80 bg-background/80 placeholder:text-xs md:text-sm"
+                    className="h-11 rounded-3xl border-border/80 bg-background/80 placeholder:text-xs md:text-sm"
                   />
                 </div>
                 <div className="space-y-2">
@@ -201,7 +201,7 @@ function AuthPage() {
                   type="submit"
                   variant="hero"
                   size="lg"
-                  className="w-full rounded-none h-11 font-semibold shadow-glow mt-1"
+                  className="w-full rounded-3xl h-11 font-semibold shadow-glow mt-1"
                   disabled={busy}
                 >
                   {busy ? <Loader2 className="h-5 w-5 animate-spin" /> : "Login"}
@@ -222,7 +222,7 @@ function AuthPage() {
                     value={name}
                     placeholder="Jane Doe"
                     onChange={(e) => setName(e.target.value)}
-                    className="h-11 rounded-none border-border/80 bg-background/80 placeholder:text-xs md:text-sm"
+                    className="h-11 rounded-3xl border-border/80 bg-background/80 placeholder:text-xs md:text-sm"
                   />
                 </div>
                 <div className="space-y-2">
@@ -237,7 +237,7 @@ function AuthPage() {
                     value={signUpEmail}
                     placeholder="you@company.com"
                     onChange={(e) => setSignUpEmail(e.target.value)}
-                    className="h-11 rounded-none border-border/80 bg-background/80 placeholder:text-xs md:text-sm"
+                    className="h-11 rounded-3xl border-border/80 bg-background/80 placeholder:text-xs md:text-sm"
                   />
                 </div>
                 <div className="space-y-2">
@@ -259,7 +259,7 @@ function AuthPage() {
                   type="submit"
                   variant="hero"
                   size="lg"
-                  className="w-full rounded-none h-11 font-semibold shadow-glow mt-1"
+                  className="w-full rounded-3xl h-11 font-semibold shadow-glow mt-1"
                   disabled={busy}
                 >
                   {busy ? <Loader2 className="h-5 w-5 animate-spin" /> : "Create account"}

@@ -30,7 +30,7 @@ function NotFoundComponent() {
         </p>
         <a
           href="/"
-          className="mt-6 inline-flex items-center justify-center rounded-none bg-gradient-primary px-6 h-12 text-sm font-medium text-primary-foreground shadow-glow hover:opacity-95 transition-base"
+          className="mt-6 inline-flex items-center justify-center rounded-3xl bg-gradient-primary px-6 h-12 text-sm font-medium text-primary-foreground shadow-glow hover:opacity-95 transition-base"
         >
           Back to home
         </a>

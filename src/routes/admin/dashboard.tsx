@@ -65,14 +65,14 @@ function AdminDashboardPage() {
   if (!isAdmin) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-hero p-4">
-        <Card className="max-w-md text-center rounded-none border-none shadow-elevated bg-white/90 backdrop-blur-md">
+        <Card className="max-w-md text-center rounded-3xl border-none shadow-elevated bg-white/90 backdrop-blur-md">
           <Text type="danger" strong className="text-lg">
             ACCESS DENIED
           </Text>
           <p className="mt-2 text-muted-foreground">This workspace is restricted to administrator accounts.</p>
           <Button
             type="primary"
-            className="mt-4 rounded-none bg-gradient-primary border-none"
+            className="mt-4 rounded-3xl bg-gradient-primary border-none"
             onClick={() => void signOut()}
           >
             Sign out
@@ -147,7 +147,7 @@ function AdminDashboardPage() {
           />
 
           <div className="absolute bottom-0 left-0 right-0 p-4">
-            <Card className="rounded-none bg-secondary/40 border-none backdrop-blur-md">
+            <Card className="rounded-3xl bg-secondary/40 border-none backdrop-blur-md">
               <div className="flex items-center gap-3">
                 <Badge count={trips.length} overflowCount={99} color="#6b46c1">
                   <Avatar icon={<Activity size={16} />} className="bg-primary/20 text-primary" />
@@ -227,54 +227,54 @@ function AdminDashboardPage() {
                 </div>
 
                 <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-                  <Card className="rounded-none border-none shadow-soft hover:shadow-card transition-base bg-white/80 backdrop-blur-sm group">
+                  <Card className="rounded-3xl border-none shadow-soft hover:shadow-card transition-base bg-white/80 backdrop-blur-sm group">
                     <Text type="secondary" className="group-hover:text-primary transition-colors">
                       Total Drivers
                     </Text>
                     <Title level={2} style={{ margin: "8px 0" }}>
                       {driversLoading ? <Spin size="small" /> : drivers.length}
                     </Title>
-                    <Tag color="purple" className="rounded-none px-3 border-none">
+                    <Tag color="purple" className="rounded-3xl px-3 border-none">
                       Active network
                     </Tag>
                   </Card>
-                  <Card className="rounded-none border-none shadow-soft hover:shadow-card transition-base bg-white/80 backdrop-blur-sm group">
+                  <Card className="rounded-3xl border-none shadow-soft hover:shadow-card transition-base bg-white/80 backdrop-blur-sm group">
                     <Text type="secondary" className="group-hover:text-primary transition-colors">
                       Active Routes
                     </Text>
                     <Title level={2} style={{ margin: "8px 0" }}>
                       {tripsLoading ? <Spin size="small" /> : trips.length}
                     </Title>
-                    <Tag color="blue" className="rounded-none px-3 border-none">
+                    <Tag color="blue" className="rounded-3xl px-3 border-none">
                       In progress
                     </Tag>
                   </Card>
-                  <Card className="rounded-none border-none shadow-soft hover:shadow-card transition-base bg-white/80 backdrop-blur-sm group">
+                  <Card className="rounded-3xl border-none shadow-soft hover:shadow-card transition-base bg-white/80 backdrop-blur-sm group">
                     <Text type="secondary" className="group-hover:text-primary transition-colors">
                       Network Health
                     </Text>
                     <Title level={2} style={{ margin: "8px 0" }}>
                       100%
                     </Title>
-                    <Tag color="success" className="rounded-none px-3 border-none">
+                    <Tag color="success" className="rounded-3xl px-3 border-none">
                       All systems operational
                     </Tag>
                   </Card>
-                  <Card className="rounded-none border-none shadow-soft hover:shadow-card transition-base bg-white/80 backdrop-blur-sm group">
+                  <Card className="rounded-3xl border-none shadow-soft hover:shadow-card transition-base bg-white/80 backdrop-blur-sm group">
                     <Text type="secondary" className="group-hover:text-primary transition-colors">
                       Security Alerts
                     </Text>
                     <Title level={2} style={{ margin: "8px 0" }}>
                       0
                     </Title>
-                    <Tag color="default" className="rounded-none px-3 border-none">
+                    <Tag color="default" className="rounded-3xl px-3 border-none">
                       Secure
                     </Tag>
                   </Card>
                 </div>
 
                 <div className="grid gap-8 lg:grid-cols-2">
-                  <Card className="rounded-none border-none shadow-soft bg-white/80 backdrop-blur-sm p-2 overflow-hidden">
+                  <Card className="rounded-3xl border-none shadow-soft bg-white/80 backdrop-blur-sm p-2 overflow-hidden">
                     <div className="p-4 border-b border-border/60 flex items-center justify-between">
                       <Title level={5} style={{ margin: 0 }}>
                         Recent Driver Registrations
@@ -305,7 +305,7 @@ function AdminDashboardPage() {
                     />
                   </Card>
 
-                  <Card className="rounded-none border-none shadow-soft bg-white/80 backdrop-blur-sm p-2 overflow-hidden">
+                  <Card className="rounded-3xl border-none shadow-soft bg-white/80 backdrop-blur-sm p-2 overflow-hidden">
                     <div className="p-4 border-b border-border/60 flex items-center justify-between">
                       <Title level={5} style={{ margin: 0 }}>
                         Live Traffic Stream
@@ -323,7 +323,7 @@ function AdminDashboardPage() {
                         <List.Item>
                           <List.Item.Meta
                             avatar={
-                              <div className="h-10 w-10 rounded-none bg-secondary flex items-center justify-center">
+                              <div className="h-10 w-10 rounded-3xl bg-secondary flex items-center justify-center">
                                 <Activity size={18} className="text-primary" />
                               </div>
                             }
@@ -354,7 +354,7 @@ function AdminDashboardPage() {
                   <Text type="secondary">Review and manage verified driver profiles across the network.</Text>
                 </div>
 
-                <Card className="rounded-none border-none shadow-card bg-white/90 backdrop-blur-md p-2 overflow-hidden">
+                <Card className="rounded-3xl border-none shadow-card bg-white/90 backdrop-blur-md p-2 overflow-hidden">
                   <List
                     className="px-6"
                     loading={driversLoading}
@@ -393,10 +393,10 @@ function AdminDashboardPage() {
                           }
                         />
                         <div className="mt-2">
-                          <Tag color="purple" bordered={false} className="px-3 rounded-none">
+                          <Tag color="purple" bordered={false} className="px-3 rounded-3xl">
                             {driver.city}
                           </Tag>
-                          <Tag color="success" bordered={false} className="px-3 rounded-none">
+                          <Tag color="success" bordered={false} className="px-3 rounded-3xl">
                             Verified Account
                           </Tag>
                         </div>
@@ -416,7 +416,7 @@ function AdminDashboardPage() {
                   <Text type="secondary">Live monitoring of all scheduled and active intercity routes.</Text>
                 </div>
 
-                <Card className="rounded-none border-none shadow-card bg-white/90 backdrop-blur-md p-2 overflow-hidden">
+                <Card className="rounded-3xl border-none shadow-card bg-white/90 backdrop-blur-md p-2 overflow-hidden">
                   <List
                     className="px-6"
                     loading={tripsLoading}
@@ -441,7 +441,7 @@ function AdminDashboardPage() {
                       >
                         <List.Item.Meta
                           avatar={
-                            <div className="h-12 w-12 rounded-none bg-secondary flex items-center justify-center text-primary">
+                            <div className="h-12 w-12 rounded-3xl bg-secondary flex items-center justify-center text-primary">
                               <RouteIcon size={24} />
                             </div>
                           }
@@ -465,7 +465,7 @@ function AdminDashboardPage() {
                         <Tag
                           color={trip.status === "in_progress" ? "processing" : "blue"}
                           bordered={false}
-                          className="capitalize px-3 rounded-none"
+                          className="capitalize px-3 rounded-3xl"
                         >
                           {trip.status?.replace("_", " ")}
                         </Tag>

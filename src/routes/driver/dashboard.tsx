@@ -611,14 +611,14 @@ function DriverDashboardPage() {
   if (!isDriver) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gradient-hero p-4">
-        <Card className="max-w-md text-center shadow-elevated rounded-none border-none">
+        <Card className="max-w-md text-center shadow-elevated rounded-3xl border-none">
           <Text type="danger" strong>
             ACCESS DENIED
           </Text>
           <p className="mt-2 text-muted-foreground">
             This workspace is only for ride host accounts. Please complete ride host onboarding.
           </p>
-          <Button type="primary" className="mt-4 rounded-none" onClick={() => void signOut()}>
+          <Button type="primary" className="mt-4 rounded-3xl" onClick={() => void signOut()}>
             Sign out
           </Button>
         </Card>
@@ -723,7 +723,7 @@ function DriverDashboardPage() {
           />
 
           <div className="absolute bottom-4 left-4 right-4">
-            <Card className="rounded-xl bg-gradient-primary border-none shadow-glow text-white overflow-hidden relative">
+            <Card className="rounded-3xl bg-gradient-primary border-none shadow-glow text-white overflow-hidden relative">
               <Sparkles className="absolute -right-4 -bottom-4 opacity-20 rotate-12 w-16 h-16" />
               <div className="flex items-center gap-3 relative z-10">
                 <div className="h-10 w-10 rounded-full bg-white/20 flex items-center justify-center backdrop-blur-sm">
@@ -829,7 +829,7 @@ function DriverDashboardPage() {
                   <Card className="rounded-2xl border border-white/60 shadow-soft hover:shadow-card transition-all duration-300 backdrop-blur-md group overflow-hidden relative">
                     <div className="absolute -right-6 -top-6 w-24 h-24 bg-purple-500/10 rounded-full blur-xl group-hover:bg-purple-500/20 transition-all"></div>
                     <div className="flex items-center gap-3 mb-2">
-                      <div className="p-2 bg-purple-100 rounded-lg text-purple-600">
+                      <div className="p-2 bg-purple-100 rounded-3xl text-purple-600">
                         <RouteIcon size={20} />
                       </div>
                       <Text type="secondary" className="font-medium text-gray-500">Total Rides</Text>
@@ -847,7 +847,7 @@ function DriverDashboardPage() {
                   <Card className="rounded-2xl border border-white/60 shadow-soft hover:shadow-card transition-all duration-300 backdrop-blur-md group overflow-hidden relative">
                     <div className="absolute -right-6 -bottom-6 w-24 h-24 bg-emerald-500/10 rounded-full blur-xl group-hover:bg-emerald-500/20 transition-all"></div>
                     <div className="flex items-center gap-3 mb-2">
-                      <div className="p-2 bg-emerald-100 rounded-lg text-emerald-600">
+                      <div className="p-2 bg-emerald-100 rounded-3xl text-emerald-600">
                         <span className="font-bold text-lg">₹</span>
                       </div>
                       <Text type="secondary" className="font-medium text-gray-500">Total Earnings</Text>
@@ -862,7 +862,7 @@ function DriverDashboardPage() {
                     <div className="absolute -left-6 -top-6 w-24 h-24 bg-yellow-500/10 rounded-full blur-xl group-hover:bg-yellow-500/20 transition-all"></div>
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-3">
-                        <div className="p-2 bg-yellow-100 rounded-lg text-yellow-600">
+                        <div className="p-2 bg-yellow-100 rounded-3xl text-yellow-600">
                           <Sparkles size={20} />
                         </div>
                         <Text type="secondary" className="font-medium text-gray-500">Performance</Text>
@@ -871,7 +871,7 @@ function DriverDashboardPage() {
                         5.0
                       </Title>
                     </div>
-                    <div className="mt-4 flex gap-1.5 text-yellow-500 bg-yellow-50/50 p-2 rounded-xl inline-flex border border-yellow-100">
+                    <div className="mt-4 flex gap-1.5 text-yellow-500 bg-yellow-50/50 p-2 rounded-3xl inline-flex border border-yellow-100">
                       {[...Array(5)].map((_, i) => (
                         <Sparkles key={i} size={16} className="fill-yellow-500" />
                       ))}
@@ -904,7 +904,7 @@ function DriverDashboardPage() {
                         <Button 
                           type="primary" 
                           size="large" 
-                          className="mt-6 bg-gradient-primary border-none rounded-xl"
+                          className="mt-6 bg-gradient-primary border-none rounded-3xl"
                           onClick={() => setActiveModule("trips")}
                         >
                           Publish your first trip
@@ -1030,7 +1030,7 @@ function DriverDashboardPage() {
                           setActiveModule("trips");
                         }}
                       >
-                        <div className="h-12 w-12 mx-auto rounded-xl bg-purple-100 text-purple-600 flex items-center justify-center mb-3 group-hover:bg-purple-600 group-hover:text-white transition-all group-hover:scale-110 duration-300">
+                        <div className="h-12 w-12 mx-auto rounded-3xl bg-purple-100 text-purple-600 flex items-center justify-center mb-3 group-hover:bg-purple-600 group-hover:text-white transition-all group-hover:scale-110 duration-300">
                           <PlusCircle size={22} />
                         </div>
                         <Text strong className="text-sm">
@@ -1042,7 +1042,7 @@ function DriverDashboardPage() {
                         className="rounded-2xl border border-white/60 shadow-soft text-center p-3 group bg-white/60 hover:bg-white transition-all"
                         onClick={() => setActiveModule("history")}
                       >
-                        <div className="h-12 w-12 mx-auto rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center mb-3 group-hover:bg-blue-600 group-hover:text-white transition-all group-hover:scale-110 duration-300">
+                        <div className="h-12 w-12 mx-auto rounded-3xl bg-blue-100 text-blue-600 flex items-center justify-center mb-3 group-hover:bg-blue-600 group-hover:text-white transition-all group-hover:scale-110 duration-300">
                           <History size={22} />
                         </div>
                         <Text strong className="text-sm">
@@ -1054,7 +1054,7 @@ function DriverDashboardPage() {
                         className="rounded-2xl border border-white/60 shadow-soft text-center p-3 group bg-white/60 hover:bg-white transition-all"
                         onClick={() => setActiveModule("settings")}
                       >
-                        <div className="h-12 w-12 mx-auto rounded-xl bg-gray-100 text-gray-600 flex items-center justify-center mb-3 group-hover:bg-gray-600 group-hover:text-white transition-all group-hover:scale-110 duration-300">
+                        <div className="h-12 w-12 mx-auto rounded-3xl bg-gray-100 text-gray-600 flex items-center justify-center mb-3 group-hover:bg-gray-600 group-hover:text-white transition-all group-hover:scale-110 duration-300">
                           <Settings size={22} />
                         </div>
                         <Text strong className="text-sm">
@@ -1076,7 +1076,7 @@ function DriverDashboardPage() {
                       </p>
                       <Button
                         ghost
-                        className="mt-4 border-white/40 text-white rounded-none hover:bg-white/10"
+                        className="mt-4 border-white/40 text-white rounded-3xl hover:bg-white/10"
                       >
                         Learn more
                       </Button>
@@ -1131,7 +1131,7 @@ function DriverDashboardPage() {
                                 <Input
                                   placeholder="Search city and select"
                                   size="large"
-                                  className="h-14 rounded-xl text-lg"
+                                  className="h-14 rounded-3xl text-lg"
                                 />
                               </AutoComplete>
                             </Form.Item>
@@ -1160,7 +1160,7 @@ function DriverDashboardPage() {
                                       <Input
                                         placeholder={`Enter intermediate stop`}
                                         size="large"
-                                        className="h-14 rounded-xl text-lg"
+                                        className="h-14 rounded-3xl text-lg"
                                       />
                                     </AutoComplete>
                                   </div>
@@ -1168,7 +1168,7 @@ function DriverDashboardPage() {
                                     danger 
                                     type="text" 
                                     icon={<Trash2 size={18} />} 
-                                    className="mb-2 h-10 w-10 flex items-center justify-center rounded-xl hover:bg-red-50"
+                                    className="mb-2 h-10 w-10 flex items-center justify-center rounded-3xl hover:bg-red-50"
                                     onClick={() => setIntermediateStops(stops => stops.filter(s => s.id !== stop.id))} 
                                   />
                                 </div>
@@ -1179,7 +1179,7 @@ function DriverDashboardPage() {
                             ))}
 
                             <div className="pl-0 sm:pl-4">
-                               <Button type="dashed" className="rounded-xl mt-0 mb-2 h-10 border-primary/30 text-primary hover:border-primary/60 hover:text-primary-dark font-medium" onClick={() => setIntermediateStops([...intermediateStops, { id: Math.random().toString(), options: [], selected: null, value: "" }])}>
+                               <Button type="dashed" className="rounded-3xl mt-0 mb-2 h-10 border-primary/30 text-primary hover:border-primary/60 hover:text-primary-dark font-medium" onClick={() => setIntermediateStops([...intermediateStops, { id: Math.random().toString(), options: [], selected: null, value: "" }])}>
                                  <Plus size={14} className="mr-1" /> Add Stop
                                </Button>
                             </div>
@@ -1202,7 +1202,7 @@ function DriverDashboardPage() {
                                 <Input
                                   placeholder="Search city and select"
                                   size="large"
-                                  className="h-14 rounded-xl text-lg"
+                                  className="h-14 rounded-3xl text-lg"
                                 />
                               </AutoComplete>
                             </Form.Item>
@@ -1266,7 +1266,7 @@ function DriverDashboardPage() {
                               <DatePicker
                                 showTime={{ format: 'h:mm A', use12Hours: true, minuteStep: 15 }}
                                 size="large"
-                                className="w-full h-14 rounded-xl text-lg"
+                                className="w-full h-14 rounded-3xl text-lg"
                                 format="YYYY-MM-DD h:mm A"
                                 disabledDate={(current) =>
                                   current && current < dayjs().startOf("day")
@@ -1279,7 +1279,7 @@ function DriverDashboardPage() {
                               rules={[{ required: true, message: "Required" }]}
                               className="mb-0"
                             >
-                              <InputNumber min={1} max={10} size="large" className="w-full h-14 rounded-xl text-lg flex items-center" />
+                              <InputNumber min={1} max={10} size="large" className="w-full h-14 rounded-3xl text-lg flex items-center" />
                             </Form.Item>
                           </div>
                         </div>
@@ -1299,7 +1299,7 @@ function DriverDashboardPage() {
                               <InputNumber
                                 min={1}
                                 size="large"
-                                className="w-full h-14 rounded-xl text-lg flex items-center font-bold text-primary"
+                                className="w-full h-14 rounded-3xl text-lg flex items-center font-bold text-primary"
                                 prefix="₹"
                                 formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")}
                               />
@@ -1312,7 +1312,7 @@ function DriverDashboardPage() {
                         <Button
                           type="text"
                           size="large"
-                          className="h-14 rounded-xl px-8 w-full sm:w-auto font-medium text-gray-500 hover:bg-gray-100"
+                          className="h-14 rounded-3xl px-8 w-full sm:w-auto font-medium text-gray-500 hover:bg-gray-100"
                           onClick={() => setActiveModule("dashboard")}
                         >
                           Cancel
@@ -1322,7 +1322,7 @@ function DriverDashboardPage() {
                           htmlType="submit"
                           size="large"
                           loading={creating}
-                          className="h-14 rounded-xl px-10 w-full sm:w-auto bg-gradient-primary border-none font-bold shadow-glow hover:scale-[1.02] transition-transform"
+                          className="h-14 rounded-3xl px-10 w-full sm:w-auto bg-gradient-primary border-none font-bold shadow-glow hover:scale-[1.02] transition-transform"
                         >
                           {isEditingTrip ? "Update Trip Details" : "Publish Journey"}
                         </Button>
@@ -1332,7 +1332,7 @@ function DriverDashboardPage() {
                       <div className="xl:hidden fixed bottom-20 left-0 right-0 bg-white/90 backdrop-blur-md border-t border-gray-200 p-4 shadow-[0_-10px_20px_rgba(0,0,0,0.05)] z-40 flex items-center justify-end">
                         <Button 
                           type="default" 
-                          className="rounded-xl border-primary/30 text-primary font-medium"
+                          className="rounded-3xl border-primary/30 text-primary font-medium"
                           onClick={() => setMobilePreviewOpen(true)}
                         >
                           Preview Card
@@ -1350,7 +1350,7 @@ function DriverDashboardPage() {
                       <Card className="rounded-2xl border-none shadow-soft bg-white p-5">
                         {/* Earnings removed as per request */}
                         
-                        <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
+                        <div className="bg-gray-50 rounded-3xl p-4 border border-gray-100">
                           <Text type="secondary" className="text-xs block mb-3 font-semibold uppercase tracking-wider text-center">What travelers see</Text>
                           <div className="flex items-center justify-between mb-4">
                             <Tag color="purple" className="rounded-full border-none px-2 py-0.5 font-semibold text-[10px] m-0">
@@ -1450,7 +1450,7 @@ function DriverDashboardPage() {
                       type="primary" 
                       block 
                       size="large" 
-                      className="h-14 rounded-xl bg-gradient-primary border-none font-bold shadow-glow"
+                      className="h-14 rounded-3xl bg-gradient-primary border-none font-bold shadow-glow"
                       onClick={() => {
                         setMobilePreviewOpen(false);
                         form.submit();
@@ -1479,7 +1479,7 @@ function DriverDashboardPage() {
                   <Card className="rounded-2xl border border-white/60 shadow-soft backdrop-blur-md group overflow-hidden relative bg-emerald-50/50">
                     <div className="absolute -right-6 -bottom-6 w-24 h-24 bg-emerald-500/20 rounded-full blur-xl"></div>
                     <div className="flex items-center gap-3 mb-2">
-                      <div className="p-2 bg-emerald-100 rounded-lg text-emerald-600">
+                      <div className="p-2 bg-emerald-100 rounded-3xl text-emerald-600">
                         <Banknote size={20} />
                       </div>
                       <Text type="secondary" className="font-medium text-emerald-800">Lifetime Earnings</Text>
@@ -1492,7 +1492,7 @@ function DriverDashboardPage() {
                   <Card className="rounded-2xl border border-white/60 shadow-soft backdrop-blur-md group overflow-hidden relative bg-purple-50/50">
                     <div className="absolute -right-6 -bottom-6 w-24 h-24 bg-purple-500/20 rounded-full blur-xl"></div>
                     <div className="flex items-center gap-3 mb-2">
-                      <div className="p-2 bg-purple-100 rounded-lg text-purple-600">
+                      <div className="p-2 bg-purple-100 rounded-3xl text-purple-600">
                         <CheckCircle size={20} />
                       </div>
                       <Text type="secondary" className="font-medium text-purple-800">Total Completed Rides</Text>
@@ -1530,7 +1530,7 @@ function DriverDashboardPage() {
                       <List.Item className="p-6 hover:bg-gray-50 transition-colors cursor-pointer group border-b border-gray-50">
                         <div className="w-full flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                           <div className="flex items-center gap-4">
-                            <div className={`h-12 w-12 rounded-xl flex items-center justify-center ${trip.status === 'completed' ? 'bg-emerald-100 text-emerald-600' : trip.status === 'cancelled' ? 'bg-red-100 text-red-600' : 'bg-blue-100 text-blue-600'}`}>
+                            <div className={`h-12 w-12 rounded-3xl flex items-center justify-center ${trip.status === 'completed' ? 'bg-emerald-100 text-emerald-600' : trip.status === 'cancelled' ? 'bg-red-100 text-red-600' : 'bg-blue-100 text-blue-600'}`}>
                               {trip.status === 'completed' ? <CheckCircle size={20} /> : trip.status === 'cancelled' ? <XCircle size={20} /> : <RouteIcon size={20} />}
                             </div>
                             <div>
@@ -1573,7 +1573,7 @@ function DriverDashboardPage() {
                     type="primary"
                     icon={<Plus size={16} />}
                     size="large"
-                    className="bg-gradient-primary border-none rounded-xl font-bold shadow-glow flex items-center gap-2"
+                    className="bg-gradient-primary border-none rounded-3xl font-bold shadow-glow flex items-center gap-2"
                     onClick={() => { setEditingDriverId(null); driverForm.resetFields(); setDriverDrawerOpen(true); }}
                   >
                     Add Driver
@@ -1588,7 +1588,7 @@ function DriverDashboardPage() {
                     <Text type="secondary" className="text-lg block">No team drivers yet.</Text>
                     <Text type="secondary" className="text-sm">Add drivers who operate under your account.</Text>
                     <div className="mt-6">
-                      <Button type="primary" icon={<Plus size={16} />} className="bg-gradient-primary border-none rounded-xl"
+                      <Button type="primary" icon={<Plus size={16} />} className="bg-gradient-primary border-none rounded-3xl"
                         onClick={() => { setEditingDriverId(null); driverForm.resetFields(); setDriverDrawerOpen(true); }}>
                         Add first driver
                       </Button>
@@ -1616,7 +1616,7 @@ function DriverDashboardPage() {
                             <Button
                               size="small"
                               icon={<Pencil size={14} />}
-                              className="rounded-lg"
+                              className="rounded-3xl"
                               onClick={() => {
                                 setEditingDriverId(d.id);
                                 driverForm.setFieldsValue({ fullName: d.fullName, email: d.email, phone: d.phone, licenseNumber: d.licenseNumber, city: d.city });
@@ -1624,7 +1624,7 @@ function DriverDashboardPage() {
                               }}
                             />
                             <Popconfirm title="Remove this driver?" onConfirm={() => removeDriver(d.id)} okText="Remove" okButtonProps={{ danger: true }}>
-                              <Button size="small" danger icon={<Trash2 size={14} />} className="rounded-lg" />
+                              <Button size="small" danger icon={<Trash2 size={14} />} className="rounded-3xl" />
                             </Popconfirm>
                           </div>
                         </div>
@@ -1642,7 +1642,7 @@ function DriverDashboardPage() {
                   onClose={() => { setDriverDrawerOpen(false); driverForm.resetFields(); setEditingDriverId(null); }}
                   footer={
                     <Button type="primary" loading={savingDriver} block size="large"
-                      className="bg-gradient-primary border-none rounded-xl font-bold h-12"
+                      className="bg-gradient-primary border-none rounded-3xl font-bold h-12"
                       onClick={() => driverForm.submit()}>
                       {editingDriverId ? "Save Changes" : "Add Driver"}
                     </Button>
@@ -1658,7 +1658,7 @@ function DriverDashboardPage() {
                       { name: "city", label: "City", rules: [{ required: true, message: "Required" }] },
                     ].map((f) => (
                       <Form.Item key={f.name} name={f.name} label={<span className="font-semibold text-gray-700">{f.label}</span>} rules={f.rules}>
-                        <Input size="large" className="rounded-xl h-12" />
+                        <Input size="large" className="rounded-3xl h-12" />
                       </Form.Item>
                     ))}
                   </Form>
@@ -1678,7 +1678,7 @@ function DriverDashboardPage() {
                     type="primary"
                     icon={<Plus size={16} />}
                     size="large"
-                    className="bg-gradient-primary border-none rounded-xl font-bold shadow-glow flex items-center gap-2"
+                    className="bg-gradient-primary border-none rounded-3xl font-bold shadow-glow flex items-center gap-2"
                     onClick={() => { setEditingVehicleId(null); vehicleForm.resetFields(); setVehicleDrawerOpen(true); }}
                   >
                     Add Vehicle
@@ -1693,7 +1693,7 @@ function DriverDashboardPage() {
                     <Text type="secondary" className="text-lg block">No vehicles registered yet.</Text>
                     <Text type="secondary" className="text-sm">Add your first vehicle to start hosting trips.</Text>
                     <div className="mt-6">
-                      <Button type="primary" icon={<Plus size={16} />} className="bg-gradient-primary border-none rounded-xl"
+                      <Button type="primary" icon={<Plus size={16} />} className="bg-gradient-primary border-none rounded-3xl"
                         onClick={() => { setEditingVehicleId(null); vehicleForm.resetFields(); setVehicleDrawerOpen(true); }}>
                         Add vehicle
                       </Button>
@@ -1714,7 +1714,7 @@ function DriverDashboardPage() {
                           </div>
                           <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                             <button
-                              className="h-8 w-8 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors"
+                              className="h-8 w-8 rounded-3xl bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors"
                               onClick={() => {
                                 setEditingVehicleId(v.id);
                                 const parts = v.modelName.split(" ");
@@ -1725,7 +1725,7 @@ function DriverDashboardPage() {
                               <Pencil size={14} />
                             </button>
                             <Popconfirm title="Remove this vehicle?" onConfirm={() => removeVehicle(v.id)} okText="Remove" okButtonProps={{ danger: true }}>
-                              <button className="h-8 w-8 rounded-lg bg-red-500/20 hover:bg-red-500/40 flex items-center justify-center transition-colors">
+                              <button className="h-8 w-8 rounded-3xl bg-red-500/20 hover:bg-red-500/40 flex items-center justify-center transition-colors">
                                 <Trash2 size={14} />
                               </button>
                             </Popconfirm>
@@ -1751,7 +1751,7 @@ function DriverDashboardPage() {
                   onClose={() => { setVehicleDrawerOpen(false); vehicleForm.resetFields(); setEditingVehicleId(null); }}
                   footer={
                     <Button type="primary" loading={savingVehicle} block size="large"
-                      className="bg-gradient-primary border-none rounded-xl font-bold h-12"
+                      className="bg-gradient-primary border-none rounded-3xl font-bold h-12"
                       onClick={() => vehicleForm.submit()}>
                       {editingVehicleId ? "Save Changes" : "Add Vehicle"}
                     </Button>
@@ -1761,20 +1761,20 @@ function DriverDashboardPage() {
                     onFinish={(vals) => saveVehicle(vals as { make: string; model: string; color: string; plate: string; seats: number })}>
                     <div className="grid grid-cols-2 gap-4">
                       <Form.Item name="make" label={<span className="font-semibold text-gray-700">Make</span>} rules={[{ required: true, message: "Required" }]}>
-                        <Input size="large" placeholder="Honda" className="rounded-xl h-12" />
+                        <Input size="large" placeholder="Honda" className="rounded-3xl h-12" />
                       </Form.Item>
                       <Form.Item name="model" label={<span className="font-semibold text-gray-700">Model</span>} rules={[{ required: true, message: "Required" }]}>
-                        <Input size="large" placeholder="City" className="rounded-xl h-12" />
+                        <Input size="large" placeholder="City" className="rounded-3xl h-12" />
                       </Form.Item>
                     </div>
                     <Form.Item name="color" label={<span className="font-semibold text-gray-700">Color</span>}>
-                      <Input size="large" placeholder="White, Black…" className="rounded-xl h-12" />
+                      <Input size="large" placeholder="White, Black…" className="rounded-3xl h-12" />
                     </Form.Item>
                     <Form.Item name="plate" label={<span className="font-semibold text-gray-700">License Plate</span>} rules={[{ required: true, message: "Required" }]}>
-                      <Input size="large" placeholder="TN 01 AB 1234" className="rounded-xl h-12 font-mono tracking-widest" />
+                      <Input size="large" placeholder="TN 01 AB 1234" className="rounded-3xl h-12 font-mono tracking-widest" />
                     </Form.Item>
                     <Form.Item name="seats" label={<span className="font-semibold text-gray-700">Seat Capacity</span>} rules={[{ required: true }]}>
-                      <InputNumber min={1} max={12} size="large" className="w-full rounded-xl" />
+                      <InputNumber min={1} max={12} size="large" className="w-full rounded-3xl" />
                     </Form.Item>
                   </Form>
                 </Drawer>
@@ -1800,7 +1800,7 @@ function DriverDashboardPage() {
                       </div>
                       <Title level={3}>No customers yet</Title>
                       <Text type="secondary" className="text-lg block mb-8">Your passengers will appear here once they start booking your trips.</Text>
-                      <Button type="primary" size="large" onClick={() => setActiveModule("trips")} className="bg-gradient-primary border-none h-12 px-8 rounded-xl font-bold">
+                      <Button type="primary" size="large" onClick={() => setActiveModule("trips")} className="bg-gradient-primary border-none h-12 px-8 rounded-3xl font-bold">
                         Publish Your First Trip
                       </Button>
                     </Card>
@@ -1905,7 +1905,7 @@ function DriverDashboardPage() {
                 <Modal
                   title={
                     <div className="flex items-center gap-3 pb-2 border-b border-gray-100">
-                      <div className="p-2 bg-amber-100 rounded-lg text-amber-600">
+                      <div className="p-2 bg-amber-100 rounded-3xl text-amber-600">
                         <Star size={20} fill="currentColor" />
                       </div>
                       <div>

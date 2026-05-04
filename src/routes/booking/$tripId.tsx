@@ -200,7 +200,7 @@ function BookingTripPage() {
       <div className="min-h-screen flex flex-col">
         <SiteHeader />
         <main className="container mx-auto px-4 py-16 max-w-lg flex-1">
-          <Card className="p-8 rounded-none text-center space-y-4">
+          <Card className="p-8 rounded-3xl text-center space-y-4">
             <p className="font-semibold">Trip not found</p>
             <Button asChild variant="outline">
               <Link to="/">Back to home</Link>
@@ -219,7 +219,7 @@ function BookingTripPage() {
       <div className="min-h-screen flex flex-col">
         <SiteHeader />
         <main className="container mx-auto px-4 py-16 max-w-lg flex-1">
-          <Card className="p-8 rounded-none text-center space-y-4">
+          <Card className="p-8 rounded-3xl text-center space-y-4">
             <p className="font-semibold">This trip is not open for booking.</p>
             <Button asChild variant="outline">
               <Link to="/">Back to home</Link>
@@ -236,7 +236,7 @@ function BookingTripPage() {
       <div className="min-h-screen flex flex-col">
         <SiteHeader />
         <main className="container mx-auto px-4 py-16 max-w-lg flex-1">
-          <Card className="p-8 rounded-none text-center space-y-4">
+          <Card className="p-8 rounded-3xl text-center space-y-4">
             <p className="font-semibold">You cannot book your own trip.</p>
             <Button asChild variant="outline">
               <Link to="/driver/dashboard">Ride Host dashboard</Link>
@@ -270,7 +270,7 @@ function BookingTripPage() {
           </a>
         </Button>
 
-        <Card className="p-6 md:p-8 rounded-none border-border/60 shadow-soft bg-card/90 backdrop-blur-sm mb-8">
+        <Card className="p-6 md:p-8 rounded-3xl border-border/60 shadow-soft bg-card/90 backdrop-blur-sm mb-8">
           <h1 className="text-2xl font-bold tracking-tight">Choose your seats</h1>
           <p className="text-muted-foreground mt-1">
             {trip.fromLocation} → {trip.toLocation}
@@ -279,10 +279,10 @@ function BookingTripPage() {
             Departure: {new Date(trip.departureAt).toLocaleString()}
           </p>
           <div className="mt-4 flex flex-wrap gap-2">
-            <span className="rounded-none bg-secondary px-3 py-1 text-xs font-medium">
+            <span className="rounded-3xl bg-secondary px-3 py-1 text-xs font-medium">
               {remainingTripSeats} seat{remainingTripSeats !== 1 ? "s" : ""} left on this trip
             </span>
-            <span className="rounded-none bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
+            <span className="rounded-3xl bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
               {formatCurrency(pricePerSeat)} / seat
             </span>
           </div>
@@ -294,7 +294,7 @@ function BookingTripPage() {
         </Card>
 
         {remainingTripSeats === 0 ? (
-          <Card className="p-8 rounded-none text-center">
+          <Card className="p-8 rounded-3xl text-center">
             <p className="font-medium">This trip is fully booked.</p>
             <Button className="mt-4" asChild variant="outline">
               <a href="/#find-a-ride">Find another ride</a>
@@ -311,7 +311,7 @@ function BookingTripPage() {
               disabled={bookingMutation.isPending || reservationsQuery.isPending}
             />
 
-            <Card className="mt-8 p-6 rounded-none border-border/60 space-y-4">
+            <Card className="mt-8 p-6 rounded-3xl border-border/60 space-y-4">
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="p-name">Passenger name</Label>
@@ -320,7 +320,7 @@ function BookingTripPage() {
                     value={passengerName}
                     onChange={(e) => setPassengerName(e.target.value)}
                     placeholder="Full name"
-                    className="rounded-none"
+                    className="rounded-3xl"
                   />
                 </div>
                 <div className="space-y-2">
@@ -330,7 +330,7 @@ function BookingTripPage() {
                     value={passengerPhone}
                     onChange={(e) => setPassengerPhone(e.target.value)}
                     placeholder="Mobile number"
-                    className="rounded-none"
+                    className="rounded-3xl"
                   />
                 </div>
               </div>
@@ -369,7 +369,7 @@ function BookingTripPage() {
                 <Button
                   variant="hero"
                   size="lg"
-                  className="rounded-none px-8 w-full sm:w-auto"
+                  className="rounded-3xl px-8 w-full sm:w-auto"
                   disabled={
                     bookingMutation.isPending || selected.size === 0 || remainingTripSeats === 0
                   }

@@ -114,7 +114,7 @@ function MembersPage() {
 
               <ul className="space-y-4 max-w-md">
                 <li className="flex gap-3">
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-teal-500/15 text-teal-800 dark:text-teal-300">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-3xl bg-teal-500/15 text-teal-800 dark:text-teal-300">
                     <MapPin className="h-5 w-5" />
                   </span>
                   <div>
@@ -125,7 +125,7 @@ function MembersPage() {
                   </div>
                 </li>
                 <li className="flex gap-3">
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-teal-500/15 text-teal-800 dark:text-teal-300">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-3xl bg-teal-500/15 text-teal-800 dark:text-teal-300">
                     <Ticket className="h-5 w-5" />
                   </span>
                   <div>
@@ -136,7 +136,7 @@ function MembersPage() {
                   </div>
                 </li>
                 <li className="flex gap-3">
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-teal-500/15 text-teal-800 dark:text-teal-300">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-3xl bg-teal-500/15 text-teal-800 dark:text-teal-300">
                     <Users className="h-5 w-5" />
                   </span>
                   <div>
@@ -190,10 +190,10 @@ function MembersPage() {
                   </div>
                 </div>
 
-                <div className="mt-0 flex rounded-xl border border-border bg-muted/40 p-1">
+                <div className="mt-0 flex rounded-3xl border border-border bg-muted/40 p-1">
                   <button
                     type="button"
-                    className={`flex-1 rounded-lg py-2.5 text-sm font-semibold transition-colors ${
+                    className={`flex-1 rounded-3xl py-2.5 text-sm font-semibold transition-colors ${
                       mode === "signin"
                         ? "bg-background text-foreground shadow-sm"
                         : "text-muted-foreground hover:text-foreground"
@@ -204,7 +204,7 @@ function MembersPage() {
                   </button>
                   <button
                     type="button"
-                    className={`flex-1 rounded-lg py-2.5 text-sm font-semibold transition-colors ${
+                    className={`flex-1 rounded-3xl py-2.5 text-sm font-semibold transition-colors ${
                       mode === "signup"
                         ? "bg-background text-foreground shadow-sm"
                         : "text-muted-foreground hover:text-foreground"
@@ -226,7 +226,7 @@ function MembersPage() {
                         autoComplete="email"
                         value={signInEmail}
                         onChange={(e) => setSignInEmail(e.target.value)}
-                        className="h-11 rounded-xl"
+                        className="h-11 rounded-3xl"
                       />
                     </div>
                     <div className="space-y-2">
@@ -238,13 +238,13 @@ function MembersPage() {
                         autoComplete="current-password"
                         value={signInPassword}
                         onChange={(e) => setSignInPassword(e.target.value)}
-                        className="h-11 rounded-xl"
+                        className="h-11 rounded-3xl"
                       />
                     </div>
                     <Button
                       type="submit"
                       size="lg"
-                      className="w-full rounded-xl bg-teal-600 text-white hover:bg-teal-700 dark:bg-teal-600 dark:hover:bg-teal-500"
+                      className="w-full rounded-3xl bg-teal-600 text-white hover:bg-teal-700 dark:bg-teal-600 dark:hover:bg-teal-500"
                       disabled={busy}
                     >
                       {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Continue as traveler"}
@@ -260,7 +260,7 @@ function MembersPage() {
                         autoComplete="name"
                         value={name}
                         onChange={(e) => setName(e.target.value)}
-                        className="h-11 rounded-xl"
+                        className="h-11 rounded-3xl"
                       />
                     </div>
                     <div className="space-y-2">
@@ -272,7 +272,7 @@ function MembersPage() {
                         autoComplete="email"
                         value={signUpEmail}
                         onChange={(e) => setSignUpEmail(e.target.value)}
-                        className="h-11 rounded-xl"
+                        className="h-11 rounded-3xl"
                       />
                     </div>
                     <div className="space-y-2">
@@ -285,14 +285,14 @@ function MembersPage() {
                         autoComplete="new-password"
                         value={signUpPassword}
                         onChange={(e) => setSignUpPassword(e.target.value)}
-                        className="h-11 rounded-xl"
+                        className="h-11 rounded-3xl"
                       />
                       <p className="text-xs text-muted-foreground">At least 6 characters.</p>
                     </div>
                     <Button
                       type="submit"
                       size="lg"
-                      className="w-full rounded-xl bg-teal-600 text-white hover:bg-teal-700 dark:bg-teal-600 dark:hover:bg-teal-500"
+                      className="w-full rounded-3xl bg-teal-600 text-white hover:bg-teal-700 dark:bg-teal-600 dark:hover:bg-teal-500"
                       disabled={busy}
                     >
                       {busy ? (

@@ -60,7 +60,7 @@
 }
 
 :root {
-  --radius: 0;
+  --radius: 2rem;
 
   /* Surfaces */
   --background: oklch(0.99 0.005 350);
@@ -180,6 +180,7 @@
   * {
     border-color: var(--color-border);
     text-transform: lowercase !important;
+    border-radius: var(--radius-lg, 2rem) !important;
   }
 
   html {

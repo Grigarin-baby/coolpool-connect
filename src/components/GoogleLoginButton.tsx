@@ -14,7 +14,7 @@ export function GoogleLoginButton({ busy, redirect, className }: GoogleLoginButt
     <Button
       type="button"
       variant="outline"
-      className={`w-full rounded-xl border-border h-11 gap-2 bg-background ${className}`}
+      className={`w-full rounded-3xl border-border h-11 gap-2 bg-background ${className}`}
       disabled={busy}
       onClick={() => signInWithGoogle({ resumeRedirect: redirect })}
     >

@@ -44,7 +44,7 @@ export function SiteHeader() {
             {user ? (
               <>
                 {dashboardPath && (
-                  <Button asChild variant="hero" className="rounded-none">
+                  <Button asChild variant="hero" className="rounded-3xl">
                     <Link to={dashboardPath}>
                       <LayoutDashboard className="h-4 w-4 mr-2" />
                       Dashboard
@@ -53,14 +53,14 @@ export function SiteHeader() {
                 )}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" className="rounded-none h-10 px-4 gap-2">
-                      <div className="h-7 w-7 rounded-none bg-gradient-primary flex items-center justify-center text-xs font-bold text-primary-foreground">
+                    <Button variant="ghost" className="rounded-3xl h-10 px-4 gap-2">
+                      <div className="h-7 w-7 rounded-3xl bg-gradient-primary flex items-center justify-center text-xs font-bold text-primary-foreground">
                         {(user.email?.[0] ?? "U").toUpperCase()}
                       </div>
                       <span className="text-sm">Account</span>
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-56 rounded-none">
+                  <DropdownMenuContent align="end" className="w-56 rounded-3xl">
                     <DropdownMenuLabel className="font-normal text-xs text-muted-foreground truncate">
                       {user.email}
                     </DropdownMenuLabel>
@@ -93,12 +93,12 @@ export function SiteHeader() {
               </>
             ) : (
               <>
-                <Button asChild variant="outline" className="rounded-none border-border/80 bg-card/40">
+                <Button asChild variant="outline" className="rounded-3xl border-border/80 bg-card/40">
                   {/* <Link to="/members" search={memberSearch}>
                     Become a member
                   </Link> */}
                 </Button>
-                <Button asChild variant="ghost" className="rounded-none">
+                <Button asChild variant="ghost" className="rounded-3xl">
                   <Link to="/auth">Login</Link>
                 </Button>
               </>

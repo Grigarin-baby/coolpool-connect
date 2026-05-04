@@ -53,13 +53,13 @@ function TripsPage() {
     <div className="min-h-screen flex flex-col">
       <SiteHeader />
       <main className="container mx-auto px-4 py-16 max-w-5xl flex-1">
-        <Card className="p-12 rounded-none text-center shadow-card border-border/60 bg-gradient-soft">
-          <div className="h-16 w-16 mx-auto rounded-none bg-gradient-primary text-primary-foreground flex items-center justify-center shadow-glow">
+        <Card className="p-12 rounded-3xl text-center shadow-card border-border/60 bg-gradient-soft">
+          <div className="h-16 w-16 mx-auto rounded-3xl bg-gradient-primary text-primary-foreground flex items-center justify-center shadow-glow">
             <Ticket className="h-7 w-7" />
           </div>
           <h1 className="mt-6 text-3xl font-bold">No trips yet</h1>
           <p className="mt-3 text-muted-foreground">{subtitle}</p>
-          <Button asChild variant="hero" className="mt-6 rounded-none">
+          <Button asChild variant="hero" className="mt-6 rounded-3xl">
             <a href="/#find-a-ride">Find a ride</a>
           </Button>
         </Card>

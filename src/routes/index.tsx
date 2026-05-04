@@ -130,9 +130,9 @@ function Home() {
           ].map((step, i) => (
             <Card
               key={i}
-              className="p-8 rounded-none border-border/60 shadow-soft hover:shadow-card hover:border-primary/30 transition-all group bg-card"
+              className="p-8 rounded-3xl border-border/60 shadow-soft hover:shadow-card hover:border-primary/30 transition-all group bg-card"
             >
-              <div className="h-16 w-16 mb-6 rounded-none bg-gradient-primary text-primary-foreground flex items-center justify-center shadow-glow group-hover:scale-110 group-hover:rotate-3 transition-transform duration-300">
+              <div className="h-16 w-16 mb-6 rounded-3xl bg-gradient-primary text-primary-foreground flex items-center justify-center shadow-glow group-hover:scale-110 group-hover:rotate-3 transition-transform duration-300">
                 {step.icon}
               </div>
               <h3 className="text-xl font-bold mb-3">{step.title}</h3>
@@ -187,7 +187,7 @@ function Home() {
               { name: "Ananya M.", role: "Host", text: "Hosting on Coolpool has helped me cover my fuel costs and I've met some amazing people on my weekend trips home.", rating: 5 },
               { name: "Vikram K.", role: "Tech Professional", text: "Clean, reliable, and way more comfortable than the bus. The app is super intuitive to use.", rating: 4 },
             ].map((t, i) => (
-              <Card key={i} className="p-8 border-border/40 rounded-none bg-card/80 backdrop-blur-md shadow-card hover:-translate-y-1 transition-transform">
+              <Card key={i} className="p-8 border-border/40 rounded-3xl bg-card/80 backdrop-blur-md shadow-card hover:-translate-y-1 transition-transform">
                 <div className="flex gap-1 mb-6">
                   {[...Array(t.rating)].map((_, j) => <Star key={j} className="h-4 w-4 fill-primary text-primary" />)}
                 </div>
@@ -224,7 +224,7 @@ function Home() {
 
       {/* FINAL CTA */}
       <section className="container mx-auto px-4 sm:px-5 pb-16 sm:pb-24 max-w-7xl">
-        <Card className="rounded-none border-0 p-8 sm:p-12 md:p-20 bg-gradient-hero relative overflow-hidden text-center shadow-glow">
+        <Card className="rounded-3xl border-0 p-8 sm:p-12 md:p-20 bg-gradient-hero relative overflow-hidden text-center shadow-glow">
           <div className="absolute inset-0 bg-gradient-mesh opacity-20 pointer-events-none" />
           <div className="relative max-w-3xl mx-auto space-y-8">
             <h3 className="text-3xl sm:text-4xl md:text-6xl font-bold tracking-tight text-balance leading-tight font-heading">
@@ -234,10 +234,10 @@ function Home() {
               Join thousands of people saving money and making new friends on the road.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button asChild variant="hero" size="xl" className="rounded-none px-12 h-14 text-lg shadow-glow">
+              <Button asChild variant="hero" size="xl" className="rounded-3xl px-12 h-14 text-lg shadow-glow">
                 <a href="#find-a-ride">Find a Ride <ArrowRight /></a>
               </Button>
-              <Button asChild variant="outline" size="xl" className="rounded-none px-12 h-14 text-lg bg-card/50 backdrop-blur-sm hover:bg-card">
+              <Button asChild variant="outline" size="xl" className="rounded-3xl px-12 h-14 text-lg bg-card/50 backdrop-blur-sm hover:bg-card">
                 <Link to="/host">Become a Host</Link>
               </Button>
             </div>
@@ -271,11 +271,11 @@ function RoleCard({
 }) {
   return (
     <Card
-      className={`p-8 md:p-10 rounded-none border-border/60 overflow-hidden relative min-w-0 ${
+      className={`p-8 md:p-10 rounded-3xl border-border/60 overflow-hidden relative min-w-0 ${
         emphasis === "soft" ? "bg-gradient-soft shadow-soft" : "bg-card shadow-sm"
       }`}
     >
-      <div className="absolute -right-12 -top-12 h-40 w-40 rounded-none bg-primary-glow/20 blur-3xl pointer-events-none" />
+      <div className="absolute -right-12 -top-12 h-40 w-40 rounded-3xl bg-primary-glow/20 blur-3xl pointer-events-none" />
       <div className="relative">
         <div className="mb-6">{icon}</div>
         <h3 className="text-2xl md:text-3xl font-bold font-heading">{title}</h3>
@@ -292,7 +292,7 @@ function RoleCard({
           asChild
           variant={emphasis === "soft" ? "hero" : "outline"}
           size="lg"
-          className="mt-8 w-full sm:w-auto justify-center rounded-none shadow-sm"
+          className="mt-8 w-full sm:w-auto justify-center rounded-3xl shadow-sm"
         >
           {ctaHref ? (
             <a href={ctaHref}>
