@@ -324,16 +324,6 @@ export async function createBooking(
   input: CreateBookingInput & { hostIdForPermissions?: string },
 ): Promise<Booking> {
   const c = ids();
-  const hostId = input.hostIdForPermissions;
-  const permissions =
-    hostId != null
-      ? [
-          Permission.read(Role.user(input.travelerId)),
-          Permission.read(Role.user(hostId)),
-          Permission.update(Role.user(input.travelerId)),
-          Permission.delete(Role.user(input.travelerId)),
-        ]
-      : undefined;
 
   const doc = await databases.createDocument(
     appwriteConfig.databaseId,
@@ -349,8 +339,7 @@ export async function createBooking(
       passenger_name: input.passengerName,
       passenger_phone: input.passengerPhone,
       status: input.status ?? "pending",
-    },
-    permissions,
+    }
   );
   return toBooking(doc);
 }
@@ -518,12 +507,7 @@ async function createTripSeatReservation(input: {
       trip_id: input.tripId,
       seat_code: input.seatCode,
       booking_id: input.bookingId,
-    },
-    [
-      Permission.read(Role.any()),
-      Permission.delete(Role.user(input.travelerId)),
-      Permission.delete(Role.user(input.hostId)),
-    ],
+    }
   );
   return toTripSeatReservation(doc);
 }

@@ -25,6 +25,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { SiteHeader } from "@/components/SiteHeader";
 import { SiteFooter } from "@/components/SiteFooter";
 import { TripSearchProvider, TripSearchForm, TripSearchResults } from "@/components/TripSearch";
+import { DynamicTrendingRoutes } from "@/components/DynamicTrendingRoutes";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
@@ -78,37 +79,8 @@ function Home() {
         </TripSearchProvider>
       </section>
 
-      {/* TRENDING ROUTES (NEW) */}
-      <section className="container mx-auto px-4 sm:px-5 py-16 sm:py-24 max-w-7xl">
-        <div className="flex items-center justify-between mb-10">
-          <div>
-            <h2 className="text-3xl font-bold tracking-tight font-heading">Trending <span className="text-primary">Routes</span></h2>
-            <p className="text-muted-foreground mt-2">Popular intercity connections you might love.</p>
-          </div>
-          <TrendingUp className="h-8 w-8 text-primary/30" />
-        </div>
-        
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-          {[
-            { from: "Bengaluru", to: "Mysuru", price: "₹250", img: "https://images.unsplash.com/photo-1596422846543-75c6fc197f07?auto=format&fit=crop&q=80&w=600" },
-            { from: "Delhi", to: "Chandigarh", price: "₹450", img: "https://images.unsplash.com/photo-1587474260584-136574528ed5?auto=format&fit=crop&q=80&w=600" },
-            { from: "Mumbai", to: "Pune", price: "₹300", img: "https://images.unsplash.com/photo-1570168007204-dfb528c6958f?auto=format&fit=crop&q=80&w=600" },
-            { from: "Hyderabad", to: "Vijayawada", price: "₹350", img: "https://images.unsplash.com/photo-1582510003544-4d00b7f74220?auto=format&fit=crop&q=80&w=600" },
-          ].map((route, i) => (
-            <Card key={i} className="group relative overflow-hidden rounded-none border-0 shadow-card cursor-pointer hover:shadow-glow transition-all duration-300">
-              <div className="absolute inset-0 bg-black/40 group-hover:bg-black/20 transition-colors z-10" />
-              <img src={route.img} alt={route.to} className="w-full h-48 object-cover group-hover:scale-110 transition-transform duration-700 ease-out" />
-              <div className="absolute inset-0 z-20 p-5 flex flex-col justify-end">
-                <p className="text-white/80 text-xs font-bold uppercase tracking-widest">{route.from} to</p>
-                <h3 className="text-white text-2xl font-bold">{route.to}</h3>
-                <div className="mt-3 inline-flex self-start px-3 py-1 bg-white/20 backdrop-blur-md border border-white/30 text-white font-bold text-sm">
-                  From {route.price}
-                </div>
-              </div>
-            </Card>
-          ))}
-        </div>
-      </section>
+      {/* TRENDING ROUTES (DYNAMIC) */}
+      <DynamicTrendingRoutes />
 
       {/* TRUST STRIP */}
       <section className="bg-primary/5 border-y border-primary/10">

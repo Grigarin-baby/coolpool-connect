@@ -9,13 +9,17 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Banknote } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import {
   createBookingWithSeatReservations,
   getTripById,
   getVehicleByDriverUserId,
   listTripSeatReservations,
+  listTravelerBookings,
 } from "@/data/appwrite-repository";
+import { account } from "@/integrations/appwrite/client";
 import { formatCurrency } from "@/lib/pricing";
 import { buildSeatLayout } from "@/lib/seatLayout";
 import { toast } from "sonner";
@@ -59,6 +63,32 @@ function BookingTripPage() {
     refetchInterval: 30_000,
   });
 
+  const pastBookingsQuery = useQuery({
+    queryKey: ["traveler-bookings", user?.$id],
+    queryFn: () => listTravelerBookings(user!.$id),
+    enabled: !!user?.$id,
+  });
+
+  useEffect(() => {
+    if (!user) return;
+    
+    if (!passengerName && user.name) {
+      setPassengerName(user.name);
+    }
+    
+    if (!passengerPhone) {
+      if (user.prefs?.defaultPhone) {
+        setPassengerPhone(user.prefs.defaultPhone);
+      } else if (pastBookingsQuery.data && pastBookingsQuery.data.length > 0) {
+        // Fallback to most recent booking
+        const recentBooking = [...pastBookingsQuery.data].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+        if (recentBooking?.passengerPhone) {
+          setPassengerPhone(recentBooking.passengerPhone);
+        }
+      }
+    }
+  }, [user, pastBookingsQuery.data, passengerName, passengerPhone]);
+
   const layoutCapacity = useMemo(() => {
     const vehicleCap = vehicleQuery.data?.seatCapacity ?? 0;
     const tripCap = (tripQuery.data?.totalSeats ?? 0);
@@ -95,6 +125,15 @@ function BookingTripPage() {
       const name = passengerName.trim();
       const phone = passengerPhone.trim();
       if (!name || !phone) throw new Error("Enter passenger name and phone.");
+
+      // Save phone to preferences if it's new or missing
+      if (!user.prefs?.defaultPhone || user.prefs.defaultPhone !== phone) {
+        try {
+          await account.updatePrefs({ ...(user.prefs || {}), defaultPhone: phone });
+        } catch (e) {
+          console.error("Failed to update user prefs", e);
+        }
+      }
 
       return createBookingWithSeatReservations({
         tripId: tripQuery.data.id,
@@ -295,20 +334,42 @@ function BookingTripPage() {
                   />
                 </div>
               </div>
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-2 border-t border-border/60">
-                <div>
-                  <p className="text-sm text-muted-foreground">Estimated total</p>
-                  <p className="text-xl font-bold">
-                    {formatCurrency(pricePerSeat * selected.size)}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {selected.size} seat{selected.size !== 1 ? "s" : ""} selected
-                  </p>
+              <div className="pt-6 border-t border-border/60">
+                <h3 className="text-lg font-semibold mb-4">Payment Method</h3>
+                <RadioGroup defaultValue="pay_on_car" className="space-y-3">
+                  <div className="flex items-center space-x-3 border border-border/60 p-4 bg-card/50 cursor-pointer">
+                    <RadioGroupItem value="pay_on_car" id="pay_on_car" />
+                    <Label htmlFor="pay_on_car" className="flex items-center gap-2 cursor-pointer w-full text-base font-medium">
+                      <Banknote className="h-5 w-5 text-primary" />
+                      Pay on car
+                    </Label>
+                  </div>
+                </RadioGroup>
+              </div>
+
+              <div className="bg-muted/30 p-4 border border-border/60 space-y-3">
+                <h3 className="font-semibold text-sm uppercase tracking-wider text-muted-foreground mb-4">Price Breakdown</h3>
+                <div className="flex justify-between text-sm">
+                  <span>Tickets ({selected.size} seat{selected.size !== 1 ? "s" : ""})</span>
+                  <span>{formatCurrency(pricePerSeat * selected.size)}</span>
                 </div>
+                {selected.size > 0 && (
+                  <div className="flex justify-between text-sm text-muted-foreground">
+                    <span>Platform fee</span>
+                    <span>{formatCurrency(29)}</span>
+                  </div>
+                )}
+                <div className="pt-3 border-t border-border/60 flex justify-between font-bold text-lg">
+                  <span>Total Amount</span>
+                  <span className="text-primary">{formatCurrency(selected.size > 0 ? (pricePerSeat * selected.size) + 29 : 0)}</span>
+                </div>
+              </div>
+
+              <div className="pt-4 flex justify-end">
                 <Button
                   variant="hero"
                   size="lg"
-                  className="rounded-none px-8"
+                  className="rounded-none px-8 w-full sm:w-auto"
                   disabled={
                     bookingMutation.isPending || selected.size === 0 || remainingTripSeats === 0
                   }
@@ -317,7 +378,7 @@ function BookingTripPage() {
                   {bookingMutation.isPending ? (
                     <>
                       <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                      Booking…
+                      Confirming…
                     </>
                   ) : (
                     "Confirm booking"

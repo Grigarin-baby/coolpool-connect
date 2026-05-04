@@ -19,7 +19,7 @@ import {
   Typography,
   message,
 } from "antd";
-import { ArrowRight, Calendar, MapPin, Navigation } from "lucide-react";
+import { ArrowRight, Calendar, MapPin, Navigation, Users } from "lucide-react";
 import dayjs, { Dayjs } from "dayjs";
 import { Button as UiButton } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -229,6 +229,20 @@ export function TripSearchForm({
   id?: string;
 }) {
   const { loading, fromOptions, toOptions, searchPlaces, onSearch, summary } = useTripSearchContext();
+  const [form] = Form.useForm();
+
+  useEffect(() => {
+    const handleCityDetected = (e: Event) => {
+      const customEvent = e as CustomEvent<string>;
+      // Only pre-fill if the user hasn't already typed something
+      if (!form.getFieldValue("from")) {
+        form.setFieldsValue({ from: customEvent.detail });
+      }
+    };
+    
+    window.addEventListener("coolpool:cityDetected", handleCityDetected);
+    return () => window.removeEventListener("coolpool:cityDetected", handleCityDetected);
+  }, [form]);
 
   return (
     <Card
@@ -249,6 +263,7 @@ export function TripSearchForm({
       )}
 
       <Form
+        form={form}
         id={variant === "landing" ? "landing-trip-search" : "page-trip-search"}
         layout="vertical"
         onFinish={onSearch}
