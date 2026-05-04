@@ -36,11 +36,8 @@ export function SiteHeader() {
           <Link to="/" className="flex items-center gap-3 group transition-transform duration-300 hover:scale-[1.02]">
             <div className="relative">
               <div className="absolute inset-0 bg-primary/20 blur-xl rounded-full group-hover:bg-primary/40 transition-colors" />
-              <img src={logo} alt="Coolpool" className="h-12 w-auto object-contain relative z-10 mix-blend-screen" />
+              <img src={logo} alt="Coolpool" className="h-16 w-auto object-contain relative z-10 mix-blend-multiply" />
             </div>
-            <span className="text-2xl font-black tracking-tighter font-heading hidden sm:block">
-              COOL<span className="text-primary">POOL</span>
-            </span>
           </Link>
 
           <div className="hidden md:flex items-center gap-2">
