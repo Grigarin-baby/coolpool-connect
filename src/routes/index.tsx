@@ -60,11 +60,11 @@ function Home() {
             Premium Intercity Ride-Sharing
           </div>
           <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight leading-[1.1] font-heading text-balance">
-            Your next intercity <br className="hidden sm:block" />
-            <span className="text-gradient-primary">journey starts here.</span>
+            Share the trip, <br className="hidden sm:block" />
+            <span className="text-gradient-primary">split the fun.</span>
           </h1>
           <p className="mt-6 text-lg sm:text-xl text-foreground/80 max-w-2xl mx-auto leading-relaxed">
-            Travel smarter. Book just your segment, pay per kilometer, and share the ride with verified hosts.
+            Connect with verified hosts heading your way. Book your segment, share the travel costs, and enjoy a smarter, more social way to commute.
           </p>
         </div>
       </section>
