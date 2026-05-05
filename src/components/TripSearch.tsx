@@ -262,12 +262,12 @@ export function TripSearchForm({
       className={cn(
         "rounded-[2rem] border-border/60 shadow-soft scroll-mt-28 transition-all",
         variant === "landing"
-          ? "border-primary/15 bg-card/92 backdrop-blur-xl p-5 sm:p-7 md:p-8 lg:p-9 ring-1 ring-primary/10 shadow-elevated"
+          ? "border-primary/15 bg-card/92 backdrop-blur-xl p-4 sm:p-7 md:p-8 lg:p-9 ring-1 ring-primary/10 shadow-elevated"
           : "bg-white p-2 sm:p-3 border-gray-100 shadow-sm max-w-2xl mx-auto",
       )}
     >
       {variant === "landing" && (
-        <div className="mb-6 space-y-2.5 text-center sm:text-left">
+        <div className="mb-4 sm:mb-6 space-y-2.5 text-center sm:text-left">
           <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-balance font-heading">
             Book your next ride
           </h2>
@@ -282,7 +282,7 @@ export function TripSearchForm({
         initialValues={{ from: "", to: "" }}
         className={cn(
           variant === "landing"
-            ? "[&_.ant-form-item]:mb-4 [&_.ant-form-item:last-child]:mb-0 [&_.ant-form-item-label>label]:text-xs [&_.ant-form-item-label>label]:font-bold [&_.ant-form-item-label>label]:uppercase [&_.ant-form-item-label>label]:tracking-wider [&_.ant-form-item-label>label]:text-muted-foreground [&_.ant-input-affix-wrapper]:min-h-[56px] [&_.ant-input-affix-wrapper]:text-lg [&_.ant-input-affix-wrapper]:rounded-3xl [&_.ant-input]:text-lg"
+            ? "[&_.ant-form-item]:mb-4 [&_.ant-form-item:last-child]:mb-0 [&_.ant-form-item-label>label]:text-xs [&_.ant-form-item-label>label]:font-bold [&_.ant-form-item-label>label]:uppercase [&_.ant-form-item-label>label]:tracking-wider [&_.ant-form-item-label>label]:text-muted-foreground [&_.ant-input-affix-wrapper]:min-h-[48px] sm:[&_.ant-input-affix-wrapper]:min-h-[56px] [&_.ant-input-affix-wrapper]:text-base sm:[&_.ant-input-affix-wrapper]:text-lg [&_.ant-input-affix-wrapper]:rounded-3xl [&_.ant-input]:text-base sm:[&_.ant-input]:text-lg"
             : "[&_.ant-form-item]:mb-0 [&_.ant-form-item-label]:hidden"
         )}
       >
@@ -295,7 +295,7 @@ export function TripSearchForm({
           <Form.Item
             name="from"
             rules={[{ required: true, message: "Enter starting city" }]}
-            className={variant === "landing" ? "px-4 pt-3 pb-1 m-0 bg-background/50 hover:bg-muted/30 transition-colors" : "m-0"}
+            className={variant === "landing" ? "px-3 pt-2 pb-1 sm:px-4 sm:pt-3 sm:pb-1 m-0 bg-background/50 hover:bg-muted/30 transition-colors" : "m-0"}
           >
             <AutoComplete
               options={fromOptions}
@@ -314,7 +314,7 @@ export function TripSearchForm({
           <Form.Item
             name="to"
             rules={[{ required: true, message: "Enter destination" }]}
-            className={variant === "landing" ? "px-4 pt-3 pb-1 m-0 bg-background/50 hover:bg-muted/30 transition-colors" : "m-0"}
+            className={variant === "landing" ? "px-3 pt-2 pb-1 sm:px-4 sm:pt-3 sm:pb-1 m-0 bg-background/50 hover:bg-muted/30 transition-colors" : "m-0"}
           >
             <AutoComplete
               options={toOptions}
@@ -328,10 +328,10 @@ export function TripSearchForm({
 
           <Form.Item
             name="date"
-            className={variant === "landing" ? "px-4 pt-3 pb-1 m-0 bg-background/50 hover:bg-muted/30 transition-colors" : "m-0"}
+            className={variant === "landing" ? "px-3 pt-2 pb-1 sm:px-4 sm:pt-3 sm:pb-1 m-0 bg-background/50 hover:bg-muted/30 transition-colors" : "m-0"}
           >
             <DatePicker 
-              className={cn("w-full", variant === "landing" ? "h-[56px] px-0" : "h-[40px] bg-gray-50 rounded-2xl px-3")} 
+              className={cn("w-full", variant === "landing" ? "h-[48px] sm:h-[56px] px-0" : "h-[40px] bg-gray-50 rounded-2xl px-3")} 
               placeholder="Date"
               disabledDate={(current) => current && current < dayjs().startOf('day')}
               format="MMM DD"
@@ -348,7 +348,7 @@ export function TripSearchForm({
               size={variant === "landing" ? "lg" : "sm"}
               className={cn(
                 "rounded-full shadow-glow font-bold",
-                variant === "landing" ? "w-full h-full min-h-[56px] text-lg" : "h-10 w-10 p-0"
+                variant === "landing" ? "w-full h-full min-h-[48px] sm:min-h-[56px] text-base sm:text-lg" : "h-10 w-10 p-0"
               )}
               disabled={loading}
             >
