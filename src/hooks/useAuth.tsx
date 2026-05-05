@@ -1,14 +1,14 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
 import { ID, OAuthProvider, type Models } from "appwrite";
 import { account } from "@/integrations/appwrite/client";
-import { listUserRoles } from "@/data/appwrite-repository";
+import { listUserRoles, assignRole, upsertDriverProfile } from "@/data/appwrite-repository";
 import type { AppRole } from "@/lib/domain";
 import { parseTravelerResumeRedirectParam } from "@/lib/travelerResumeRedirect";
 
-export type MemberGoogleOAuthOptions = {
-  /** Same values allowed as `/members?redirect=` — forwarded through Google redirect */
+export interface MemberGoogleOAuthOptions {
   resumeRedirect?: string;
-};
+  successUrl?: string;
+}
 
 type AppwriteUser = Models.User<Models.Preferences>;
 
@@ -25,6 +25,7 @@ interface AuthContextValue {
   signInWithGoogle: (opts?: MemberGoogleOAuthOptions) => void;
   signOut: () => Promise<void>;
   refreshRoles: () => Promise<void>;
+  becomeRideHost: (phone: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -98,17 +99,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const envOrigin = import.meta.env.VITE_APP_ORIGIN?.replace(/\/$/, "");
     const origin = envOrigin || window.location.origin;
 
-    let success = `${origin}/members`;
+    let success = opts?.successUrl ? `${origin}${opts.successUrl}` : `${origin}/members`;
     const safeRedirect = opts?.resumeRedirect
       ? parseTravelerResumeRedirectParam(opts.resumeRedirect)
       : undefined;
-    if (safeRedirect) {
+    if (safeRedirect && !opts?.successUrl) {
       success = `${origin}/members?redirect=${encodeURIComponent(safeRedirect)}`;
     }
 
     const failureParams = new URLSearchParams({ google_auth: "failed" });
     if (safeRedirect) failureParams.set("redirect", safeRedirect);
-    const failure = `${origin}/members?${failureParams.toString()}`;
+    const failure = opts?.successUrl ? `${origin}${opts.successUrl}?google_auth=failed` : `${origin}/members?${failureParams.toString()}`;
 
     account.createOAuth2Session({
       provider: OAuthProvider.Google,
@@ -116,6 +117,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       failure,
     });
   }, []);
+
+  const becomeRideHost = async (phone: string) => {
+    if (!user) throw new Error("Not logged in");
+    await upsertDriverProfile({
+      userId: user.$id,
+      fullName: user.name,
+      email: user.email,
+      phone,
+      licenseNumber: "",
+      city: "",
+    });
+    await assignRole(user.$id, "driver");
+    const existingRoles = Array.isArray(user.prefs?.roles) ? user.prefs.roles : [];
+    await account.updatePrefs({
+      ...user.prefs,
+      roles: Array.from(new Set([...existingRoles, "driver"])),
+    });
+    await refreshSession();
+  };
 
   const signOut = async () => {
     try {
@@ -142,6 +162,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         signInWithGoogle,
         signOut,
         refreshRoles,
+        becomeRideHost,
       }}
     >
       {children}

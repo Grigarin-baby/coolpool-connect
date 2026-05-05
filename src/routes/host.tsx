@@ -50,7 +50,7 @@ function HostPage() {
             </p>
             <div className="mt-10 flex flex-col sm:flex-row gap-4">
               <Button asChild variant="hero" size="xl" className="px-8">
-                <Link to="/driver/onboarding">Become a Ride Host</Link>
+                <Link to="/auth">Become a Ride Host</Link>
               </Button>
               <Button
                 asChild

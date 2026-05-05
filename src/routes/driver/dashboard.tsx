@@ -12,6 +12,7 @@ import {
   MoreVertical,
   Car,
   CheckCircle,
+  CheckCircle2,
   XCircle,
   Banknote,
   Users2,
@@ -38,6 +39,7 @@ import {
   theme,
   List,
   Tag,
+  Upload,
   Dropdown,
   Spin,
   AutoComplete,
@@ -49,6 +51,7 @@ import {
   Popconfirm,
   Select,
 } from "antd";
+import type { UploadFile, UploadProps } from "antd";
 import { useAuth } from "@/hooks/useAuth";
 import {
   createTrip,
@@ -66,8 +69,12 @@ import {
   deleteTripStop,
   listTripStops,
   createTripStop,
+  upsertDriverProfile,
+  assignRole,
   type CreateTeamDriverInput,
 } from "@/data/appwrite-repository";
+import { storage } from "@/integrations/appwrite/client";
+import { ID } from "appwrite";
 import type { Trip, TripStop, DriverProfile, Booking } from "@/lib/domain";
 import { APP_FONT_FAMILY } from "@/lib/fonts";
 import { calcPricePerKm } from "@/lib/pricing";
@@ -170,7 +177,7 @@ export const Route = createFileRoute("/driver/dashboard")({
 });
 
 function DriverDashboardPage() {
-  const { isDriver, user, signOut, loading } = useAuth();
+  const { isDriver, user, signOut, loading, refreshRoles } = useAuth();
   const [activeModule, setActiveModule] = useState("dashboard");
   const [form] = Form.useForm();
   const queryClient = useQueryClient();
@@ -199,6 +206,9 @@ function DriverDashboardPage() {
   const directionsServiceRef = useRef<DirectionsServiceLike | null>(null);
   const seatsWatch = Form.useWatch("totalSeats", form);
   const totalPriceWatch = Form.useWatch("totalTripPrice", form);
+  const [onboardingSubmitting, setOnboardingSubmitting] = useState(false);
+  const [regFileList, setRegFileList] = useState<UploadFile[]>([]);
+  const [insFileList, setInsFileList] = useState<UploadFile[]>([]);
 
   const initGoogleServices = () => {
     const w = window as Window & {
@@ -305,6 +315,8 @@ function DriverDashboardPage() {
       : trips.filter((t) =>
           historyFilter === "completed" ? t.status === "completed" : t.status === "cancelled",
         );
+  
+  const isVerifiedHost = vehicles.length > 0;
 
   const { mutate: performCreateTrip, isPending: creating } = useMutation({
     mutationFn: async (payload: any) => {
@@ -719,7 +731,12 @@ function DriverDashboardPage() {
                 icon: <Settings size={18} />,
                 label: "Vehicle Fleet",
               },
-            ]}
+              !isVerifiedHost && {
+                key: "onboarding",
+                icon: <Sparkles size={18} />,
+                label: "Complete Onboarding",
+              },
+            ].filter(Boolean) as any}
           />
 
           <div className="absolute bottom-4 left-4 right-4">
@@ -745,7 +762,8 @@ function DriverDashboardPage() {
                 {activeModule === "dashboard" ? "Dashboard Overview" : 
                  activeModule === "trips" ? "Publish Trip" :
                  activeModule === "history" ? "Ride History" :
-                 activeModule === "drivers" ? "Drivers" : "Vehicle Fleet"}
+                 activeModule === "drivers" ? "Drivers" :
+                 activeModule === "onboarding" ? "Complete Onboarding" : "Vehicle Fleet"}
               </Title>
               <div className="sm:hidden">
                 <img src={logo} alt="Coolpool Logo" className="h-12 w-auto object-contain" />
@@ -776,13 +794,13 @@ function DriverDashboardPage() {
                       <Text strong className="text-[14px] text-gray-800 leading-none">
                         {user?.name || "Ride Host"}
                       </Text>
-                      <CheckCircle size={13} className="text-blue-500 fill-blue-500/10" />
+                      <CheckCircle size={13} className={isVerifiedHost ? "text-blue-500 fill-blue-500/10" : "text-amber-500 fill-amber-500/10"} />
                     </div>
-                    <Text className="text-[9px] text-gray-500 font-bold uppercase tracking-[0.05em] leading-none">
-                      Verified Host
+                    <Text className={`text-[9px] font-bold uppercase tracking-[0.05em] leading-none ${isVerifiedHost ? "text-gray-500" : "text-amber-600"}`}>
+                      {isVerifiedHost ? "Verified Host" : "Incomplete Profile"}
                     </Text>
                   </div>
-                  <Badge dot status="processing" offset={[-1, 26]} color="#6b46c1">
+                  <Badge dot status={isVerifiedHost ? "processing" : "warning"} offset={[-1, 26]} color={isVerifiedHost ? "#6b46c1" : "#f59e0b"}>
                     <Avatar
                       icon={<User size={18} />}
                       className="bg-gradient-primary shadow-sm border border-white/40 group-hover:border-white/80 transition-all"
@@ -797,6 +815,30 @@ function DriverDashboardPage() {
           <Content className="p-4 sm:p-6 md:p-10 max-w-7xl mx-auto w-full pb-24 lg:pb-10">
             {activeModule === "dashboard" && (
               <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
+                {!isVerifiedHost && (
+                  <Card className="rounded-3xl border-none bg-gradient-to-r from-amber-50 to-orange-50 p-6 shadow-soft relative overflow-hidden">
+                    <div className="absolute -right-6 -top-6 text-amber-100 opacity-50 rotate-12">
+                      <Sparkles size={120} />
+                    </div>
+                    <div className="flex flex-col md:flex-row md:items-center gap-6 relative z-10">
+                      <div className="h-16 w-16 rounded-3xl bg-amber-500 text-white flex items-center justify-center shadow-glow shrink-0">
+                        <Sparkles size={32} />
+                      </div>
+                      <div className="flex-1">
+                        <Title level={3} className="m-0 text-amber-900">Complete your profile</Title>
+                        <Text className="text-amber-700/80 text-base">Finish your onboarding to unlock all features and become a verified host.</Text>
+                      </div>
+                      <Button 
+                        type="primary" 
+                        size="large" 
+                        className="bg-amber-600 hover:bg-amber-700 border-none rounded-2xl h-12 px-8 font-bold shadow-soft"
+                        onClick={() => setActiveModule("onboarding")}
+                      >
+                        Start Onboarding
+                      </Button>
+                    </div>
+                  </Card>
+                )}
                 <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
                   <div className="flex flex-col gap-1">
                     <Title level={2} style={{ margin: 0 }}>
@@ -1985,6 +2027,138 @@ function DriverDashboardPage() {
                     </div>
                   </div>
                 </Modal>
+              </div>
+            )}
+
+            {/* ── ONBOARDING MODULE ── */}
+            {activeModule === "onboarding" && (
+              <div className="max-w-2xl mx-auto space-y-10 animate-in fade-in slide-in-from-right-4 duration-500">
+                <div className="text-center">
+                  <div className="mx-auto w-20 h-20 bg-gradient-primary rounded-3xl flex items-center justify-center text-white shadow-glow mb-6">
+                    <Sparkles size={40} />
+                  </div>
+                  <Title level={2}>Host Onboarding</Title>
+                  <Text type="secondary" className="text-lg">Register your vehicle and documents to get verified.</Text>
+                </div>
+
+                <Card className="rounded-3xl border border-white/60 shadow-card bg-white/80 backdrop-blur-md p-8">
+                  <Form
+                    layout="vertical"
+                    initialValues={{ seatCapacity: 4 }}
+                    onFinish={async (v) => {
+                      if (!user) return;
+                      setOnboardingSubmitting(true);
+                      try {
+                        const regUp = regFileList[0]?.originFileObj
+                          ? await storage.createFile(appwriteConfig.driverDocsBucketId, ID.unique(), regFileList[0].originFileObj as File)
+                          : null;
+                        const insUp = insFileList[0]?.originFileObj
+                          ? await storage.createFile(appwriteConfig.driverDocsBucketId, ID.unique(), insFileList[0].originFileObj as File)
+                          : null;
+
+                        await upsertDriverProfile({
+                          userId: user.$id,
+                          fullName: user.name || "",
+                          email: user.email || "",
+                          phone: String(v.phone),
+                          licenseNumber: String(v.licenseNumber),
+                          city: String(v.city)
+                        });
+
+                        await upsertDriverVehicle({
+                          driverUserId: user.$id,
+                          modelName: `${v.make} ${v.model}`.trim(),
+                          plateNumber: v.plate,
+                          seatCapacity: Number(v.seats),
+                          color: v.color,
+                          registrationDoc: regUp?.$id,
+                          insuranceDoc: insUp?.$id
+                        });
+
+                        await assignRole(user.$id, "driver");
+                        message.success("Onboarding complete! You are now a verified host.");
+                        void queryClient.invalidateQueries({ queryKey: ["driver-vehicles"] });
+                        setActiveModule("dashboard");
+                      } catch (err) {
+                        message.error(err instanceof Error ? err.message : "Onboarding failed");
+                      } finally {
+                        setOnboardingSubmitting(false);
+                      }
+                    }}
+                  >
+                    <Divider orientation="left"><Text className="text-xs font-bold uppercase tracking-widest text-purple-600">Personal & License</Text></Divider>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6">
+                      <Form.Item name="phone" label="Phone Number" rules={[{ required: true }]}>
+                        <Input size="large" className="rounded-2xl" placeholder="+91 98765 43210" />
+                      </Form.Item>
+                      <Form.Item name="city" label="City" rules={[{ required: true }]}>
+                        <Input size="large" className="rounded-2xl" placeholder="Chennai" />
+                      </Form.Item>
+                      <Form.Item name="licenseNumber" label="Driving License Number" rules={[{ required: true }]} className="md:col-span-2">
+                        <Input size="large" className="rounded-2xl" placeholder="TN01 20150012345" />
+                      </Form.Item>
+                    </div>
+
+                    <Divider orientation="left" className="mt-8"><Text className="text-xs font-bold uppercase tracking-widest text-purple-600">Vehicle Information</Text></Divider>
+                    <div className="grid grid-cols-2 gap-x-6">
+                      <Form.Item name="make" label="Make" rules={[{ required: true }]}>
+                        <Input size="large" className="rounded-2xl" placeholder="Honda" />
+                      </Form.Item>
+                      <Form.Item name="model" label="Model" rules={[{ required: true }]}>
+                        <Input size="large" className="rounded-2xl" placeholder="City" />
+                      </Form.Item>
+                      <Form.Item name="plate" label="License Plate" rules={[{ required: true }]}>
+                        <Input size="large" className="rounded-2xl font-mono" placeholder="TN 01 AB 1234" />
+                      </Form.Item>
+                      <Form.Item name="seats" label="Capacity" rules={[{ required: true }]}>
+                        <InputNumber min={1} max={10} size="large" className="w-full rounded-2xl" />
+                      </Form.Item>
+                    </div>
+
+                    <Divider orientation="left" className="mt-8"><Text className="text-xs font-bold uppercase tracking-widest text-purple-600">Documents</Text></Divider>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                      <div>
+                        <Text className="text-sm font-medium mb-2 block">Registration Document</Text>
+                        <Upload
+                          beforeUpload={() => false}
+                          maxCount={1}
+                          fileList={regFileList}
+                          onChange={({ fileList }) => setRegFileList(fileList)}
+                        >
+                          <Button block size="large" className="rounded-2xl border-dashed h-20 flex flex-col items-center justify-center gap-1">
+                            <Plus size={18} />
+                            <span className="text-xs">Upload RC</span>
+                          </Button>
+                        </Upload>
+                      </div>
+                      <div>
+                        <Text className="text-sm font-medium mb-2 block">Insurance Policy</Text>
+                        <Upload
+                          beforeUpload={() => false}
+                          maxCount={1}
+                          fileList={insFileList}
+                          onChange={({ fileList }) => setInsFileList(fileList)}
+                        >
+                          <Button block size="large" className="rounded-2xl border-dashed h-20 flex flex-col items-center justify-center gap-1">
+                            <Plus size={18} />
+                            <span className="text-xs">Upload Insurance</span>
+                          </Button>
+                        </Upload>
+                      </div>
+                    </div>
+
+                    <Button
+                      type="primary"
+                      htmlType="submit"
+                      block
+                      size="large"
+                      loading={onboardingSubmitting}
+                      className="bg-gradient-primary border-none rounded-2xl h-14 font-bold text-lg shadow-glow"
+                    >
+                      Complete Verification
+                    </Button>
+                  </Form>
+                </Card>
               </div>
             )}
           </Content>

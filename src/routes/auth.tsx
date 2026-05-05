@@ -75,8 +75,10 @@ function PasswordField({
 
 function AuthPage() {
   const navigate = useNavigate();
-  const { user, loading, roles, signIn, signUp, isAdmin, isDriver } = useAuth();
+  const { user, loading, roles, signIn, signUp, isAdmin, isDriver, becomeRideHost } = useAuth();
   const [busy, setBusy] = useState(false);
+  const [showPhoneStep, setShowPhoneStep] = useState(false);
+  const [phone, setPhone] = useState("");
 
   const [signInEmail, setSignInEmail] = useState("");
   const [signInPassword, setSignInPassword] = useState("");
@@ -87,10 +89,18 @@ function AuthPage() {
 
   useEffect(() => {
     if (!loading && user) {
-      if (roles.length === 0) return;
       if (isAdmin) void navigate({ to: "/admin/dashboard" });
       else if (isDriver) void navigate({ to: "/driver/dashboard" });
-      else void navigate({ to: "/" });
+      else if (roles.includes("user") && roles.length === 1) {
+        // If they are just a user/traveler but on the host auth page, 
+        // we offer them to become a host by providing a phone number.
+        setShowPhoneStep(true);
+      }
+      else if (roles.length > 0) void navigate({ to: "/" });
+      else {
+        // No roles at all - new signup
+        setShowPhoneStep(true);
+      }
     }
   }, [user, loading, roles, isAdmin, isDriver, navigate]);
 
@@ -113,8 +123,27 @@ function AuthPage() {
     try {
       await signUp(name, signUpEmail, signUpPassword);
       toast.success("Account created.");
+      setShowPhoneStep(true);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Unable to create account.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleBecomeHost = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!phone) {
+      toast.error("Phone number is required.");
+      return;
+    }
+    setBusy(true);
+    try {
+      await becomeRideHost(phone);
+      toast.success("Welcome! You are now a Ride Host.");
+      void navigate({ to: "/driver/dashboard" });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Unable to complete registration.");
     } finally {
       setBusy(false);
     }
@@ -136,137 +165,188 @@ function AuthPage() {
 
       <main className="relative flex-1 flex flex-col items-center justify-center px-4 sm:px-5 py-6 min-h-0">
         <Card className="w-full max-w-[380px] p-6 sm:p-7 rounded-3xl shadow-elevated border-border/70 bg-card/92 backdrop-blur-xl ring-1 ring-primary/10">
-          <div className="flex flex-col items-center text-center mb-6">
-            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-3xl bg-gradient-primary text-primary-foreground shadow-glow">
-              <Shield className="h-6 w-6" aria-hidden />
-            </div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-primary mb-1.5">
-              Hosts &amp; admins
-            </p>
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight font-heading text-balance">Login</h1>
-          </div>
-
-          <Tabs defaultValue="login" className="w-full">
-            <TabsList className="grid w-full grid-cols-2 rounded-3xl h-10 p-1 bg-muted/80 border border-border/60">
-              <TabsTrigger value="login" className="rounded-3xl data-[state=active]:shadow-soft text-sm font-semibold">
-                Login
-              </TabsTrigger>
-              <TabsTrigger value="signup" className="rounded-3xl data-[state=active]:shadow-soft text-sm font-semibold">
-                Sign up
-              </TabsTrigger>
-            </TabsList>
-            
-            <GoogleLoginButton busy={busy} className="mt-6 !rounded-3xl" />
-
-            <div className="relative my-6">
-              <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t border-border" />
+          {showPhoneStep ? (
+            <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <div className="flex flex-col items-center text-center mb-6">
+                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-3xl bg-gradient-primary text-primary-foreground shadow-glow">
+                  <Sparkles className="h-6 w-6" aria-hidden />
+                </div>
+                <h2 className="text-2xl font-bold tracking-tight">One last step</h2>
+                <p className="text-sm text-muted-foreground mt-2">
+                  Enter your phone number to start hosting rides.
+                </p>
               </div>
-              <div className="relative flex justify-center text-[10px] font-semibold uppercase tracking-wider">
-                <span className="bg-card px-2 text-muted-foreground">Or email password</span>
-              </div>
-            </div>
 
-            <TabsContent value="login" className="mt-0 outline-none">
-              <form onSubmit={handleSignIn} className="space-y-4">
+              <form onSubmit={handleBecomeHost} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="si-email" className="text-sm font-medium">
-                    Email
+                  <Label htmlFor="phone" className="text-sm font-medium">
+                    Phone Number
                   </Label>
                   <Input
-                    id="si-email"
-                    type="email"
-                    autoComplete="email"
+                    id="phone"
+                    type="tel"
                     required
-                    value={signInEmail}
-                    placeholder="you@company.com"
-                    onChange={(e) => setSignInEmail(e.target.value)}
+                    value={phone}
+                    placeholder="+91 98765 43210"
+                    onChange={(e) => setPhone(e.target.value)}
                     className="h-11 rounded-3xl border-border/80 bg-background/80 placeholder:text-xs md:text-sm"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="si-password" className="text-sm font-medium">
-                    Password
-                  </Label>
-                  <PasswordField
-                    id="si-password"
-                    value={signInPassword}
-                    onChange={setSignInPassword}
-                    autoComplete="current-password"
-                    required
-                    placeholder="Enter your password"
                   />
                 </div>
                 <Button
                   type="submit"
                   variant="hero"
                   size="lg"
-                  className="w-full rounded-3xl h-11 font-semibold shadow-glow mt-1"
+                  className="w-full rounded-3xl h-11 font-semibold shadow-glow mt-2"
                   disabled={busy}
                 >
-                  {busy ? <Loader2 className="h-5 w-5 animate-spin" /> : "Login"}
+                  {busy ? <Loader2 className="h-5 w-5 animate-spin" /> : "Start Hosting"}
                 </Button>
-              </form>
-            </TabsContent>
-
-            <TabsContent value="signup" className="mt-6 outline-none">
-              <form onSubmit={handleSignUp} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="su-name" className="text-sm font-medium">
-                    Full name
-                  </Label>
-                  <Input
-                    id="su-name"
-                    autoComplete="name"
-                    required
-                    value={name}
-                    placeholder="Jane Doe"
-                    onChange={(e) => setName(e.target.value)}
-                    className="h-11 rounded-3xl border-border/80 bg-background/80 placeholder:text-xs md:text-sm"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="su-email" className="text-sm font-medium">
-                    Email
-                  </Label>
-                  <Input
-                    id="su-email"
-                    type="email"
-                    autoComplete="email"
-                    required
-                    value={signUpEmail}
-                    placeholder="you@company.com"
-                    onChange={(e) => setSignUpEmail(e.target.value)}
-                    className="h-11 rounded-3xl border-border/80 bg-background/80 placeholder:text-xs md:text-sm"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="su-password" className="text-sm font-medium">
-                    Password
-                  </Label>
-                  <PasswordField
-                    id="su-password"
-                    value={signUpPassword}
-                    onChange={setSignUpPassword}
-                    autoComplete="new-password"
-                    required
-                    minLength={6}
-                    placeholder="Create a password (min. 6 characters)"
-                  />
-                  <p className="text-xs text-muted-foreground">At least 6 characters.</p>
-                </div>
                 <Button
-                  type="submit"
-                  variant="hero"
-                  size="lg"
-                  className="w-full rounded-3xl h-11 font-semibold shadow-glow mt-1"
+                  type="button"
+                  variant="ghost"
+                  className="w-full rounded-3xl text-xs"
+                  onClick={() => setShowPhoneStep(false)}
                   disabled={busy}
                 >
-                  {busy ? <Loader2 className="h-5 w-5 animate-spin" /> : "Create account"}
+                  Back to login
                 </Button>
               </form>
-            </TabsContent>
-          </Tabs>
+            </div>
+          ) : (
+            <>
+              <div className="flex flex-col items-center text-center mb-6">
+                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-3xl bg-gradient-primary text-primary-foreground shadow-glow">
+                  <Shield className="h-6 w-6" aria-hidden />
+                </div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-primary mb-1.5">
+                  Hosts &amp; admins
+                </p>
+                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight font-heading text-balance">Login</h1>
+              </div>
+
+              <Tabs defaultValue="login" className="w-full">
+                <TabsList className="grid w-full grid-cols-2 rounded-3xl h-10 p-1 bg-muted/80 border border-border/60">
+                  <TabsTrigger value="login" className="rounded-3xl data-[state=active]:shadow-soft text-sm font-semibold">
+                    Login
+                  </TabsTrigger>
+                  <TabsTrigger value="signup" className="rounded-3xl data-[state=active]:shadow-soft text-sm font-semibold">
+                    Sign up
+                  </TabsTrigger>
+                </TabsList>
+                
+                <GoogleLoginButton busy={busy} className="mt-6 !rounded-3xl" successUrl="/auth" />
+
+                <div className="relative my-6">
+                  <div className="absolute inset-0 flex items-center">
+                    <span className="w-full border-t border-border" />
+                  </div>
+                  <div className="relative flex justify-center text-[10px] font-semibold uppercase tracking-wider">
+                    <span className="bg-card px-2 text-muted-foreground">Or email password</span>
+                  </div>
+                </div>
+
+                <TabsContent value="login" className="mt-0 outline-none">
+                  <form onSubmit={handleSignIn} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="si-email" className="text-sm font-medium">
+                        Email
+                      </Label>
+                      <Input
+                        id="si-email"
+                        type="email"
+                        autoComplete="email"
+                        required
+                        value={signInEmail}
+                        placeholder="you@company.com"
+                        onChange={(e) => setSignInEmail(e.target.value)}
+                        className="h-11 rounded-3xl border-border/80 bg-background/80 placeholder:text-xs md:text-sm"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="si-password" className="text-sm font-medium">
+                        Password
+                      </Label>
+                      <PasswordField
+                        id="si-password"
+                        value={signInPassword}
+                        onChange={setSignInPassword}
+                        autoComplete="current-password"
+                        required
+                        placeholder="Enter your password"
+                      />
+                    </div>
+                    <Button
+                      type="submit"
+                      variant="hero"
+                      size="lg"
+                      className="w-full rounded-3xl h-11 font-semibold shadow-glow mt-1"
+                      disabled={busy}
+                    >
+                      {busy ? <Loader2 className="h-5 w-5 animate-spin" /> : "Login"}
+                    </Button>
+                  </form>
+                </TabsContent>
+
+                <TabsContent value="signup" className="mt-6 outline-none">
+                  <form onSubmit={handleSignUp} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="su-name" className="text-sm font-medium">
+                        Full name
+                      </Label>
+                      <Input
+                        id="su-name"
+                        autoComplete="name"
+                        required
+                        value={name}
+                        placeholder="Jane Doe"
+                        onChange={(e) => setName(e.target.value)}
+                        className="h-11 rounded-3xl border-border/80 bg-background/80 placeholder:text-xs md:text-sm"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="su-email" className="text-sm font-medium">
+                        Email
+                      </Label>
+                      <Input
+                        id="su-email"
+                        type="email"
+                        autoComplete="email"
+                        required
+                        value={signUpEmail}
+                        placeholder="you@company.com"
+                        onChange={(e) => setSignUpEmail(e.target.value)}
+                        className="h-11 rounded-3xl border-border/80 bg-background/80 placeholder:text-xs md:text-sm"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="su-password" className="text-sm font-medium">
+                        Password
+                      </Label>
+                      <PasswordField
+                        id="su-password"
+                        value={signUpPassword}
+                        onChange={setSignUpPassword}
+                        autoComplete="new-password"
+                        required
+                        minLength={6}
+                        placeholder="Create a password (min. 6 characters)"
+                      />
+                      <p className="text-xs text-muted-foreground">At least 6 characters.</p>
+                    </div>
+                    <Button
+                      type="submit"
+                      variant="hero"
+                      size="lg"
+                      className="w-full rounded-3xl h-11 font-semibold shadow-glow mt-1"
+                      disabled={busy}
+                    >
+                      {busy ? <Loader2 className="h-5 w-5 animate-spin" /> : "Create account"}
+                    </Button>
+                  </form>
+                </TabsContent>
+              </Tabs>
+            </>
+          )}
         </Card>
       </main>
     </div>

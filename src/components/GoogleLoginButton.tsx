@@ -4,10 +4,11 @@ import { useAuth, type MemberGoogleOAuthOptions } from "@/hooks/useAuth";
 interface GoogleLoginButtonProps {
   busy?: boolean;
   redirect?: string;
+  successUrl?: string;
   className?: string;
 }
 
-export function GoogleLoginButton({ busy, redirect, className }: GoogleLoginButtonProps) {
+export function GoogleLoginButton({ busy, redirect, successUrl, className }: GoogleLoginButtonProps) {
   const { signInWithGoogle } = useAuth();
 
   return (
@@ -16,7 +17,7 @@ export function GoogleLoginButton({ busy, redirect, className }: GoogleLoginButt
       variant="outline"
       className={`w-full rounded-3xl border-border h-11 gap-2 bg-background ${className}`}
       disabled={busy}
-      onClick={() => signInWithGoogle({ resumeRedirect: redirect })}
+      onClick={() => signInWithGoogle({ resumeRedirect: redirect, successUrl })}
     >
       <GoogleGlyph className="h-5 w-5 shrink-0" />
       Continue with Google
