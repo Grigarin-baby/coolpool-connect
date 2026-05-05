@@ -59,8 +59,8 @@ function Home() {
             <Sparkles className="h-3.5 w-3.5" />
             Premium Intercity Ride-Sharing
           </div>
-          <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight leading-[1.1] font-heading text-balance capitalize">
-            Share the trip, <br className="hidden sm:block" />
+          <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight leading-[1.1] font-heading text-balance lowercase">
+            share the trip, <br className="hidden sm:block" />
             <span className="text-gradient-primary">split the fun.</span>
           </h1>
           <p className="mt-6 text-base sm:text-xl text-foreground/80 max-w-2xl mx-auto px-4 sm:px-0 leading-relaxed">
