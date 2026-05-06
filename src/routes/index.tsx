@@ -211,7 +211,7 @@ function Home() {
           {[
             { q: "How is the price calculated?", a: "Prices are calculated based on the distance of your specific segment (pickup to drop) and the host's per-kilometer rate." },
             { q: "Is it safe to travel with strangers?", a: "Yes, we verify all users via official IDs. Our rating system ensures high community standards, and you can share your live trip status." },
-            { q: "Can I cancel my booking?", a: "Yes, you can cancel up to 2 hours before the trip for a full refund. Cancellations closer to the trip time may incur a small fee." },
+            { q: "Can I cancel my booking?", a: "At this time, we do not offer cancellations or refunds for confirmed bookings. Please review your trip details carefully before booking, as all reservations are currently final." },
             { q: "What if the host cancels?", a: "If a host cancels, you receive a 100% refund immediately, and we notify you of alternative rides on the same route." },
           ].map((faq, i) => (
             <AccordionItem key={i} value={`item-${i}`} className="border-border/60">
