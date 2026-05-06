@@ -1802,42 +1802,7 @@ function DriverDashboardPage() {
                   </div>
                 )}
 
-                {/* Add/Edit Vehicle Drawer */}
-                <Drawer
-                  title={editingVehicleId ? "Edit Vehicle" : "Add Vehicle"}
-                  placement="right"
-                  width={420}
-                  open={vehicleDrawerOpen}
-                  onClose={() => { setVehicleDrawerOpen(false); vehicleForm.resetFields(); setEditingVehicleId(null); }}
-                  footer={
-                    <Button type="primary" loading={savingVehicle} block size="large"
-                      className="bg-gradient-primary border-none rounded-3xl font-bold h-12"
-                      onClick={() => vehicleForm.submit()}>
-                      {editingVehicleId ? "Save Changes" : "Add Vehicle"}
-                    </Button>
-                  }
-                >
-                  <Form form={vehicleForm} layout="vertical"
-                    onFinish={(vals) => saveVehicle(vals as { make: string; model: string; color: string; plate: string; seats: number })}>
-                    <div className="grid grid-cols-2 gap-4">
-                      <Form.Item name="make" label={<span className="font-semibold text-gray-700">Make</span>} rules={[{ required: true, message: "Required" }]}>
-                        <Input size="large" placeholder="Honda" className="rounded-3xl h-12" />
-                      </Form.Item>
-                      <Form.Item name="model" label={<span className="font-semibold text-gray-700">Model</span>} rules={[{ required: true, message: "Required" }]}>
-                        <Input size="large" placeholder="City" className="rounded-3xl h-12" />
-                      </Form.Item>
-                    </div>
-                    <Form.Item name="color" label={<span className="font-semibold text-gray-700">Color</span>}>
-                      <Input size="large" placeholder="White, Black…" className="rounded-3xl h-12" />
-                    </Form.Item>
-                    <Form.Item name="plate" label={<span className="font-semibold text-gray-700">License Plate</span>} rules={[{ required: true, message: "Required" }]}>
-                      <Input size="large" placeholder="TN 01 AB 1234" className="rounded-3xl h-12 font-mono tracking-widest" />
-                    </Form.Item>
-                    <Form.Item name="seats" label={<span className="font-semibold text-gray-700">Seat Capacity</span>} rules={[{ required: true }]}>
-                      <InputNumber min={1} max={12} size="large" className="w-full rounded-3xl" />
-                    </Form.Item>
-                  </Form>
-                </Drawer>
+
               </div>
             )}
             {/* ── CUSTOMER HUB MODULE ── */}
@@ -2363,6 +2328,42 @@ function DriverDashboardPage() {
             </Drawer>
           );
         })()}
+        {/* Add/Edit Vehicle Drawer */}
+        <Drawer
+          title={editingVehicleId ? "Edit Vehicle" : "Add Vehicle"}
+          placement="right"
+          width={420}
+          open={vehicleDrawerOpen}
+          onClose={() => { setVehicleDrawerOpen(false); vehicleForm.resetFields(); setEditingVehicleId(null); }}
+          footer={
+            <Button type="primary" loading={savingVehicle} block size="large"
+              className="bg-gradient-primary border-none rounded-3xl font-bold h-12"
+              onClick={() => vehicleForm.submit()}>
+              {editingVehicleId ? "Save Changes" : "Add Vehicle"}
+            </Button>
+          }
+        >
+          <Form form={vehicleForm} layout="vertical"
+            onFinish={(vals) => saveVehicle(vals as { make: string; model: string; color: string; plate: string; seats: number })}>
+            <div className="grid grid-cols-2 gap-4">
+              <Form.Item name="make" label={<span className="font-semibold text-gray-700">Make</span>} rules={[{ required: true, message: "Required" }]}>
+                <Input size="large" placeholder="Honda" className="rounded-3xl h-12" />
+              </Form.Item>
+              <Form.Item name="model" label={<span className="font-semibold text-gray-700">Model</span>} rules={[{ required: true, message: "Required" }]}>
+                <Input size="large" placeholder="City" className="rounded-3xl h-12" />
+              </Form.Item>
+            </div>
+            <Form.Item name="color" label={<span className="font-semibold text-gray-700">Color</span>}>
+              <Input size="large" placeholder="White, Black…" className="rounded-3xl h-12" />
+            </Form.Item>
+            <Form.Item name="plate" label={<span className="font-semibold text-gray-700">License Plate</span>} rules={[{ required: true, message: "Required" }]}>
+              <Input size="large" placeholder="TN 01 AB 1234" className="rounded-3xl h-12 font-mono tracking-widest" />
+            </Form.Item>
+            <Form.Item name="seats" label={<span className="font-semibold text-gray-700">Seat Capacity</span>} rules={[{ required: true }]}>
+              <InputNumber min={1} max={12} size="large" className="w-full rounded-3xl" />
+            </Form.Item>
+          </Form>
+        </Drawer>
     </ConfigProvider>
   );
 }
