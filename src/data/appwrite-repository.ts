@@ -112,6 +112,7 @@ function toDriverVehicle(doc: Doc): DriverVehicle {
     color: doc.color ? String(doc.color) : null,
     registrationDoc: doc.registration_doc ? String(doc.registration_doc) : null,
     insuranceDoc: doc.insurance_doc ? String(doc.insurance_doc) : null,
+    carImages: doc.car_images && Array.isArray(doc.car_images) ? doc.car_images.map(String) : [],
   };
 }
 
@@ -174,6 +175,7 @@ export interface CreateDriverVehicleInput {
   color?: string;
   registrationDoc?: string;
   insuranceDoc?: string;
+  carImages?: string[];
 }
 
 function ids() {
@@ -396,6 +398,7 @@ export async function createDriverVehicle(input: CreateDriverVehicleInput): Prom
       color: input.color ?? null,
       registration_doc: input.registrationDoc ?? null,
       insurance_doc: input.insuranceDoc ?? null,
+      car_images: input.carImages ?? [],
     },
   );
   return toDriverVehicle(doc);
@@ -683,6 +686,7 @@ export async function upsertDriverVehicle(input: CreateDriverVehicleInput): Prom
     color: input.color ?? null,
     registration_doc: input.registrationDoc ?? null,
     insurance_doc: input.insuranceDoc ?? null,
+    car_images: input.carImages ?? [],
   };
 
   if (existing.total > 0) {

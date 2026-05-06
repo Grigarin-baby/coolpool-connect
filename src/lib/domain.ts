@@ -87,4 +87,5 @@ export interface DriverVehicle {
   color: string | null;
   registrationDoc: string | null;
   insuranceDoc: string | null;
+  carImages?: string[];
 }

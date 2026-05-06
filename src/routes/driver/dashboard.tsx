@@ -211,6 +211,7 @@ function DriverDashboardPage() {
   const [onboardingSubmitting, setOnboardingSubmitting] = useState(false);
   const [regFileList, setRegFileList] = useState<UploadFile[]>([]);
   const [insFileList, setInsFileList] = useState<UploadFile[]>([]);
+  const [carImagesList, setCarImagesList] = useState<UploadFile[]>([]);
 
   const initGoogleServices = () => {
     const w = window as Window & {
@@ -245,20 +246,46 @@ function DriverDashboardPage() {
   });
 
   const { mutate: saveVehicle, isPending: savingVehicle } = useMutation({
-    mutationFn: (vals: { make: string; model: string; color: string; plate: string; seats: number }) =>
-      user
-        ? editingVehicleId
-          ? upsertDriverVehicle({ driverUserId: user.$id, modelName: `${vals.make} ${vals.model}`.trim(), plateNumber: vals.plate, seatCapacity: vals.seats, color: vals.color })
-          : createDriverVehicle({ driverUserId: user.$id, modelName: `${vals.make} ${vals.model}`.trim(), plateNumber: vals.plate, seatCapacity: vals.seats, color: vals.color })
-        : Promise.reject(new Error("Not logged in")),
+    mutationFn: async (vals: { make: string; model: string; color: string; plate: string; seats: number }) => {
+      if (!user) throw new Error("Not logged in");
+      if (carImagesList.length < 4) throw new Error("Please upload at least 4 images of your car.");
+
+      const carImageIds: string[] = [];
+      for (const file of carImagesList) {
+        if (file.originFileObj) {
+          const uploaded = await storage.createFile(appwriteConfig.driverDocsBucketId, ID.unique(), file.originFileObj as File);
+          carImageIds.push(uploaded.$id);
+        } else if (file.url) {
+          const parts = file.url.split("/");
+          const id = parts[parts.indexOf("files") + 1];
+          if (id) carImageIds.push(id);
+        }
+      }
+
+      const payload = {
+        driverUserId: user.$id,
+        modelName: `${vals.make} ${vals.model}`.trim(),
+        plateNumber: vals.plate,
+        seatCapacity: vals.seats,
+        color: vals.color,
+        carImages: carImageIds
+      };
+
+      if (editingVehicleId) {
+        return upsertDriverVehicle(payload);
+      } else {
+        return createDriverVehicle(payload);
+      }
+    },
     onSuccess: () => {
       message.success(editingVehicleId ? "Vehicle updated!" : "Vehicle added!");
       void queryClient.invalidateQueries({ queryKey: ["driver-vehicles"] });
       setVehicleDrawerOpen(false);
       vehicleForm.resetFields();
+      setCarImagesList([]);
       setEditingVehicleId(null);
     },
-    onError: () => message.error("Failed to save vehicle."),
+    onError: (err: any) => message.error(err.message || "Failed to save vehicle."),
   });
 
   const { mutate: removeVehicle } = useMutation({
@@ -2334,7 +2361,7 @@ function DriverDashboardPage() {
           placement="right"
           width={420}
           open={vehicleDrawerOpen}
-          onClose={() => { setVehicleDrawerOpen(false); vehicleForm.resetFields(); setEditingVehicleId(null); }}
+          onClose={() => { setVehicleDrawerOpen(false); vehicleForm.resetFields(); setCarImagesList([]); setEditingVehicleId(null); }}
           footer={
             <Button type="primary" loading={savingVehicle} block size="large"
               className="bg-gradient-primary border-none rounded-3xl font-bold h-12"
@@ -2346,7 +2373,7 @@ function DriverDashboardPage() {
           <Form form={vehicleForm} layout="vertical"
             onFinish={(vals) => saveVehicle(vals as { make: string; model: string; color: string; plate: string; seats: number })}>
             <div className="grid grid-cols-2 gap-4">
-              <Form.Item name="make" label={<span className="font-semibold text-gray-700">Make</span>} rules={[{ required: true, message: "Required" }]}>
+              <Form.Item name="make" label={<span className="font-semibold text-gray-700">Car</span>} rules={[{ required: true, message: "Required" }]}>
                 <Input size="large" placeholder="Honda" className="rounded-3xl h-12" />
               </Form.Item>
               <Form.Item name="model" label={<span className="font-semibold text-gray-700">Model</span>} rules={[{ required: true, message: "Required" }]}>
@@ -2361,6 +2388,23 @@ function DriverDashboardPage() {
             </Form.Item>
             <Form.Item name="seats" label={<span className="font-semibold text-gray-700">Seat Capacity</span>} rules={[{ required: true }]}>
               <InputNumber min={1} max={12} size="large" className="w-full rounded-3xl" />
+            </Form.Item>
+            <Form.Item label={<span className="font-semibold text-gray-700">Car Images (Min. 4)</span>} required>
+              <Upload
+                listType="picture-card"
+                fileList={carImagesList}
+                onChange={({ fileList }) => setCarImagesList(fileList)}
+                beforeUpload={() => false}
+                maxCount={10}
+                multiple
+              >
+                {carImagesList.length >= 10 ? null : (
+                  <div>
+                    <Plus className="mx-auto text-gray-400" size={24} />
+                    <div style={{ marginTop: 8 }}>Upload</div>
+                  </div>
+                )}
+              </Upload>
             </Form.Item>
           </Form>
         </Drawer>
