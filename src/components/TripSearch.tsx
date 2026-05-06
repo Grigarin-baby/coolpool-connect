@@ -471,8 +471,13 @@ export function TripSearchResults({ variant }: { variant: "landing" | "page" }) 
                     </div>
 
                     {/* Price */}
-                    <div className="text-2xl font-black text-gray-900 shrink-0 ml-4">
-                      {formatCurrency(trip.totalPrice)}
+                    <div className="flex flex-col items-end shrink-0 ml-4">
+                      <div className="text-2xl font-black text-gray-900">
+                        {formatCurrency(trip.totalPrice / trip.totalSeats)}
+                      </div>
+                      <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-1">
+                        per seat
+                      </span>
                     </div>
                   </div>
 
