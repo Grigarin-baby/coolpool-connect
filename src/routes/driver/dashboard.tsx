@@ -1274,8 +1274,18 @@ function DriverDashboardPage() {
                                 size="large"
                                 placeholder="Select vehicle"
                                 className="h-14 w-full"
-                                options={vehicles.map(v => ({ label: `${v.modelName} · ${v.plateNumber} · ${v.seatCapacity} seats`, value: v.id }))}
+                                options={[
+                                  ...vehicles.map(v => ({ label: `${v.modelName} · ${v.plateNumber} · ${v.seatCapacity} seats`, value: v.id })),
+                                  { label: <span className="text-primary font-medium flex items-center gap-2"><Plus size={14} /> Add new vehicle</span>, value: 'ADD_NEW_VEHICLE' }
+                                ]}
                                 onChange={(val) => {
+                                  if (val === 'ADD_NEW_VEHICLE') {
+                                    form.setFieldsValue({ vehicleId: undefined });
+                                    setEditingVehicleId(null);
+                                    vehicleForm.resetFields();
+                                    setVehicleDrawerOpen(true);
+                                    return;
+                                  }
                                   const selectedVeh = vehicles.find(v => v.id === val);
                                   if (selectedVeh) {
                                     form.setFieldsValue({ totalSeats: selectedVeh.seatCapacity });
