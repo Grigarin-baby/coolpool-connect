@@ -197,6 +197,7 @@ function DriverDashboardPage() {
   const [driverDrawerOpen, setDriverDrawerOpen] = useState(false);
   const [editingDriverId, setEditingDriverId] = useState<string | null>(null);
   const [editingTripId, setEditingTripId] = useState<string | null>(null);
+  const [managingTripId, setManagingTripId] = useState<string | null>(null);
   const [isEditingTrip, setIsEditingTrip] = useState(false);
   const [ratingModalVisible, setRatingModalVisible] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
@@ -1051,7 +1052,7 @@ function DriverDashboardPage() {
                                 <User size={16} />
                                 <span>{item.totalSeats} seats total</span>
                               </div>
-                              <Button type="link" className="p-0 text-primary font-medium group-hover:underline">
+                              <Button type="link" className="p-0 text-primary font-medium group-hover:underline" onClick={() => setManagingTripId(item.id)}>
                                 Manage Passengers
                               </Button>
                             </div>
@@ -2227,6 +2228,131 @@ function DriverDashboardPage() {
         </div>
       </div>
       </div>
+
+        {/* Manage Passengers Drawer */}
+        {managingTripId && (() => {
+          const managingTrip = trips.find(t => t.id === managingTripId);
+          const tripBookings = bookings.filter(b => b.tripId === managingTripId);
+          const seatsBooked = tripBookings.reduce((sum, b) => sum + (b.seatsBooked || 0), 0);
+          
+          return (
+            <Drawer
+              title={null}
+              placement="right"
+              width={480}
+              onClose={() => setManagingTripId(null)}
+              open={!!managingTripId}
+              closable={false}
+              className="bg-gray-50"
+              styles={{ body: { padding: 0 } }}
+            >
+              {managingTrip && (
+                <div className="h-full flex flex-col">
+                  <div className="bg-gradient-primary p-6 text-white relative">
+                    <Button 
+                      type="text" 
+                      icon={<XCircle size={24} className="text-white/80 hover:text-white" />} 
+                      onClick={() => setManagingTripId(null)}
+                      className="absolute top-4 right-4 p-0 hover:bg-transparent"
+                    />
+                    <div className="mt-4">
+                      <Tag color="purple" className="border-none bg-white/20 text-white rounded-full px-3 py-1 mb-4">
+                        {dayjs(managingTrip.departureAt).format("MMM D, YYYY • h:mm A")}
+                      </Tag>
+                      <div className="space-y-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-2 h-2 rounded-full bg-white flex-shrink-0"></div>
+                          <Text className="text-white font-medium text-lg leading-tight">{managingTrip.fromLocation}</Text>
+                        </div>
+                        <div className="ml-1 w-0.5 h-6 bg-white/30"></div>
+                        <div className="flex items-center gap-3">
+                          <div className="w-2 h-2 rounded-full bg-white flex-shrink-0"></div>
+                          <Text className="text-white font-medium text-lg leading-tight">{managingTrip.toLocation}</Text>
+                        </div>
+                      </div>
+                      
+                      <div className="mt-6 bg-white/10 rounded-2xl p-4 backdrop-blur-sm border border-white/20">
+                        <div className="flex justify-between items-center mb-2">
+                          <Text className="text-white/80 font-medium">Capacity</Text>
+                          <Text className="text-white font-bold">{seatsBooked} / {managingTrip.totalSeats} booked</Text>
+                        </div>
+                        <div className="h-2 bg-white/20 rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-white rounded-full transition-all duration-500" 
+                            style={{ width: `${Math.min(100, (seatsBooked / (managingTrip.totalSeats || 1)) * 100)}%` }}
+                          ></div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="flex-1 overflow-y-auto p-6">
+                    <Title level={4} className="mb-6 font-bold text-gray-800">Passenger Roster</Title>
+                    
+                    {tripBookings.length === 0 ? (
+                      <div className="text-center py-12 bg-white rounded-3xl border border-gray-100 shadow-sm">
+                        <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-400">
+                          <User size={32} />
+                        </div>
+                        <Text className="text-gray-500 font-medium text-base">No passengers yet</Text>
+                        <p className="text-gray-400 text-sm mt-1">Bookings for this trip will appear here.</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        {tripBookings.map((b) => (
+                          <Card key={b.id} className="rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-all overflow-hidden">
+                            <div className="flex items-center justify-between mb-4 pb-4 border-b border-gray-50">
+                              <div className="flex items-center gap-3">
+                                <Avatar size={48} className="bg-gradient-primary shadow-sm text-lg font-bold text-white">
+                                  {b.passengerName?.[0] || "P"}
+                                </Avatar>
+                                <div>
+                                  <Text strong className="block text-base text-gray-900">{b.passengerName}</Text>
+                                  <Text type="secondary" className="text-sm">{b.passengerPhone}</Text>
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <Text strong className="block text-lg text-emerald-600">₹{b.totalPrice}</Text>
+                                <Tag color={b.status === "confirmed" ? "success" : "processing"} className="m-0 rounded-full uppercase text-[10px] font-bold border-none">
+                                  {b.status}
+                                </Tag>
+                              </div>
+                            </div>
+                            
+                            <div className="flex gap-4 mb-4 bg-gray-50 p-3 rounded-xl border border-gray-100">
+                              <div className="flex flex-col items-center justify-between py-1 w-2">
+                                <div className="w-1.5 h-1.5 rounded-full bg-gray-400 z-10"></div>
+                                <div className="w-px bg-gray-300 flex-1 my-0.5"></div>
+                                <div className="w-1.5 h-1.5 rounded-full bg-primary z-10"></div>
+                              </div>
+                              <div className="flex-1 flex flex-col justify-between py-0.5 gap-2">
+                                <div>
+                                  <Text strong className="text-sm text-gray-800 line-clamp-1">
+                                    {b.fromLocation || managingTrip.fromLocation}
+                                  </Text>
+                                </div>
+                                <div>
+                                  <Text strong className="text-sm text-gray-800 line-clamp-1">
+                                    {b.toLocation || managingTrip.toLocation}
+                                  </Text>
+                                </div>
+                              </div>
+                            </div>
+                            
+                            <div className="flex items-center gap-2 text-sm text-gray-600 bg-purple-50 px-3 py-2 rounded-lg border border-purple-100">
+                              <User size={16} className="text-primary" />
+                              <span className="font-medium text-purple-900">{b.seatsBooked} seats booked</span>
+                            </div>
+                          </Card>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </Drawer>
+          );
+        })()}
     </ConfigProvider>
   );
 }
