@@ -71,6 +71,7 @@ import {
   createTripStop,
   upsertDriverProfile,
   assignRole,
+  listHostBookings,
   type CreateTeamDriverInput,
 } from "@/data/appwrite-repository";
 import { storage } from "@/integrations/appwrite/client";
@@ -269,6 +270,12 @@ function DriverDashboardPage() {
   const { data: teamDrivers = [], isLoading: driversLoading } = useQuery({
     queryKey: ["team-drivers", user?.$id],
     queryFn: () => (user ? listTeamDrivers(user.$id) : Promise.resolve([])),
+    enabled: !!user,
+  });
+
+  const { data: bookings = [], isLoading: bookingsLoading } = useQuery({
+    queryKey: ["host-bookings", user?.$id],
+    queryFn: () => (user ? listHostBookings(user.$id) : Promise.resolve([])),
     enabled: !!user,
   });
 
