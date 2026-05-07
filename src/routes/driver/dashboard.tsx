@@ -1400,9 +1400,12 @@ function DriverDashboardPage() {
                                 size="large"
                                 className="w-full h-14 rounded-3xl text-lg"
                                 format="YYYY-MM-DD h:mm A"
-                                disabledDate={(current) =>
-                                  current && current < dayjs().startOf("day")
-                                }
+                                disabledDate={(current) => {
+                                  if (!current) return false;
+                                  const today = dayjs().startOf('day');
+                                  const dayAfterTomorrow = dayjs().add(2, 'day').startOf('day');
+                                  return current < today || current >= dayAfterTomorrow;
+                                }}
                               />
                             </Form.Item>
                             <Form.Item

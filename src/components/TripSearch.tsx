@@ -379,7 +379,12 @@ export function TripSearchForm({
             <DatePicker 
               className={cn("w-full", variant === "landing" ? "h-[48px] sm:h-[56px] px-0" : "h-[40px] bg-gray-50 rounded-2xl px-3")} 
               placeholder="Date"
-              disabledDate={(current) => current && current < dayjs().startOf('day')}
+              disabledDate={(current) => {
+                if (!current) return false;
+                const today = dayjs().startOf('day');
+                const dayAfterTomorrow = dayjs().add(2, 'day').startOf('day');
+                return current < today || current >= dayAfterTomorrow;
+              }}
               format="MMM DD"
               variant="borderless"
               suffixIcon={variant === "landing" ? undefined : <Calendar size={14} className="text-gray-400" />}
