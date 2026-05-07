@@ -124,12 +124,6 @@ interface GeocoderAddressResult {
   };
 }
 
-interface IntermediateStopState {
-  id: string;
-  value: string;
-  options: CityOption[];
-  selected: CityOption | null;
-}
 
 interface DirectionsRequest {
   origin: { lat: number; lng: number };
@@ -187,7 +181,6 @@ function DriverDashboardPage() {
   const [toOptions, setToOptions] = useState<CityOption[]>([]);
   const [selectedFrom, setSelectedFrom] = useState<CityOption | null>(null);
   const [selectedTo, setSelectedTo] = useState<CityOption | null>(null);
-  const [intermediateStops, setIntermediateStops] = useState<IntermediateStopState[]>([]);
   const [mapsReady, setMapsReady] = useState(false);
   const [mobilePreviewOpen, setMobilePreviewOpen] = useState(false);
   const [vehicleForm] = Form.useForm();
@@ -387,7 +380,6 @@ function DriverDashboardPage() {
       setIsEditingTrip(false);
       setSelectedFrom(null);
       setSelectedTo(null);
-      setIntermediateStops([]);
       void queryClient.invalidateQueries({ queryKey: ["host-trips"] });
       setActiveModule("dashboard");
     },
@@ -471,7 +463,6 @@ function DriverDashboardPage() {
       selectedTo && selectedTo.value === normalizedTo
         ? selectedTo
         : { label: normalizedTo, value: normalizedTo, lat: 0, lng: 0 };
-    const validIntermediateStops = intermediateStops.filter(s => s.selected !== null).map(s => s.selected!);
 
     const dirService = directionsServiceRef.current;
     if (!dirService) {
@@ -479,7 +470,7 @@ function DriverDashboardPage() {
       return;
     }
 
-    console.log("[Publish] Calculating route:", { resolvedFrom, resolvedTo, stops: intermediateStops.length });
+    console.log("[Publish] Calculating route:", { resolvedFrom, resolvedTo});
 
     const getCoords = async (loc: { label: string; lat: number; lng: number }) => {
       if (loc.lat !== 0 || loc.lng !== 0) return loc;
@@ -501,7 +492,7 @@ function DriverDashboardPage() {
 
     const finalFrom = await getCoords(resolvedFrom);
     const finalTo = await getCoords(resolvedTo);
-    const allStops = [finalFrom, ...validIntermediateStops, finalTo];
+    const allStops = [finalFrom, finalTo];
 
     if (finalFrom.lat === 0 || finalTo.lat === 0) {
       message.error("Could not determine coordinates for origin or destination. Please select from the dropdown.");
@@ -511,8 +502,8 @@ function DriverDashboardPage() {
     dirService.route({
       origin: { lat: finalFrom.lat, lng: finalFrom.lng },
       destination: { lat: finalTo.lat, lng: finalTo.lng },
-      waypoints: validIntermediateStops.map(stop => ({ location: { lat: stop.lat, lng: stop.lng }, stopover: true })),
-      travelMode: google.maps.TravelMode.DRIVING,
+      waypoints: [],
+      travelMode: "DRIVING",
     }, (result, status) => {
       if (status !== "OK" || !result) {
         console.error("[Publish] Directions API failed:", status, result);
@@ -577,7 +568,7 @@ function DriverDashboardPage() {
     });
   };
 
-  const searchCities = async (query: string, target: "from" | "to" | "stop", stopId?: string) => {
+  const searchCities = async (query: string, target: "from" | "to") => {
     if (target === "from") {
       console.log("[fromLocation] searchCities called", {
         query,
@@ -589,7 +580,6 @@ function DriverDashboardPage() {
     if (!query || query.trim().length < 2) {
       if (target === "from") setFromOptions([]);
       else if (target === "to") setToOptions([]);
-      else if (target === "stop" && stopId) setIntermediateStops(stops => stops.map(s => s.id === stopId ? { ...s, options: [] } : s));
       return;
     }
     const service = autocompleteServiceRef.current;
@@ -614,7 +604,6 @@ function DriverDashboardPage() {
       if ((status !== "OK" || !predictions) && !isAirportQuery) {
         if (target === "from") setFromOptions([]);
         else if (target === "to") setToOptions([]);
-        else if (target === "stop" && stopId) setIntermediateStops(stops => stops.map(s => s.id === stopId ? { ...s, options: [] } : s));
         return;
       }
 
@@ -655,15 +644,13 @@ function DriverDashboardPage() {
 
       if (target === "from") setFromOptions(options);
       else if (target === "to") setToOptions(options);
-      else if (target === "stop" && stopId) setIntermediateStops(stops => stops.map(s => s.id === stopId ? { ...s, options } : s));
     });
   };
 
-  const onSelectCity = (value: string, target: "from" | "to" | "stop", stopId?: string) => {
+  const onSelectCity = (value: string, target: "from" | "to") => {
     let sourceOptions: CityOption[] = [];
     if (target === "from") sourceOptions = fromOptions;
     else if (target === "to") sourceOptions = toOptions;
-    else if (target === "stop" && stopId) sourceOptions = intermediateStops.find(s => s.id === stopId)?.options || [];
 
     const selected = sourceOptions.find((option) => option.value === value);
     if (!selected) return;
@@ -672,7 +659,6 @@ function DriverDashboardPage() {
     if (!geocoder || !selected.placeId) {
       if (target === "from") setSelectedFrom(selected);
       else if (target === "to") setSelectedTo(selected);
-      else if (target === "stop" && stopId) setIntermediateStops(stops => stops.map(s => s.id === stopId ? { ...s, selected, value: selected.label } : s));
       return;
     }
 
@@ -688,7 +674,6 @@ function DriverDashboardPage() {
       };
       if (target === "from") setSelectedFrom(withCoords);
       else if (target === "to") setSelectedTo(withCoords);
-      else if (target === "stop" && stopId) setIntermediateStops(stops => stops.map(s => s.id === stopId ? { ...s, selected: withCoords, value: withCoords.label } : s));
     });
   };
 
@@ -776,7 +761,6 @@ function DriverDashboardPage() {
                 form.resetFields();
                 setSelectedFrom(null);
                 setSelectedTo(null);
-                setIntermediateStops([]);
               }
             }}
             className="border-none px-2 mt-4"
@@ -939,7 +923,6 @@ function DriverDashboardPage() {
                         form.resetFields();
                         setSelectedFrom(null);
                         setSelectedTo(null);
-                        setIntermediateStops([]);
                         setActiveModule("trips");
                       }}
                     >
@@ -1059,19 +1042,11 @@ function DriverDashboardPage() {
                                           const stops = await listTripStops(item.id);
                                           const fromStop = stops.find(s => s.stopType === "pickup");
                                           const toStop = stops.find(s => s.stopType === "drop");
-                                          const middleStops = stops.filter(s => s.stopType === "both" || (s.stopType !== "pickup" && s.stopType !== "drop"));
                                           
                                           if (fromStop) setSelectedFrom({ label: fromStop.location, value: fromStop.location, lat: fromStop.lat, lng: fromStop.lng });
                                           if (toStop) setSelectedTo({ label: toStop.location, value: toStop.location, lat: toStop.lat, lng: toStop.lng });
                                           
-                                          setIntermediateStops(middleStops.map(s => ({
-                                            id: s.id,
-                                            value: s.location,
-                                            options: [],
-                                            selected: { label: s.location, value: s.location, lat: s.lat, lng: s.lng }
-                                          })));
-                                          
-                                          form.setFieldsValue({
+                                                                                    form.setFieldsValue({
                                             fromLocation: item.fromLocation,
                                             toLocation: item.toLocation,
                                             departureAt: dayjs(item.departureAt),
@@ -1148,7 +1123,6 @@ function DriverDashboardPage() {
                           form.resetFields();
                           setSelectedFrom(null);
                           setSelectedTo(null);
-                          setIntermediateStops([]);
                           setActiveModule("trips");
                         }}
                       >
@@ -1258,53 +1232,7 @@ function DriverDashboardPage() {
                               </AutoComplete>
                             </Form.Item>
                             
-                            <div className="relative h-6 flex items-center justify-center">
-                              <div className="absolute left-6 top-0 bottom-0 w-0.5 bg-gradient-to-b from-gray-300 to-gray-300"></div>
-                            </div>
 
-                            {intermediateStops.map((stop, index) => (
-                              <div key={stop.id}>
-                                <div className="flex items-end gap-2 mb-0">
-                                  <div className="flex-1 relative">
-                                    <span className="font-semibold text-gray-700 block mb-2">Stop {index + 1}</span>
-                                    <AutoComplete
-                                      options={stop.options}
-                                      value={stop.value}
-                                      disabled={!mapsReady}
-                                      onSearch={(text) => {
-                                        setIntermediateStops(stops => stops.map(s => s.id === stop.id ? { ...s, value: text, selected: null } : s));
-                                        void searchCities(text, "stop", stop.id);
-                                      }}
-                                      onSelect={(value) => onSelectCity(value, "stop", stop.id)}
-                                      onChange={(val) => setIntermediateStops(stops => stops.map(s => s.id === stop.id ? { ...s, value: val } : s))}
-                                      className="w-full"
-                                    >
-                                      <Input
-                                        placeholder={`Enter intermediate stop`}
-                                        size="large"
-                                        className="h-14 rounded-3xl text-lg"
-                                      />
-                                    </AutoComplete>
-                                  </div>
-                                  <Button 
-                                    danger 
-                                    type="text" 
-                                    icon={<Trash2 size={18} />} 
-                                    className="mb-2 h-10 w-10 flex items-center justify-center rounded-3xl hover:bg-red-50"
-                                    onClick={() => setIntermediateStops(stops => stops.filter(s => s.id !== stop.id))} 
-                                  />
-                                </div>
-                                <div className="relative h-6 flex items-center justify-center">
-                                  <div className="absolute left-6 top-0 bottom-0 w-0.5 bg-gradient-to-b from-gray-300 to-gray-300"></div>
-                                </div>
-                              </div>
-                            ))}
-
-                            <div className="pl-0 sm:pl-4">
-                               <Button type="dashed" className="rounded-3xl mt-0 mb-2 h-10 border-primary/30 text-primary hover:border-primary/60 hover:text-primary-dark font-medium" onClick={() => setIntermediateStops([...intermediateStops, { id: Math.random().toString(), options: [], selected: null, value: "" }])}>
-                                 <Plus size={14} className="mr-1" /> Add Stop
-                               </Button>
-                            </div>
 
                             <Form.Item
                               label={<span className="font-semibold text-gray-700">To Location</span>}
