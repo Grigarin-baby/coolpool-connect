@@ -1424,16 +1424,24 @@ function DriverDashboardPage() {
                             <Form.Item
                               label={<span className="font-semibold text-gray-700">Total per seat price</span>}
                               name="totalTripPrice"
-                              rules={[{ required: true, message: "Please enter total per seat price" }]}
+                              rules={[
+                                { required: true, message: "Please enter total per seat price" },
+                                { type: "number", max: 9999, message: "Price cannot exceed 4 digits (₹9,999)" }
+                              ]}
                               extra="Set the price for one seat for the entire route. Segment pricing is automatically calculated."
                               className="mb-0"
                             >
                               <InputNumber
                                 min={1}
+                                max={9999}
                                 size="large"
                                 className="w-full h-14 rounded-3xl text-lg flex items-center font-bold text-primary"
                                 prefix="₹"
                                 formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")}
+                                parser={(value) => {
+                                  const parsed = value?.replace(/₹\s?|(,*)/g, '') || '';
+                                  return parsed.length > 4 ? Number(parsed.slice(0, 4)) : Number(parsed);
+                                }}
                               />
                             </Form.Item>
                           </div>
