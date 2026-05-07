@@ -1433,14 +1433,15 @@ function DriverDashboardPage() {
                             >
                               <InputNumber
                                 min={1}
-                                max={9999}
                                 size="large"
                                 className="w-full h-14 rounded-3xl text-lg flex items-center font-bold text-primary"
                                 prefix="₹"
                                 formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")}
-                                parser={(value) => {
-                                  const parsed = value?.replace(/₹\s?|(,*)/g, '') || '';
-                                  return parsed.length > 4 ? Number(parsed.slice(0, 4)) : Number(parsed);
+                                onChange={(val) => {
+                                  if (val !== null && val > 9999) {
+                                    message.warning("Max 9999 allowed");
+                                    form.setFieldsValue({ totalTripPrice: 9999 });
+                                  }
                                 }}
                               />
                             </Form.Item>
