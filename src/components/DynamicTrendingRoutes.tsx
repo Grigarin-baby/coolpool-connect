@@ -7,6 +7,7 @@ import { appwriteConfig } from "@/integrations/appwrite/client";
 import { listTrips } from "@/data/appwrite-repository";
 import { formatCurrency } from "@/lib/pricing";
 import { routeCitySegmentsMatch } from "@/lib/geo";
+import { SERVICE_CITY, BENGALURU_AIRPORTS } from "@/lib/config";
 
 // Need Google Maps window typing
 interface GoogleMapsWindow {
@@ -28,7 +29,6 @@ export function DynamicTrendingRoutes() {
     const fetchCityAndTrips = async (lat: number, lng: number) => {
       setStatus("fetching");
       try {
-        // Ensure Google Maps is loaded
         await loadGoogleMaps();
         const maps = (window as Window & GoogleMapsWindow).google?.maps;
         if (!maps?.Geocoder) throw new Error("Geocoder not available");
@@ -44,29 +44,87 @@ export function DynamicTrendingRoutes() {
           });
         });
 
-        // Find city from address components
-        let detectedCity = null;
+        // 1. Check if user is in SERVICE_CITY
+        let isInServiceCity = false;
+        let neighborhood = "";
+
         for (const result of response) {
           for (const component of result.address_components) {
             if (component.types.includes("locality") || component.types.includes("administrative_area_level_2")) {
-              detectedCity = component.long_name;
-              break;
+              if (component.long_name.toLowerCase() === SERVICE_CITY.toLowerCase() || component.long_name.toLowerCase() === "bangalore") {
+                isInServiceCity = true;
+              }
             }
           }
-          if (detectedCity) break;
         }
 
-        if (!detectedCity) throw new Error("Could not detect city");
+        let finalDetectedLocation = SERVICE_CITY;
+        let nearestAirport = BENGALURU_AIRPORTS[0].name;
+
+        // 2. Extract Neighborhood if they are in the city
+        if (isInServiceCity) {
+          let minDistance = Infinity;
+          for (const airport of BENGALURU_AIRPORTS) {
+            const dx = lat - airport.lat;
+            const dy = lng - airport.lng;
+            const dist = dx * dx + dy * dy; // Approximation is fine for intra-city
+            if (dist < minDistance) {
+              minDistance = dist;
+              nearestAirport = airport.name;
+            }
+          }
+
+          for (const result of response) {
+            for (const component of result.address_components) {
+              // Usually sublocality_level_1, neighborhood, or route
+              if (component.types.includes("sublocality") || component.types.includes("sublocality_level_1") || component.types.includes("neighborhood")) {
+                neighborhood = component.long_name;
+                break;
+              }
+            }
+            if (neighborhood) break;
+          }
+          if (neighborhood) {
+            finalDetectedLocation = `${neighborhood}, ${SERVICE_CITY}`;
+          }
+        }
 
         if (mounted) {
-          setCity(detectedCity);
-          window.dispatchEvent(new CustomEvent("coolpool:cityDetected", { detail: detectedCity }));
+          setCity(finalDetectedLocation);
+          window.dispatchEvent(new CustomEvent("coolpool:cityDetected", { 
+            detail: { from: finalDetectedLocation, to: `${nearestAirport}, ${SERVICE_CITY}` } 
+          }));
         }
 
         // Fetch trips
         const allTrips = await listTrips(100);
         const filtered = allTrips
-          .filter((t) => routeCitySegmentsMatch(t.fromLocation, detectedCity!))
+          .filter((t) => routeCitySegmentsMatch(t.fromLocation, SERVICE_CITY))
+          .sort((a, b) => new Date(a.departureAt).getTime() - new Date(b.departureAt).getTime())
+          .slice(0, 4);
+
+        if (mounted) {
+          setTrips(filtered);
+          setStatus("success");
+        }
+      } catch (e) {
+        if (mounted) setStatus("error");
+      }
+    };
+
+    const fetchFallbackCityAndTrips = async () => {
+      setStatus("fetching");
+      try {
+        if (mounted) {
+          setCity(SERVICE_CITY);
+          window.dispatchEvent(new CustomEvent("coolpool:cityDetected", { 
+            detail: { from: SERVICE_CITY, to: `${BENGALURU_AIRPORTS[0].name}, ${SERVICE_CITY}` } 
+          }));
+        }
+
+        const allTrips = await listTrips(100);
+        const filtered = allTrips
+          .filter((t) => routeCitySegmentsMatch(t.fromLocation, SERVICE_CITY))
           .sort((a, b) => new Date(a.departureAt).getTime() - new Date(b.departureAt).getTime())
           .slice(0, 4);
 
@@ -81,7 +139,7 @@ export function DynamicTrendingRoutes() {
 
     const requestLocation = () => {
       if (!navigator.geolocation) {
-        setStatus("error");
+        fetchFallbackCityAndTrips();
         return;
       }
       setStatus("locating");
@@ -90,13 +148,12 @@ export function DynamicTrendingRoutes() {
           fetchCityAndTrips(pos.coords.latitude, pos.coords.longitude);
         },
         (err) => {
-          if (mounted) setStatus(err.code === err.PERMISSION_DENIED ? "denied" : "error");
+          fetchFallbackCityAndTrips();
         },
         { timeout: 10000 }
       );
     };
 
-    // Delay the location request slightly to let the page load smoothly
     const timer = setTimeout(requestLocation, 1000);
     return () => {
       mounted = false;

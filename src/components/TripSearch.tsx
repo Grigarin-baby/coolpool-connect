@@ -40,6 +40,7 @@ import { routeCitySegmentsMatch } from "@/lib/geo";
 import { formatCurrency } from "@/lib/pricing";
 import { appwriteConfig } from "@/integrations/appwrite/client";
 import { cn } from "@/lib/utils";
+import { SERVICE_CITY, BENGALURU_AIRPORTS } from "@/lib/config";
 
 interface PlacePrediction {
   description: string;
@@ -165,14 +166,47 @@ export function TripSearchProvider({ children }: { children: ReactNode }) {
     const service = autocompleteServiceRef.current;
     if (!service) return;
 
-    service.getPlacePredictions({ input: query, types: ["(cities)"] }, (predictions, status) => {
-      if (status !== "OK" || !predictions) {
+    const searchQuery = query.toLowerCase().includes(SERVICE_CITY.toLowerCase()) || query.toLowerCase().includes("bangalore") 
+      ? query 
+      : `${query}, ${SERVICE_CITY}`;
+
+    service.getPlacePredictions({ input: searchQuery, types: ["geocode"], componentRestrictions: { country: "in" } }, (predictions, status) => {
+      const lowerQuery = query.toLowerCase();
+      const isAirportQuery = lowerQuery.includes("air") || lowerQuery.includes("flight") || lowerQuery.includes("terminal") || lowerQuery.includes("blr") || lowerQuery.includes("kempegowda") || lowerQuery.includes("hal") || lowerQuery.includes("jakkur");
+
+      if ((status !== "OK" || !predictions) && !isAirportQuery) {
         if (target === "from") setFromOptions([]);
         else setToOptions([]);
         return;
       }
 
-      const options = predictions.map((p) => ({ value: p.description, label: p.description }));
+      const safePredictions = predictions || [];
+      const filteredPredictions = safePredictions.filter(p => 
+        p.description.toLowerCase().includes(SERVICE_CITY.toLowerCase()) || 
+        p.description.toLowerCase().includes("bangalore")
+      );
+
+      let options: any[] = filteredPredictions.map((p) => ({ value: p.description, label: p.description }));
+      
+      if (isAirportQuery) {
+        const airportOptions = BENGALURU_AIRPORTS.map(a => ({
+          value: `${a.name}, ${SERVICE_CITY}`,
+          label: (
+            <div className="flex items-center gap-2">
+              <span>✈️</span>
+              <span className="font-medium text-gray-900">{a.name} <span className="text-gray-400 font-normal">({a.code})</span></span>
+            </div>
+          )
+        }));
+        
+        // Reverse array before unshifting to maintain order since we unshift one by one
+        [...airportOptions].reverse().forEach(ao => {
+          if (!options.find(o => o.value === ao.value)) {
+            options.unshift(ao);
+          }
+        });
+      }
+
       if (target === "from") setFromOptions(options);
       else setToOptions(options);
     });
@@ -182,6 +216,14 @@ export function TripSearchProvider({ children }: { children: ReactNode }) {
     const fromNeedle = values.from.trim();
     const toNeedle = values.to.trim();
     const searchDate = values.date;
+
+    const fromValid = fromNeedle.toLowerCase().includes(SERVICE_CITY.toLowerCase()) || fromNeedle.toLowerCase().includes("bangalore");
+    const toValid = toNeedle.toLowerCase().includes(SERVICE_CITY.toLowerCase()) || toNeedle.toLowerCase().includes("bangalore");
+
+    if (!fromValid || !toValid) {
+      message.error(`We are currently operating exclusively in ${SERVICE_CITY}.`);
+      return;
+    }
 
     setLoading(true);
     try {
@@ -245,10 +287,14 @@ export function TripSearchForm({
 
   useEffect(() => {
     const handleCityDetected = (e: Event) => {
-      const customEvent = e as CustomEvent<string>;
-      // Only pre-fill if the user hasn't already typed something
-      if (!form.getFieldValue("from")) {
-        form.setFieldsValue({ from: customEvent.detail });
+      const customEvent = e as CustomEvent<{from: string; to: string} | string>;
+      const detail = customEvent.detail;
+      
+      if (typeof detail === "string") {
+        if (!form.getFieldValue("from")) form.setFieldsValue({ from: detail });
+      } else {
+        if (!form.getFieldValue("from")) form.setFieldsValue({ from: detail.from });
+        if (!form.getFieldValue("to")) form.setFieldsValue({ to: detail.to });
       }
     };
     
@@ -269,7 +315,7 @@ export function TripSearchForm({
       {variant === "landing" && (
         <div className="mb-4 sm:mb-6 space-y-2.5 text-center sm:text-left">
           <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-balance font-heading">
-            Book your next ride
+            Book your next ride in {SERVICE_CITY}
           </h2>
         </div>
       )}

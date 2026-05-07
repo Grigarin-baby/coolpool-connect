@@ -83,6 +83,7 @@ import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { appwriteConfig } from "@/integrations/appwrite/client";
+import { SERVICE_CITY, BENGALURU_AIRPORTS } from "@/lib/config";
 
 import logo from "@/assets/logo.png";
 
@@ -453,6 +454,15 @@ function DriverDashboardPage() {
     if (!user) return;
     const normalizedFrom = values.fromLocation.trim();
     const normalizedTo = values.toLocation.trim();
+
+    const fromValid = normalizedFrom.toLowerCase().includes(SERVICE_CITY.toLowerCase()) || normalizedFrom.toLowerCase().includes("bangalore");
+    const toValid = normalizedTo.toLowerCase().includes(SERVICE_CITY.toLowerCase()) || normalizedTo.toLowerCase().includes("bangalore");
+
+    if (!fromValid || !toValid) {
+      message.error(`Trips can only be created within ${SERVICE_CITY}.`);
+      return;
+    }
+
     const resolvedFrom =
       selectedFrom && selectedFrom.value === normalizedFrom
         ? selectedFrom
@@ -585,7 +595,14 @@ function DriverDashboardPage() {
     const service = autocompleteServiceRef.current;
     if (!service) return;
 
-    service.getPlacePredictions({ input: query, types: ["(cities)"] }, (predictions, status) => {
+    const searchQuery = query.toLowerCase().includes(SERVICE_CITY.toLowerCase()) || query.toLowerCase().includes("bangalore") 
+      ? query 
+      : `${query}, ${SERVICE_CITY}`;
+
+    service.getPlacePredictions({ input: searchQuery, types: ["geocode"], componentRestrictions: { country: "in" } }, (predictions, status) => {
+      const lowerQuery = query.toLowerCase();
+      const isAirportQuery = lowerQuery.includes("air") || lowerQuery.includes("flight") || lowerQuery.includes("terminal") || lowerQuery.includes("blr") || lowerQuery.includes("kempegowda") || lowerQuery.includes("hal") || lowerQuery.includes("jakkur");
+
       if (target === "from") {
         console.log("[fromLocation] getPlacePredictions callback", {
           status,
@@ -593,20 +610,48 @@ function DriverDashboardPage() {
           samplePrediction: predictions?.[0]?.description ?? null,
         });
       }
-      if (status !== "OK" || !predictions) {
+      
+      if ((status !== "OK" || !predictions) && !isAirportQuery) {
         if (target === "from") setFromOptions([]);
         else if (target === "to") setToOptions([]);
         else if (target === "stop" && stopId) setIntermediateStops(stops => stops.map(s => s.id === stopId ? { ...s, options: [] } : s));
         return;
       }
 
-      const options: CityOption[] = predictions.map((prediction) => ({
+      const safePredictions = predictions || [];
+      const filteredPredictions = safePredictions.filter(p => 
+        p.description.toLowerCase().includes(SERVICE_CITY.toLowerCase()) || 
+        p.description.toLowerCase().includes("bangalore")
+      );
+
+      let options: any[] = filteredPredictions.map((prediction) => ({
         value: prediction.description,
         label: prediction.description,
         placeId: prediction.place_id,
         lat: 0,
         lng: 0,
       }));
+
+      if (isAirportQuery) {
+        const airportOptions = BENGALURU_AIRPORTS.map(a => ({
+          value: `${a.name}, ${SERVICE_CITY}`,
+          label: (
+            <div className="flex items-center gap-2">
+              <span>✈️</span>
+              <span className="font-medium text-gray-900">{a.name} <span className="text-gray-400 font-normal">({a.code})</span></span>
+            </div>
+          ),
+          placeId: undefined, // Let geocoder handle it on selection
+          lat: a.lat,
+          lng: a.lng,
+        }));
+        
+        [...airportOptions].reverse().forEach(ao => {
+          if (!options.find(o => o.value === ao.value)) {
+            options.unshift(ao);
+          }
+        });
+      }
 
       if (target === "from") setFromOptions(options);
       else if (target === "to") setToOptions(options);
