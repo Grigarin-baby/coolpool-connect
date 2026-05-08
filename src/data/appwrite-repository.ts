@@ -18,23 +18,23 @@ import type {
 
 type Doc = Models.Document;
 
-function toTrip(doc: Doc): Trip {
+function toTrip(doc: any): Trip {
   return {
     id: doc.$id,
-    hostId: String(doc.host_id),
-    fromLocation: String(doc.from_location),
-    fromLat: Number(doc.from_lat),
-    fromLng: Number(doc.from_lng),
-    toLocation: String(doc.to_location),
-    toLat: Number(doc.to_lat),
-    toLng: Number(doc.to_lng),
-    polyline: String(doc.polyline),
-    totalDistanceKm: Number(doc.total_distance_km),
-    totalPrice: Number(doc.total_price),
-    pricePerKm: Number(doc.price_per_km),
-    totalSeats: Number(doc.total_seats),
-    departureAt: String(doc.departure_at),
-    status: String(doc.status) as TripStatus,
+    hostId: String(doc.host_id || ""),
+    fromLocation: String(doc.from_location || ""),
+    fromLat: Number(doc.from_lat || 0),
+    fromLng: Number(doc.from_lng || 0),
+    toLocation: String(doc.to_location || ""),
+    toLat: Number(doc.to_lat || 0),
+    toLng: Number(doc.to_lng || 0),
+    polyline: String(doc.polyline || ""),
+    totalDistanceKm: Number(doc.total_distance_km || 0),
+    totalPrice: Number(doc.total_price || 0),
+    pricePerKm: Number(doc.price_per_km || 0),
+    totalSeats: Number(doc.total_seats || 1),
+    departureAt: String(doc.departure_at || new Date().toISOString()),
+    status: (String(doc.status || "scheduled")) as TripStatus,
     notes: doc.notes ? String(doc.notes) : null,
     vehicleId: doc.vehicle_id ? String(doc.vehicle_id) : undefined,
     assignedDriverId: doc.assigned_driver_id ? String(doc.assigned_driver_id) : undefined,
@@ -42,75 +42,75 @@ function toTrip(doc: Doc): Trip {
   };
 }
 
-function toTripStop(doc: Doc): TripStop {
+function toTripStop(doc: any): TripStop {
   return {
     id: doc.$id,
-    tripId: String(doc.trip_id),
-    stopIndex: Number(doc.stop_index),
-    location: String(doc.location),
-    lat: Number(doc.lat),
-    lng: Number(doc.lng),
-    stopType: String(doc.stop_type) as StopType,
-    distanceFromOriginKm: Number(doc.distance_from_origin_km),
+    tripId: String(doc.trip_id || ""),
+    stopIndex: Number(doc.stop_index || 0),
+    location: String(doc.location || ""),
+    lat: Number(doc.lat || 0),
+    lng: Number(doc.lng || 0),
+    stopType: String(doc.stop_type || "pickup") as StopType,
+    distanceFromOriginKm: Number(doc.distance_from_origin_km || 0),
   };
 }
 
-function toBooking(doc: Doc): Booking {
+function toBooking(doc: any): Booking {
   return {
     id: doc.$id,
-    tripId: String(doc.trip_id),
-    travelerId: String(doc.traveler_id),
-    fromStopIndex: Number(doc.from_stop_index),
-    toStopIndex: Number(doc.to_stop_index),
-    seatsBooked: Number(doc.seats_booked),
-    segmentPrice: Number(doc.segment_price),
-    passengerName: String(doc.passenger_name),
-    passengerPhone: String(doc.passenger_phone),
-    status: String(doc.status) as BookingStatus,
+    tripId: String(doc.trip_id || ""),
+    travelerId: String(doc.traveler_id || ""),
+    fromStopIndex: Number(doc.from_stop_index || 0),
+    toStopIndex: Number(doc.to_stop_index || 0),
+    seatsBooked: Number(doc.seats_booked || 0),
+    segmentPrice: Number(doc.segment_price || 0),
+    passengerName: String(doc.passenger_name || ""),
+    passengerPhone: String(doc.passenger_phone || ""),
+    status: String(doc.status || "pending") as BookingStatus,
     createdAt: String(doc.created_at ?? doc.$createdAt),
     ratingByHost: doc.rating_by_host ? Number(doc.rating_by_host) : undefined,
     commentByHost: doc.comment_by_host ? String(doc.comment_by_host) : undefined,
   };
 }
 
-function toPricingRule(doc: Doc): PricingRule {
+function toPricingRule(doc: any): PricingRule {
   return {
     id: doc.$id,
-    minPricePerKm: Number(doc.min_price_per_km),
-    maxPricePerKm: Number(doc.max_price_per_km),
-    routeMatchToleranceKm: Number(doc.route_match_tolerance_km),
+    minPricePerKm: Number(doc.min_price_per_km || 0),
+    maxPricePerKm: Number(doc.max_price_per_km || 0),
+    routeMatchToleranceKm: Number(doc.route_match_tolerance_km || 0),
     updatedAt: String(doc.updated_at ?? doc.$updatedAt),
   };
 }
 
-function toDriverProfile(doc: Doc): DriverProfile {
+function toDriverProfile(doc: any): DriverProfile {
   return {
     id: doc.$id,
-    userId: String(doc.user_id),
-    fullName: String(doc.full_name),
-    email: String(doc.email),
-    phone: String(doc.phone),
-    licenseNumber: String(doc.license_number),
-    city: String(doc.city),
+    userId: String(doc.user_id || ""),
+    fullName: String(doc.full_name || ""),
+    email: String(doc.email || ""),
+    phone: String(doc.phone || ""),
+    licenseNumber: String(doc.license_number || ""),
+    city: String(doc.city || ""),
   };
 }
 
-function toTripSeatReservation(doc: Doc): TripSeatReservation {
+function toTripSeatReservation(doc: any): TripSeatReservation {
   return {
     id: doc.$id,
-    tripId: String(doc.trip_id),
-    seatCode: String(doc.seat_code),
-    bookingId: String(doc.booking_id),
+    tripId: String(doc.trip_id || ""),
+    seatCode: String(doc.seat_code || ""),
+    bookingId: String(doc.booking_id || ""),
   };
 }
 
-function toDriverVehicle(doc: Doc): DriverVehicle {
+function toDriverVehicle(doc: any): DriverVehicle {
   return {
     id: doc.$id,
-    driverUserId: String(doc.driver_user_id),
-    modelName: String(doc.model_name),
-    plateNumber: String(doc.plate_number),
-    seatCapacity: Number(doc.seat_capacity),
+    driverUserId: String(doc.driver_user_id || ""),
+    modelName: String(doc.model_name || ""),
+    plateNumber: String(doc.plate_number || ""),
+    seatCapacity: Number(doc.seat_capacity || 1),
     color: doc.color ? String(doc.color) : null,
     registrationDoc: doc.registration_doc ? String(doc.registration_doc) : null,
     insuranceDoc: doc.insurance_doc ? String(doc.insurance_doc) : null,
