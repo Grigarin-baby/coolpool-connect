@@ -41,6 +41,7 @@ export interface Trip {
   notes: string | null;
   vehicleId?: string;
   assignedDriverId?: string;
+  seatConfig?: string[]; // e.g. ["front_p", "back_l", "back_c", "back_r"]
 }
 
 export interface Booking {

@@ -38,6 +38,7 @@ function toTrip(doc: Doc): Trip {
     notes: doc.notes ? String(doc.notes) : null,
     vehicleId: doc.vehicle_id ? String(doc.vehicle_id) : undefined,
     assignedDriverId: doc.assigned_driver_id ? String(doc.assigned_driver_id) : undefined,
+    seatConfig: doc.seat_config && Array.isArray(doc.seat_config) ? doc.seat_config.map(String) : undefined,
   };
 }
 
@@ -135,6 +136,7 @@ export interface CreateTripInput {
   status?: TripStatus;
   vehicleId?: string;
   assignedDriverId?: string;
+  seatConfig?: string[];
 }
 
 export interface CreateTripStopInput {
@@ -245,6 +247,7 @@ export async function createTrip(input: CreateTripInput): Promise<Trip> {
       notes: input.notes ?? null,
       vehicle_id: input.vehicleId ?? null,
       assigned_driver_id: input.assignedDriverId ?? null,
+      seat_config: input.seatConfig ?? [],
     },
     [
       // Public read so travelers can search trips without an Appwrite session (e.g. homepage modal).
@@ -285,6 +288,7 @@ export async function updateTrip(tripId: string, input: Partial<CreateTripInput>
       notes: input.notes,
       vehicle_id: input.vehicleId,
       assigned_driver_id: input.assignedDriverId,
+      seat_config: input.seatConfig,
     }
   );
   return toTrip(doc);

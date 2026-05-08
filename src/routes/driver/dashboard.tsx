@@ -84,6 +84,7 @@ import relativeTime from "dayjs/plugin/relativeTime";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { appwriteConfig } from "@/integrations/appwrite/client";
 import { SERVICE_CITY, BENGALURU_AIRPORTS } from "@/lib/config";
+import { SeatPicker, type SeatId } from "@/components/SeatPicker";
 
 import logo from "@/assets/logo.png";
 
@@ -108,6 +109,7 @@ interface TripFormValues {
   totalTripPrice: number;
   vehicleId: string;
   driverId: string;
+  seatConfig: SeatId[];
 }
 
 interface PlacePrediction {
@@ -549,6 +551,7 @@ function DriverDashboardPage() {
           notes: `Created from ride host trip module. Total price: ₹${totalPrice}.`,
           vehicleId: values.vehicleId,
           assignedDriverId: values.driverId,
+          seatConfig: values.seatConfig,
         },
         stopsData
       };
@@ -1202,7 +1205,7 @@ let options: any[] = filteredPredictions.map((prediction) => ({
                       form={form}
                       layout="vertical"
                       onFinish={onFinish}
-                      initialValues={{ totalSeats: 4, driverId: user?.$id }}
+                      initialValues={{ totalSeats: 3, seatConfig: ["back_l", "back_c", "back_r"] as SeatId[], driverId: user?.$id }}
                       requiredMark={false}
                     >
                       <div className="space-y-8">
@@ -1338,14 +1341,24 @@ let options: any[] = filteredPredictions.map((prediction) => ({
                                 }}
                               />
                             </Form.Item>
-                            <Form.Item
-                              label={<span className="font-semibold text-gray-700">Total Seats</span>}
-                              name="totalSeats"
-                              rules={[{ required: true, message: "Required" }]}
-                              className="mb-0"
-                            >
-                              <InputNumber min={1} max={10} size="large" className="w-full h-14 rounded-3xl text-lg flex items-center" />
-                            </Form.Item>
+                            <div className="sm:col-span-2">
+                              <span className="font-semibold text-gray-700 block mb-3">Configure Seating (5-Seater Car)</span>
+                              <Form.Item
+                                name="seatConfig"
+                                rules={[{ required: true, message: "Please offer at least one seat" }]}
+                              >
+                                <SeatPicker 
+                                  onChange={(seats) => {
+                                    form.setFieldsValue({ 
+                                      totalSeats: seats.length 
+                                    });
+                                  }}
+                                />
+                              </Form.Item>
+                              <Form.Item name="totalSeats" hidden>
+                                <InputNumber />
+                              </Form.Item>
+                            </div>
                           </div>
                         </div>
                         
