@@ -95,7 +95,7 @@ function BookingTripPage() {
     const tripCap = (tripQuery.data?.totalSeats ?? 0);
     // Always use the larger of the two to ensure all seats are shown
     const finalCap = Math.max(vehicleCap, tripCap);
-    return Math.min(12, Math.max(2, finalCap));
+    return Math.min(12, Math.max(5, finalCap));
   }, [vehicleQuery.data?.seatCapacity, tripQuery.data?.totalSeats]);
 
   const layout = useMemo(() => buildSeatLayout(layoutCapacity), [layoutCapacity]);
@@ -293,7 +293,7 @@ function BookingTripPage() {
             </p>
           )}
 
-          {trip.polyline && trip.fromLat && trip.toLat && (
+          {trip.polyline && !!trip.fromLat && !!trip.fromLng && !!trip.toLat && !!trip.toLng && (
             <div className="mt-6">
               <RideRouteMap 
                 fromLat={trip.fromLat} 
@@ -301,7 +301,7 @@ function BookingTripPage() {
                 toLat={trip.toLat} 
                 toLng={trip.toLng} 
                 polyline={trip.polyline} 
-                isAirportDrop={trip.toLocation.toLowerCase().includes("air") || trip.toLocation.toLowerCase().includes("flight") || trip.toLocation.toLowerCase().includes("terminal")}
+                isAirportDrop={(trip.toLocation || "").toLowerCase().includes("air") || (trip.toLocation || "").toLowerCase().includes("flight") || (trip.toLocation || "").toLowerCase().includes("terminal")}
               />
             </div>
           )}

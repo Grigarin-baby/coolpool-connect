@@ -50,7 +50,7 @@ export function SeatMap({
   const [imageLoaded, setImageLoaded] = useState(false);
   const isLargeVehicle = slots.length >= 6;
   const vType = isLargeVehicle ? "SUV" : "SEDAN";
-  const mappedSlots = seatConfig ? slots.filter(s => s.kind === "driver" || seatConfig.includes(s.seatCode)) : slots;
+  const mappedSlots = slots;
 
   return (
     <div className="space-y-6">
@@ -79,7 +79,10 @@ export function SeatMap({
 
           const pos = COORDINATES[seatId] || { top: "50%", left: "50%" };
           const isDriver = slot.kind === "driver";
-          const taken = occupiedCodes.has(slot.seatCode);
+          const isBooked = occupiedCodes.has(slot.seatCode);
+          const isOffered = !seatConfig || seatConfig.length === 0 || seatConfig.includes(slot.seatCode);
+          const isUnavailable = !isDriver && !isOffered;
+          const taken = isBooked || isUnavailable;
           const selected = selectedCodes.has(slot.seatCode);
           const canTrySelect =
             !isDriver &&
@@ -107,9 +110,12 @@ export function SeatMap({
                     "cursor-default border-transparent bg-white/10 scale-90",
                     "after:content-[''] after:absolute after:inset-0 after:rounded-full after:border-2 after:border-white/20 after:animate-pulse"
                   ],
-                  !isDriver && taken && [
+                  !isDriver && isBooked && [
                     "cursor-not-allowed border-red-500/40 bg-red-500/10 scale-90",
                     "after:content-[''] after:absolute after:w-full after:h-[2px] after:bg-red-500/60 after:rotate-45"
+                  ],
+                  !isDriver && isUnavailable && [
+                    "cursor-not-allowed border-slate-400/40 bg-slate-500/40 scale-90"
                   ],
                   !isDriver && !taken && selected && [
                     "border-purple-400 bg-purple-600/80 text-white shadow-glow-purple scale-110",
@@ -126,8 +132,10 @@ export function SeatMap({
               >
                 {isDriver ? (
                   <span className="text-[10px] font-black uppercase text-white/40 tracking-tighter">Host</span>
-                ) : taken ? (
-                  null
+                ) : isBooked ? (
+                  <span className="text-sm font-bold text-white/50 drop-shadow-md">{slot.displayLabel}</span>
+                ) : isUnavailable ? (
+                  <span className="text-sm font-bold text-slate-200 drop-shadow-md">{slot.displayLabel}</span>
                 ) : selected ? (
                   <Check size={24} strokeWidth={4} className="animate-in zoom-in duration-300" />
                 ) : (
@@ -152,6 +160,10 @@ export function SeatMap({
         <div className="flex items-center gap-2">
           <div className="w-3 h-3 rounded-full bg-red-500/20 border border-red-500/40" />
           Booked
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="w-3 h-3 rounded-full bg-slate-500/40 border border-slate-400/40" />
+          Unavailable
         </div>
       </div>
     </div>

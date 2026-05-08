@@ -73,18 +73,72 @@ export function RideRouteMap({ fromLat, fromLng, toLat, toLng, polyline, isAirpo
 
     const map = googleMapRef.current;
 
-    // Decode polyline
-    const path = google.maps.geometry.encoding.decodePath(polyline);
+    let routePolyline: any = null;
+    let directionsRenderer: any = null;
 
-    // Draw route
-    const routePolyline = new google.maps.Polyline({
-      path: path,
-      geodesic: true,
-      strokeColor: "#6C5CE7", // Primary brand color
-      strokeOpacity: 0.8,
-      strokeWeight: 5,
-    });
-    routePolyline.setMap(map);
+    let path: any[] = [];
+    if (polyline) {
+      try {
+        path = google.maps.geometry.encoding.decodePath(polyline);
+      } catch (e) {
+        console.error("Failed to decode polyline", e);
+      }
+    }
+
+    if (path.length > 2) {
+      // Draw accurate route from saved polyline
+      routePolyline = new google.maps.Polyline({
+        path: path,
+        geodesic: true,
+        strokeColor: "#6C5CE7",
+        strokeOpacity: 0.8,
+        strokeWeight: 5,
+      });
+      routePolyline.setMap(map);
+
+      const bounds = new google.maps.LatLngBounds();
+      path.forEach((latLng: any) => bounds.extend(latLng));
+      map.fitBounds(bounds, 40); // 40px padding for better view
+    } else {
+      // Fallback: Use Directions API if polyline is just a straight line or missing
+      const directionsService = new google.maps.DirectionsService();
+      directionsRenderer = new google.maps.DirectionsRenderer({
+        map: map,
+        suppressMarkers: true,
+        polylineOptions: {
+          strokeColor: "#6C5CE7",
+          strokeOpacity: 0.8,
+          strokeWeight: 5,
+        }
+      });
+
+      directionsService.route(
+        {
+          origin: { lat: fromLat, lng: fromLng },
+          destination: { lat: toLat, lng: toLng },
+          travelMode: google.maps.TravelMode.DRIVING,
+        },
+        (result: any, status: any) => {
+          if (status === google.maps.DirectionsStatus.OK) {
+            directionsRenderer.setDirections(result);
+          } else {
+            // Ultimate fallback to straight line
+            routePolyline = new google.maps.Polyline({
+              path: [{ lat: fromLat, lng: fromLng }, { lat: toLat, lng: toLng }],
+              geodesic: true,
+              strokeColor: "#6C5CE7",
+              strokeOpacity: 0.8,
+              strokeWeight: 5,
+            });
+            routePolyline.setMap(map);
+            const bounds = new google.maps.LatLngBounds();
+            bounds.extend({ lat: fromLat, lng: fromLng });
+            bounds.extend({ lat: toLat, lng: toLng });
+            map.fitBounds(bounds, 40);
+          }
+        }
+      );
+    }
 
     // Custom Icons
     const dotIcon = {
@@ -96,10 +150,10 @@ export function RideRouteMap({ fromLat, fromLng, toLat, toLng, polyline, isAirpo
       strokeColor: "#FFFFFF",
     };
 
-    const airportIcon = "https://maps.google.com/mapfiles/ms/icons/blue-dot.png"; // Or a custom SVG
+    const airportIcon = "https://maps.google.com/mapfiles/ms/icons/blue-dot.png";
 
     // Pickup Marker
-    new google.maps.Marker({
+    const pickupMarker = new google.maps.Marker({
       position: { lat: fromLat, lng: fromLng },
       map: map,
       icon: dotIcon,
@@ -107,20 +161,18 @@ export function RideRouteMap({ fromLat, fromLng, toLat, toLng, polyline, isAirpo
     });
 
     // Drop Marker
-    new google.maps.Marker({
+    const dropMarker = new google.maps.Marker({
       position: { lat: toLat, lng: toLng },
       map: map,
       icon: isAirportDrop ? airportIcon : dotIcon,
       title: "Drop-off",
     });
 
-    // Fit bounds to polyline
-    const bounds = new google.maps.LatLngBounds();
-    path.forEach((latLng: any) => bounds.extend(latLng));
-    map.fitBounds(bounds);
-
     return () => {
-      routePolyline.setMap(null);
+      if (routePolyline) routePolyline.setMap(null);
+      if (directionsRenderer) directionsRenderer.setMap(null);
+      if (pickupMarker) pickupMarker.setMap(null);
+      if (dropMarker) dropMarker.setMap(null);
     };
   }, [mapsReady, fromLat, fromLng, toLat, toLng, polyline, isAirportDrop]);
 

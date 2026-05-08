@@ -6,7 +6,7 @@ export function SiteFooter() {
   return (
     <footer className="mt-16 sm:mt-20 md:mt-24 border-t border-border/60">
       <div className="container mx-auto px-4 sm:px-5 py-10 sm:py-12 max-w-7xl">
-        <div className="grid gap-10 md:grid-cols-4">
+        <div className="grid gap-10 md:grid-cols-5">
           <div className="md:col-span-2">
             <Link to="/" className="flex items-center">
               <img src={logo} alt="Coolpool Logo" className="h-16 w-auto object-contain" />
@@ -33,9 +33,17 @@ export function SiteFooter() {
           <div>
             <h4 className="font-bold text-sm mb-3">Company</h4>
             <ul className="space-y-2 text-sm text-muted-foreground">
-              <li><Link to="/" className="hover:text-foreground transition-base">About</Link></li>
-              <li><Link to="/" className="hover:text-foreground transition-base">Help</Link></li>
-              <li><Link to="/" className="hover:text-foreground transition-base">Contact</Link></li>
+              <li><Link to="/about" className="hover:text-foreground transition-base">About</Link></li>
+              <li><Link to="/contact" className="hover:text-foreground transition-base">Contact</Link></li>
+            </ul>
+          </div>
+          <div>
+            <h4 className="font-bold text-sm mb-3">Legal</h4>
+            <ul className="space-y-2 text-sm text-muted-foreground">
+              <li><Link to="/terms" className="hover:text-foreground transition-base">Terms & Conditions</Link></li>
+              <li><Link to="/privacy-policy" className="hover:text-foreground transition-base">Privacy Policy</Link></li>
+              <li><Link to="/refund-policy" className="hover:text-foreground transition-base">Refund Policy</Link></li>
+              <li><Link to="/pricing" className="hover:text-foreground transition-base">Pricing & Payments</Link></li>
             </ul>
           </div>
         </div>
