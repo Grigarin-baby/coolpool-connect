@@ -14,7 +14,7 @@ import type {
   TripStatus,
   TripStop,
 } from "@/lib/domain";
-import { SERVICE_CITY } from "@/lib/config";
+
 
 type Doc = Models.Document;
 
@@ -221,12 +221,7 @@ export async function listHostTrips(hostId: string): Promise<Trip[]> {
 export async function createTrip(input: CreateTripInput): Promise<Trip> {
   const c = ids();
 
-  const fromValid = input.fromLocation.toLowerCase().includes(SERVICE_CITY.toLowerCase()) || input.fromLocation.toLowerCase().includes("bangalore");
-  const toValid = input.toLocation.toLowerCase().includes(SERVICE_CITY.toLowerCase()) || input.toLocation.toLowerCase().includes("bangalore");
-
-  if (!fromValid || !toValid) {
-    throw new Error(`Trips can only be created within ${SERVICE_CITY}.`);
-  }
+  
 
   const doc = await databases.createDocument(
     appwriteConfig.databaseId,
@@ -265,12 +260,7 @@ export async function updateTrip(tripId: string, input: Partial<CreateTripInput>
   const c = ids();
 
   if (input.fromLocation || input.toLocation) {
-    const fromValid = input.fromLocation ? (input.fromLocation.toLowerCase().includes(SERVICE_CITY.toLowerCase()) || input.fromLocation.toLowerCase().includes("bangalore")) : true;
-    const toValid = input.toLocation ? (input.toLocation.toLowerCase().includes(SERVICE_CITY.toLowerCase()) || input.toLocation.toLowerCase().includes("bangalore")) : true;
-
-    if (!fromValid || !toValid) {
-      throw new Error(`Trips can only be updated to locations within ${SERVICE_CITY}.`);
-    }
+    
   }
 
   const doc = await databases.updateDocument(
