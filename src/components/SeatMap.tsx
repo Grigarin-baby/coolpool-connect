@@ -3,7 +3,7 @@ import type { SeatSlot } from "@/lib/seatLayout";
 import { cn } from "@/lib/utils";
 import { Check } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import sedanInterior from "@/assets/sedan-interior.jpg";
+import sedanInterior from "@/assets/sedan-interior.png";
 import suvInterior from "@/assets/suv-interior.jpg";
 
 interface SeatMapProps {
@@ -17,16 +17,16 @@ interface SeatMapProps {
 }
 
 /** 
- * Map coordinates for both car types. 
- * Key format: [VehicleType]-[SeatCode]
+ * Map coordinates for the new high-quality 5-seater interior.
+ * Facing Right orientation.
  */
 const COORDINATES: Record<string, { top: string; left: string }> = {
-  // SEDAN (4-5 Seats)
-  "SEDAN-R0-C0": { top: "49.5%", left: "31%" },   // Front L
-  "SEDAN-R0-C1": { top: "49.5%", left: "69%" },   // Front R (Drv)
-  "SEDAN-R1-C0": { top: "83.5%", left: "26%" },   // Back L
-  "SEDAN-R1-C1": { top: "83.5%", left: "50%" },   // Back C
-  "SEDAN-R1-C2": { top: "83.5%", left: "74%" },   // Back R
+  // SEDAN (5 Seats)
+  "SEDAN-R0-C0": { top: "68%", left: "68%" },   // Front L (Pass)
+  "SEDAN-R0-C1": { top: "32%", left: "68%" },   // Front R (Drv)
+  "SEDAN-R1-C0": { top: "74%", left: "22%" },   // Back L
+  "SEDAN-R1-C1": { top: "50%", left: "22%" },   // Back C
+  "SEDAN-R1-C2": { top: "26%", left: "22%" },   // Back R
   
   // SUV (6-7 Seats)
   "SUV-R0-C0": { top: "45.2%", left: "34%" },
@@ -75,12 +75,7 @@ export function SeatMap({
 
         {/* Interactive Overlays */}
         {imageLoaded && mappedSlots.map((slot) => {
-          let seatId = `${vType}-${slot.seatCode}`;
-          
-          // Special case: 4-seater Sedan. R1-C1 should be the Right-Back seat (not center).
-          if (vType === "SEDAN" && slots.length === 4 && slot.seatCode === "R1-C1") {
-            seatId = "SEDAN-R1-C2";
-          }
+          const seatId = `${vType}-${slot.seatCode}`;
 
           const pos = COORDINATES[seatId] || { top: "50%", left: "50%" };
           const isDriver = slot.kind === "driver";
