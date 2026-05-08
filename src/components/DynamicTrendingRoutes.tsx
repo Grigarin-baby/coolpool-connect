@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { TrendingUp, Navigation, CarFront } from "lucide-react";
+import { TrendingUp, Navigation, CarFront, Star, ShieldCheck, ChevronRight, Clock, MapPin } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import dayjs from "dayjs";
 import { appwriteConfig } from "@/integrations/appwrite/client";
 import { listTrips } from "@/data/appwrite-repository";
 import { formatCurrency } from "@/lib/pricing";
@@ -97,9 +98,11 @@ export function DynamicTrendingRoutes() {
         }
 
         // Fetch trips
+        const now = Date.now();
         const allTrips = await listTrips(100);
         const filtered = allTrips
-          .filter((t) => routeCitySegmentsMatch(t.fromLocation, SERVICE_CITY))
+          .filter((t) => new Date(t.departureAt).getTime() > now)
+          .filter((t) => routeCitySegmentsMatch(t.fromLocation, SERVICE_CITY) || routeCitySegmentsMatch(t.toLocation, SERVICE_CITY))
           .sort((a, b) => new Date(a.departureAt).getTime() - new Date(b.departureAt).getTime())
           .slice(0, 4);
 
@@ -123,8 +126,10 @@ export function DynamicTrendingRoutes() {
           }));
         }
 
+        const now = Date.now();
         const allTrips = await listTrips(100);
         const filtered = allTrips
+          .filter((t) => new Date(t.departureAt).getTime() > now)
           .sort((a, b) => new Date(a.departureAt).getTime() - new Date(b.departureAt).getTime())
           .slice(0, 4);
 
@@ -231,26 +236,85 @@ export function DynamicTrendingRoutes() {
         {trips.length > 0 ? (
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
             {trips.map((trip) => {
-              // Pick a random scenic fallback image
-              const imgId = trip.id.charCodeAt(0) % 5;
-              const images = [
-                "https://images.unsplash.com/photo-1449965408869-eaa3f722e40d?auto=format&fit=crop&q=80&w=600",
-                "https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?auto=format&fit=crop&q=80&w=600",
-                "https://images.unsplash.com/photo-1465447142348-e9952c393450?auto=format&fit=crop&q=80&w=600",
-                "https://images.unsplash.com/photo-1506012787146-f92b2d7d6d96?auto=format&fit=crop&q=80&w=600",
-                "https://images.unsplash.com/photo-1471624632486-5386221c97a5?auto=format&fit=crop&q=80&w=600"
-              ];
+              const fromShort = trip.fromLocation.split(',')[0].trim();
+              const toShort = trip.toLocation.split(',')[0].trim();
+              const hostInitials = trip.hostId ? trip.hostId.substring(0, 2).toUpperCase() : "VH";
+              const pricePerSeat = trip.totalSeats > 0 ? trip.totalPrice / trip.totalSeats : trip.totalPrice;
 
               return (
                 <Link to="/booking/$tripId" params={{ tripId: trip.id }} key={trip.id} className="block group">
-                  <Card className="relative overflow-hidden rounded-3xl border-0 shadow-card cursor-pointer hover:shadow-glow transition-all duration-300">
-                    <div className="absolute inset-0 bg-black/40 group-hover:bg-black/20 transition-colors z-10" />
-                    <img src={images[imgId]} alt={trip.toLocation} className="w-full h-48 object-cover group-hover:scale-110 transition-transform duration-700 ease-out" />
-                    <div className="absolute inset-0 z-20 p-5 flex flex-col justify-end">
-                      <p className="text-white/80 text-xs font-bold uppercase tracking-widest truncate">{trip.fromLocation} to</p>
-                      <h3 className="text-white text-2xl font-bold truncate" title={trip.toLocation}>{trip.toLocation.split(',')[0]}</h3>
-                      <div className="mt-3 inline-flex self-start px-3 py-1 bg-white/20 backdrop-blur-md border border-white/30 text-white font-bold text-sm">
-                        {formatCurrency(trip.totalPrice)}
+                  <Card className="bg-white rounded-3xl border border-gray-100 shadow-soft hover:shadow-elevated hover:border-primary/20 hover:-translate-y-1 transition-all duration-300 overflow-hidden flex flex-col h-full">
+                    {/* Top: Driver Info */}
+                    <div className="p-5 pb-4 flex items-start justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-full bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center text-primary font-bold shadow-sm border border-primary/10 shrink-0">
+                          {hostInitials}
+                        </div>
+                        <div>
+                          <p className="font-bold text-sm text-gray-900 leading-none mb-1.5">Verified Host</p>
+                          <div className="flex items-center gap-1 text-[11px] text-gray-500 font-medium">
+                            <Star size={10} className="fill-amber-400 text-amber-400" />
+                            <span>4.8 · 120 trips</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="bg-green-50 text-green-600 border border-green-100 px-2 py-1 rounded-full flex items-center gap-1">
+                        <ShieldCheck size={12} className="shrink-0" />
+                        <span className="text-[9px] font-bold uppercase tracking-wider">Verified</span>
+                      </div>
+                    </div>
+
+                    {/* Middle: Route & Time */}
+                    <div className="px-5 py-2 flex-1">
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-1.5 text-primary">
+                          <Clock size={14} />
+                          <span className="font-bold text-lg">{dayjs(trip.departureAt).format("hh:mm A")}</span>
+                        </div>
+                        <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">{dayjs(trip.departureAt).format("MMM DD")}</span>
+                      </div>
+                      
+                      <div className="flex items-center gap-3 relative">
+                        <div className="flex flex-col items-center gap-1 shrink-0">
+                          <div className="h-2.5 w-2.5 rounded-full border-2 border-primary" />
+                          <div className="w-0.5 h-6 bg-gray-200" />
+                          <div className="h-2.5 w-2.5 rounded-full border-2 border-gray-400" />
+                        </div>
+                        <div className="flex flex-col gap-3 min-w-0 flex-1">
+                          <div className="min-w-0">
+                            <p className="font-bold text-sm text-gray-900 truncate" title={trip.fromLocation}>{fromShort}</p>
+                          </div>
+                          <div className="min-w-0">
+                            <p className="font-bold text-sm text-gray-500 truncate" title={trip.toLocation}>{toShort}</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Bottom: Booking Details */}
+                    <div className="mt-auto border-t border-gray-100 p-5 bg-gray-50/50">
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-1.5 text-xs font-medium text-gray-500 bg-white px-2 py-1 rounded-full border border-gray-100 shadow-sm">
+                          <CarFront size={12} className="text-gray-400" />
+                          <span>Standard Sedan</span>
+                        </div>
+                        <div className="bg-primary/10 text-primary px-2 py-1 rounded-full">
+                          <span className="text-[10px] font-bold uppercase tracking-wider">{trip.totalSeats} seats left</span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-end justify-between">
+                        <div>
+                          <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-0.5">Price</p>
+                          <div className="flex items-baseline gap-1">
+                            <span className="text-2xl font-black text-gray-900 leading-none">{formatCurrency(pricePerSeat)}</span>
+                            <span className="text-xs text-gray-500 font-medium">/seat</span>
+                          </div>
+                        </div>
+                        <div className="h-10 px-5 bg-gray-900 group-hover:bg-primary text-white rounded-full flex items-center justify-center font-bold text-sm transition-colors shadow-sm gap-1.5">
+                          Book
+                          <ChevronRight size={16} />
+                        </div>
                       </div>
                     </div>
                   </Card>
