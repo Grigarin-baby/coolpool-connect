@@ -3,7 +3,7 @@ import type { SeatSlot } from "@/lib/seatLayout";
 import { cn } from "@/lib/utils";
 import { Check } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import sedanInterior from "@/assets/sedan-interior-v2.png";
+import sedanInterior from "@/assets/sedan-interior-v3.png";
 import suvInterior from "@/assets/suv-interior.jpg";
 
 interface SeatMapProps {
@@ -17,15 +17,15 @@ interface SeatMapProps {
 }
 
 /** 
- * Map coordinates for the new high-quality 5-seater RHD interior.
- * Facing UP orientation (India/RHD).
+ * Map coordinates for the final high-quality 5-seater RHD interior.
+ * Facing UP orientation, no rear armrest.
  */
 const COORDINATES: Record<string, { top: string; left: string }> = {
   // SEDAN (5 Seats) - Facing UP
   "SEDAN-R0-C0": { top: "42%", left: "32%" },   // Front L (Pass)
   "SEDAN-R0-C1": { top: "42%", left: "68%" },   // Front R (Drv)
   "SEDAN-R1-C0": { top: "80%", left: "27%" },   // Back L
-  "SEDAN-R1-C1": { top: "85%", left: "50%" },   // Back C
+  "SEDAN-R1-C1": { top: "80%", left: "50%" },   // Back C
   "SEDAN-R1-C2": { top: "80%", left: "73%" },   // Back R
   
   // SUV (6-7 Seats)
