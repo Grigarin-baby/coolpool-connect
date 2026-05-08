@@ -297,6 +297,7 @@ async function run() {
   await ensureStringAttribute(COLLECTIONS.vehicles, "color", 40, false);
   await ensureStringAttribute(COLLECTIONS.vehicles, "registration_doc", 2000, false);
   await ensureStringAttribute(COLLECTIONS.vehicles, "insurance_doc", 2000, false);
+  await ensureStringAttribute(COLLECTIONS.vehicles, "car_images", 255, false, undefined, true);
 
   // indexes for app queries
   await ensureIndex(COLLECTIONS.trips, "idx_trips_host_id", "key", ["host_id"]);

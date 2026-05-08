@@ -58,7 +58,7 @@ export function DynamicTrendingRoutes() {
           }
         }
 
-        let finalDetectedLocation = SERVICE_CITY;
+        let finalDetectedLocation = "";
         let nearestAirport = BENGALURU_AIRPORTS[0].name;
 
         // 2. Extract Neighborhood if they are in the city
@@ -92,7 +92,7 @@ export function DynamicTrendingRoutes() {
         if (mounted) {
           setCity(finalDetectedLocation);
           window.dispatchEvent(new CustomEvent("coolpool:cityDetected", { 
-            detail: { from: finalDetectedLocation, to: `${nearestAirport}, ${SERVICE_CITY}` } 
+            detail: { from: finalDetectedLocation, to: "Kempegowda International Airport" } 
           }));
         }
 
@@ -112,19 +112,19 @@ export function DynamicTrendingRoutes() {
       }
     };
 
+    
     const fetchFallbackCityAndTrips = async () => {
       setStatus("fetching");
       try {
         if (mounted) {
-          setCity(SERVICE_CITY);
+          setCity("");
           window.dispatchEvent(new CustomEvent("coolpool:cityDetected", { 
-            detail: { from: SERVICE_CITY, to: `${BENGALURU_AIRPORTS[0].name}, ${SERVICE_CITY}` } 
+            detail: { from: "", to: `${BENGALURU_AIRPORTS[0].name}` } 
           }));
         }
 
         const allTrips = await listTrips(100);
         const filtered = allTrips
-          .filter((t) => routeCitySegmentsMatch(t.fromLocation, SERVICE_CITY))
           .sort((a, b) => new Date(a.departureAt).getTime() - new Date(b.departureAt).getTime())
           .slice(0, 4);
 

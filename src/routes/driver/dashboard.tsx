@@ -162,6 +162,9 @@ interface GeocoderLike {
   ) => void;
 }
 
+
+const SOUTH_INDIA_STATES = ["karnataka", "kerala", "tamil nadu", "andhra pradesh", "telangana", "goa", "puducherry"];
+
 export const Route = createFileRoute("/driver/dashboard")({
   head: () => ({
     meta: [
@@ -447,13 +450,7 @@ function DriverDashboardPage() {
     const normalizedFrom = values.fromLocation.trim();
     const normalizedTo = values.toLocation.trim();
 
-    const fromValid = normalizedFrom.toLowerCase().includes(SERVICE_CITY.toLowerCase()) || normalizedFrom.toLowerCase().includes("bangalore");
-    const toValid = normalizedTo.toLowerCase().includes(SERVICE_CITY.toLowerCase()) || normalizedTo.toLowerCase().includes("bangalore");
-
-    if (!fromValid || !toValid) {
-      message.error(`Trips can only be created within ${SERVICE_CITY}.`);
-      return;
-    }
+    
 
     const resolvedFrom =
       selectedFrom && selectedFrom.value === normalizedFrom
@@ -478,7 +475,7 @@ function DriverDashboardPage() {
       
       console.log("[Publish] Geocoding fallback for:", loc.label);
       return new Promise<{ label: string; lat: number; lng: number }>((resolve) => {
-        geocoderRef.current!.geocode({ address: loc.label }, (results, status) => {
+        geocoderRef.current!.geocode({ address: loc.label } as any, (results, status) => {
           if (status === "OK" && results?.[0]?.geometry?.location) {
             const pos = results[0].geometry.location;
             resolve({ ...loc, lat: pos.lat(), lng: pos.lng() });
@@ -585,11 +582,9 @@ function DriverDashboardPage() {
     const service = autocompleteServiceRef.current;
     if (!service) return;
 
-    const searchQuery = query.toLowerCase().includes(SERVICE_CITY.toLowerCase()) || query.toLowerCase().includes("bangalore") 
-      ? query 
-      : `${query}, ${SERVICE_CITY}`;
+    const searchQuery = query;
 
-    service.getPlacePredictions({ input: searchQuery, types: ["geocode"], componentRestrictions: { country: "in" } }, (predictions, status) => {
+    service.getPlacePredictions({ input: searchQuery, types: ["geocode"], componentRestrictions: { country: "in" } } as any as any, (predictions, status) => {
       const lowerQuery = query.toLowerCase();
       const isAirportQuery = lowerQuery.includes("air") || lowerQuery.includes("flight") || lowerQuery.includes("terminal") || lowerQuery.includes("blr") || lowerQuery.includes("kempegowda") || lowerQuery.includes("hal") || lowerQuery.includes("jakkur");
 
@@ -608,12 +603,19 @@ function DriverDashboardPage() {
       }
 
       const safePredictions = predictions || [];
-      const filteredPredictions = safePredictions.filter(p => 
-        p.description.toLowerCase().includes(SERVICE_CITY.toLowerCase()) || 
-        p.description.toLowerCase().includes("bangalore")
-      );
+      
+      let filteredPredictions = safePredictions.filter(p => {
+        const desc = p.description.toLowerCase();
+        return SOUTH_INDIA_STATES.some(state => desc.includes(state)) || isAirportQuery;
+      });
 
-      let options: any[] = filteredPredictions.map((prediction) => ({
+      if (filteredPredictions.length === 0 && safePredictions.length > 0 && !isAirportQuery) {
+        const options = [{ value: "", label: "🚫 Out of Service Area (South India & Goa only)", disabled: true }];
+        if (target === "from") setFromOptions(options as any);
+        else if (target === "to") setToOptions(options as any);
+        return;
+      }
+let options: any[] = filteredPredictions.map((prediction) => ({
         value: prediction.description,
         label: prediction.description,
         placeId: prediction.place_id,
@@ -642,8 +644,8 @@ function DriverDashboardPage() {
         });
       }
 
-      if (target === "from") setFromOptions(options);
-      else if (target === "to") setToOptions(options);
+      if (target === "from") setFromOptions(options as any);
+      else if (target === "to") setToOptions(options as any);
     });
   };
 

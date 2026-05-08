@@ -23,6 +23,7 @@ import { account } from "@/integrations/appwrite/client";
 import { formatCurrency } from "@/lib/pricing";
 import { buildSeatLayout } from "@/lib/seatLayout";
 import { toast } from "sonner";
+import { RideRouteMap } from "@/components/RideRouteMap";
 
 export const Route = createFileRoute("/booking/$tripId")({
   head: () => ({
@@ -290,6 +291,19 @@ function BookingTripPage() {
             <p className="mt-3 text-xs text-amber-700 dark:text-amber-400">
               Vehicle profile not found — layout uses trip seat count + ride host seat as an estimate.
             </p>
+          )}
+
+          {trip.polyline && trip.fromLat && trip.toLat && (
+            <div className="mt-6">
+              <RideRouteMap 
+                fromLat={trip.fromLat} 
+                fromLng={trip.fromLng} 
+                toLat={trip.toLat} 
+                toLng={trip.toLng} 
+                polyline={trip.polyline} 
+                isAirportDrop={trip.toLocation.toLowerCase().includes("air") || trip.toLocation.toLowerCase().includes("flight") || trip.toLocation.toLowerCase().includes("terminal")}
+              />
+            </div>
           )}
         </Card>
 

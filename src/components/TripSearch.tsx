@@ -100,6 +100,9 @@ function matchesLocation(tripLocation: string, searchLocation: string) {
   return routeCitySegmentsMatch(primarySegment(tripLocation), primarySegment(searchLocation));
 }
 
+
+const SOUTH_INDIA_STATES = ["karnataka", "kerala", "tamil nadu", "andhra pradesh", "telangana", "goa", "puducherry"];
+
 export function TripSearchProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<TripRow[]>([]);
@@ -166,11 +169,9 @@ export function TripSearchProvider({ children }: { children: ReactNode }) {
     const service = autocompleteServiceRef.current;
     if (!service) return;
 
-    const searchQuery = query.toLowerCase().includes(SERVICE_CITY.toLowerCase()) || query.toLowerCase().includes("bangalore") 
-      ? query 
-      : `${query}, ${SERVICE_CITY}`;
+    const searchQuery = query;
 
-    service.getPlacePredictions({ input: searchQuery, types: ["geocode"], componentRestrictions: { country: "in" } }, (predictions, status) => {
+    service.getPlacePredictions({ input: searchQuery, types: ["geocode"], componentRestrictions: { country: "in" } } as any as any, (predictions, status) => {
       const lowerQuery = query.toLowerCase();
       const isAirportQuery = lowerQuery.includes("air") || lowerQuery.includes("flight") || lowerQuery.includes("terminal") || lowerQuery.includes("blr") || lowerQuery.includes("kempegowda") || lowerQuery.includes("hal") || lowerQuery.includes("jakkur");
 
@@ -181,12 +182,19 @@ export function TripSearchProvider({ children }: { children: ReactNode }) {
       }
 
       const safePredictions = predictions || [];
-      const filteredPredictions = safePredictions.filter(p => 
-        p.description.toLowerCase().includes(SERVICE_CITY.toLowerCase()) || 
-        p.description.toLowerCase().includes("bangalore")
-      );
+      
+      let filteredPredictions = safePredictions.filter(p => {
+        const desc = p.description.toLowerCase();
+        return SOUTH_INDIA_STATES.some(state => desc.includes(state)) || isAirportQuery;
+      });
 
-      let options: any[] = filteredPredictions.map((p) => ({ value: p.description, label: p.description }));
+      if (filteredPredictions.length === 0 && safePredictions.length > 0 && !isAirportQuery) {
+        const outOfBoundsOptions = [{ value: "", label: "🚫 Out of Service Area (South India & Goa only)", disabled: true }] as any[];
+        if (target === "from") setFromOptions(outOfBoundsOptions);
+        else setToOptions(outOfBoundsOptions);
+        return;
+      }
+let options: any[] = filteredPredictions.map((p) => ({ value: p.description, label: p.description }));
       
       if (isAirportQuery) {
         const airportOptions = BENGALURU_AIRPORTS.map(a => ({
@@ -217,13 +225,7 @@ export function TripSearchProvider({ children }: { children: ReactNode }) {
     const toNeedle = values.to.trim();
     const searchDate = values.date;
 
-    const fromValid = fromNeedle.toLowerCase().includes(SERVICE_CITY.toLowerCase()) || fromNeedle.toLowerCase().includes("bangalore");
-    const toValid = toNeedle.toLowerCase().includes(SERVICE_CITY.toLowerCase()) || toNeedle.toLowerCase().includes("bangalore");
-
-    if (!fromValid || !toValid) {
-      message.error(`We are currently operating exclusively in ${SERVICE_CITY}.`);
-      return;
-    }
+    
 
     setLoading(true);
     try {
@@ -245,6 +247,38 @@ export function TripSearchProvider({ children }: { children: ReactNode }) {
         .sort((a, b) => new Date(a.departureAt).getTime() - new Date(b.departureAt).getTime());
 
       setResults(filtered);
+      
+      // Validate South India via Geocoder
+      if ((window as any).google && (window as any).google.maps) {
+        const geocoder = new (window as any).google.maps.Geocoder();
+        const validateLocation = async (address: string) => {
+          return new Promise<boolean>((resolve) => {
+            geocoder.geocode({ address }, (results: any, status: any) => {
+              if (status === "OK" && results && results[0]) {
+                let state = "";
+                for (const component of results[0].address_components) {
+                  if (component.types.includes("administrative_area_level_1")) {
+                    state = component.long_name.toLowerCase();
+                  }
+                }
+                resolve(SOUTH_INDIA_STATES.some(s => state.includes(s)));
+              } else {
+                resolve(true); // Default pass if geocoding fails
+              }
+            });
+          });
+        };
+
+        const isFromValid = await validateLocation(values.from);
+        const isToValid = await validateLocation(values.to);
+
+        if (!isFromValid || !isToValid) {
+          import("sonner").then(m => m.toast.error("We currently only operate in South India and Goa."));
+          setLoading(false);
+          return;
+        }
+      }
+
       setSearched(true);
     } catch (error) {
       message.error(error instanceof Error ? error.message : "Unable to search trips.");
@@ -286,6 +320,42 @@ export function TripSearchForm({
   const [form] = Form.useForm();
 
   useEffect(() => {
+    form.setFieldsValue({ to: "Kempegowda International Airport" });
+
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition((position) => {
+        const { latitude, longitude } = position.coords;
+        if ((window as any).google && (window as any).google.maps) {
+          const geocoder = new (window as any).google.maps.Geocoder();
+          geocoder.geocode({ location: { lat: latitude, lng: longitude } }, (results: any, status: any) => {
+            if (status === "OK" && results[0]) {
+              let city = "";
+              let state = "";
+              for (const component of results[0].address_components) {
+                if (component.types.includes("administrative_area_level_1")) state = component.long_name.toLowerCase();
+                if (component.types.includes("locality") || component.types.includes("administrative_area_level_2") || component.types.includes("sublocality")) {
+                  if (!city) city = component.long_name;
+                }
+              }
+              const southIndiaStates = ["karnataka", "kerala", "tamil nadu", "andhra pradesh", "telangana", "goa"];
+              const isSouthIndia = southIndiaStates.some(s => state.includes(s));
+              
+              if (!isSouthIndia) {
+                 import("sonner").then(m => m.toast.error("You are currently out of our service area (South India & Goa)."));
+                 return;
+              }
+              
+              if (city && !form.getFieldValue("from")) {
+                form.setFieldsValue({ from: city });
+              }
+            }
+          });
+        }
+      });
+    }
+  }, [form]);
+
+  useEffect(() => {
     const handleCityDetected = (e: Event) => {
       const customEvent = e as CustomEvent<{from: string; to: string} | string>;
       const detail = customEvent.detail;
@@ -315,7 +385,7 @@ export function TripSearchForm({
       {variant === "landing" && (
         <div className="mb-4 sm:mb-6 space-y-2.5 text-center sm:text-left">
           <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-balance font-heading">
-            Book your next ride in {SERVICE_CITY}
+            Book your next ride to the Airport
           </h2>
         </div>
       )}
