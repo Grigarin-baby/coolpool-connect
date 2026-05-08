@@ -186,14 +186,7 @@ export function DynamicTrendingRoutes() {
     });
   };
 
-  const defaultRoutes = [
-    { from: "Bengaluru", to: "Mysuru", price: "₹250", img: "https://images.unsplash.com/photo-1596422846543-75c6fc197f07?auto=format&fit=crop&q=80&w=600" },
-    { from: "Delhi", to: "Chandigarh", price: "₹450", img: "https://images.unsplash.com/photo-1587474260584-136574528ed5?auto=format&fit=crop&q=80&w=600" },
-    { from: "Mumbai", to: "Pune", price: "₹300", img: "https://images.unsplash.com/photo-1570168007204-dfb528c6958f?auto=format&fit=crop&q=80&w=600" },
-    { from: "Hyderabad", to: "Vijayawada", price: "₹350", img: "https://images.unsplash.com/photo-1582510003544-4d00b7f74220?auto=format&fit=crop&q=80&w=600" },
-  ];
-
-  if (status === "locating" || status === "fetching") {
+  if (status === "idle" || status === "locating" || status === "fetching") {
     return (
       <section className="container mx-auto px-4 sm:px-5 py-16 sm:py-24 max-w-7xl">
         <div className="flex items-center justify-between mb-10">
@@ -216,13 +209,21 @@ export function DynamicTrendingRoutes() {
       <section className="container mx-auto px-4 sm:px-5 py-16 sm:py-24 max-w-7xl">
         <div className="flex items-center justify-between mb-10">
           <div>
-            <div className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-widest text-primary mb-2">
-              <Navigation className="h-3.5 w-3.5" /> Near you
-            </div>
+            {city && (
+              <div className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-widest text-primary mb-2">
+                <Navigation className="h-3.5 w-3.5" /> Near you
+              </div>
+            )}
             <h2 className="text-3xl font-bold tracking-tight font-heading">
-              Trips from <span className="text-primary">{city}</span>
+              {city ? (
+                <>Trips from <span className="text-primary">{city}</span></>
+              ) : (
+                <>Trending <span className="text-primary">Routes</span></>
+              )}
             </h2>
-            <p className="text-muted-foreground mt-2">Catch a ride leaving from your city.</p>
+            <p className="text-muted-foreground mt-2">
+              {city ? "Catch a ride leaving from your city." : "Popular intercity connections you might love."}
+            </p>
           </div>
           <TrendingUp className="h-8 w-8 text-primary/30 hidden sm:block" />
         </div>
@@ -267,10 +268,10 @@ export function DynamicTrendingRoutes() {
                 <Navigation className="h-8 w-8" />
               </div>
               <h3 className="text-2xl md:text-3xl font-bold font-heading mb-4 text-balance">
-                No rides from {city} yet
+                {city ? `No rides from ${city} yet` : "No rides available yet"}
               </h3>
               <p className="text-muted-foreground text-lg mb-8 leading-relaxed">
-                Be the first to host a ride from {city} to your favorite destination and start earning money on your next trip!
+                {city ? `Be the first to host a ride from ${city} to your favorite destination and start earning money on your next trip!` : "Be the first to host a ride and start earning money on your next trip!"}
               </p>
               <Button asChild size="lg" variant="hero" className="rounded-3xl shadow-glow px-8 h-12 text-base">
                 <Link to="/host">Host a Ride Now</Link>
@@ -282,32 +283,22 @@ export function DynamicTrendingRoutes() {
     );
   }
 
-  // Fallback to default trending routes (on error or denied location)
-  return (
-    <section className="container mx-auto px-4 sm:px-5 py-16 sm:py-24 max-w-7xl">
-      <div className="flex items-center justify-between mb-10">
-        <div>
-          <h2 className="text-3xl font-bold tracking-tight font-heading">Trending <span className="text-primary">Routes</span></h2>
-          <p className="text-muted-foreground mt-2">Popular intercity connections you might love.</p>
-        </div>
-        <TrendingUp className="h-8 w-8 text-primary/30 hidden sm:block" />
-      </div>
-      
-      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-        {defaultRoutes.map((route, i) => (
-          <Card key={i} className="group relative overflow-hidden rounded-3xl border-0 shadow-card cursor-pointer hover:shadow-glow transition-all duration-300">
-            <div className="absolute inset-0 bg-black/40 group-hover:bg-black/20 transition-colors z-10" />
-            <img src={route.img} alt={route.to} className="w-full h-48 object-cover group-hover:scale-110 transition-transform duration-700 ease-out" />
-            <div className="absolute inset-0 z-20 p-5 flex flex-col justify-end">
-              <p className="text-white/80 text-xs font-bold uppercase tracking-widest">{route.from} to</p>
-              <h3 className="text-white text-2xl font-bold">{route.to}</h3>
-              <div className="mt-3 inline-flex self-start px-3 py-1 bg-white/20 backdrop-blur-md border border-white/30 text-white font-bold text-sm">
-                From {route.price}
-              </div>
-            </div>
-          </Card>
-        ))}
-      </div>
-    </section>
-  );
+  if (status === "error") {
+    return (
+      <section className="container mx-auto px-4 sm:px-5 py-16 sm:py-24 max-w-7xl">
+        <Card className="w-full rounded-3xl border-border/60 bg-gradient-soft shadow-soft p-8 md:p-12 text-center relative overflow-hidden">
+          <div className="relative z-10 max-w-xl mx-auto flex flex-col items-center">
+            <h3 className="text-2xl md:text-3xl font-bold font-heading mb-4 text-balance">
+              Unable to load trips
+            </h3>
+            <p className="text-muted-foreground text-lg mb-8 leading-relaxed">
+              We couldn't fetch the latest trips right now. Please try again later.
+            </p>
+          </div>
+        </Card>
+      </section>
+    );
+  }
+
+  return null;
 }

@@ -95,7 +95,7 @@ const { Title, Text } = Typography;
 
 interface CityOption {
   value: string;
-  label: string;
+  label: any;
   lat: number;
   lng: number;
   placeId?: string;
@@ -471,18 +471,18 @@ function DriverDashboardPage() {
 
     console.log("[Publish] Calculating route:", { resolvedFrom, resolvedTo});
 
-    const getCoords = async (loc: { label: string; lat: number; lng: number }) => {
+    const getCoords = async (loc: { label: any; value: string; lat: number; lng: number }) => {
       if (loc.lat !== 0 || loc.lng !== 0) return loc;
       if (!geocoderRef.current) return loc;
       
-      console.log("[Publish] Geocoding fallback for:", loc.label);
-      return new Promise<{ label: string; lat: number; lng: number }>((resolve) => {
-        geocoderRef.current!.geocode({ address: loc.label } as any, (results, status) => {
+      console.log("[Publish] Geocoding fallback for:", loc.value);
+      return new Promise<{ label: any; value: string; lat: number; lng: number }>((resolve) => {
+        geocoderRef.current!.geocode({ address: loc.value } as any, (results, status) => {
           if (status === "OK" && results?.[0]?.geometry?.location) {
             const pos = results[0].geometry.location;
             resolve({ ...loc, lat: pos.lat(), lng: pos.lng() });
           } else {
-            console.warn("[Publish] Geocoding failed for:", loc.label, status);
+            console.warn("[Publish] Geocoding failed for:", loc.value, status);
             resolve(loc);
           }
         });
@@ -520,7 +520,7 @@ function DriverDashboardPage() {
         }
         return {
           stopIndex: i,
-          location: stop.label,
+          location: stop.value,
           lat: stop.lat,
           lng: stop.lng,
           stopType: i === 0 ? "pickup" as const : (i === allStops.length - 1 ? "drop" as const : "both" as const),
@@ -536,10 +536,10 @@ function DriverDashboardPage() {
       const payload = {
         tripData: {
           hostId: user.$id,
-          fromLocation: finalFrom.label,
+          fromLocation: finalFrom.value,
           fromLat: finalFrom.lat,
           fromLng: finalFrom.lng,
-          toLocation: finalTo.label,
+          toLocation: finalTo.value,
           toLat: finalTo.lat,
           toLng: finalTo.lng,
           polyline,
