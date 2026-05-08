@@ -1205,7 +1205,7 @@ let options: any[] = filteredPredictions.map((prediction) => ({
                       form={form}
                       layout="vertical"
                       onFinish={onFinish}
-                      initialValues={{ totalSeats: 3, seatConfig: ["back_l", "back_c", "back_r"] as SeatId[], driverId: user?.$id }}
+                      initialValues={{ totalSeats: 3, seatConfig: ["R1-C0", "R1-C1", "R1-C2"] as SeatId[], driverId: user?.$id }}
                       requiredMark={false}
                     >
                       <div className="space-y-8">

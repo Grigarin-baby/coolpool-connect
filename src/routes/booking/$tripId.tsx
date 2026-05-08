@@ -322,6 +322,7 @@ function BookingTripPage() {
               selectedCodes={selected}
               onTogglePassengerSeat={toggleSeat}
               maxSelectable={remainingTripSeats}
+              seatConfig={trip.seatConfig}
               disabled={bookingMutation.isPending || reservationsQuery.isPending}
             />
 

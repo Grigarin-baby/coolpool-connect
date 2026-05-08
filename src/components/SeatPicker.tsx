@@ -2,7 +2,15 @@ import React from "react";
 import { Users, User, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export type SeatId = "front_p" | "back_l" | "back_c" | "back_r";
+/** 
+ * Seat IDs matching buildSeatLayout(5):
+ * R0-C0: Front Passenger (Left)
+ * R0-C1: Driver (Right)
+ * R1-C0: Back Left
+ * R1-C1: Back Center
+ * R1-C2: Back Right
+ */
+export type SeatId = "R0-C0" | "R1-C0" | "R1-C1" | "R1-C2";
 
 interface SeatPickerProps {
   value?: SeatId[];
@@ -56,17 +64,17 @@ export function SeatPicker({ value = [], onChange, disabled }: SeatPickerProps) 
   return (
     <div className="bg-gray-50/50 p-6 rounded-[2rem] border border-gray-100 max-w-sm mx-auto">
       <div className="flex flex-col gap-6">
-        {/* FRONT ROW */}
+        {/* FRONT ROW - RHD Layout (Driver on Right) */}
         <div className="grid grid-cols-2 gap-4">
+          <Seat id="R0-C0" label="Passenger" />
           <Seat label="Driver" isDriver />
-          <Seat id="front_p" label="Passenger" />
         </div>
 
         {/* REAR ROW */}
         <div className="grid grid-cols-3 gap-3">
-          <Seat id="back_l" label="Left" />
-          <Seat id="back_c" label="Center" />
-          <Seat id="back_r" label="Right" />
+          <Seat id="R1-C0" label="Left" />
+          <Seat id="R1-C1" label="Center" />
+          <Seat id="R1-C2" label="Right" />
         </div>
 
         <div className="mt-4 text-center">

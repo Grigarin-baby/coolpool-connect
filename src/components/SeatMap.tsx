@@ -13,6 +13,7 @@ interface SeatMapProps {
   onTogglePassengerSeat: (seatCode: string) => void;
   maxSelectable: number;
   disabled?: boolean;
+  seatConfig?: string[];
 }
 
 /** 
@@ -44,10 +45,12 @@ export function SeatMap({
   onTogglePassengerSeat,
   maxSelectable,
   disabled = false,
+  seatConfig,
 }: SeatMapProps) {
   const [imageLoaded, setImageLoaded] = useState(false);
   const isLargeVehicle = slots.length >= 6;
   const vType = isLargeVehicle ? "SUV" : "SEDAN";
+  const mappedSlots = seatConfig ? slots.filter(s => s.kind === "driver" || seatConfig.includes(s.seatCode)) : slots;
 
   return (
     <div className="space-y-6">
@@ -71,7 +74,7 @@ export function SeatMap({
         </div>
 
         {/* Interactive Overlays */}
-        {imageLoaded && slots.map((slot) => {
+        {imageLoaded && mappedSlots.map((slot) => {
           let seatId = `${vType}-${slot.seatCode}`;
           
           // Special case: 4-seater Sedan. R1-C1 should be the Right-Back seat (not center).
