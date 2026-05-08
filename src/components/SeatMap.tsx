@@ -3,7 +3,7 @@ import type { SeatSlot } from "@/lib/seatLayout";
 import { cn } from "@/lib/utils";
 import { Check } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import sedanInterior from "@/assets/sedan-interior.png";
+import sedanInterior from "@/assets/sedan-interior-v2.png";
 import suvInterior from "@/assets/suv-interior.jpg";
 
 interface SeatMapProps {
