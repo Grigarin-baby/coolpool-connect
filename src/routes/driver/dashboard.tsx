@@ -245,9 +245,8 @@ function DriverDashboardPage() {
   });
 
   const { mutate: saveVehicle, isPending: savingVehicle } = useMutation({
-    mutationFn: async (vals: { make: string; model: string; color: string; plate: string; seats: number }) => {
+    mutationFn: async (vals: { make: string; model: string; color: string; plate: string }) => {
       if (!user) throw new Error("Not logged in");
-      if (carImagesList.length < 4) throw new Error("Please upload at least 4 images of your car.");
 
       const carImageIds: string[] = [];
       for (const file of carImagesList) {
@@ -265,7 +264,7 @@ function DriverDashboardPage() {
         driverUserId: user.$id,
         modelName: `${vals.make} ${vals.model}`.trim(),
         plateNumber: vals.plate,
-        seatCapacity: vals.seats,
+        seatCapacity: 5,
         color: vals.color,
         carImages: carImageIds
       };
@@ -349,6 +348,8 @@ function DriverDashboardPage() {
       : trips.filter((t) =>
           historyFilter === "completed" ? t.status === "completed" : t.status === "cancelled",
         );
+        
+  const upcomingTrips = trips.filter((t) => dayjs(t.departureAt).isAfter(dayjs()));
   
   const isVerifiedHost = vehicles.length > 0;
 
@@ -993,7 +994,7 @@ let options: any[] = filteredPredictions.map((prediction) => ({
                   <div className="lg:col-span-2 space-y-6">
                     <div className="flex items-center justify-between">
                       <Title level={4} style={{ margin: 0 }} className="font-bold">
-                        Upcoming & Recent Trips
+                        Upcoming Trips
                       </Title>
                       <Button type="link" className="font-medium">View all history</Button>
                     </div>
@@ -1002,7 +1003,7 @@ let options: any[] = filteredPredictions.map((prediction) => ({
                       <div className="py-12 text-center bg-white/40 rounded-2xl border border-white/60 backdrop-blur-md">
                         <Spin size="large" />
                       </div>
-                    ) : trips.length === 0 ? (
+                    ) : upcomingTrips.length === 0 ? (
                       <div className="py-16 text-center bg-white/40 rounded-2xl border border-white/60 backdrop-blur-md shadow-soft flex flex-col items-center justify-center">
                         <div className="w-20 h-20 bg-purple-100 rounded-full flex items-center justify-center mb-4">
                           <RouteIcon size={32} className="text-purple-500" />
@@ -1022,7 +1023,7 @@ let options: any[] = filteredPredictions.map((prediction) => ({
                       </div>
                     ) : (
                       <div className="space-y-4">
-                        {trips.slice(0, 5).map(item => (
+                        {upcomingTrips.slice(0, 5).map(item => (
                           <div key={item.id} className="bg-white/80 rounded-2xl border border-white shadow-soft p-5 hover:shadow-card transition-all duration-300 group">
                             <div className="flex items-center justify-between mb-4">
                               <Tag color="purple" className="rounded-full border-none px-3 py-1 font-semibold text-xs m-0">
@@ -2079,7 +2080,7 @@ let options: any[] = filteredPredictions.map((prediction) => ({
                           driverUserId: user.$id,
                           modelName: `${v.make} ${v.model}`.trim(),
                           plateNumber: v.plate,
-                          seatCapacity: Number(v.seats),
+                          seatCapacity: 5,
                           color: v.color,
                           registrationDoc: regUp?.$id,
                           insuranceDoc: insUp?.$id
@@ -2112,16 +2113,13 @@ let options: any[] = filteredPredictions.map((prediction) => ({
                     <Divider orientation="left" className="mt-8"><Text className="text-xs font-bold uppercase tracking-widest text-purple-600">Vehicle Information</Text></Divider>
                     <div className="grid grid-cols-2 gap-x-6">
                       <Form.Item name="make" label="Make" rules={[{ required: true }]}>
-                        <Input size="large" className="rounded-2xl" placeholder="Honda" />
+                        <Input size="large" className="rounded-2xl" placeholder="Hyundai" />
                       </Form.Item>
                       <Form.Item name="model" label="Model" rules={[{ required: true }]}>
-                        <Input size="large" className="rounded-2xl" placeholder="City" />
+                        <Input size="large" className="rounded-2xl" placeholder="Creta" />
                       </Form.Item>
                       <Form.Item name="plate" label="License Plate" rules={[{ required: true }]}>
                         <Input size="large" className="rounded-2xl font-mono" placeholder="TN 01 AB 1234" />
-                      </Form.Item>
-                      <Form.Item name="seats" label="Capacity" rules={[{ required: true }]}>
-                        <InputNumber min={1} max={10} size="large" className="w-full rounded-2xl" />
                       </Form.Item>
                     </div>
 
@@ -2371,13 +2369,13 @@ let options: any[] = filteredPredictions.map((prediction) => ({
           }
         >
           <Form form={vehicleForm} layout="vertical"
-            onFinish={(vals) => saveVehicle(vals as { make: string; model: string; color: string; plate: string; seats: number })}>
+            onFinish={(vals) => saveVehicle(vals as { make: string; model: string; color: string; plate: string })}>
             <div className="grid grid-cols-2 gap-4">
               <Form.Item name="make" label={<span className="font-semibold text-gray-700">Car</span>} rules={[{ required: true, message: "Required" }]}>
-                <Input size="large" placeholder="Honda" className="rounded-3xl h-12" />
+                <Input size="large" placeholder="Hyundai" className="rounded-3xl h-12" />
               </Form.Item>
               <Form.Item name="model" label={<span className="font-semibold text-gray-700">Model</span>} rules={[{ required: true, message: "Required" }]}>
-                <Input size="large" placeholder="City" className="rounded-3xl h-12" />
+                <Input size="large" placeholder="Creta" className="rounded-3xl h-12" />
               </Form.Item>
             </div>
             <Form.Item name="color" label={<span className="font-semibold text-gray-700">Color</span>}>
@@ -2386,10 +2384,7 @@ let options: any[] = filteredPredictions.map((prediction) => ({
             <Form.Item name="plate" label={<span className="font-semibold text-gray-700">License Plate</span>} rules={[{ required: true, message: "Required" }]}>
               <Input size="large" placeholder="TN 01 AB 1234" className="rounded-3xl h-12 font-mono tracking-widest" />
             </Form.Item>
-            <Form.Item name="seats" label={<span className="font-semibold text-gray-700">Seat Capacity</span>} rules={[{ required: true }]}>
-              <InputNumber min={1} max={12} size="large" className="w-full rounded-3xl" />
-            </Form.Item>
-            <Form.Item label={<span className="font-semibold text-gray-700">Car Images (Min. 4)</span>} required>
+            <Form.Item label={<span className="font-semibold text-gray-700">Car Images (Optional)</span>}>
               <Upload
                 listType="picture-card"
                 fileList={carImagesList}

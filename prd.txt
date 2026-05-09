@@ -1,0 +1,489 @@
+
+COOLPOOL.IN
+Technical Specification, UX Brief & Developer Handoff
+Version 1.0  |  May 2026  |  Bangalore Pilot — City → KIA Airport
+
+Role
+Business Analyst / PM / Tech Lead
+Client
+CoolPool.in
+Audience
+Full-stack dev team
+Priority
+MVP Phase 1
+
+
+1. Executive Summary
+CoolPool.in is a carpooling platform targeting urban Indian commuters, starting with the Bangalore city to KIA Airport corridor. The client wants CoolPool.in to be simpler, faster, and more trustworthy than BlaBlaCar.in and RedBus.in for this specific use case.
+
+This document is written for the full-stack development team. It covers:
+	•	What the client wants changed (business requirements)
+	•	How each screen should look and behave (UX specification)
+	•	What logic runs behind each action (functional specification)
+	•	What APIs, database tables, and third-party services are needed (technical specification)
+	•	What is different from BlaBlaCar and RedBus, and why
+
+Client Goal
+Build a ride-sharing web app that a first-time user in India can understand within 10 seconds of opening, book a ride in under 2 minutes, and trust enough to pay online — without ever needing to call anyone.
+
+
+2. Competitive Analysis — Where BlaBlaCar & RedBus Fall Short
+This section tells your developers exactly what problems exist in competitor apps, and what CoolPool must do differently. Reference this when making every UI and logic decision.
+
+2.1 BlaBlaCar.in — Problems to Fix
+Area
+BlaBlaCar Problem
+CoolPool Solution
+First-time load
+Too many options on homepage — 4 tabs, header menu, language switcher, app download banners. Overwhelming.
+One screen. Three fields. One button. Nothing else visible above the fold.
+Search UX
+Separate dropdowns for 'Leaving from' and 'Going to' with no smart defaults. User has to type from scratch.
+Pre-fill 'To' as KIA Airport by default. Google Places autocomplete on 'From' field. One tap to change date.
+Ride cards
+Cards show too much data — stops, luggage rules, instant booking badge, carbon offset. User doesn't know what to look at first.
+Card shows: driver name + rating, route, time, price, seats left. Book button. Nothing else.
+Trust signals
+Verification badges are small and hidden. New users don't notice them.
+Large 'Aadhaar Verified' and 'DL Verified' badges on driver card — visible without tapping.
+Mobile experience
+Desktop-first design. On mobile, elements overlap. Tap targets too small (under 36px height).
+Mobile-first design. Every tap target minimum 48px height. Test on 375px width first.
+Login wall
+Asks to sign up before showing any ride results. Users bounce.
+Browsing is fully open. Login only triggered when user taps 'Book seat'. OTP only — no password.
+
+2.2 RedBus.in — What to Borrow and What to Avoid
+Area
+RedBus Strength to Borrow
+What NOT to copy
+Search layout
+Clean 3-field search bar with date picker. Very fast to use.
+Don't copy RedBus's bus-specific fields like 'Sleeper / Seater' — not relevant for carpooling.
+Listing page
+Filter chips at top (AC, Non-AC, Ladies special). Easy to scan.
+Don't copy their sidebar filter panel — too heavy for a simple carpool app.
+Booking flow
+Linear 4-step checkout. Progress indicator. No surprises.
+Don't copy their seat selection map — carpools don't have assigned seats.
+Trust
+Payment secured badge, cancellation policy visible before pay.
+RedBus shows too many policy links. CoolPool: show one line of policy only.
+Confirmation
+Clear booking card with PNR, bus name, departure time.
+Borrow this pattern. CoolPool version: driver name, pickup point, time, OTP.
+
+
+3. UX Specification — Screen by Screen
+Each sub-section below defines one screen. For each screen, you will find: what the user sees, what they can do, what happens when they act, and what error states to handle.
+
+3.1 Screen 1 — Homepage (Search Screen)
+What the user sees
+	•	Full-width top bar with CoolPool logo (left) and 'Offer a ride' link (right, text only — no button)
+	•	Hero section: tagline 'Share a ride. Split the cost.' in 28px font
+	•	Search card (white, rounded corners, subtle border) with exactly 3 fields stacked vertically:
+	•	Field 1: 'From' — Google Places autocomplete, Bangalore only
+	•	Field 2: 'To' — Pre-filled as 'KIA Airport, Terminal 2'. Tappable to change.
+	•	Field 3: 'Date' — Calendar picker. Default is today + 1 day.
+	•	One large button: 'Find rides' — full width, blue background
+	•	Below the fold: 3 popular route chips (Indiranagar, HSR, Whitefield to KIA)
+	•	Trust row: 3 numbers in a row — Rides Completed, Average Rating, Commission
+
+Logic behind the screen
+	•	On page load — no API call needed. All content is static.
+	•	When user types in 'From' field — call Google Places Autocomplete API. Filter results to Bangalore city boundary using location bias lat/lng parameters.
+	•	When user taps a popular route chip — auto-fill the 'From' field with that locality name. Do not submit the form yet.
+	•	When user taps 'Find rides' — validate: From must not be empty, Date must not be past. If valid, navigate to /search?from=&to=KIA&date= with query params.
+
+Developer Note — Google Places API
+Use the Places Autocomplete API with location bias: lat=12.9716, lng=77.5946, radius=50000 (covers Bangalore). Store both the display text AND the lat/lng coordinates. Never store text-only — the backend needs coordinates for distance calculation.
+
+3.2 Screen 2 — Search Results Page
+What the user sees
+	•	Sticky top bar showing: back arrow, route summary ('Koramangala → KIA'), date, ride count
+	•	Filter chips in a horizontal scrollable row: All times | Morning (5–10 AM) | Afternoon | Evening | 4★ & above | Ladies only
+	•	Ride cards in a vertical list. Each card shows:
+	•	Driver avatar (initials circle), name, star rating, trip count
+	•	'Aadhaar Verified' green badge if verified
+	•	Route line: pickup locality → arrow → KIA + departure time
+	•	Car make, model, colour
+	•	Price per seat (large), seats left (pill badge), Book seat button
+	•	Best match card (earliest + highest rated) gets a blue border highlight — no other visual difference
+	•	If zero results: empty state with message and 'Post a ride' CTA
+
+Filtering logic — important
+Technical Requirement
+All filtering on this page must happen in the browser (JavaScript), not by making new API calls. The initial GET /rides call returns all rides for the route+date. The frontend then filters the array locally. This keeps the app fast and avoids unnecessary server load.
+
+Error and edge cases
+Situation
+What to show
+0 rides found
+"No rides yet for this route. Be the first — post a ride!" with a CTA button linking to /post-ride
+API error
+"Couldn't load rides. Check your connection and try again." with a Retry button. Never show a blank page.
+Loading state
+Show 3 skeleton cards (grey pulsing rectangles) while data loads. Never show a spinner in the center of the screen.
+Filters = 0 results
+"No rides match this filter. Try 'All times' to see more." Keep the filter chips visible so user can clear.
+
+3.3 Screen 3 — Ride Detail Page
+Purpose of this screen
+This is the trust-building screen. The user has seen a ride card and wants to know more before committing. Everything on this screen is about answering: Is this driver safe? Is this the right ride for me?
+
+What the user sees (in order, top to bottom)
+	•	Driver profile block: large avatar, full name, rating, trips completed, Aadhaar verified badge, DL verified badge
+	•	Driver bio (short text the driver wrote when posting — max 120 chars). Show in a light grey box.
+	•	Trip route block: pickup point name, departure time, estimated arrival at KIA with a vertical dotted line connecting them
+	•	Car details: make, model, colour, partially masked number plate (last 4 chars hidden: 'KA 05 AB ****')
+	•	Co-passengers block: avatars of other booked passengers who have set show_on_ride = true. Show first names only. If none, hide this block entirely.
+	•	Sticky bottom bar: price per seat, seats left, 'Book this seat' button
+
+UX Rule — Sticky Bottom Bar
+The 'Book this seat' button must always be visible without scrolling on a 375px mobile screen. Use a fixed-bottom bar with price on the left and the button on the right. This is a proven pattern from Airbnb and Booking.com that increases conversion.
+
+3.4 Screen 4 — OTP Login (Triggered on Booking Tap)
+Logic flow — this is the most important flow to get right
+CoolPool uses OTP-only login. No passwords. No email. Phone number is the identity. This is the Google/WhatsApp-style auth that Indian users already trust.
+
+	•	User taps 'Book this seat' — if not logged in, a bottom sheet slides up (not a new page). The ride detail page stays visible underneath.
+	•	Bottom sheet shows: 'Enter your phone number' with a +91 prefix (fixed) and a 10-digit input field.
+	•	User enters phone, taps 'Send OTP'. Frontend calls POST /auth/otp/send with { phone: '91XXXXXXXXXX' }.
+	•	Backend calls MSG91 or Twilio SMS API. Generates a 6-digit OTP. Stores OTP + expiry (10 minutes) in Redis cache keyed by phone number.
+	•	User receives SMS with OTP. Enters it in the 6-box input (one digit per box, auto-advance). Frontend calls POST /auth/otp/verify with { phone, otp }.
+	•	Backend validates OTP from Redis. If valid: create or fetch user record from DB. Return a signed JWT token (expiry: 30 days). Frontend stores JWT in localStorage.
+	•	Bottom sheet closes. Booking flow continues automatically — user does not need to search again.
+
+Developer Note — OTP UX
+The 6-digit OTP input must be 6 separate single-character boxes side by side (not one text field). When user types a digit, focus auto-moves to next box. When user pastes the OTP (common on Android), it should auto-fill all 6 boxes. This is the same pattern Gmail uses on mobile.
+
+OTP Error Case
+Handling
+Wrong OTP
+Show 'Incorrect OTP. X attempts remaining.' Shake animation on the boxes. Allow 3 attempts before locking.
+OTP expired
+Show 'OTP expired. Resend?' link becomes active after 30 seconds. Resend generates a new OTP and invalidates old one.
+3 wrong attempts
+Lock the phone number for 15 minutes. Show countdown timer. Do not expose this to abuse — return generic error message.
+SMS not received
+Show 'Resend OTP' button after 30 seconds. Also show 'Call me instead' option which does a voice OTP call via Twilio.
+
+3.5 Screen 5 — Booking & Payment
+What the user sees
+	•	Booking summary card: route, driver name, date, time, seats, total price
+	•	Payment method selector: UPI (default selected), Debit/Credit card
+	•	Security message: 'Payment held in escrow by Razorpay until ride completes'
+	•	Cancellation policy: one line — 'Free cancellation up to 4 hours before ride'
+	•	Large 'Pay ₹XXX & confirm' button — full width
+
+Payment logic — Razorpay integration
+	•	Frontend calls POST /bookings/initiate — backend creates a Razorpay order and returns order_id.
+	•	Frontend opens Razorpay checkout modal with the order_id. User completes UPI / card payment inside Razorpay's own UI — CoolPool never handles raw card data.
+	•	Razorpay calls CoolPool backend webhook at POST /razorpay/webhook with payment success event.
+	•	Backend verifies webhook signature (Razorpay provides HMAC-SHA256 signature). If valid: create booking record, decrement ride seats_left by 1, generate 4-digit OTP for ride verification, trigger WhatsApp messages to both driver and passenger.
+	•	Frontend polls GET /bookings/:id every 3 seconds after payment modal closes. When status = 'confirmed', redirect to confirmation screen.
+
+Critical Security Note
+Never trust the frontend to report payment success. Always verify payment via the Razorpay webhook on the backend. The booking record must only be created after the webhook fires and the HMAC signature is verified. If the webhook fails, set booking status to 'pending' and trigger a reconciliation job to check Razorpay's payment API.
+
+3.6 Screen 6 — Booking Confirmation
+After successful payment, the user sees a confirmation screen. This screen must feel like a ticket — something the user wants to screenshot and save.
+
+	•	Large green tick icon at the top
+	•	'Booking confirmed!' heading in dark blue
+	•	White card with: driver name, pickup point address, departure time, car details
+	•	4-digit OTP in a large box with label 'Show this to your driver at pickup'
+	•	'Add to Google Calendar' button — opens a pre-filled Google Calendar event URL
+	•	'Share trip' button — generates a WhatsApp-shareable link with trip details (for safety, to share with family)
+
+Developer Note — Google Calendar Button
+Construct a Google Calendar deeplink URL: https://calendar.google.com/calendar/render?action=TEMPLATE&text=CoolPool+Ride+to+KIA&dates=YYYYMMDDTHHMMSS/YYYYMMDDTHHMMSS&details=Driver:+Rahul+S.+OTP:+XXXX+Pickup:+Forum+Mall+Gate&location=Forum+Mall+Gate+2+Koramangala. This works without any API key.
+
+
+4. Post a Ride — Driver Flow
+The driver posting flow must be completable in under 2 minutes. It has 4 steps. Each step is a separate screen with a visible progress indicator at the top.
+
+Step 1 — Route & Date
+	•	From: Google Places autocomplete (driver's location)
+	•	To: Fixed as KIA Airport for Phase 1. Driver cannot change this (simplifies the MVP).
+	•	Date picker: calendar. Cannot select past dates.
+	•	Time picker: hour and minute dropdowns. Suggest common airport times: 5 AM, 6 AM, 7 AM, 8 AM as quick-select chips.
+
+Step 2 — Seats, Price, Pickup Point
+	•	Seats: 3 large tap boxes showing '1 seat', '2 seats', '3 seats'. Tap to select. No dropdown.
+	•	Price: Pre-calculated by backend using: base ₹50 + ₹5 per km (Google Distance Matrix API). Displayed as a range (±20%). Driver can adjust with + / - buttons. Cannot go below ₹50 per seat.
+	•	Pickup point: Google Maps picker. Driver drops a pin or searches for a landmark. This is where passengers must come.
+
+Step 3 — Preferences
+	•	Gender preference toggle: Anyone | Ladies only | Men only
+	•	Toggles (on/off): AC on, Music on, Smoking allowed, Pets allowed
+	•	Short bio: text area, max 120 characters. Placeholder: 'e.g. IT professional, travels KIA every Monday. Calm drive.'
+
+Step 4 — Review & Publish
+	•	Show a preview of how the ride card will appear to passengers (use the same ride card component from the listing page)
+	•	Driver taps 'Publish ride'. Frontend calls POST /rides. On success, redirect to the published ride's detail page at /rides/:id.
+	•	Show a share button: 'Share on WhatsApp' — links to the ride detail page. Driver can share this URL in their WhatsApp groups to attract co-passengers.
+
+
+5. Notification System — WhatsApp + SMS
+WhatsApp messages are the primary notification channel for Indian users. SMS is the fallback. Push notifications are Phase 2.
+
+Trigger
+Message Content & Recipients
+Booking confirmed
+BOTH driver and passenger. Content: Driver name, pickup point, time, OTP (passenger only), car details (passenger only).
+New booking (to driver)
+DRIVER only. 'Your ride has a new co-passenger. Seats left: X.' Passenger first name shown.
+12 hours before ride
+BOTH. Reminder with pickup point, time, OTP. Passenger also gets: 'Your driver's number will be shared 1 hour before the ride.'
+1 hour before ride
+PASSENGER only. Driver's full phone number revealed here for the first time.
+Driver cancels ride
+PASSENGER only. Immediate message: 'Your ride has been cancelled. Full refund in 3-5 working days.' Full refund auto-triggered in Razorpay.
+Ride complete
+BOTH. 'Thanks for riding with CoolPool! Rate your experience.' Include a short link to the review form.
+
+Tech Stack for Notifications
+Use WhatsApp Business API via official provider: Gupshup or Interakt (both India-based, cheaper than Twilio for WhatsApp). For SMS fallback: MSG91 or Exotel. Trigger all notifications from a background job queue (Bull + Redis) — never directly from the API handler, as notification failures must not fail the API response.
+
+
+6. Database Schema
+Below are all the tables needed for Phase 1 MVP. Use PostgreSQL. All timestamps in UTC.
+
+6.1 users table
+Column
+Type
+Notes
+id
+UUID
+Primary key. Use UUID, not auto-increment integer.
+phone
+VARCHAR(15)
+Stored with country code: '919876543210'. Unique index.
+name
+VARCHAR(100)
+Full name. Nullable on first login — ask after OTP.
+photo_url
+TEXT
+S3 URL. Nullable.
+aadhaar_verified
+BOOLEAN
+Default false. Set true after DigiLocker verification (Phase 2).
+dl_verified
+BOOLEAN
+Default false. Set true after DL upload + manual review.
+rating_avg
+DECIMAL(3,2)
+Computed column. Recalculate after each new review.
+total_trips
+INTEGER
+Incremented when a ride they drove is marked complete.
+created_at
+TIMESTAMPTZ
+Auto-set on insert.
+
+6.2 rides table
+Column
+Type
+Notes
+id
+UUID
+Primary key.
+driver_id
+UUID
+FK to users.id.
+from_lat, from_lng
+DECIMAL(9,6)
+Pickup coordinates. Index both columns for geo queries.
+from_label
+VARCHAR(200)
+Display text for pickup location.
+to_id
+VARCHAR(50)
+Enum: 'KIA_T1', 'KIA_T2'. Hardcoded for Phase 1.
+departure_time
+TIMESTAMPTZ
+Full datetime with timezone. Always store in UTC.
+seats_total
+SMALLINT
+Max 4. Set by driver at posting time.
+seats_left
+SMALLINT
+Decremented on booking. Check > 0 before allowing new booking.
+price_per_seat
+INTEGER
+In Indian Rupees, whole numbers only.
+status
+ENUM
+Values: 'active', 'full', 'cancelled', 'completed'.
+gender_pref
+ENUM
+Values: 'any', 'ladies_only', 'men_only'.
+preferences
+JSONB
+{ ac: true, music: true, smoking: false, pets: false }
+driver_bio
+VARCHAR(120)
+Short text driver writes. Max 120 chars enforced at DB level.
+
+6.3 bookings table
+Column
+Type
+Notes
+id
+UUID
+Primary key.
+ride_id
+UUID
+FK to rides.id.
+passenger_id
+UUID
+FK to users.id.
+seats_booked
+SMALLINT
+Phase 1: always 1. Phase 2: allow booking multiple seats.
+amount_paid
+INTEGER
+Total amount paid in rupees. Stored separately from price_per_seat in case of future discounts.
+ride_otp
+CHAR(4)
+4-digit numeric OTP. Generated on booking. Used to verify passenger identity at pickup.
+status
+ENUM
+Values: 'pending_payment', 'confirmed', 'cancelled', 'completed'.
+razorpay_order_id
+VARCHAR(100)
+Razorpay order ID. Used for reconciliation.
+razorpay_payment_id
+VARCHAR(100)
+Razorpay payment ID. Set after webhook fires.
+show_on_ride
+BOOLEAN
+If true, passenger's first name and avatar shown to other co-passengers on ride detail page.
+
+
+7. API Endpoints — Full Reference
+All APIs use JSON. All protected endpoints require Authorization: Bearer <JWT> header. Base URL: https://api.coolpool.in/v1
+
+Method
+Endpoint
+Auth
+Request body
+Response
+POST
+/auth/otp/send
+None
+{ phone: '91XXXXXXXXXX' }
+{ success: true, expires_in: 600 }
+POST
+/auth/otp/verify
+None
+{ phone, otp }
+{ token: 'JWT...', user: { id, name, phone } }
+GET
+/rides
+None (public)
+Query: from_lat, from_lng, to_id, date, radius_km (default 5)
+Array of ride objects with driver nested.
+GET
+/rides/:id
+None (public)
+None
+Full ride object + driver profile + passengers (name, avatar only).
+POST
+/rides
+JWT required
+Full ride fields (see DB schema). Driver ID taken from JWT.
+Created ride object with id.
+POST
+/bookings/initiate
+JWT required
+{ ride_id, seats: 1 }
+{ razorpay_order_id, amount, currency: 'INR' }
+POST
+/razorpay/webhook
+HMAC signature
+Razorpay webhook payload
+200 OK. Confirms booking, sends WhatsApp messages.
+GET
+/bookings/:id
+JWT required
+None
+Booking object with ride and driver nested.
+PATCH
+/rides/:id/complete
+JWT (driver only)
+None
+Updates status, releases Razorpay payment, triggers review prompts.
+POST
+/reviews
+JWT required
+{ booking_id, rating (1-5), comment }
+Created review. Triggers rating_avg recalculation on users table.
+
+
+8. Tech Stack Decisions
+These are the recommended technologies for Phase 1. If the team has strong preference for alternatives, changes can be discussed — but these choices are optimised for India (latency, cost, reliability).
+
+Layer
+Choice & Reason
+Frontend
+React + Vite + Tailwind CSS. Fast build, large talent pool in Bangalore, easy component reuse.
+Backend
+Node.js (Express) or Django (Python). Choose based on team's primary language. Node preferred for real-time features.
+Database
+PostgreSQL on AWS RDS or Supabase. JSONB support, PostGIS for geo queries in Phase 2.
+Cache
+Redis (Upstash for serverless, or AWS ElastiCache). Used for OTP storage and session data.
+File storage
+AWS S3 or Cloudflare R2. For profile photos and car images.
+Payments
+Razorpay. India-first, supports UPI, low fees, easy escrow via Razorpay Route.
+OTP / SMS
+MSG91 (primary) or Twilio (fallback). MSG91 is cheaper in India and has good DND bypass success rate.
+WhatsApp
+Gupshup or Interakt (India-based WhatsApp Business API partners). Cheaper than Twilio for WhatsApp in India.
+Maps
+Google Maps Platform: Places API (autocomplete), Distance Matrix API (price calc), Maps JS API (pickup pin drop).
+Job queue
+Bull (Node.js) with Redis. For notification scheduling (12h, 1h before ride reminders).
+Hosting
+Frontend: Vercel or Cloudflare Pages. Backend: AWS EC2 (t3.small) or Railway.app for Phase 1.
+Auth
+Custom JWT. No OAuth in Phase 1 — OTP-only login is simpler and more trusted by Indian users.
+
+
+9. What Makes CoolPool Better — Summary for Client Meeting
+Use this section when presenting to the CoolPool client or to new team members who need the 'why' behind all these decisions.
+
+Feature
+BlaBlaCar / RedBus
+CoolPool
+Login
+Required before viewing anything
+Browse freely. Login only at booking — via OTP, no password
+Homepage
+Multiple tabs, banners, menus
+Three fields, one button. Nothing else.
+Trust signals
+Small icons, hard to notice
+Large verified badges, co-passenger visibility, escrow payment
+Filters
+Complex sidebar (RedBus) or buried options
+Chip filters at top. Frontend-only. Instant.
+Payment trust
+Money goes directly to operator
+Razorpay escrow — money released only after ride completes
+Post-booking
+Email confirmation, app notification
+WhatsApp confirmation. OTP for pickup. Driver number revealed 1h before.
+Driver number
+Given at booking or not at all
+Hidden until 1 hour before ride — reduces spam/harassment
+Mobile design
+Desktop-first, adapted for mobile
+Mobile-first. Designed for 375px width. 48px tap targets.
+
+
+End of Document
+CoolPool.in Technical Specification v1.0  |  Prepared May 2026  |  CONFIDENTIAL
