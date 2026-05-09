@@ -472,21 +472,21 @@ export function TripSearchForm({
           <div className="hidden md:block w-px h-12 bg-gray-100" />
 
           {/* Segment: WHEN */}
-          <div className="flex-1 px-6 py-3 hover:bg-gray-50/80 transition-colors rounded-[2rem] group relative">
-            <div className="flex items-center gap-3">
+          <div className="flex-1 px-6 py-3 hover:bg-gray-50/80 transition-colors rounded-[2rem] group relative flex items-center">
+            <div className="flex items-center gap-3 w-full">
               <div className="p-2.5 rounded-2xl bg-amber-500/10 text-amber-500 group-hover:bg-amber-500 group-hover:text-white transition-all duration-300">
                 <Clock size={20} />
               </div>
               <div className="flex-1 min-w-0">
-                <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-0.5">When</label>
-                <div className="flex items-center gap-2 mt-1">
+                <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-1">Travel Date</label>
+                <div className="flex items-center gap-2">
                   <button
                     type="button"
                     onClick={() => form.setFieldsValue({ date: dayjs() })}
                     className={cn(
-                      "px-4 py-1 rounded-full text-xs font-bold transition-all border",
+                      "px-4 py-1.5 rounded-xl text-xs font-bold transition-all border",
                       dayjs().isSame(selectedDate, "day")
-                        ? "bg-primary text-white border-transparent shadow-soft"
+                        ? "bg-primary text-white border-transparent shadow-md"
                         : "bg-white text-gray-500 border-gray-100 hover:border-primary/20"
                     )}
                   >
@@ -496,9 +496,9 @@ export function TripSearchForm({
                     type="button"
                     onClick={() => form.setFieldsValue({ date: dayjs().add(1, 'day') })}
                     className={cn(
-                      "px-4 py-1 rounded-full text-xs font-bold transition-all border",
+                      "px-4 py-1.5 rounded-xl text-xs font-bold transition-all border",
                       dayjs().add(1, 'day').isSame(selectedDate, "day")
-                        ? "bg-primary text-white border-transparent shadow-soft"
+                        ? "bg-primary text-white border-transparent shadow-md"
                         : "bg-white text-gray-500 border-gray-100 hover:border-primary/20"
                     )}
                   >
