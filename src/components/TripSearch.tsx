@@ -417,119 +417,234 @@ export function TripSearchForm({
   }
 
   return (
-    <div id={id} className="w-full max-w-5xl mx-auto px-4 relative z-10 -mt-16 sm:-mt-20 animate-in fade-in slide-in-from-bottom-6 duration-700">
-      <div className="bg-white/95 backdrop-blur-2xl rounded-[2.5rem] shadow-elevated border border-white/40 ring-1 ring-black/5 overflow-hidden">
+    <div
+      id={id}
+      className="w-full max-w-[1200px] mx-auto px-6 relative z-10 -mt-16 sm:-mt-20 animate-in fade-in slide-in-from-bottom-6 duration-700"
+    >
+      {/* The outer container: clean white pill, no overflow clipping */}
+      <div className="bg-white/97 backdrop-blur-2xl rounded-[2rem] shadow-2xl border border-gray-100 ring-1 ring-black/5">
         <Form
           form={form}
           id="landing-trip-search"
           onFinish={onSearch}
-          className="flex flex-col lg:flex-row items-center gap-0 min-h-[80px] lg:h-24"
         >
-          {/* Segment: FROM */}
-          <div className="flex-1 w-full lg:w-auto px-8 py-4 lg:py-0 h-full flex items-center hover:bg-gray-50/50 transition-colors group cursor-pointer">
-            <div className="flex items-center gap-4 w-full">
-              <div className="shrink-0 p-3 rounded-2xl bg-gray-50 text-gray-400 group-hover:bg-primary/10 group-hover:text-primary transition-all duration-300">
-                <Navigation size={22} strokeWidth={2.5} />
+          {/* ───── DESKTOP LAYOUT ───── */}
+          <div className="hidden lg:flex items-center h-24 px-2">
+
+            {/* ── PICKUP (28%) ── */}
+            <div
+              style={{ flex: "0 0 28%" }}
+              className="h-full flex items-center px-6 hover:bg-gray-50/60 rounded-2xl transition-colors group cursor-pointer"
+            >
+              <div className="flex items-center gap-4 w-full min-w-0">
+                <div className="shrink-0 p-2.5 rounded-xl bg-gray-100/80 text-gray-400 group-hover:bg-primary/10 group-hover:text-primary transition-all duration-250">
+                  <Navigation size={20} strokeWidth={2.5} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[10px] font-black uppercase tracking-[0.12em] text-gray-400 mb-0.5">Pickup</p>
+                  <Form.Item name="from" rules={[{ required: true }]} className="m-0">
+                    <AutoComplete
+                      options={fromOptions}
+                      onSearch={(text) => searchPlaces(text, "from")}
+                      placeholder="City or area"
+                      variant="borderless"
+                      className="w-full [&_.ant-select-selector]:px-0 [&_.ant-select-selector]:h-auto [&_.ant-select-selection-item]:text-[17px] [&_.ant-select-selection-item]:font-bold [&_.ant-select-selection-item]:text-gray-900 [&_.ant-select-selection-placeholder]:text-gray-300 [&_.ant-select-selection-placeholder]:text-base [&_.ant-select-selection-placeholder]:font-semibold [&_.ant-select-selection-search-input]:text-[17px] [&_.ant-select-selection-search-input]:font-bold"
+                    />
+                  </Form.Item>
+                </div>
+              </div>
+            </div>
+
+            {/* divider */}
+            <div className="w-px h-12 bg-gray-100 shrink-0" />
+
+            {/* ── DESTINATION (34%) ── */}
+            <div
+              style={{ flex: "0 0 34%" }}
+              className="h-full flex items-center px-6 hover:bg-gray-50/60 rounded-2xl transition-colors group cursor-pointer"
+            >
+              <div className="flex items-center gap-4 w-full min-w-0">
+                <div className="shrink-0 p-2.5 rounded-xl bg-gray-100/80 text-gray-400 group-hover:bg-secondary/10 group-hover:text-secondary transition-all duration-250">
+                  <MapPin size={20} strokeWidth={2.5} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[10px] font-black uppercase tracking-[0.12em] text-gray-400 mb-0.5">Destination</p>
+                  <Form.Item name="to" rules={[{ required: true }]} className="m-0">
+                    <AutoComplete
+                      options={toOptions}
+                      onSearch={(text) => searchPlaces(text, "to")}
+                      placeholder="Where to?"
+                      variant="borderless"
+                      className="w-full [&_.ant-select-selector]:px-0 [&_.ant-select-selector]:h-auto [&_.ant-select-selection-item]:text-[17px] [&_.ant-select-selection-item]:font-bold [&_.ant-select-selection-item]:text-gray-900 [&_.ant-select-selection-placeholder]:text-gray-300 [&_.ant-select-selection-placeholder]:text-base [&_.ant-select-selection-placeholder]:font-semibold [&_.ant-select-selection-search-input]:text-[17px] [&_.ant-select-selection-search-input]:font-bold"
+                    />
+                  </Form.Item>
+                </div>
+              </div>
+            </div>
+
+            {/* divider */}
+            <div className="w-px h-12 bg-gray-100 shrink-0" />
+
+            {/* ── DATE SELECTOR (20%) ── */}
+            <div
+              style={{ flex: "0 0 20%" }}
+              className="h-full flex items-center px-6 hover:bg-gray-50/60 rounded-2xl transition-colors group"
+            >
+              <div className="flex items-center gap-4 w-full min-w-0">
+                <div className="shrink-0 p-2.5 rounded-xl bg-gray-100/80 text-gray-400 group-hover:bg-amber-50 group-hover:text-amber-500 transition-all duration-250">
+                  <Clock size={20} strokeWidth={2.5} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[10px] font-black uppercase tracking-[0.12em] text-gray-400 mb-1.5">When</p>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => form.setFieldsValue({ date: dayjs() })}
+                      className={cn(
+                        "flex-1 h-[44px] rounded-xl text-xs font-bold transition-all border flex items-center justify-center whitespace-nowrap",
+                        dayjs().isSame(selectedDate, "day")
+                          ? "bg-primary text-white border-transparent shadow-md shadow-primary/25"
+                          : "bg-gray-50 text-gray-500 border-gray-100 hover:border-primary/30 hover:text-primary"
+                      )}
+                    >
+                      Today
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => form.setFieldsValue({ date: dayjs().add(1, 'day') })}
+                      className={cn(
+                        "flex-1 h-[44px] rounded-xl text-xs font-bold transition-all border flex items-center justify-center whitespace-nowrap",
+                        dayjs().add(1, 'day').isSame(selectedDate, "day")
+                          ? "bg-primary text-white border-transparent shadow-md shadow-primary/25"
+                          : "bg-gray-50 text-gray-500 border-gray-100 hover:border-primary/30 hover:text-primary"
+                      )}
+                    >
+                      Tmrw
+                    </button>
+                  </div>
+                  <Form.Item name="date" className="hidden">
+                    <DatePicker />
+                  </Form.Item>
+                </div>
+              </div>
+            </div>
+
+            {/* ── SEARCH BUTTON (18%) ── */}
+            <div style={{ flex: "0 0 18%" }} className="h-full p-2.5 shrink-0">
+              <UiButton
+                type="submit"
+                variant="hero"
+                className="w-full h-full rounded-2xl font-black text-lg shadow-glow hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2.5"
+                disabled={loading}
+              >
+                {loading ? (
+                  <div className="h-5 w-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <>
+                    <span>Search</span>
+                    <ArrowRight size={20} strokeWidth={3} />
+                  </>
+                )}
+              </UiButton>
+            </div>
+          </div>
+
+          {/* ───── MOBILE LAYOUT (stacked) ───── */}
+          <div className="flex flex-col lg:hidden divide-y divide-gray-100 p-3 gap-1">
+            {/* Pickup */}
+            <div className="flex items-center gap-4 px-4 py-4">
+              <div className="shrink-0 p-2.5 rounded-xl bg-gray-100 text-gray-400">
+                <Navigation size={20} strokeWidth={2.5} />
               </div>
               <div className="flex-1 min-w-0">
-                <label className="text-[11px] font-black uppercase tracking-[0.1em] text-gray-400 block mb-0.5">Pickup</label>
+                <p className="text-[10px] font-black uppercase tracking-[0.12em] text-gray-400 mb-0.5">Pickup</p>
                 <Form.Item name="from" rules={[{ required: true }]} className="m-0">
                   <AutoComplete
                     options={fromOptions}
                     onSearch={(text) => searchPlaces(text, "from")}
-                    placeholder="Enter city or area"
+                    placeholder="City or area"
                     variant="borderless"
-                    className="w-full text-lg font-bold p-0 [&_.ant-select-selector]:px-0 [&_.ant-select-selection-placeholder]:text-gray-300"
+                    className="w-full [&_.ant-select-selector]:px-0 [&_.ant-select-selection-item]:text-base [&_.ant-select-selection-item]:font-bold"
                   />
                 </Form.Item>
               </div>
             </div>
-          </div>
 
-          <div className="hidden lg:block w-px h-10 bg-gray-100" />
-
-          {/* Segment: TO */}
-          <div className="flex-1 w-full lg:w-auto px-8 py-4 lg:py-0 h-full flex items-center hover:bg-gray-50/50 transition-colors group cursor-pointer">
-            <div className="flex items-center gap-4 w-full">
-              <div className="shrink-0 p-3 rounded-2xl bg-gray-50 text-gray-400 group-hover:bg-secondary/10 group-hover:text-secondary transition-all duration-300">
-                <MapPin size={22} strokeWidth={2.5} />
+            {/* Destination */}
+            <div className="flex items-center gap-4 px-4 py-4">
+              <div className="shrink-0 p-2.5 rounded-xl bg-gray-100 text-gray-400">
+                <MapPin size={20} strokeWidth={2.5} />
               </div>
               <div className="flex-1 min-w-0">
-                <label className="text-[11px] font-black uppercase tracking-[0.1em] text-gray-400 block mb-0.5">Destination</label>
+                <p className="text-[10px] font-black uppercase tracking-[0.12em] text-gray-400 mb-0.5">Destination</p>
                 <Form.Item name="to" rules={[{ required: true }]} className="m-0">
                   <AutoComplete
                     options={toOptions}
                     onSearch={(text) => searchPlaces(text, "to")}
                     placeholder="Where to?"
                     variant="borderless"
-                    className="w-full text-lg font-bold p-0 [&_.ant-select-selector]:px-0 [&_.ant-select-selection-placeholder]:text-gray-300"
+                    className="w-full [&_.ant-select-selector]:px-0 [&_.ant-select-selection-item]:text-base [&_.ant-select-selection-item]:font-bold"
                   />
                 </Form.Item>
               </div>
             </div>
-          </div>
 
-          <div className="hidden lg:block w-px h-10 bg-gray-100" />
+            {/* When + Search */}
+            <div className="flex items-center gap-3 px-4 pt-4 pb-2">
+              <div className="shrink-0 p-2.5 rounded-xl bg-gray-100 text-gray-400">
+                <Clock size={20} strokeWidth={2.5} />
+              </div>
+              <div className="flex-1 flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => form.setFieldsValue({ date: dayjs() })}
+                  className={cn(
+                    "flex-1 h-11 rounded-xl text-sm font-bold transition-all border flex items-center justify-center",
+                    dayjs().isSame(selectedDate, "day")
+                      ? "bg-primary text-white border-transparent"
+                      : "bg-gray-50 text-gray-500 border-gray-100"
+                  )}
+                >
+                  Today
+                </button>
+                <button
+                  type="button"
+                  onClick={() => form.setFieldsValue({ date: dayjs().add(1, 'day') })}
+                  className={cn(
+                    "flex-1 h-11 rounded-xl text-sm font-bold transition-all border flex items-center justify-center",
+                    dayjs().add(1, 'day').isSame(selectedDate, "day")
+                      ? "bg-primary text-white border-transparent"
+                      : "bg-gray-50 text-gray-500 border-gray-100"
+                  )}
+                >
+                  Tomorrow
+                </button>
+              </div>
+              <Form.Item name="date" className="hidden">
+                <DatePicker />
+              </Form.Item>
+            </div>
 
-          {/* Segment: WHEN */}
-          <div className="flex-1 w-full lg:w-auto px-8 py-4 lg:py-0 h-full flex items-center hover:bg-gray-50/50 transition-colors group">
-            <div className="flex items-center gap-4 w-full">
-              <div className="shrink-0 p-3 rounded-2xl bg-gray-50 text-gray-400 group-hover:bg-amber-500/10 group-hover:text-amber-500 transition-all duration-300">
-                <Clock size={22} strokeWidth={2.5} />
-              </div>
-              <div className="flex-1 min-w-0">
-                <label className="text-[11px] font-black uppercase tracking-[0.1em] text-gray-400 block mb-1">Travel Date</label>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => form.setFieldsValue({ date: dayjs() })}
-                    className={cn(
-                      "flex-1 h-9 rounded-xl text-xs font-bold transition-all border flex items-center justify-center",
-                      dayjs().isSame(selectedDate, "day")
-                        ? "bg-primary text-white border-transparent shadow-lg shadow-primary/20"
-                        : "bg-white text-gray-500 border-gray-100 hover:border-primary/20"
-                    )}
-                  >
-                    Today
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => form.setFieldsValue({ date: dayjs().add(1, 'day') })}
-                    className={cn(
-                      "flex-1 h-9 rounded-xl text-xs font-bold transition-all border flex items-center justify-center",
-                      dayjs().add(1, 'day').isSame(selectedDate, "day")
-                        ? "bg-primary text-white border-transparent shadow-lg shadow-primary/20"
-                        : "bg-white text-gray-500 border-gray-100 hover:border-primary/20"
-                    )}
-                  >
-                    Tomorrow
-                  </button>
-                </div>
-                <Form.Item name="date" className="hidden">
-                  <DatePicker />
-                </Form.Item>
-              </div>
+            {/* Mobile Search Button */}
+            <div className="px-2 pt-2 pb-2">
+              <UiButton
+                type="submit"
+                variant="hero"
+                className="w-full h-14 rounded-2xl font-black text-lg shadow-glow flex items-center justify-center gap-2.5"
+                disabled={loading}
+              >
+                {loading ? (
+                  <div className="h-5 w-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <>
+                    <span>Search</span>
+                    <ArrowRight size={20} strokeWidth={3} />
+                  </>
+                )}
+              </UiButton>
             </div>
           </div>
 
-          {/* Search Action */}
-          <div className="w-full lg:w-auto h-full p-2 lg:p-3">
-            <UiButton
-              type="submit"
-              variant="hero"
-              className="h-16 lg:h-full w-full lg:min-w-[180px] rounded-3xl font-black text-xl shadow-glow hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-3"
-              disabled={loading}
-            >
-              {loading ? (
-                <div className="h-6 w-6 border-3 border-white/30 border-t-white rounded-full animate-spin" />
-              ) : (
-                <>
-                  <span>Search</span>
-                  <ArrowRight size={24} strokeWidth={3} />
-                </>
-              )}
-            </UiButton>
-          </div>
         </Form>
       </div>
     </div>
