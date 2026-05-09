@@ -90,3 +90,15 @@ export interface DriverVehicle {
   insuranceDoc: string | null;
   carImages?: string[];
 }
+
+export interface HeroBanner {
+  id: string;
+  title: string | null;
+  imageId: string;
+  imageUrl: string | null;
+  linkUrl: string | null;
+  startDate: string | null;
+  endDate: string | null;
+  isActive: boolean;
+  sortOrder: number;
+}

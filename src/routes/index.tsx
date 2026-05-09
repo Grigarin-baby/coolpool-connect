@@ -26,6 +26,7 @@ import { SiteHeader } from "@/components/SiteHeader";
 import { SiteFooter } from "@/components/SiteFooter";
 import { TripSearchProvider, TripSearchForm, TripSearchResults } from "@/components/TripSearch";
 import { DynamicTrendingRoutes } from "@/components/DynamicTrendingRoutes";
+import { HeroCarousel } from "@/components/HeroCarousel";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
@@ -49,25 +50,7 @@ function Home() {
     <div className="min-h-screen flex flex-col overflow-x-hidden">
       <SiteHeader />
 
-      {/* HERO SECTION - IMMERSIVE BACKGROUND */}
-      <section className="relative pt-10 pb-44 sm:pt-20 sm:pb-40 md:pt-28 md:pb-48 bg-gradient-hero text-center flex flex-col items-center justify-center overflow-visible">
-        <div className="absolute inset-0 bg-gradient-mesh opacity-90 pointer-events-none" />
-        <div className="absolute top-1/4 left-1/4 w-[30rem] h-[30rem] bg-primary-glow/20 rounded-full blur-[100px] pointer-events-none mix-blend-screen" />
-        
-        <div className="container mx-auto px-4 sm:px-5 relative z-10 max-w-4xl text-center">
-          <div className="inline-flex items-center gap-2 rounded-full bg-background/40 backdrop-blur-md px-4 py-1.5 text-xs font-bold uppercase tracking-widest text-primary mb-6 shadow-sm border border-primary/20">
-            <Sparkles className="h-3.5 w-3.5" />
-            Premium Intercity Ride-Sharing
-          </div>
-          <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight leading-[1.1] font-heading text-balance lowercase">
-            share the trip, <br className="hidden sm:block" />
-            <span className="text-gradient-primary">split the fun.</span>
-          </h1>
-          <p className="mt-6 text-base sm:text-xl text-foreground/80 max-w-2xl mx-auto px-4 sm:px-0 leading-relaxed">
-            Connect with verified hosts heading your way. Book your segment, share the travel costs, and enjoy a smarter, more social way to commute.
-          </p>
-        </div>
-      </section>
+      <HeroCarousel />
 
       {/* SEARCH BAR - OVERLAPPING */}
       <section className="relative z-20 -mt-16 sm:-mt-28 md:-mt-32 px-4 sm:px-5 container mx-auto max-w-6xl">

@@ -20,7 +20,12 @@ function getClientConfig() {
   // Browser integrations must use VITE_* env vars only.
   const googleMapsApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "";
 
-  return { endpoint, projectId, databaseId, driverDocsBucketId, googleMapsApiKey };
+  const bannersBucketId =
+    import.meta.env.VITE_APPWRITE_BANNERS_BUCKET_ID ||
+    process.env.APPWRITE_BANNERS_BUCKET_ID ||
+    "coolpool_banners_bucket";
+
+  return { endpoint, projectId, databaseId, driverDocsBucketId, bannersBucketId, googleMapsApiKey };
 }
 
 const config = getClientConfig();

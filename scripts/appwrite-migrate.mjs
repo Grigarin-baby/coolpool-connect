@@ -1,4 +1,4 @@
-import { Client, Databases, ID } from "node-appwrite";
+import { Client, Databases, Storage, ID } from "node-appwrite";
 
 const endpoint =
   process.env.APPWRITE_ENDPOINT || process.env.VITE_APPWRITE_ENDPOINT || "";
@@ -24,10 +24,46 @@ const COLLECTIONS = {
   profiles: "coolpool_profiles",
   drivers: "coolpool_drivers",
   vehicles: "coolpool_vehicles",
+  heroBanners: "coolpool_hero_banners",
+};
+
+const BUCKETS = {
+  driverDocs: "69f312e500186db2d785", // Use existing ID from .env
+  banners: "coolpool_banners_bucket",
 };
 
 const client = new Client().setEndpoint(endpoint).setProject(projectId).setKey(apiKey);
 const databases = new Databases(client);
+const storage = new Storage(client);
+
+async function ensureBucket(bucketId, name) {
+  try {
+    await storage.getBucket(bucketId);
+    console.log(`Bucket exists: ${bucketId}`);
+  } catch {
+    try {
+      await storage.createBucket(
+        bucketId,
+        name,
+        [], // Permissions will default to project settings or we can make it public read
+        false, // fileSecurity
+        true, // enabled
+        5000000, // 5MB limit
+        ["jpg", "jpeg", "png", "gif", "webp", "svg"], // extensions
+        "none", // compression
+        false, // encryption
+        false // antimalware
+      );
+      console.log(`Created bucket: ${bucketId}`);
+    } catch (error) {
+      if (error?.code === 409 || error?.type === "bucket_already_exists") {
+        console.log(`Bucket already exists: ${bucketId}`);
+        return;
+      }
+      throw error;
+    }
+  }
+}
 
 async function ensureCollection(collectionId, name) {
   try {
@@ -216,6 +252,9 @@ async function run() {
   await ensureCollection(COLLECTIONS.profiles, "Profiles");
   await ensureCollection(COLLECTIONS.drivers, "Drivers");
   await ensureCollection(COLLECTIONS.vehicles, "Vehicles");
+  await ensureCollection(COLLECTIONS.heroBanners, "Hero Banners");
+
+  await ensureBucket(BUCKETS.banners, "Banner Images");
 
   // trips
   await ensureStringAttribute(COLLECTIONS.trips, "host_id", 64, true);
@@ -302,6 +341,16 @@ async function run() {
   await ensureStringAttribute(COLLECTIONS.vehicles, "insurance_doc", 2000, false);
   await ensureStringAttribute(COLLECTIONS.vehicles, "car_images", 255, false, undefined, true);
 
+  // hero banners
+  await ensureStringAttribute(COLLECTIONS.heroBanners, "title", 120, false);
+  await ensureStringAttribute(COLLECTIONS.heroBanners, "imageId", 64, true);
+  await ensureStringAttribute(COLLECTIONS.heroBanners, "imageUrl", 2000, false);
+  await ensureStringAttribute(COLLECTIONS.heroBanners, "linkUrl", 2000, false);
+  await ensureDatetimeAttribute(COLLECTIONS.heroBanners, "startDate", false);
+  await ensureDatetimeAttribute(COLLECTIONS.heroBanners, "endDate", false);
+  await ensureBooleanAttribute(COLLECTIONS.heroBanners, "isActive", false, true);
+  await ensureIntegerAttribute(COLLECTIONS.heroBanners, "sortOrder", false, 0, undefined, 0);
+
   // indexes for app queries
   await ensureIndex(COLLECTIONS.trips, "idx_trips_host_id", "key", ["host_id"]);
   await ensureIndex(COLLECTIONS.trips, "idx_trips_departure_at", "key", ["departure_at"]);
@@ -320,6 +369,8 @@ async function run() {
   await ensureIndex(COLLECTIONS.drivers, "idx_drivers_license_number", "key", ["license_number"]);
   await ensureIndex(COLLECTIONS.vehicles, "idx_vehicles_driver_user_id", "key", ["driver_user_id"]);
   await ensureIndex(COLLECTIONS.vehicles, "idx_vehicles_plate_number", "key", ["plate_number"]);
+  await ensureIndex(COLLECTIONS.heroBanners, "idx_hero_banners_is_active", "key", ["isActive"]);
+  await ensureIndex(COLLECTIONS.heroBanners, "idx_hero_banners_sort_order", "key", ["sortOrder"]);
 
   // seed default pricing rule if absent
   const pricingRules = await databases.listDocuments(databaseId, COLLECTIONS.pricingRules);

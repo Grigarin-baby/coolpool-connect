@@ -8,6 +8,12 @@ export interface AppwriteCollectionIds {
   profiles: string;
   drivers: string;
   vehicles: string;
+  heroBanners: string;
+}
+
+export interface AppwriteBucketIds {
+  driverDocs: string;
+  banners: string;
 }
 
 function requireCollectionId(value: string | undefined, name: string): string {
@@ -58,6 +64,23 @@ export function getCollectionIds(): AppwriteCollectionIds {
     vehicles: requireCollectionId(
       import.meta.env.VITE_APPWRITE_COLLECTION_VEHICLES || process.env.APPWRITE_COLLECTION_VEHICLES,
       "VITE_APPWRITE_COLLECTION_VEHICLES / APPWRITE_COLLECTION_VEHICLES",
+    ),
+    heroBanners: requireCollectionId(
+      import.meta.env.VITE_APPWRITE_COLLECTION_HERO_BANNERS || process.env.APPWRITE_COLLECTION_HERO_BANNERS,
+      "VITE_APPWRITE_COLLECTION_HERO_BANNERS / APPWRITE_COLLECTION_HERO_BANNERS",
+    ),
+  };
+}
+
+export function getBucketIds(): AppwriteBucketIds {
+  return {
+    driverDocs: requireCollectionId(
+      import.meta.env.VITE_APPWRITE_DRIVER_DOCS_BUCKET_ID || process.env.APPWRITE_DRIVER_DOCS_BUCKET_ID,
+      "VITE_APPWRITE_DRIVER_DOCS_BUCKET_ID / APPWRITE_DRIVER_DOCS_BUCKET_ID",
+    ),
+    banners: requireCollectionId(
+      import.meta.env.VITE_APPWRITE_BANNERS_BUCKET_ID || process.env.APPWRITE_BANNERS_BUCKET_ID,
+      "VITE_APPWRITE_BANNERS_BUCKET_ID / APPWRITE_BANNERS_BUCKET_ID",
     ),
   };
 }

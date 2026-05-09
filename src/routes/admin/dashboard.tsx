@@ -27,9 +27,11 @@ import {
   MoreVertical,
   Activity,
   CheckCircle,
+  Image as ImageIcon,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { listActiveTrips, listDriverProfiles } from "@/data/appwrite-repository";
+import { BannersManager } from "@/components/admin/BannersManager";
 import logo from "@/assets/logo.png";
 import { APP_FONT_FAMILY } from "@/lib/fonts";
 
@@ -138,6 +140,11 @@ function AdminDashboardPage() {
                 label: "Trip Manager",
               },
               {
+                key: "banners",
+                icon: <ImageIcon size={18} />,
+                label: "Banners Manager",
+              },
+              {
                 key: "settings",
                 icon: <Settings size={18} />,
                 label: "System Settings",
@@ -169,7 +176,9 @@ function AdminDashboardPage() {
                   ? "Dashboard Overview"
                   : activeModule === "drivers"
                     ? "Driver Directory"
-                    : "Trip Manager"}
+                    : activeModule === "banners"
+                      ? "Banners Manager"
+                      : "Trip Manager"}
               </Title>
               <div className="sm:hidden">
                 <img src={logo} alt="Coolpool Logo" className="h-16 w-auto object-contain" />
@@ -475,6 +484,8 @@ function AdminDashboardPage() {
                 </Card>
               </div>
             )}
+
+            {activeModule === "banners" && <BannersManager />}
           </Content>
         </Layout>
       </Layout>

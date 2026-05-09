@@ -1,5 +1,5 @@
 import { ID, Permission, Query, Role, type Models } from "appwrite";
-import { databases, appwriteConfig } from "@/integrations/appwrite/client";
+import { databases, storage, appwriteConfig } from "@/integrations/appwrite/client";
 import { getCollectionIds } from "@/integrations/appwrite/schema";
 import type {
   AppRole,
@@ -7,6 +7,7 @@ import type {
   BookingStatus,
   DriverProfile,
   DriverVehicle,
+  HeroBanner,
   PricingRule,
   StopType,
   Trip,
@@ -738,4 +739,104 @@ export async function listActiveTrips(limit = 200): Promise<Trip[]> {
     Query.limit(limit),
   ]);
   return result.documents.map(toTrip);
+}
+
+function toHeroBanner(doc: any): HeroBanner {
+  const imageId = String(doc.imageId || "");
+  let imageUrl = doc.imageUrl ? String(doc.imageUrl) : null;
+  
+  if (!imageUrl && imageId) {
+    imageUrl = getBannerImageUrl(imageId);
+  }
+
+  return {
+    id: doc.$id,
+    title: doc.title ? String(doc.title) : null,
+    imageId,
+    imageUrl,
+    linkUrl: doc.linkUrl ? String(doc.linkUrl) : null,
+    startDate: doc.startDate ? String(doc.startDate) : null,
+    endDate: doc.endDate ? String(doc.endDate) : null,
+    isActive: Boolean(doc.isActive),
+    sortOrder: Number(doc.sortOrder || 0),
+  };
+}
+
+export async function listHeroBanners(includeInactive = false): Promise<HeroBanner[]> {
+  const c = ids();
+  const queries = [Query.orderAsc("sortOrder")];
+  if (!includeInactive) {
+    queries.push(Query.equal("isActive", true));
+  }
+  const result = await databases.listDocuments(appwriteConfig.databaseId, c.heroBanners, queries);
+  return result.documents.map(toHeroBanner);
+}
+
+export async function createHeroBanner(input: Omit<HeroBanner, "id">): Promise<HeroBanner> {
+  const c = ids();
+  const doc = await databases.createDocument(
+    appwriteConfig.databaseId,
+    c.heroBanners,
+    ID.unique(),
+    {
+      title: input.title ?? null,
+      imageId: input.imageId,
+      imageUrl: input.imageUrl ?? null,
+      linkUrl: input.linkUrl ?? null,
+      startDate: input.startDate ?? null,
+      endDate: input.endDate ?? null,
+      isActive: input.isActive,
+      sortOrder: input.sortOrder,
+    },
+    [
+      Permission.read(Role.any()),
+      Permission.update(Role.any()),
+      Permission.delete(Role.any()),
+    ]
+  );
+  return toHeroBanner(doc);
+}
+
+export async function updateHeroBanner(id: string, input: Partial<Omit<HeroBanner, "id">>): Promise<HeroBanner> {
+  const c = ids();
+  const doc = await databases.updateDocument(
+    appwriteConfig.databaseId,
+    c.heroBanners,
+    id,
+    {
+      title: input.title,
+      imageId: input.imageId,
+      imageUrl: input.imageUrl,
+      linkUrl: input.linkUrl,
+      startDate: input.startDate,
+      endDate: input.endDate,
+      isActive: input.isActive,
+      sortOrder: input.sortOrder,
+    }
+  );
+  return toHeroBanner(doc);
+}
+
+export async function deleteHeroBanner(id: string): Promise<void> {
+  const c = ids();
+  await databases.deleteDocument(appwriteConfig.databaseId, c.heroBanners, id);
+}
+
+export async function uploadBannerImage(file: File): Promise<string> {
+  const result = await storage.createFile(
+    appwriteConfig.bannersBucketId, 
+    ID.unique(), 
+    file,
+    [
+      Permission.read(Role.any()),
+      Permission.update(Role.users()),
+      Permission.delete(Role.users()),
+    ]
+  );
+  return result.$id;
+}
+
+export function getBannerImageUrl(imageId: string): string {
+  const { endpoint, projectId, bannersBucketId } = appwriteConfig;
+  return `${endpoint}/storage/buckets/${bannersBucketId}/files/${imageId}/view?project=${projectId}`;
 }
