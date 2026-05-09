@@ -417,76 +417,76 @@ export function TripSearchForm({
   }
 
   return (
-    <div id={id} className="w-full max-w-5xl mx-auto px-4 relative z-10 -mt-16 sm:-mt-20">
-      <div className="bg-white/90 backdrop-blur-2xl rounded-[2.5rem] p-2 shadow-elevated border border-white/40 ring-1 ring-black/5">
+    <div id={id} className="w-full max-w-5xl mx-auto px-4 relative z-10 -mt-16 sm:-mt-20 animate-in fade-in slide-in-from-bottom-6 duration-700">
+      <div className="bg-white/95 backdrop-blur-2xl rounded-[2.5rem] shadow-elevated border border-white/40 ring-1 ring-black/5 overflow-hidden">
         <Form
           form={form}
           id="landing-trip-search"
           onFinish={onSearch}
-          className="flex flex-col md:flex-row items-stretch md:items-center gap-0"
+          className="flex flex-col lg:flex-row items-center gap-0 min-h-[80px] lg:h-24"
         >
           {/* Segment: FROM */}
-          <div className="flex-1 px-6 py-3 hover:bg-gray-50/80 transition-colors rounded-[2rem] group relative">
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 rounded-2xl bg-primary/10 text-primary group-hover:bg-primary group-hover:text-white transition-all duration-300">
-                <Navigation size={20} />
+          <div className="flex-1 w-full lg:w-auto px-8 py-4 lg:py-0 h-full flex items-center hover:bg-gray-50/50 transition-colors group cursor-pointer">
+            <div className="flex items-center gap-4 w-full">
+              <div className="shrink-0 p-3 rounded-2xl bg-gray-50 text-gray-400 group-hover:bg-primary/10 group-hover:text-primary transition-all duration-300">
+                <Navigation size={22} strokeWidth={2.5} />
               </div>
               <div className="flex-1 min-w-0">
-                <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-0.5">Pickup Location</label>
+                <label className="text-[11px] font-black uppercase tracking-[0.1em] text-gray-400 block mb-0.5">Pickup</label>
                 <Form.Item name="from" rules={[{ required: true }]} className="m-0">
                   <AutoComplete
                     options={fromOptions}
                     onSearch={(text) => searchPlaces(text, "from")}
                     placeholder="Enter city or area"
                     variant="borderless"
-                    className="w-full text-lg font-bold p-0 [&_.ant-select-selector]:px-0"
+                    className="w-full text-lg font-bold p-0 [&_.ant-select-selector]:px-0 [&_.ant-select-selection-placeholder]:text-gray-300"
                   />
                 </Form.Item>
               </div>
             </div>
           </div>
 
-          <div className="hidden md:block w-px h-12 bg-gray-100" />
+          <div className="hidden lg:block w-px h-10 bg-gray-100" />
 
           {/* Segment: TO */}
-          <div className="flex-1 px-6 py-3 hover:bg-gray-50/80 transition-colors rounded-[2rem] group relative">
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 rounded-2xl bg-secondary/10 text-secondary group-hover:bg-secondary group-hover:text-white transition-all duration-300">
-                <MapPin size={20} />
+          <div className="flex-1 w-full lg:w-auto px-8 py-4 lg:py-0 h-full flex items-center hover:bg-gray-50/50 transition-colors group cursor-pointer">
+            <div className="flex items-center gap-4 w-full">
+              <div className="shrink-0 p-3 rounded-2xl bg-gray-50 text-gray-400 group-hover:bg-secondary/10 group-hover:text-secondary transition-all duration-300">
+                <MapPin size={22} strokeWidth={2.5} />
               </div>
               <div className="flex-1 min-w-0">
-                <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-0.5">Destination</label>
+                <label className="text-[11px] font-black uppercase tracking-[0.1em] text-gray-400 block mb-0.5">Destination</label>
                 <Form.Item name="to" rules={[{ required: true }]} className="m-0">
                   <AutoComplete
                     options={toOptions}
                     onSearch={(text) => searchPlaces(text, "to")}
-                    placeholder="Enter destination"
+                    placeholder="Where to?"
                     variant="borderless"
-                    className="w-full text-lg font-bold p-0 [&_.ant-select-selector]:px-0"
+                    className="w-full text-lg font-bold p-0 [&_.ant-select-selector]:px-0 [&_.ant-select-selection-placeholder]:text-gray-300"
                   />
                 </Form.Item>
               </div>
             </div>
           </div>
 
-          <div className="hidden md:block w-px h-12 bg-gray-100" />
+          <div className="hidden lg:block w-px h-10 bg-gray-100" />
 
           {/* Segment: WHEN */}
-          <div className="flex-1 px-6 py-3 hover:bg-gray-50/80 transition-colors rounded-[2rem] group relative flex items-center">
-            <div className="flex items-center gap-3 w-full">
-              <div className="p-2.5 rounded-2xl bg-amber-500/10 text-amber-500 group-hover:bg-amber-500 group-hover:text-white transition-all duration-300">
-                <Clock size={20} />
+          <div className="flex-1 w-full lg:w-auto px-8 py-4 lg:py-0 h-full flex items-center hover:bg-gray-50/50 transition-colors group">
+            <div className="flex items-center gap-4 w-full">
+              <div className="shrink-0 p-3 rounded-2xl bg-gray-50 text-gray-400 group-hover:bg-amber-500/10 group-hover:text-amber-500 transition-all duration-300">
+                <Clock size={22} strokeWidth={2.5} />
               </div>
               <div className="flex-1 min-w-0">
-                <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-1">Travel Date</label>
+                <label className="text-[11px] font-black uppercase tracking-[0.1em] text-gray-400 block mb-1">Travel Date</label>
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
                     onClick={() => form.setFieldsValue({ date: dayjs() })}
                     className={cn(
-                      "px-4 py-1.5 rounded-xl text-xs font-bold transition-all border",
+                      "flex-1 h-9 rounded-xl text-xs font-bold transition-all border flex items-center justify-center",
                       dayjs().isSame(selectedDate, "day")
-                        ? "bg-primary text-white border-transparent shadow-md"
+                        ? "bg-primary text-white border-transparent shadow-lg shadow-primary/20"
                         : "bg-white text-gray-500 border-gray-100 hover:border-primary/20"
                     )}
                   >
@@ -496,9 +496,9 @@ export function TripSearchForm({
                     type="button"
                     onClick={() => form.setFieldsValue({ date: dayjs().add(1, 'day') })}
                     className={cn(
-                      "px-4 py-1.5 rounded-xl text-xs font-bold transition-all border",
+                      "flex-1 h-9 rounded-xl text-xs font-bold transition-all border flex items-center justify-center",
                       dayjs().add(1, 'day').isSame(selectedDate, "day")
-                        ? "bg-primary text-white border-transparent shadow-md"
+                        ? "bg-primary text-white border-transparent shadow-lg shadow-primary/20"
                         : "bg-white text-gray-500 border-gray-100 hover:border-primary/20"
                     )}
                   >
@@ -513,20 +513,20 @@ export function TripSearchForm({
           </div>
 
           {/* Search Action */}
-          <div className="p-2">
+          <div className="w-full lg:w-auto h-full p-2 lg:p-3">
             <UiButton
               type="submit"
               variant="hero"
-              className="h-16 md:h-20 w-full md:px-10 rounded-[2rem] font-black text-lg shadow-glow hover:scale-[1.02] active:scale-[0.98] transition-all"
+              className="h-16 lg:h-full w-full lg:min-w-[180px] rounded-3xl font-black text-xl shadow-glow hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-3"
               disabled={loading}
             >
               {loading ? (
-                <div className="h-5 w-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                <div className="h-6 w-6 border-3 border-white/30 border-t-white rounded-full animate-spin" />
               ) : (
-                <div className="flex items-center gap-3">
+                <>
                   <span>Search</span>
-                  <ArrowRight size={22} strokeWidth={3} />
-                </div>
+                  <ArrowRight size={24} strokeWidth={3} />
+                </>
               )}
             </UiButton>
           </div>
