@@ -431,9 +431,9 @@ export function TripSearchForm({
           {/* ───── DESKTOP LAYOUT ───── */}
           <div className="hidden lg:flex items-center h-24 px-2">
 
-            {/* ── PICKUP (28%) ── */}
+            {/* ── PICKUP (27%) ── */}
             <div
-              style={{ flex: "0 0 28%" }}
+              style={{ flex: "0 0 27%" }}
               className="h-full flex items-center px-6 hover:bg-gray-50/60 rounded-2xl transition-colors group cursor-pointer"
             >
               <div className="flex items-center gap-4 w-full min-w-0">
@@ -458,9 +458,9 @@ export function TripSearchForm({
             {/* divider */}
             <div className="w-px h-12 bg-gray-100 shrink-0" />
 
-            {/* ── DESTINATION (34%) ── */}
+            {/* ── DESTINATION (33%) ── */}
             <div
-              style={{ flex: "0 0 34%" }}
+              style={{ flex: "0 0 33%" }}
               className="h-full flex items-center px-6 hover:bg-gray-50/60 rounded-2xl transition-colors group cursor-pointer"
             >
               <div className="flex items-center gap-4 w-full min-w-0">
@@ -485,43 +485,40 @@ export function TripSearchForm({
             {/* divider */}
             <div className="w-px h-12 bg-gray-100 shrink-0" />
 
-            {/* ── DATE SELECTOR (20%) ── */}
+            {/* ── DATE SELECTOR (22%) ── */}
             <div
-              style={{ flex: "0 0 20%" }}
-              className="h-full flex items-center px-6 hover:bg-gray-50/60 rounded-2xl transition-colors group"
+              style={{ flex: "0 0 22%" }}
+              className="h-full flex items-center px-8 hover:bg-gray-50/60 rounded-2xl transition-colors group"
             >
-              <div className="flex items-center gap-4 w-full min-w-0">
+              <div className="flex items-center gap-5 w-full min-w-0">
                 <div className="shrink-0 p-2.5 rounded-xl bg-gray-100/80 text-gray-400 group-hover:bg-amber-50 group-hover:text-amber-500 transition-all duration-250">
                   <Clock size={20} strokeWidth={2.5} />
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-[10px] font-black uppercase tracking-[0.12em] text-gray-400 mb-1.5">When</p>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => form.setFieldsValue({ date: dayjs() })}
-                      className={cn(
-                        "flex-1 h-[44px] rounded-xl text-xs font-bold transition-all border flex items-center justify-center whitespace-nowrap",
-                        dayjs().isSame(selectedDate, "day")
-                          ? "bg-primary text-white border-transparent shadow-md shadow-primary/25"
-                          : "bg-gray-50 text-gray-500 border-gray-100 hover:border-primary/30 hover:text-primary"
-                      )}
-                    >
-                      Today
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => form.setFieldsValue({ date: dayjs().add(1, 'day') })}
-                      className={cn(
-                        "flex-1 h-[44px] rounded-xl text-xs font-bold transition-all border flex items-center justify-center whitespace-nowrap",
-                        dayjs().add(1, 'day').isSame(selectedDate, "day")
-                          ? "bg-primary text-white border-transparent shadow-md shadow-primary/25"
-                          : "bg-gray-50 text-gray-500 border-gray-100 hover:border-primary/30 hover:text-primary"
-                      )}
-                    >
-                      Tmrw
-                    </button>
-                  </div>
+                <div className="flex-1 min-w-0 flex flex-col gap-2">
+                  <button
+                    type="button"
+                    onClick={() => form.setFieldsValue({ date: dayjs() })}
+                    className={cn(
+                      "w-full h-[32px] rounded-lg text-[10px] font-black uppercase tracking-wider transition-all border flex items-center justify-center whitespace-nowrap",
+                      dayjs().isSame(selectedDate, "day")
+                        ? "bg-primary text-white border-transparent shadow-md shadow-primary/25"
+                        : "bg-gray-50 text-gray-400 border-gray-100 hover:border-primary/30 hover:text-primary"
+                    )}
+                  >
+                    Today
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => form.setFieldsValue({ date: dayjs().add(1, 'day') })}
+                    className={cn(
+                      "w-full h-[32px] rounded-lg text-[10px] font-black uppercase tracking-wider transition-all border flex items-center justify-center whitespace-nowrap",
+                      dayjs().add(1, 'day').isSame(selectedDate, "day")
+                        ? "bg-primary text-white border-transparent shadow-md shadow-primary/25"
+                        : "bg-gray-50 text-gray-400 border-gray-100 hover:border-primary/30 hover:text-primary"
+                    )}
+                  >
+                    Tomorrow
+                  </button>
                   <Form.Item name="date" className="hidden">
                     <DatePicker />
                   </Form.Item>
@@ -530,7 +527,7 @@ export function TripSearchForm({
             </div>
 
             {/* ── SEARCH BUTTON (18%) ── */}
-            <div style={{ flex: "0 0 18%" }} className="h-full p-2.5 shrink-0">
+            <div style={{ flex: "0 0 18%" }} className="h-full p-2.5 shrink-0 pl-4">
               <UiButton
                 type="submit"
                 variant="hero"
