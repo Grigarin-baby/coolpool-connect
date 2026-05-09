@@ -318,6 +318,7 @@ export function TripSearchForm({
 }) {
   const { loading, fromOptions, toOptions, searchPlaces, onSearch, summary } = useTripSearchContext();
   const [form] = Form.useForm();
+  const selectedDate = Form.useWatch("date", form);
 
   useEffect(() => {
     form.setFieldsValue({ to: "Kempegowda International Airport" });
@@ -446,6 +447,34 @@ export function TripSearchForm({
             name="date"
             className={variant === "landing" ? "px-3 pt-2 pb-1 sm:px-4 sm:pt-3 sm:pb-1 m-0 bg-background/50 hover:bg-muted/30 transition-colors" : "m-0"}
           >
+            {variant === "landing" && (
+              <div className="flex gap-2 mb-2 animate-in fade-in slide-in-from-top-2 duration-300">
+                <button
+                  type="button"
+                  onClick={() => form.setFieldsValue({ date: dayjs() })}
+                  className={cn(
+                    "px-4 py-1.5 text-xs font-bold rounded-xl border transition-all duration-200 shadow-sm",
+                    dayjs().isSame(selectedDate, "day")
+                      ? "bg-gradient-primary text-white border-transparent shadow-glow"
+                      : "bg-white text-primary border-primary/20 hover:border-primary/40 hover:bg-primary/5"
+                  )}
+                >
+                  Today
+                </button>
+                <button
+                  type="button"
+                  onClick={() => form.setFieldsValue({ date: dayjs().add(1, 'day') })}
+                  className={cn(
+                    "px-4 py-1.5 text-xs font-bold rounded-xl border transition-all duration-200 shadow-sm",
+                    dayjs().add(1, 'day').isSame(selectedDate, "day")
+                      ? "bg-gradient-primary text-white border-transparent shadow-glow"
+                      : "bg-white text-primary border-primary/20 hover:border-primary/40 hover:bg-primary/5"
+                  )}
+                >
+                  Tomorrow
+                </button>
+              </div>
+            )}
             <DatePicker 
               className={cn("w-full", variant === "landing" ? "h-[48px] sm:h-[56px] px-0" : "h-[40px] bg-gray-50 rounded-2xl px-3")} 
               placeholder="Date"
