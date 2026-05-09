@@ -328,6 +328,22 @@ export function TripSearchForm({
     }
 
     setLocating(true);
+
+    const handleIPFallback = async () => {
+      try {
+        const response = await fetch("https://ipapi.co/json/");
+        const data = await response.json();
+        if (data && data.city) {
+          form.setFieldsValue({ from: data.city });
+          import("sonner").then(m => m.toast.success(`Detected via IP: ${data.city}`));
+        }
+      } catch (e) {
+        console.error("IP Fallback failed:", e);
+      } finally {
+        setLocating(false);
+      }
+    };
+
     navigator.geolocation.getCurrentPosition(
       (position) => {
         const { latitude, longitude } = position.coords;
@@ -363,23 +379,17 @@ export function TripSearchForm({
         }
       },
       (error) => {
-        // If high accuracy failed, try one more time with standard accuracy
+        // If high accuracy failed, try standard accuracy
         if (highAccuracy && (error.code === 2 || error.code === 3)) {
-          console.log("High accuracy failed, retrying with standard accuracy...");
           locateUser(false);
           return;
         }
 
-        setLocating(false);
-        if (error.code === 1) {
-          import("sonner").then(m => m.toast.error("Permission denied. Please RELOAD the page to apply settings."));
-        } else if (error.code === 2) {
-          import("sonner").then(m => m.toast.error("Location unavailable. Please check your system location settings."));
-        } else if (error.code === 3) {
-          import("sonner").then(m => m.toast.error("Location request timed out."));
-        }
+        // If all GPS attempts failed, use IP fallback
+        console.log("GPS failed, trying IP fallback...");
+        handleIPFallback();
       },
-      { timeout: highAccuracy ? 5000 : 15000, enableHighAccuracy: highAccuracy }
+      { timeout: highAccuracy ? 5000 : 10000, enableHighAccuracy: highAccuracy }
     );
   }, [form]);
 
