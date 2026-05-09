@@ -321,7 +321,7 @@ export function TripSearchForm({
   const selectedDate = Form.useWatch("date", form);
   const [locating, setLocating] = useState(false);
 
-  const locateUser = useCallback(() => {
+  const locateUser = useCallback((highAccuracy = true) => {
     if (!navigator.geolocation) {
       import("sonner").then(m => m.toast.error("Geolocation is not supported by your browser."));
       return;
@@ -338,59 +338,48 @@ export function TripSearchForm({
               let city = "";
               let state = "";
               
-              // Log for debugging (will show in console)
-              console.log("Geocoding results:", results[0].address_components);
-
               for (const component of results[0].address_components) {
                 const types = component.types;
-                if (types.includes("administrative_area_level_1")) {
-                  state = component.long_name.toLowerCase();
-                }
-                // Broaden search to include neighborhoods or postal towns if city is missing
-                if (types.includes("locality") || 
-                    types.includes("administrative_area_level_2") || 
-                    types.includes("sublocality") || 
-                    types.includes("neighborhood") || 
-                    types.includes("postal_town")) {
+                if (types.includes("administrative_area_level_1")) state = component.long_name.toLowerCase();
+                if (types.includes("locality") || types.includes("administrative_area_level_2") || types.includes("sublocality") || types.includes("neighborhood")) {
                   if (!city) city = component.long_name;
                 }
               }
 
               const southIndiaStates = ["karnataka", "kerala", "tamil nadu", "andhra pradesh", "telangana", "goa"];
-              const isSouthIndia = state ? southIndiaStates.some(s => state.includes(s)) : true; // Default to true if state not found
+              const isSouthIndia = state ? southIndiaStates.some(s => state.includes(s)) : true;
               
               if (!isSouthIndia && state) {
-                import("sonner").then(m => m.toast.error(`We detected ${state}, which is currently outside our service area (South India & Goa).`));
+                import("sonner").then(m => m.toast.error(`Service currently unavailable in ${state}. We are live in South India & Goa!`));
               } else if (city) {
                 form.setFieldsValue({ from: city });
-                import("sonner").then(m => m.toast.success(`Detected: ${city}`));
-              } else {
-                import("sonner").then(m => m.toast.error("We found your coordinates but couldn't determine a city name."));
+                import("sonner").then(m => m.toast.success(`Location detected: ${city}`));
               }
-            } else {
-              import("sonner").then(m => m.toast.error(`Geocoding failed: ${status}`));
             }
             setLocating(false);
           });
         } else {
           setLocating(false);
-          import("sonner").then(m => m.toast.error("Google Maps failed to load. Please check your internet connection and reload."));
         }
       },
       (error) => {
+        // If high accuracy failed, try one more time with standard accuracy
+        if (highAccuracy && (error.code === 2 || error.code === 3)) {
+          console.log("High accuracy failed, retrying with standard accuracy...");
+          locateUser(false);
+          return;
+        }
+
         setLocating(false);
-        console.error("Geolocation error:", error);
-        if (error.code === 1) { // PERMISSION_DENIED
-          import("sonner").then(m => m.toast.error("Permission denied. If you just enabled it, please RELOAD the page."));
-        } else if (error.code === 2) { // POSITION_UNAVAILABLE
-          import("sonner").then(m => m.toast.error("Location unavailable. Are you in a place with poor GPS?"));
-        } else if (error.code === 3) { // TIMEOUT
-          import("sonner").then(m => m.toast.error("Location request timed out. Please try again."));
-        } else {
-          import("sonner").then(m => m.toast.error("An unknown error occurred while detecting location."));
+        if (error.code === 1) {
+          import("sonner").then(m => m.toast.error("Permission denied. Please RELOAD the page to apply settings."));
+        } else if (error.code === 2) {
+          import("sonner").then(m => m.toast.error("Location unavailable. Please check your system location settings."));
+        } else if (error.code === 3) {
+          import("sonner").then(m => m.toast.error("Location request timed out."));
         }
       },
-      { timeout: 15000, enableHighAccuracy: true }
+      { timeout: highAccuracy ? 5000 : 15000, enableHighAccuracy: highAccuracy }
     );
   }, [form]);
 
