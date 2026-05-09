@@ -334,42 +334,63 @@ export function TripSearchForm({
         if ((window as any).google && (window as any).google.maps) {
           const geocoder = new (window as any).google.maps.Geocoder();
           geocoder.geocode({ location: { lat: latitude, lng: longitude } }, (results: any, status: any) => {
-            if (status === "OK" && results[0]) {
+            if (status === "OK" && results && results.length > 0) {
               let city = "";
               let state = "";
+              
+              // Log for debugging (will show in console)
+              console.log("Geocoding results:", results[0].address_components);
+
               for (const component of results[0].address_components) {
-                if (component.types.includes("administrative_area_level_1")) state = component.long_name.toLowerCase();
-                if (component.types.includes("locality") || component.types.includes("administrative_area_level_2") || component.types.includes("sublocality")) {
+                const types = component.types;
+                if (types.includes("administrative_area_level_1")) {
+                  state = component.long_name.toLowerCase();
+                }
+                // Broaden search to include neighborhoods or postal towns if city is missing
+                if (types.includes("locality") || 
+                    types.includes("administrative_area_level_2") || 
+                    types.includes("sublocality") || 
+                    types.includes("neighborhood") || 
+                    types.includes("postal_town")) {
                   if (!city) city = component.long_name;
                 }
               }
 
               const southIndiaStates = ["karnataka", "kerala", "tamil nadu", "andhra pradesh", "telangana", "goa"];
-              const isSouthIndia = southIndiaStates.some(s => state.includes(s));
+              const isSouthIndia = state ? southIndiaStates.some(s => state.includes(s)) : true; // Default to true if state not found
               
               if (!isSouthIndia && state) {
-                import("sonner").then(m => m.toast.error("You are currently out of our service area (South India & Goa)."));
+                import("sonner").then(m => m.toast.error(`We detected ${state}, which is currently outside our service area (South India & Goa).`));
               } else if (city) {
                 form.setFieldsValue({ from: city });
-                import("sonner").then(m => m.toast.success(`Detected location: ${city}`));
+                import("sonner").then(m => m.toast.success(`Detected: ${city}`));
+              } else {
+                import("sonner").then(m => m.toast.error("We found your coordinates but couldn't determine a city name."));
               }
+            } else {
+              import("sonner").then(m => m.toast.error(`Geocoding failed: ${status}`));
             }
             setLocating(false);
           });
         } else {
           setLocating(false);
-          import("sonner").then(m => m.toast.error("Google Maps not loaded. Please try again."));
+          import("sonner").then(m => m.toast.error("Google Maps failed to load. Please check your internet connection and reload."));
         }
       },
       (error) => {
         setLocating(false);
+        console.error("Geolocation error:", error);
         if (error.code === 1) { // PERMISSION_DENIED
-          import("sonner").then(m => m.toast.error("Location permission denied. Please allow location access in your browser settings."));
+          import("sonner").then(m => m.toast.error("Permission denied. If you just enabled it, please RELOAD the page."));
+        } else if (error.code === 2) { // POSITION_UNAVAILABLE
+          import("sonner").then(m => m.toast.error("Location unavailable. Are you in a place with poor GPS?"));
+        } else if (error.code === 3) { // TIMEOUT
+          import("sonner").then(m => m.toast.error("Location request timed out. Please try again."));
         } else {
-          import("sonner").then(m => m.toast.error("Unable to retrieve location. Please enter it manually."));
+          import("sonner").then(m => m.toast.error("An unknown error occurred while detecting location."));
         }
       },
-      { timeout: 10000, enableHighAccuracy: true }
+      { timeout: 15000, enableHighAccuracy: true }
     );
   }, [form]);
 
