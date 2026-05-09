@@ -321,7 +321,13 @@ export function TripSearchForm({
   const selectedDate = Form.useWatch("date", form);
 
   useEffect(() => {
-    form.setFieldsValue({ to: "Kempegowda International Airport" });
+    // Set default values
+    if (!form.getFieldValue("to")) {
+      form.setFieldsValue({ to: "Kempegowda International Airport" });
+    }
+    if (!form.getFieldValue("date")) {
+      form.setFieldsValue({ date: dayjs() });
+    }
 
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition((position) => {
@@ -373,147 +379,160 @@ export function TripSearchForm({
     return () => window.removeEventListener("coolpool:cityDetected", handleCityDetected);
   }, [form]);
 
-  return (
-    <Card
-      id={id}
-      className={cn(
-        "rounded-[2rem] border-border/60 shadow-soft scroll-mt-28 transition-all",
-        variant === "landing"
-          ? "border-primary/15 bg-card/92 backdrop-blur-xl p-4 sm:p-7 md:p-8 lg:p-9 ring-1 ring-primary/10 shadow-elevated"
-          : "bg-white p-2 sm:p-3 border-gray-100 shadow-sm max-w-2xl mx-auto",
-      )}
-    >
-      {variant === "landing" && (
-        <div className="mb-4 sm:mb-6 space-y-2.5 text-center sm:text-left">
-          <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-balance font-heading">
-            Book your next ride to the Airport
-          </h2>
-        </div>
-      )}
-
-      <Form
-        form={form}
-        id={variant === "landing" ? "landing-trip-search" : "page-trip-search"}
-        layout="vertical"
-        onFinish={onSearch}
-        initialValues={{ from: "", to: "" }}
-        className={cn(
-          variant === "landing"
-            ? "[&_.ant-form-item]:mb-4 [&_.ant-form-item:last-child]:mb-0 [&_.ant-form-item-label>label]:text-xs [&_.ant-form-item-label>label]:font-bold [&_.ant-form-item-label>label]:uppercase [&_.ant-form-item-label>label]:tracking-wider [&_.ant-form-item-label>label]:text-muted-foreground [&_.ant-input-affix-wrapper]:min-h-[48px] sm:[&_.ant-input-affix-wrapper]:min-h-[56px] [&_.ant-input-affix-wrapper]:text-base sm:[&_.ant-input-affix-wrapper]:text-lg [&_.ant-input-affix-wrapper]:rounded-3xl [&_.ant-input]:text-base sm:[&_.ant-input]:text-lg"
-            : "[&_.ant-form-item]:mb-0 [&_.ant-form-item-label]:hidden"
-        )}
-      >
-        <div className={cn(
-          "grid items-center",
-          variant === "landing" 
-            ? "grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-0 border border-border/60 divide-y md:divide-y-0 md:divide-x divide-border/60 p-1 bg-card/50" 
-            : "grid-cols-[1fr_auto_1fr_auto_auto] gap-2"
-        )}>
-          <Form.Item
-            name="from"
-            rules={[{ required: true, message: "Enter starting city" }]}
-            className={variant === "landing" ? "px-3 pt-2 pb-1 sm:px-4 sm:pt-3 sm:pb-1 m-0 bg-background/50 hover:bg-muted/30 transition-colors" : "m-0"}
-          >
+  if (variant === "page") {
+    return (
+      <Card id={id} className="bg-white p-3 border-gray-100 shadow-sm max-w-2xl mx-auto rounded-[2rem]">
+        <Form
+          form={form}
+          id="page-trip-search"
+          layout="horizontal"
+          onFinish={onSearch}
+          className="flex items-center gap-2"
+        >
+          <Form.Item name="from" className="m-0 flex-1">
             <AutoComplete
               options={fromOptions}
               onSearch={(text) => searchPlaces(text, "from")}
               placeholder="From"
-              size={variant === "landing" ? "large" : "middle"}
+              className="bg-gray-50 rounded-2xl w-full"
               variant="borderless"
-              className={cn("w-full", variant === "landing" ? "[&_.ant-select-selector]:px-0" : "bg-gray-50 rounded-2xl")}
             />
           </Form.Item>
-          
-          <div className={cn("flex items-center justify-center", variant === "landing" ? "hidden" : "text-gray-300")}>
-            <ArrowRight size={14} />
-          </div>
-
-          <Form.Item
-            name="to"
-            rules={[{ required: true, message: "Enter destination" }]}
-            className={variant === "landing" ? "px-3 pt-2 pb-1 sm:px-4 sm:pt-3 sm:pb-1 m-0 bg-background/50 hover:bg-muted/30 transition-colors" : "m-0"}
-          >
+          <ArrowRight size={14} className="text-gray-300" />
+          <Form.Item name="to" className="m-0 flex-1">
             <AutoComplete
               options={toOptions}
               onSearch={(text) => searchPlaces(text, "to")}
               placeholder="To"
-              size={variant === "landing" ? "large" : "middle"}
+              className="bg-gray-50 rounded-2xl w-full"
               variant="borderless"
-              className={cn("w-full", variant === "landing" ? "[&_.ant-select-selector]:px-0" : "bg-gray-50 rounded-2xl")}
             />
           </Form.Item>
+          <UiButton type="submit" variant="hero" size="sm" className="h-10 w-10 p-0 rounded-full">
+            <ArrowRight size={18} />
+          </UiButton>
+        </Form>
+      </Card>
+    );
+  }
 
-          <Form.Item
-            name="date"
-            className={variant === "landing" ? "px-3 pt-2 pb-1 sm:px-4 sm:pt-3 sm:pb-1 m-0 bg-background/50 hover:bg-muted/30 transition-colors" : "m-0"}
-          >
-            {variant === "landing" && (
-              <div className="flex gap-2 mb-2 animate-in fade-in slide-in-from-top-2 duration-300">
-                <button
-                  type="button"
-                  onClick={() => form.setFieldsValue({ date: dayjs() })}
-                  className={cn(
-                    "px-4 py-1.5 text-xs font-bold rounded-xl border transition-all duration-200 shadow-sm",
-                    dayjs().isSame(selectedDate, "day")
-                      ? "bg-gradient-primary text-white border-transparent shadow-glow"
-                      : "bg-white text-primary border-primary/20 hover:border-primary/40 hover:bg-primary/5"
-                  )}
-                >
-                  Today
-                </button>
-                <button
-                  type="button"
-                  onClick={() => form.setFieldsValue({ date: dayjs().add(1, 'day') })}
-                  className={cn(
-                    "px-4 py-1.5 text-xs font-bold rounded-xl border transition-all duration-200 shadow-sm",
-                    dayjs().add(1, 'day').isSame(selectedDate, "day")
-                      ? "bg-gradient-primary text-white border-transparent shadow-glow"
-                      : "bg-white text-primary border-primary/20 hover:border-primary/40 hover:bg-primary/5"
-                  )}
-                >
-                  Tomorrow
-                </button>
+  return (
+    <div id={id} className="w-full max-w-5xl mx-auto px-4 relative z-10 -mt-16 sm:-mt-20">
+      <div className="bg-white/90 backdrop-blur-2xl rounded-[2.5rem] p-2 shadow-elevated border border-white/40 ring-1 ring-black/5">
+        <Form
+          form={form}
+          id="landing-trip-search"
+          onFinish={onSearch}
+          className="flex flex-col md:flex-row items-stretch md:items-center gap-0"
+        >
+          {/* Segment: FROM */}
+          <div className="flex-1 px-6 py-3 hover:bg-gray-50/80 transition-colors rounded-[2rem] group relative">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-2xl bg-primary/10 text-primary group-hover:bg-primary group-hover:text-white transition-all duration-300">
+                <Navigation size={20} />
               </div>
-            )}
-            <DatePicker 
-              className={cn("w-full", variant === "landing" ? "h-[48px] sm:h-[56px] px-0" : "h-[40px] bg-gray-50 rounded-2xl px-3")} 
-              placeholder="Date"
-              disabledDate={(current) => {
-                if (!current) return false;
-                const today = dayjs().startOf('day');
-                const dayAfterTomorrow = dayjs().add(2, 'day').startOf('day');
-                return current < today || current >= dayAfterTomorrow;
-              }}
-              format="MMM DD"
-              variant="borderless"
-              suffixIcon={variant === "landing" ? undefined : <Calendar size={14} className="text-gray-400" />}
-            />
-          </Form.Item>
+              <div className="flex-1 min-w-0">
+                <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-0.5">Pickup Location</label>
+                <Form.Item name="from" rules={[{ required: true }]} className="m-0">
+                  <AutoComplete
+                    options={fromOptions}
+                    onSearch={(text) => searchPlaces(text, "from")}
+                    placeholder="Enter city or area"
+                    variant="borderless"
+                    className="w-full text-lg font-bold p-0 [&_.ant-select-selector]:px-0"
+                  />
+                </Form.Item>
+              </div>
+            </div>
+          </div>
 
-          <div className={cn("flex items-center", variant === "landing" ? "bg-background/50 p-2" : "")}>
-             <UiButton
+          <div className="hidden md:block w-px h-12 bg-gray-100" />
+
+          {/* Segment: TO */}
+          <div className="flex-1 px-6 py-3 hover:bg-gray-50/80 transition-colors rounded-[2rem] group relative">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-2xl bg-secondary/10 text-secondary group-hover:bg-secondary group-hover:text-white transition-all duration-300">
+                <MapPin size={20} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-0.5">Destination</label>
+                <Form.Item name="to" rules={[{ required: true }]} className="m-0">
+                  <AutoComplete
+                    options={toOptions}
+                    onSearch={(text) => searchPlaces(text, "to")}
+                    placeholder="Enter destination"
+                    variant="borderless"
+                    className="w-full text-lg font-bold p-0 [&_.ant-select-selector]:px-0"
+                  />
+                </Form.Item>
+              </div>
+            </div>
+          </div>
+
+          <div className="hidden md:block w-px h-12 bg-gray-100" />
+
+          {/* Segment: WHEN */}
+          <div className="flex-1 px-6 py-3 hover:bg-gray-50/80 transition-colors rounded-[2rem] group relative">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-2xl bg-amber-500/10 text-amber-500 group-hover:bg-amber-500 group-hover:text-white transition-all duration-300">
+                <Clock size={20} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-0.5">When</label>
+                <div className="flex items-center gap-2 mt-1">
+                  <button
+                    type="button"
+                    onClick={() => form.setFieldsValue({ date: dayjs() })}
+                    className={cn(
+                      "px-4 py-1 rounded-full text-xs font-bold transition-all border",
+                      dayjs().isSame(selectedDate, "day")
+                        ? "bg-primary text-white border-transparent shadow-soft"
+                        : "bg-white text-gray-500 border-gray-100 hover:border-primary/20"
+                    )}
+                  >
+                    Today
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => form.setFieldsValue({ date: dayjs().add(1, 'day') })}
+                    className={cn(
+                      "px-4 py-1 rounded-full text-xs font-bold transition-all border",
+                      dayjs().add(1, 'day').isSame(selectedDate, "day")
+                        ? "bg-primary text-white border-transparent shadow-soft"
+                        : "bg-white text-gray-500 border-gray-100 hover:border-primary/20"
+                    )}
+                  >
+                    Tomorrow
+                  </button>
+                </div>
+                <Form.Item name="date" className="hidden">
+                  <DatePicker />
+                </Form.Item>
+              </div>
+            </div>
+          </div>
+
+          {/* Search Action */}
+          <div className="p-2">
+            <UiButton
               type="submit"
-              form={variant === "landing" ? "landing-trip-search" : "page-trip-search"}
               variant="hero"
-              size={variant === "landing" ? "lg" : "sm"}
-              className={cn(
-                "rounded-full shadow-glow font-bold",
-                variant === "landing" ? "w-full h-full min-h-[48px] sm:min-h-[56px] text-base sm:text-lg" : "h-10 w-10 p-0"
-              )}
+              className="h-16 md:h-20 w-full md:px-10 rounded-[2rem] font-black text-lg shadow-glow hover:scale-[1.02] active:scale-[0.98] transition-all"
               disabled={loading}
             >
               {loading ? (
-                <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              ) : variant === "landing" ? (
-                "Search"
+                <div className="h-5 w-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
               ) : (
-                <ArrowRight size={18} />
+                <div className="flex items-center gap-3">
+                  <span>Search</span>
+                  <ArrowRight size={22} strokeWidth={3} />
+                </div>
               )}
             </UiButton>
           </div>
-        </div>
-      </Form>
-    </Card>
+        </Form>
+      </div>
+    </div>
   );
 }
 
