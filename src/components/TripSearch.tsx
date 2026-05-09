@@ -319,18 +319,17 @@ export function TripSearchForm({
   const { loading, fromOptions, toOptions, searchPlaces, onSearch, summary } = useTripSearchContext();
   const [form] = Form.useForm();
   const selectedDate = Form.useWatch("date", form);
+  const [locating, setLocating] = useState(false);
 
-  useEffect(() => {
-    // Set default values
-    if (!form.getFieldValue("to")) {
-      form.setFieldsValue({ to: "Kempegowda International Airport" });
-    }
-    if (!form.getFieldValue("date")) {
-      form.setFieldsValue({ date: dayjs() });
+  const locateUser = useCallback(() => {
+    if (!navigator.geolocation) {
+      import("sonner").then(m => m.toast.error("Geolocation is not supported by your browser."));
+      return;
     }
 
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition((position) => {
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
         const { latitude, longitude } = position.coords;
         if ((window as any).google && (window as any).google.maps) {
           const geocoder = new (window as any).google.maps.Geocoder();
@@ -344,23 +343,48 @@ export function TripSearchForm({
                   if (!city) city = component.long_name;
                 }
               }
+
               const southIndiaStates = ["karnataka", "kerala", "tamil nadu", "andhra pradesh", "telangana", "goa"];
               const isSouthIndia = southIndiaStates.some(s => state.includes(s));
               
-              if (!isSouthIndia) {
-                 import("sonner").then(m => m.toast.error("You are currently out of our service area (South India & Goa)."));
-                 return;
-              }
-              
-              if (city && !form.getFieldValue("from")) {
+              if (!isSouthIndia && state) {
+                import("sonner").then(m => m.toast.error("You are currently out of our service area (South India & Goa)."));
+              } else if (city) {
                 form.setFieldsValue({ from: city });
+                import("sonner").then(m => m.toast.success(`Detected location: ${city}`));
               }
             }
+            setLocating(false);
           });
+        } else {
+          setLocating(false);
+          import("sonner").then(m => m.toast.error("Google Maps not loaded. Please try again."));
         }
-      });
-    }
+      },
+      (error) => {
+        setLocating(false);
+        if (error.code === 1) { // PERMISSION_DENIED
+          import("sonner").then(m => m.toast.error("Location permission denied. Please allow location access in your browser settings."));
+        } else {
+          import("sonner").then(m => m.toast.error("Unable to retrieve location. Please enter it manually."));
+        }
+      },
+      { timeout: 10000, enableHighAccuracy: true }
+    );
   }, [form]);
+
+  useEffect(() => {
+    // Set default values
+    if (!form.getFieldValue("to")) {
+      form.setFieldsValue({ to: "Kempegowda International Airport" });
+    }
+    if (!form.getFieldValue("date")) {
+      form.setFieldsValue({ date: dayjs() });
+    }
+
+    // Try auto-locate on mount
+    locateUser();
+  }, [form, locateUser]);
 
   useEffect(() => {
     const handleCityDetected = (e: Event) => {
@@ -435,10 +459,15 @@ export function TripSearchForm({
             <div
               style={{ flex: "0 0 27%" }}
               className="h-full flex items-center px-6 hover:bg-gray-50/60 rounded-2xl transition-colors group cursor-pointer"
+              onClick={() => !locating && locateUser()}
             >
               <div className="flex items-center gap-4 w-full min-w-0">
-                <div className="shrink-0 p-2.5 rounded-xl bg-gray-100/80 text-gray-400 group-hover:bg-primary/10 group-hover:text-primary transition-all duration-250">
-                  <Navigation size={20} strokeWidth={2.5} />
+                <div className="shrink-0 p-2.5 rounded-xl bg-gray-100/80 text-gray-400 group-hover:bg-primary/10 group-hover:text-primary transition-all duration-250 relative">
+                  {locating ? (
+                    <div className="h-5 w-5 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+                  ) : (
+                    <Navigation size={20} strokeWidth={2.5} />
+                  )}
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-[10px] font-black uppercase tracking-[0.12em] text-gray-400 mb-0.5">Pickup</p>
