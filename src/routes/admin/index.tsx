@@ -6,4 +6,3 @@ export const Route = createFileRoute("/admin/")({
   },
   component: () => null,
 });
-

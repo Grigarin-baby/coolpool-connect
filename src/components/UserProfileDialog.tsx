@@ -18,31 +18,42 @@ interface UserProfileDialogProps {
   roles?: AppRole[];
 }
 
-export function UserProfileDialog({ open, onOpenChange, user, roles = [] }: UserProfileDialogProps) {
+export function UserProfileDialog({
+  open,
+  onOpenChange,
+  user,
+  roles = [],
+}: UserProfileDialogProps) {
   if (!user) return null;
 
   const displayName = getUserDisplayName(user);
   const roleTags = roles.length > 0 ? roles : (["user"] as AppRole[]);
+  const hasName = !!user.name?.trim();
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="rounded-3xl sm:max-w-md">
-        <DialogHeader>
+      <DialogContent className="rounded-3xl sm:max-w-md mx-4 sm:mx-auto">
+        <DialogHeader className="sr-only">
           <DialogTitle>My profile</DialogTitle>
           <DialogDescription>Signed in on this device</DialogDescription>
         </DialogHeader>
 
-        <div className="flex flex-col items-center text-center pt-2">
-          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gradient-primary text-xl font-bold text-primary-foreground">
+        {/* Avatar + identity */}
+        <div className="flex flex-col items-center text-center pt-4 pb-2">
+          <div className="flex h-20 w-20 items-center justify-center rounded-full bg-gradient-primary text-3xl font-black text-primary-foreground shadow-glow-sm">
             {getUserInitial(user)}
           </div>
-          <p className="mt-4 text-lg font-semibold">{displayName}</p>
-          {user.email ? <p className="text-sm text-muted-foreground">{user.email}</p> : null}
+          <p className="mt-4 text-2xl font-black tracking-tight">{displayName}</p>
+          {hasName && user.email ? (
+            <p className="mt-1 text-base text-muted-foreground break-all">{user.email}</p>
+          ) : !hasName && user.email ? (
+            <p className="mt-1 text-base text-muted-foreground break-all">{user.email}</p>
+          ) : null}
           <div className="mt-3 flex flex-wrap justify-center gap-2">
             {roleTags.map((role) => (
               <span
                 key={role}
-                className="rounded-full bg-muted px-3 py-1 text-xs font-medium text-muted-foreground"
+                className="rounded-full bg-primary/10 text-primary px-4 py-1.5 text-sm font-bold"
               >
                 {formatRoleLabel(role)}
               </span>
@@ -50,18 +61,29 @@ export function UserProfileDialog({ open, onOpenChange, user, roles = [] }: User
           </div>
         </div>
 
-        <dl className="mt-6 space-y-4 border-t border-border pt-6 text-sm">
-          <div>
-            <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Display name</dt>
-            <dd className="mt-1 font-medium">{user.name?.trim() || "—"}</dd>
+        {/* Detail list */}
+        <dl className="mt-4 space-y-3 border-t border-border pt-5 text-sm">
+          {hasName && (
+            <div className="flex items-center justify-between gap-4">
+              <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground shrink-0">
+                Name
+              </dt>
+              <dd className="font-semibold text-right break-all">{user.name!.trim()}</dd>
+            </div>
+          )}
+          <div className="flex items-center justify-between gap-4">
+            <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground shrink-0">
+              Email
+            </dt>
+            <dd className="font-semibold text-right break-all">{user.email || "—"}</dd>
           </div>
-          <div>
-            <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Email</dt>
-            <dd className="mt-1 font-medium break-all">{user.email || "—"}</dd>
-          </div>
-          <div>
-            <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Account ID</dt>
-            <dd className="mt-1 font-mono text-xs text-muted-foreground break-all">{user.$id}</dd>
+          <div className="flex items-center justify-between gap-4">
+            <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground shrink-0">
+              Account
+            </dt>
+            <dd className="font-mono text-xs text-muted-foreground text-right break-all">
+              {user.$id}
+            </dd>
           </div>
         </dl>
       </DialogContent>

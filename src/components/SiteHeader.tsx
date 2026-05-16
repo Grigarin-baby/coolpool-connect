@@ -33,10 +33,11 @@ export function SiteHeader() {
   return (
     <>
       <div className="fixed top-0 left-0 right-0 z-50 px-4 pt-4 pointer-events-none">
-        <header 
-          className="container mx-auto max-w-7xl h-20 rounded-full border border-white/20 bg-background/60 backdrop-blur-2xl shadow-glow-sm pointer-events-auto flex items-center justify-between px-6 sm:px-8 transition-all duration-500 hover:shadow-glow-md"
-        >
-          <Link to="/" className="flex items-center gap-3 group transition-transform duration-300 hover:scale-[1.02]">
+        <header className="container mx-auto max-w-7xl h-20 rounded-full border border-white/20 bg-background/60 backdrop-blur-2xl shadow-glow-sm pointer-events-auto flex items-center justify-between px-6 sm:px-8 transition-all duration-500 hover:shadow-glow-md">
+          <Link
+            to="/"
+            className="flex items-center gap-3 group transition-transform duration-300 hover:scale-[1.02]"
+          >
             <div className="relative">
               <div className="absolute inset-0 bg-primary/20 blur-xl rounded-full group-hover:bg-primary/40 transition-colors" />
               <img src={logo} alt="Coolpool" className="h-16 w-auto object-contain relative z-10" />
@@ -60,12 +61,16 @@ export function SiteHeader() {
                       <div className="h-7 w-7 rounded-3xl bg-gradient-primary flex items-center justify-center text-xs font-bold text-primary-foreground">
                         {getUserInitial(user)}
                       </div>
-                      <span className="text-sm max-w-[120px] truncate">{getUserDisplayName(user)}</span>
+                      <span className="text-sm max-w-[120px] truncate">
+                        {getUserDisplayName(user)}
+                      </span>
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-56 rounded-3xl">
                     <DropdownMenuLabel className="font-normal space-y-1">
-                      <p className="text-sm font-medium text-foreground truncate">{getUserDisplayName(user)}</p>
+                      <p className="text-sm font-medium text-foreground truncate">
+                        {getUserDisplayName(user)}
+                      </p>
                       <p className="text-xs text-muted-foreground truncate">{user.email}</p>
                     </DropdownMenuLabel>
                     <DropdownMenuSeparator />
@@ -103,7 +108,11 @@ export function SiteHeader() {
               </>
             ) : (
               <>
-                <Button asChild variant="outline" className="rounded-3xl border-border/80 bg-card/40">
+                <Button
+                  asChild
+                  variant="outline"
+                  className="rounded-3xl border-border/80 bg-card/40"
+                >
                   {/* <Link to="/members" search={memberSearch}>
                     Become a member
                   </Link> */}
@@ -128,7 +137,12 @@ export function SiteHeader() {
       {open && (
         <div className="fixed inset-0 z-[60] bg-background/95 backdrop-blur-2xl md:hidden p-6 animate-in fade-in zoom-in-95 duration-300">
           <div className="flex justify-end mb-8">
-            <Button variant="ghost" size="icon" onClick={() => setOpen(false)} className="rounded-full">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setOpen(false)}
+              className="rounded-full"
+            >
               <X className="h-8 w-8" />
             </Button>
           </div>
@@ -147,7 +161,8 @@ export function SiteHeader() {
             {user ? (
               <>
                 <p className="text-sm text-muted-foreground px-2">
-                  Signed in as <span className="font-semibold text-foreground">{getUserDisplayName(user)}</span>
+                  Signed in as{" "}
+                  <span className="font-semibold text-foreground">{getUserDisplayName(user)}</span>
                 </p>
                 <button
                   type="button"
@@ -198,8 +213,12 @@ export function SiteHeader() {
         </div>
       )}
 
-      <UserProfileDialog open={profileOpen} onOpenChange={setProfileOpen} user={user} roles={roles} />
+      <UserProfileDialog
+        open={profileOpen}
+        onOpenChange={setProfileOpen}
+        user={user}
+        roles={roles}
+      />
     </>
   );
 }
-

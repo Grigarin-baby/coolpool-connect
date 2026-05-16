@@ -67,7 +67,11 @@ function PasswordField({
         aria-pressed={visible}
         onClick={() => setVisible((v) => !v)}
       >
-        {visible ? <EyeOff className="h-4 w-4 shrink-0" aria-hidden /> : <Eye className="h-4 w-4 shrink-0" aria-hidden />}
+        {visible ? (
+          <EyeOff className="h-4 w-4 shrink-0" aria-hidden />
+        ) : (
+          <Eye className="h-4 w-4 shrink-0" aria-hidden />
+        )}
       </button>
     </div>
   );
@@ -92,11 +96,10 @@ function AuthPage() {
       if (isAdmin) void navigate({ to: "/admin/dashboard" });
       else if (isDriver) void navigate({ to: "/driver/dashboard" });
       else if (roles.includes("user") && roles.length === 1) {
-        // If they are just a user/traveler but on the host auth page, 
+        // If they are just a user/traveler but on the host auth page,
         // we offer them to become a host by providing a phone number.
         setShowPhoneStep(true);
-      }
-      else if (roles.length > 0) void navigate({ to: "/" });
+      } else if (roles.length > 0) void navigate({ to: "/" });
       else {
         // No roles at all - new signup
         setShowPhoneStep(true);
@@ -221,19 +224,27 @@ function AuthPage() {
                 <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-primary mb-1.5">
                   Hosts &amp; admins
                 </p>
-                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight font-heading text-balance">Login</h1>
+                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight font-heading text-balance">
+                  Login
+                </h1>
               </div>
 
               <Tabs defaultValue="login" className="w-full">
                 <TabsList className="grid w-full grid-cols-2 rounded-3xl h-10 p-1 bg-muted/80 border border-border/60">
-                  <TabsTrigger value="login" className="rounded-3xl data-[state=active]:shadow-soft text-sm font-semibold">
+                  <TabsTrigger
+                    value="login"
+                    className="rounded-3xl data-[state=active]:shadow-soft text-sm font-semibold"
+                  >
                     Login
                   </TabsTrigger>
-                  <TabsTrigger value="signup" className="rounded-3xl data-[state=active]:shadow-soft text-sm font-semibold">
+                  <TabsTrigger
+                    value="signup"
+                    className="rounded-3xl data-[state=active]:shadow-soft text-sm font-semibold"
+                  >
                     Sign up
                   </TabsTrigger>
                 </TabsList>
-                
+
                 <GoogleLoginButton busy={busy} className="mt-6 !rounded-3xl" successUrl="/auth" />
 
                 <div className="relative my-6">

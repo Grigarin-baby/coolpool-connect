@@ -1,12 +1,11 @@
 import { useEffect, useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { TrendingUp, Navigation, CarFront, Star, ShieldCheck, ChevronRight, Clock, MapPin } from "lucide-react";
+import { TrendingUp, Navigation, CarFront, ArrowRight, ChevronRight } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import dayjs from "dayjs";
 import { appwriteConfig } from "@/integrations/appwrite/client";
 import { listTrips } from "@/data/appwrite-repository";
-import { formatCurrency } from "@/lib/pricing";
 import { routeCitySegmentsMatch } from "@/lib/geo";
 import { SERVICE_CITY, BENGALURU_AIRPORTS } from "@/lib/config";
 
@@ -20,7 +19,9 @@ interface GoogleMapsWindow {
 }
 
 export function DynamicTrendingRoutes() {
-  const [status, setStatus] = useState<"idle" | "locating" | "fetching" | "success" | "error" | "denied">("idle");
+  const [status, setStatus] = useState<
+    "idle" | "locating" | "fetching" | "success" | "error" | "denied"
+  >("idle");
   const [city, setCity] = useState<string | null>(null);
   const [trips, setTrips] = useState<Awaited<ReturnType<typeof listTrips>>>([]);
 
@@ -51,8 +52,14 @@ export function DynamicTrendingRoutes() {
 
         for (const result of response) {
           for (const component of result.address_components) {
-            if (component.types.includes("locality") || component.types.includes("administrative_area_level_2")) {
-              if (component.long_name.toLowerCase() === SERVICE_CITY.toLowerCase() || component.long_name.toLowerCase() === "bangalore") {
+            if (
+              component.types.includes("locality") ||
+              component.types.includes("administrative_area_level_2")
+            ) {
+              if (
+                component.long_name.toLowerCase() === SERVICE_CITY.toLowerCase() ||
+                component.long_name.toLowerCase() === "bangalore"
+              ) {
                 isInServiceCity = true;
               }
             }
@@ -78,7 +85,11 @@ export function DynamicTrendingRoutes() {
           for (const result of response) {
             for (const component of result.address_components) {
               // Usually sublocality_level_1, neighborhood, or route
-              if (component.types.includes("sublocality") || component.types.includes("sublocality_level_1") || component.types.includes("neighborhood")) {
+              if (
+                component.types.includes("sublocality") ||
+                component.types.includes("sublocality_level_1") ||
+                component.types.includes("neighborhood")
+              ) {
                 neighborhood = component.long_name;
                 break;
               }
@@ -92,9 +103,11 @@ export function DynamicTrendingRoutes() {
 
         if (mounted) {
           setCity(finalDetectedLocation);
-          window.dispatchEvent(new CustomEvent("coolpool:cityDetected", { 
-            detail: { from: finalDetectedLocation, to: "Kempegowda International Airport" } 
-          }));
+          window.dispatchEvent(
+            new CustomEvent("coolpool:cityDetected", {
+              detail: { from: finalDetectedLocation, to: "Kempegowda International Airport" },
+            }),
+          );
         }
 
         // Fetch trips
@@ -102,7 +115,11 @@ export function DynamicTrendingRoutes() {
         const allTrips = await listTrips(100);
         const filtered = allTrips
           .filter((t) => new Date(t.departureAt).getTime() > now)
-          .filter((t) => routeCitySegmentsMatch(t.fromLocation, SERVICE_CITY) || routeCitySegmentsMatch(t.toLocation, SERVICE_CITY))
+          .filter(
+            (t) =>
+              routeCitySegmentsMatch(t.fromLocation, SERVICE_CITY) ||
+              routeCitySegmentsMatch(t.toLocation, SERVICE_CITY),
+          )
           .sort((a, b) => new Date(a.departureAt).getTime() - new Date(b.departureAt).getTime())
           .slice(0, 4);
 
@@ -115,15 +132,16 @@ export function DynamicTrendingRoutes() {
       }
     };
 
-    
     const fetchFallbackCityAndTrips = async () => {
       setStatus("fetching");
       try {
         if (mounted) {
           setCity("");
-          window.dispatchEvent(new CustomEvent("coolpool:cityDetected", { 
-            detail: { from: "", to: `${BENGALURU_AIRPORTS[0].name}` } 
-          }));
+          window.dispatchEvent(
+            new CustomEvent("coolpool:cityDetected", {
+              detail: { from: "", to: `${BENGALURU_AIRPORTS[0].name}` },
+            }),
+          );
         }
 
         const now = Date.now();
@@ -155,7 +173,7 @@ export function DynamicTrendingRoutes() {
         (err) => {
           fetchFallbackCityAndTrips();
         },
-        { timeout: 10000 }
+        { timeout: 10000 },
       );
     };
 
@@ -171,7 +189,9 @@ export function DynamicTrendingRoutes() {
       if ((window as Window & GoogleMapsWindow).google?.maps?.Geocoder) {
         return resolve();
       }
-      const existingScript = document.querySelector('script[data-google-maps="places"]') as HTMLScriptElement | null;
+      const existingScript = document.querySelector(
+        'script[data-google-maps="places"]',
+      ) as HTMLScriptElement | null;
       if (existingScript) {
         if (existingScript.dataset.loaded === "true") return resolve();
         existingScript.addEventListener("load", () => resolve(), { once: true });
@@ -193,16 +213,16 @@ export function DynamicTrendingRoutes() {
 
   if (status === "idle" || status === "locating" || status === "fetching") {
     return (
-      <section className="container mx-auto px-4 sm:px-5 py-16 sm:py-24 max-w-7xl">
-        <div className="flex items-center justify-between mb-10">
+      <section className="container mx-auto px-4 sm:px-5 py-10 sm:py-16 max-w-7xl">
+        <div className="flex items-end justify-between mb-5">
           <div className="space-y-2">
-            <div className="h-8 w-48 bg-muted animate-pulse rounded" />
-            <div className="h-4 w-64 bg-muted animate-pulse rounded" />
+            <div className="h-3 w-20 bg-muted animate-pulse rounded-full" />
+            <div className="h-6 w-44 bg-muted animate-pulse rounded" />
           </div>
         </div>
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
           {[1, 2, 3, 4].map((i) => (
-            <Card key={i} className="h-48 rounded-3xl border-0 bg-muted animate-pulse shadow-sm" />
+            <div key={i} className="h-24 rounded-2xl bg-muted animate-pulse" />
           ))}
         </div>
       </section>
@@ -211,115 +231,91 @@ export function DynamicTrendingRoutes() {
 
   if (status === "success") {
     return (
-      <section className="container mx-auto px-4 sm:px-5 py-16 sm:py-24 max-w-7xl">
-        <div className="flex items-center justify-between mb-10">
+      <section className="container mx-auto px-4 sm:px-5 py-10 sm:py-16 max-w-7xl">
+        <div className="flex items-end justify-between mb-5">
           <div>
             {city && (
-              <div className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-bold uppercase tracking-widest text-primary mb-2">
-                <Navigation className="h-3.5 w-3.5" /> Near you
-              </div>
+              <p className="text-xs font-bold uppercase tracking-widest text-primary mb-1 flex items-center gap-1">
+                <Navigation className="h-3 w-3" /> Near you
+              </p>
             )}
-            <h2 className="text-3xl font-bold tracking-tight font-heading">
+            <h2 className="text-xl sm:text-2xl font-black tracking-tight">
               {city ? (
-                <>Trips from <span className="text-primary">{city}</span></>
+                <>
+                  Trips from <span className="text-primary">{city.split(",")[0]}</span>
+                </>
               ) : (
-                <>Trending <span className="text-primary">Routes</span></>
+                <>
+                  Trending <span className="text-primary">Routes</span>
+                </>
               )}
             </h2>
-            <p className="text-muted-foreground mt-2">
-              {city ? "Catch a ride leaving from your city." : "Popular intercity connections you might love."}
-            </p>
           </div>
-          <TrendingUp className="h-8 w-8 text-primary/30 hidden sm:block" />
+          <TrendingUp className="h-5 w-5 text-primary/40" />
         </div>
-        
+
         {trips.length > 0 ? (
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-            {trips.map((trip) => {
-              const fromShort = trip.fromLocation.split(',')[0].trim();
-              const toShort = trip.toLocation.split(',')[0].trim();
-              const hostInitials = trip.hostId ? trip.hostId.substring(0, 2).toUpperCase() : "VH";
-              const pricePerSeat = trip.totalSeats > 0 ? trip.totalPrice / trip.totalSeats : trip.totalPrice;
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+            {trips.map((trip, i) => {
+              const fromShort = trip.fromLocation.split(",")[0].trim();
+              const toShort = trip.toLocation.split(",")[0].trim();
+              const dateStr = dayjs(trip.departureAt).format("ddd, MMM D");
 
               return (
-                <Link to="/booking/$tripId" params={{ tripId: trip.id }} key={trip.id} className="block group">
-                  <Card className="bg-white rounded-3xl border border-gray-100 shadow-soft hover:shadow-elevated hover:border-primary/20 hover:-translate-y-1 transition-all duration-300 overflow-hidden flex flex-col h-full">
-                    {/* Top: Driver Info */}
-                    <div className="p-5 pb-4 flex items-start justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-full bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center text-primary font-bold shadow-sm border border-primary/10 shrink-0">
-                          {hostInitials}
-                        </div>
-                        <div>
-                          <p className="font-bold text-base text-gray-900 leading-none mb-1.5">Verified Host</p>
-                          <div className="flex items-center gap-1 text-sm text-gray-500 font-medium">
-                            <Star size={10} className="fill-amber-400 text-amber-400" />
-                            <span>4.8 · 120 trips</span>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="bg-green-50 text-green-600 border border-green-100 px-2 py-1 rounded-full flex items-center gap-1">
-                        <ShieldCheck size={12} className="shrink-0" />
-                        <span className="text-[9px] font-bold uppercase tracking-wider">Verified</span>
-                      </div>
-                    </div>
+                <Link
+                  to="/booking/$tripId"
+                  params={{ tripId: trip.id }}
+                  key={trip.id}
+                  className="block group"
+                >
+                  <div
+                    className="relative rounded-2xl border border-gray-100 bg-white overflow-hidden shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 p-4"
+                    style={{ animationDelay: `${i * 60}ms` }}
+                  >
+                    {/* Subtle gradient accent strip */}
+                    <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-primary opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-t-2xl" />
 
-                    {/* Middle: Route & Time */}
-                    <div className="px-5 py-2 flex-1">
-                      <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center gap-1.5 text-primary">
-                          <Clock size={14} />
-                          <span className="font-bold text-lg">{dayjs(trip.departureAt).format("hh:mm A")}</span>
+                    {/* Route */}
+                    <div className="flex flex-col gap-2">
+                      <div className="flex items-start gap-2.5">
+                        {/* Timeline dots */}
+                        <div className="flex flex-col items-center pt-1.5 shrink-0">
+                          <div className="h-2 w-2 rounded-full bg-primary" />
+                          <div className="w-px h-5 bg-gray-200 my-1" />
+                          <div className="h-2 w-2 rounded-full border-2 border-gray-300" />
                         </div>
-                        <span className="text-sm font-bold text-gray-500 uppercase tracking-wider">{dayjs(trip.departureAt).format("MMM DD")}</span>
-                      </div>
-                      
-                      <div className="flex items-center gap-3 relative">
-                        <div className="flex flex-col items-center gap-1 shrink-0">
-                          <div className="h-2.5 w-2.5 rounded-full border-2 border-primary" />
-                          <div className="w-0.5 h-6 bg-gray-200" />
-                          <div className="h-2.5 w-2.5 rounded-full border-2 border-gray-400" />
+                        {/* City names */}
+                        <div className="flex-1 min-w-0 flex flex-col gap-2.5">
+                          <p
+                            className="font-bold text-base text-gray-900 truncate leading-none"
+                            title={trip.fromLocation}
+                          >
+                            {fromShort}
+                          </p>
+                          <p
+                            className="font-bold text-base text-gray-500 truncate leading-none"
+                            title={trip.toLocation}
+                          >
+                            {toShort}
+                          </p>
                         </div>
-                        <div className="flex flex-col gap-3 min-w-0 flex-1">
-                          <div className="min-w-0">
-                            <p className="font-bold text-base sm:text-lg text-gray-900 truncate" title={trip.fromLocation}>{fromShort}</p>
-                          </div>
-                          <div className="min-w-0">
-                            <p className="font-bold text-base sm:text-lg text-gray-600 truncate" title={trip.toLocation}>{toShort}</p>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Bottom: Booking Details */}
-                    <div className="mt-auto border-t border-gray-100 p-5 bg-gray-50/50">
-                      <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center gap-1.5 text-xs font-medium text-gray-500 bg-white px-2 py-1 rounded-full border border-gray-100 shadow-sm">
-                          <CarFront size={12} className="text-gray-400" />
-                          <span>Standard Sedan</span>
-                        </div>
-                        <div className="bg-primary/10 text-primary px-2 py-1 rounded-full">
-                          <span className="text-xs sm:text-sm font-bold uppercase tracking-wider">{trip.totalSeats} seats left</span>
-                        </div>
+                        {/* Chevron */}
+                        <ChevronRight
+                          size={16}
+                          className="text-gray-200 group-hover:text-primary group-hover:translate-x-0.5 transition-all duration-200 shrink-0 mt-0.5"
+                        />
                       </div>
 
-                      <div className="flex items-end justify-between">
-                        <div>
-                          <p className="text-xs sm:text-sm text-gray-500 font-bold uppercase tracking-widest mb-0.5">Price</p>
-                          <div className="flex items-baseline gap-1">
-                            <span className="text-2xl sm:text-3xl font-black text-gray-900 leading-none">{formatCurrency(pricePerSeat)}</span>
-                            <span className="text-sm text-gray-500 font-medium">/seat</span>
-                          </div>
-                        </div>
-                        <div className="h-11 px-5 bg-gray-900 group-hover:bg-primary text-white rounded-full flex items-center justify-center font-bold text-base transition-colors shadow-sm gap-1.5">
-                          Book
-                          <ChevronRight size={16} />
-                        </div>
+                      {/* Date badge */}
+                      <div className="mt-1">
+                        <span className="inline-block text-xs font-semibold text-muted-foreground bg-gray-50 rounded-full px-3 py-1">
+                          {dateStr}
+                        </span>
                       </div>
                     </div>
-                  </Card>
+                  </div>
                 </Link>
-              )
+              );
             })}
           </div>
         ) : (
@@ -335,9 +331,16 @@ export function DynamicTrendingRoutes() {
                 {city ? `No rides from ${city} yet` : "No rides available yet"}
               </h3>
               <p className="text-muted-foreground text-lg mb-8 leading-relaxed">
-                {city ? `Be the first to host a ride from ${city} to your favorite destination and start earning money on your next trip!` : "Be the first to host a ride and start earning money on your next trip!"}
+                {city
+                  ? `Be the first to host a ride from ${city} to your favorite destination and start earning money on your next trip!`
+                  : "Be the first to host a ride and start earning money on your next trip!"}
               </p>
-              <Button asChild size="lg" variant="hero" className="rounded-3xl shadow-glow px-8 h-12 text-base">
+              <Button
+                asChild
+                size="lg"
+                variant="hero"
+                className="rounded-3xl shadow-glow px-8 h-12 text-base"
+              >
                 <Link to="/host">Host a Ride Now</Link>
               </Button>
             </div>
@@ -349,7 +352,7 @@ export function DynamicTrendingRoutes() {
 
   if (status === "error") {
     return (
-      <section className="container mx-auto px-4 sm:px-5 py-16 sm:py-24 max-w-7xl">
+      <section className="container mx-auto px-4 sm:px-5 py-10 sm:py-16 max-w-7xl">
         <Card className="w-full rounded-3xl border-border/60 bg-gradient-soft shadow-soft p-8 md:p-12 text-center relative overflow-hidden">
           <div className="relative z-10 max-w-xl mx-auto flex flex-col items-center">
             <h3 className="text-2xl md:text-3xl font-bold font-heading mb-4 text-balance">

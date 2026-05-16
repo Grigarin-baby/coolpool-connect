@@ -15,7 +15,8 @@ function PricingPage() {
         <div className="text-center max-w-2xl mx-auto mb-16">
           <h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-4">Pricing & Payments</h1>
           <p className="text-lg text-muted-foreground">
-            Transparent pricing for your intercity commutes. Fair for drivers, affordable for passengers.
+            Transparent pricing for your intercity commutes. Fair for drivers, affordable for
+            passengers.
           </p>
         </div>
 
@@ -26,7 +27,9 @@ function PricingPage() {
             </div>
             <h3 className="text-xl font-bold text-slate-900 mb-3">Driver-Set Ride Pricing</h3>
             <p className="text-slate-600 leading-relaxed">
-              As a ride coordination platform, the base cost of a seat reservation is determined by the ride host (driver). Prices are set to fairly share the cost of the commute, fuel, and tolls.
+              As a ride coordination platform, the base cost of a seat reservation is determined by
+              the ride host (driver). Prices are set to fairly share the cost of the commute, fuel,
+              and tolls.
             </p>
           </div>
 
@@ -36,7 +39,8 @@ function PricingPage() {
             </div>
             <h3 className="text-xl font-bold text-slate-900 mb-3">Secure Razorpay Payments</h3>
             <p className="text-slate-600 leading-relaxed">
-              All seat reservation payments are processed securely through Razorpay. We support UPI, credit/debit cards, and net banking to ensure a smooth, trust-verified transaction.
+              All seat reservation payments are processed securely through Razorpay. We support UPI,
+              credit/debit cards, and net banking to ensure a smooth, trust-verified transaction.
             </p>
           </div>
 
@@ -46,7 +50,8 @@ function PricingPage() {
             </div>
             <h3 className="text-xl font-bold text-slate-900 mb-3">Platform & Convenience Fees</h3>
             <p className="text-slate-600 leading-relaxed">
-              To maintain our platform, provide 24/7 support, and ensure secure infrastructure, Coolpool applies a nominal platform or convenience fee to bookings.
+              To maintain our platform, provide 24/7 support, and ensure secure infrastructure,
+              Coolpool applies a nominal platform or convenience fee to bookings.
             </p>
           </div>
 
@@ -56,7 +61,9 @@ function PricingPage() {
             </div>
             <h3 className="text-xl font-bold text-slate-900 mb-3">Dynamic Pricing Possibility</h3>
             <p className="text-slate-600 leading-relaxed">
-              During high-demand seasons or specific long-distance routes, prices may vary dynamically based on availability. The final price is always displayed clearly before you confirm your booking.
+              During high-demand seasons or specific long-distance routes, prices may vary
+              dynamically based on availability. The final price is always displayed clearly before
+              you confirm your booking.
             </p>
           </div>
         </div>
@@ -64,7 +71,10 @@ function PricingPage() {
         <div className="bg-white rounded-3xl p-8 sm:p-10 shadow-soft border border-border/50">
           <h2 className="text-2xl font-bold text-slate-900 mb-4">Taxes & Fees Disclaimer</h2>
           <p className="text-slate-600 leading-relaxed">
-            All prices listed during the booking process are inclusive of applicable taxes, including GST, unless explicitly stated otherwise. The total breakdown of your seat reservation payment, including the base fare, convenience fee, and any applicable taxes, will be visible at checkout before processing via Razorpay.
+            All prices listed during the booking process are inclusive of applicable taxes,
+            including GST, unless explicitly stated otherwise. The total breakdown of your seat
+            reservation payment, including the base fare, convenience fee, and any applicable taxes,
+            will be visible at checkout before processing via Razorpay.
           </p>
         </div>
       </main>

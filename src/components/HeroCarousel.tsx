@@ -52,7 +52,7 @@ export function HeroCarousel() {
       <section className="relative pt-10 pb-44 sm:pt-20 sm:pb-40 md:pt-28 md:pb-48 bg-gradient-hero text-center flex flex-col items-center justify-center overflow-visible">
         <div className="absolute inset-0 bg-gradient-mesh opacity-90 pointer-events-none" />
         <div className="absolute top-1/4 left-1/4 w-[30rem] h-[30rem] bg-primary-glow/20 rounded-full blur-[100px] pointer-events-none mix-blend-screen" />
-        
+
         <div className="container mx-auto px-4 sm:px-5 relative z-10 max-w-4xl text-center">
           <div className="inline-flex items-center gap-2 rounded-full bg-background/40 backdrop-blur-md px-4 py-1.5 text-xs font-bold uppercase tracking-widest text-primary mb-6 shadow-sm border border-primary/20">
             <Sparkles className="h-3.5 w-3.5" />
@@ -63,7 +63,8 @@ export function HeroCarousel() {
             <span className="text-gradient-primary">split the fun.</span>
           </h1>
           <p className="mt-6 text-base sm:text-xl text-foreground/80 max-w-2xl mx-auto px-4 sm:px-0 leading-relaxed">
-            Connect with verified hosts heading your way. Book your segment, share the travel costs, and enjoy a smarter, more social way to commute.
+            Connect with verified hosts heading your way. Book your segment, share the travel costs,
+            and enjoy a smarter, more social way to commute.
           </p>
         </div>
       </section>
@@ -77,25 +78,34 @@ export function HeroCarousel() {
           {activeBanners.map((banner) => (
             <div key={banner.id} className="relative flex-[0_0_100%] min-w-0 h-full">
               {banner.linkUrl ? (
-                <a href={banner.linkUrl} target="_blank" rel="noreferrer" className="absolute inset-0 z-10 block">
-                  <span className="sr-only">Go to {banner.title || 'banner link'}</span>
+                <a
+                  href={banner.linkUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="absolute inset-0 z-10 block"
+                >
+                  <span className="sr-only">Go to {banner.title || "banner link"}</span>
                 </a>
               ) : null}
-              
+
               <img
                 src={banner.imageUrl || ""}
                 alt={banner.title || "Hero banner"}
                 className="absolute inset-0 w-full h-full object-cover object-center"
-                style={{ backgroundSize: "cover", backgroundPosition: "center", backgroundRepeat: "no-repeat" }}
+                style={{
+                  backgroundSize: "cover",
+                  backgroundPosition: "center",
+                  backgroundRepeat: "no-repeat",
+                }}
                 onError={(e) => {
                   (e.target as HTMLImageElement).style.display = "none";
                 }}
               />
-              <div 
-                className="absolute inset-0 pointer-events-none" 
+              <div
+                className="absolute inset-0 pointer-events-none"
                 style={{ background: "linear-gradient(rgba(0,0,0,0.45), rgba(0,0,0,0.45))" }}
               />
-              
+
               {banner.title && (
                 <div className="absolute inset-0 flex items-center justify-center z-0">
                   <div className="container mx-auto px-4 sm:px-5 relative max-w-4xl text-center">
@@ -114,7 +124,7 @@ export function HeroCarousel() {
           ))}
         </div>
       </div>
-      
+
       {/* Carousel Dots */}
       {activeBanners.length > 1 && (
         <div className="absolute bottom-[2rem] sm:bottom-[3rem] left-0 right-0 z-10 flex justify-center gap-2 pointer-events-none">
@@ -122,7 +132,9 @@ export function HeroCarousel() {
             <div
               key={index}
               className={`h-2 rounded-full transition-all duration-300 ${
-                index === selectedIndex ? "w-8 bg-primary shadow-[0_0_10px_rgba(107,70,193,0.8)]" : "w-2 bg-white/50"
+                index === selectedIndex
+                  ? "w-8 bg-primary shadow-[0_0_10px_rgba(107,70,193,0.8)]"
+                  : "w-2 bg-white/50"
               }`}
             />
           ))}

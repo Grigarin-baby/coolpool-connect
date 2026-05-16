@@ -9,16 +9,15 @@ const databaseId = process.env.VITE_APPWRITE_DATABASE_ID || "coolpool_db";
 // But we only have node-appwrite API key here.
 // Instead, let's just inspect the collection permissions.
 
-const client = new Client().setEndpoint(endpoint).setProject(projectId).setKey(process.env.APPWRITE_API_KEY);
+const client = new Client()
+  .setEndpoint(endpoint)
+  .setProject(projectId)
+  .setKey(process.env.APPWRITE_API_KEY);
 const databases = new Databases(client);
 
 async function checkCollections() {
   try {
-    const collections = [
-      "coolpool_bookings",
-      "coolpool_trip_seat_reservations",
-      "coolpool_trips"
-    ];
+    const collections = ["coolpool_bookings", "coolpool_trip_seat_reservations", "coolpool_trips"];
     for (const c of collections) {
       const col = await databases.getCollection(databaseId, c);
       console.log(`\nCollection: ${c}`);

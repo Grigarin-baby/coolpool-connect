@@ -74,7 +74,9 @@ function AdminDashboardPage() {
           <Text type="danger" strong className="text-lg">
             ACCESS DENIED
           </Text>
-          <p className="mt-2 text-muted-foreground">This workspace is restricted to administrator accounts.</p>
+          <p className="mt-2 text-muted-foreground">
+            This workspace is restricted to administrator accounts.
+          </p>
           <Button
             type="primary"
             className="mt-4 rounded-3xl bg-gradient-primary border-none"
@@ -366,7 +368,9 @@ function AdminDashboardPage() {
                   <Title level={2} style={{ margin: 0 }}>
                     Driver Directory
                   </Title>
-                  <Text type="secondary">Review and manage verified driver profiles across the network.</Text>
+                  <Text type="secondary">
+                    Review and manage verified driver profiles across the network.
+                  </Text>
                 </div>
 
                 <Card className="rounded-3xl border-none shadow-card bg-white/90 backdrop-blur-md p-2 overflow-hidden">
@@ -428,7 +432,9 @@ function AdminDashboardPage() {
                   <Title level={2} style={{ margin: 0 }}>
                     Trip Manager
                   </Title>
-                  <Text type="secondary">Live monitoring of all scheduled and active intercity routes.</Text>
+                  <Text type="secondary">
+                    Live monitoring of all scheduled and active intercity routes.
+                  </Text>
                 </div>
 
                 <Card className="rounded-3xl border-none shadow-card bg-white/90 backdrop-blur-md p-2 overflow-hidden">
@@ -505,4 +511,3 @@ function AdminDashboardPage() {
     </ConfigProvider>
   );
 }
-

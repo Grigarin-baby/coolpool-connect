@@ -11,12 +11,9 @@
  */
 import { Client, Databases, Permission, Query, Role } from "node-appwrite";
 
-const endpoint =
-  process.env.APPWRITE_ENDPOINT || process.env.VITE_APPWRITE_ENDPOINT || "";
-const projectId =
-  process.env.APPWRITE_PROJECT_ID || process.env.VITE_APPWRITE_PROJECT_ID || "";
-const databaseId =
-  process.env.APPWRITE_DATABASE_ID || process.env.VITE_APPWRITE_DATABASE_ID || "";
+const endpoint = process.env.APPWRITE_ENDPOINT || process.env.VITE_APPWRITE_ENDPOINT || "";
+const projectId = process.env.APPWRITE_PROJECT_ID || process.env.VITE_APPWRITE_PROJECT_ID || "";
+const databaseId = process.env.APPWRITE_DATABASE_ID || process.env.VITE_APPWRITE_DATABASE_ID || "";
 const apiKey = process.env.APPWRITE_API_KEY || "";
 const collectionId =
   process.env.APPWRITE_COLLECTION_TRIPS ||
@@ -80,7 +77,9 @@ async function run() {
     updated++;
   }
 
-  console.log(`Done. Updated ${updated} document(s). Anonymous /search listTrips should see them now.`);
+  console.log(
+    `Done. Updated ${updated} document(s). Anonymous /search listTrips should see them now.`,
+  );
 }
 
 run().catch((err) => {

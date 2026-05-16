@@ -2,7 +2,7 @@ import React from "react";
 import { Users, User, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-/** 
+/**
  * Seat IDs matching buildSeatLayout(5):
  * R0-C0: Front Passenger (Left)
  * R0-C1: Driver (Right)
@@ -28,7 +28,15 @@ export function SeatPicker({ value = [], onChange, disabled }: SeatPickerProps) 
     }
   };
 
-  const Seat = ({ id, label, isDriver = false }: { id?: SeatId; label: string; isDriver?: boolean }) => {
+  const Seat = ({
+    id,
+    label,
+    isDriver = false,
+  }: {
+    id?: SeatId;
+    label: string;
+    isDriver?: boolean;
+  }) => {
     const isSelected = id ? value.includes(id) : false;
 
     return (
@@ -39,9 +47,9 @@ export function SeatPicker({ value = [], onChange, disabled }: SeatPickerProps) 
           isDriver
             ? "bg-gray-100 border-gray-200 cursor-not-allowed opacity-60"
             : isSelected
-            ? "bg-primary/10 border-primary shadow-sm scale-105"
-            : "bg-white border-dashed border-gray-200 hover:border-primary/40 cursor-pointer",
-          disabled && "cursor-not-allowed opacity-50"
+              ? "bg-primary/10 border-primary shadow-sm scale-105"
+              : "bg-white border-dashed border-gray-200 hover:border-primary/40 cursor-pointer",
+          disabled && "cursor-not-allowed opacity-50",
         )}
       >
         {isDriver ? (
@@ -51,10 +59,12 @@ export function SeatPicker({ value = [], onChange, disabled }: SeatPickerProps) 
         ) : (
           <Users className="h-6 w-6 text-gray-300" />
         )}
-        <span className={cn(
-          "mt-2 text-[10px] font-bold uppercase tracking-wider",
-          isDriver ? "text-gray-400" : isSelected ? "text-primary" : "text-gray-400"
-        )}>
+        <span
+          className={cn(
+            "mt-2 text-[10px] font-bold uppercase tracking-wider",
+            isDriver ? "text-gray-400" : isSelected ? "text-primary" : "text-gray-400",
+          )}
+        >
           {label}
         </span>
       </div>

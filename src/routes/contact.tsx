@@ -16,7 +16,8 @@ function ContactPage() {
         <div className="text-center max-w-2xl mx-auto mb-16">
           <h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-4">Get in Touch</h1>
           <p className="text-lg text-muted-foreground">
-            Whether you have a question about a ride, payment, or our platform, our support team is here to help you across South India.
+            Whether you have a question about a ride, payment, or our platform, our support team is
+            here to help you across South India.
           </p>
         </div>
 
@@ -28,8 +29,12 @@ function ContactPage() {
               </div>
               <div>
                 <h3 className="font-bold text-slate-900 mb-1">Phone Support</h3>
-                <p className="text-sm text-muted-foreground mb-2">Call us for urgent booking issues.</p>
-                <a href="tel:+917795909909" className="text-primary font-medium hover:underline">+91 77959 09909</a>
+                <p className="text-sm text-muted-foreground mb-2">
+                  Call us for urgent booking issues.
+                </p>
+                <a href="tel:+917795909909" className="text-primary font-medium hover:underline">
+                  +91 77959 09909
+                </a>
               </div>
             </div>
 
@@ -39,8 +44,15 @@ function ContactPage() {
               </div>
               <div>
                 <h3 className="font-bold text-slate-900 mb-1">Email Support</h3>
-                <p className="text-sm text-muted-foreground mb-2">For general inquiries and feedback.</p>
-                <a href="mailto:info@coolpool.in" className="text-blue-600 font-medium hover:underline">info@coolpool.in</a>
+                <p className="text-sm text-muted-foreground mb-2">
+                  For general inquiries and feedback.
+                </p>
+                <a
+                  href="mailto:info@coolpool.in"
+                  className="text-blue-600 font-medium hover:underline"
+                >
+                  info@coolpool.in
+                </a>
               </div>
             </div>
 
@@ -50,7 +62,11 @@ function ContactPage() {
               </div>
               <div>
                 <h3 className="font-bold text-slate-900 mb-1">Service Regions</h3>
-                <p className="text-sm text-muted-foreground">Operating across major cities in <strong className="text-slate-800">South India</strong> and <strong className="text-slate-800">Goa</strong>.</p>
+                <p className="text-sm text-muted-foreground">
+                  Operating across major cities in{" "}
+                  <strong className="text-slate-800">South India</strong> and{" "}
+                  <strong className="text-slate-800">Goa</strong>.
+                </p>
               </div>
             </div>
 
@@ -60,7 +76,9 @@ function ContactPage() {
               </div>
               <div>
                 <h3 className="font-bold text-slate-900 mb-1">Support Availability</h3>
-                <p className="text-sm text-muted-foreground">Our customer support team is available Monday to Saturday, 9:00 AM to 7:00 PM IST.</p>
+                <p className="text-sm text-muted-foreground">
+                  Our customer support team is available Monday to Saturday, 9:00 AM to 7:00 PM IST.
+                </p>
               </div>
             </div>
           </div>
@@ -71,29 +89,35 @@ function ContactPage() {
               <form className="space-y-6" onSubmit={(e) => e.preventDefault()}>
                 <div className="grid sm:grid-cols-2 gap-6">
                   <div className="space-y-2">
-                    <label htmlFor="name" className="text-sm font-medium text-slate-700">Full Name</label>
-                    <input 
-                      type="text" 
-                      id="name" 
-                      className="w-full flex h-12 rounded-xl border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50" 
-                      placeholder="John Doe" 
+                    <label htmlFor="name" className="text-sm font-medium text-slate-700">
+                      Full Name
+                    </label>
+                    <input
+                      type="text"
+                      id="name"
+                      className="w-full flex h-12 rounded-xl border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                      placeholder="John Doe"
                     />
                   </div>
                   <div className="space-y-2">
-                    <label htmlFor="email" className="text-sm font-medium text-slate-700">Email Address</label>
-                    <input 
-                      type="email" 
-                      id="email" 
-                      className="w-full flex h-12 rounded-xl border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50" 
-                      placeholder="john@example.com" 
+                    <label htmlFor="email" className="text-sm font-medium text-slate-700">
+                      Email Address
+                    </label>
+                    <input
+                      type="email"
+                      id="email"
+                      className="w-full flex h-12 rounded-xl border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                      placeholder="john@example.com"
                     />
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <label htmlFor="subject" className="text-sm font-medium text-slate-700">Subject</label>
-                  <select 
-                    id="subject" 
+                  <label htmlFor="subject" className="text-sm font-medium text-slate-700">
+                    Subject
+                  </label>
+                  <select
+                    id="subject"
                     className="w-full flex h-12 rounded-xl border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     <option value="">Select a topic</option>
@@ -105,12 +129,14 @@ function ContactPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <label htmlFor="message" className="text-sm font-medium text-slate-700">Message</label>
-                  <textarea 
-                    id="message" 
+                  <label htmlFor="message" className="text-sm font-medium text-slate-700">
+                    Message
+                  </label>
+                  <textarea
+                    id="message"
                     rows={5}
-                    className="w-full flex min-h-[120px] rounded-xl border border-input bg-transparent px-3 py-3 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-y" 
-                    placeholder="How can we help you?" 
+                    className="w-full flex min-h-[120px] rounded-xl border border-input bg-transparent px-3 py-3 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-y"
+                    placeholder="How can we help you?"
                   ></textarea>
                 </div>
 

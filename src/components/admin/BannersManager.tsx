@@ -1,6 +1,19 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Table, Button, Modal, Form, Input, InputNumber, Switch, Upload, message, Popconfirm, Image, Space } from "antd";
+import {
+  Table,
+  Button,
+  Modal,
+  Form,
+  Input,
+  InputNumber,
+  Switch,
+  Upload,
+  message,
+  Popconfirm,
+  Image,
+  Space,
+} from "antd";
 import { Plus, Edit, Trash2, UploadCloud } from "lucide-react";
 import {
   listHeroBanners,
@@ -36,7 +49,8 @@ export function BannersManager() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: Partial<HeroBanner> }) => updateHeroBanner(id, data),
+    mutationFn: ({ id, data }: { id: string; data: Partial<HeroBanner> }) =>
+      updateHeroBanner(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-banners"] });
       message.success("Banner updated successfully");
@@ -56,7 +70,8 @@ export function BannersManager() {
   });
 
   const toggleActiveMutation = useMutation({
-    mutationFn: ({ id, isActive }: { id: string; isActive: boolean }) => updateHeroBanner(id, { isActive }),
+    mutationFn: ({ id, isActive }: { id: string; isActive: boolean }) =>
+      updateHeroBanner(id, { isActive }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-banners"] });
       message.success("Banner status updated");
@@ -160,7 +175,10 @@ export function BannersManager() {
       render: (text: any, record: HeroBanner) => (
         <Space>
           <Button type="text" icon={<Edit size={16} />} onClick={() => handleOpenModal(record)} />
-          <Popconfirm title="Delete this banner?" onConfirm={() => deleteMutation.mutate(record.id)}>
+          <Popconfirm
+            title="Delete this banner?"
+            onConfirm={() => deleteMutation.mutate(record.id)}
+          >
             <Button type="text" danger icon={<Trash2 size={16} />} />
           </Popconfirm>
         </Space>
@@ -173,9 +191,16 @@ export function BannersManager() {
       <div className="flex items-center justify-between">
         <div className="flex flex-col gap-1">
           <h2 className="text-2xl font-bold m-0 text-slate-800">Banners Manager</h2>
-          <p className="text-secondary text-gray-500 m-0">Manage the hero carousel banners on the landing page.</p>
+          <p className="text-secondary text-gray-500 m-0">
+            Manage the hero carousel banners on the landing page.
+          </p>
         </div>
-        <Button type="primary" icon={<Plus size={16} />} onClick={() => handleOpenModal()} className="rounded-full bg-gradient-primary hover:opacity-90 text-white border-none shadow-soft">
+        <Button
+          type="primary"
+          icon={<Plus size={16} />}
+          onClick={() => handleOpenModal()}
+          className="rounded-full bg-gradient-primary hover:opacity-90 text-white border-none shadow-soft"
+        >
           Add Banner
         </Button>
       </div>
@@ -202,13 +227,17 @@ export function BannersManager() {
         cancelButtonProps={{ className: "rounded-full" }}
       >
         <Form form={form} layout="vertical" onFinish={handleSubmit} className="mt-4">
-          <Form.Item 
-            label="Banner Image" 
+          <Form.Item
+            label="Banner Image"
             required
             extra={
               <div className="text-xs text-gray-500 mt-2 space-y-1">
-                <p><strong>Recommended:</strong> 1920×650 for desktop banners.</p>
-                <p><strong>Mobile Recommended:</strong> 1080×1400.</p>
+                <p>
+                  <strong>Recommended:</strong> 1920×650 for desktop banners.
+                </p>
+                <p>
+                  <strong>Mobile Recommended:</strong> 1080×1400.
+                </p>
               </div>
             }
           >
@@ -223,9 +252,13 @@ export function BannersManager() {
                   img.onload = () => {
                     const ratio = img.width / img.height;
                     if (ratio < 1.2 && img.width > 1200) {
-                      message.warning("Image is very tall. It might be cropped heavily on desktop screens. Consider a wider image.");
+                      message.warning(
+                        "Image is very tall. It might be cropped heavily on desktop screens. Consider a wider image.",
+                      );
                     } else if (ratio > 4) {
-                      message.warning("Image is extremely wide. It might be cropped heavily on mobile screens.");
+                      message.warning(
+                        "Image is extremely wide. It might be cropped heavily on mobile screens.",
+                      );
                     }
                     resolve(false);
                   };

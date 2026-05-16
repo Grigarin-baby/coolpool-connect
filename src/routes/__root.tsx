@@ -8,7 +8,7 @@ import "../antd-reset-overrides.css";
 import appCss from "../styles.css?url";
 
 const GOOGLE_FONTS_CSS =
-  "https://fonts.googleapis.com/css2?family=Cabin:ital,wght@0,400..700;1,400..700&family=Lexend:wght@100..900&family=Montserrat:ital,wght@0,100..900;1,100..900&family=Roboto+Slab:wght@100..900&display=swap";
+  "https://fonts.googleapis.com/css2?family=Marcellus&family=Montaga&display=swap";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -95,4 +95,3 @@ function RootComponent() {
     </QueryClientProvider>
   );
 }
-

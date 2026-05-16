@@ -72,17 +72,19 @@ function BookingTripPage() {
 
   useEffect(() => {
     if (!user) return;
-    
+
     if (!passengerName && user.name) {
       setPassengerName(user.name);
     }
-    
+
     if (!passengerPhone) {
       if (user.prefs?.defaultPhone) {
         setPassengerPhone(user.prefs.defaultPhone);
       } else if (pastBookingsQuery.data && pastBookingsQuery.data.length > 0) {
         // Fallback to most recent booking
-        const recentBooking = [...pastBookingsQuery.data].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+        const recentBooking = [...pastBookingsQuery.data].sort(
+          (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+        )[0];
         if (recentBooking?.passengerPhone) {
           setPassengerPhone(recentBooking.passengerPhone);
         }
@@ -92,7 +94,7 @@ function BookingTripPage() {
 
   const layoutCapacity = useMemo(() => {
     const vehicleCap = vehicleQuery.data?.seatCapacity ?? 0;
-    const tripCap = (tripQuery.data?.totalSeats ?? 0);
+    const tripCap = tripQuery.data?.totalSeats ?? 0;
     // Always use the larger of the two to ensure all seats are shown
     const finalCap = Math.max(vehicleCap, tripCap);
     return Math.min(12, Math.max(5, finalCap));
@@ -289,19 +291,24 @@ function BookingTripPage() {
           </div>
           {vehicleMissing && (
             <p className="mt-3 text-sm text-amber-700 dark:text-amber-400">
-              Vehicle profile not found — layout uses trip seat count + ride host seat as an estimate.
+              Vehicle profile not found — layout uses trip seat count + ride host seat as an
+              estimate.
             </p>
           )}
 
           {trip.polyline && !!trip.fromLat && !!trip.fromLng && !!trip.toLat && !!trip.toLng && (
             <div className="mt-6">
-              <RideRouteMap 
-                fromLat={trip.fromLat} 
-                fromLng={trip.fromLng} 
-                toLat={trip.toLat} 
-                toLng={trip.toLng} 
-                polyline={trip.polyline} 
-                isAirportDrop={(trip.toLocation || "").toLowerCase().includes("air") || (trip.toLocation || "").toLowerCase().includes("flight") || (trip.toLocation || "").toLowerCase().includes("terminal")}
+              <RideRouteMap
+                fromLat={trip.fromLat}
+                fromLng={trip.fromLng}
+                toLat={trip.toLat}
+                toLng={trip.toLng}
+                polyline={trip.polyline}
+                isAirportDrop={
+                  (trip.toLocation || "").toLowerCase().includes("air") ||
+                  (trip.toLocation || "").toLowerCase().includes("flight") ||
+                  (trip.toLocation || "").toLowerCase().includes("terminal")
+                }
               />
             </div>
           )}
@@ -329,7 +336,9 @@ function BookingTripPage() {
             <Card className="mt-8 p-6 rounded-3xl border-border/60 space-y-4">
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="p-name" className="text-base">Passenger name</Label>
+                  <Label htmlFor="p-name" className="text-base">
+                    Passenger name
+                  </Label>
                   <Input
                     id="p-name"
                     value={passengerName}
@@ -339,7 +348,9 @@ function BookingTripPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="p-phone" className="text-base">Phone</Label>
+                  <Label htmlFor="p-phone" className="text-base">
+                    Phone
+                  </Label>
                   <Input
                     id="p-phone"
                     value={passengerPhone}
@@ -354,7 +365,10 @@ function BookingTripPage() {
                 <RadioGroup defaultValue="pay_on_car" className="space-y-3">
                   <div className="flex items-center space-x-3 border border-border/60 p-4 bg-card/50 cursor-pointer">
                     <RadioGroupItem value="pay_on_car" id="pay_on_car" />
-                    <Label htmlFor="pay_on_car" className="flex items-center gap-2 cursor-pointer w-full text-base sm:text-lg font-medium">
+                    <Label
+                      htmlFor="pay_on_car"
+                      className="flex items-center gap-2 cursor-pointer w-full text-base sm:text-lg font-medium"
+                    >
                       <Banknote className="h-5 w-5 text-primary" />
                       Pay on car
                     </Label>
@@ -363,9 +377,13 @@ function BookingTripPage() {
               </div>
 
               <div className="bg-muted/30 p-4 border border-border/60 space-y-3">
-                <h3 className="font-semibold text-sm sm:text-base uppercase tracking-wider text-muted-foreground mb-4">Price Breakdown</h3>
+                <h3 className="font-semibold text-sm sm:text-base uppercase tracking-wider text-muted-foreground mb-4">
+                  Price Breakdown
+                </h3>
                 <div className="flex justify-between text-base">
-                  <span>Tickets ({selected.size} seat{selected.size !== 1 ? "s" : ""})</span>
+                  <span>
+                    Tickets ({selected.size} seat{selected.size !== 1 ? "s" : ""})
+                  </span>
                   <span>{formatCurrency(pricePerSeat * selected.size)}</span>
                 </div>
                 {selected.size > 0 && (
@@ -376,7 +394,9 @@ function BookingTripPage() {
                 )}
                 <div className="pt-3 border-t border-border/60 flex justify-between font-bold text-xl sm:text-2xl">
                   <span>Total Amount</span>
-                  <span className="text-primary">{formatCurrency(selected.size > 0 ? (pricePerSeat * selected.size) + 29 : 0)}</span>
+                  <span className="text-primary">
+                    {formatCurrency(selected.size > 0 ? pricePerSeat * selected.size + 29 : 0)}
+                  </span>
                 </div>
               </div>
 
@@ -408,4 +428,3 @@ function BookingTripPage() {
     </div>
   );
 }
-

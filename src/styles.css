@@ -52,11 +52,9 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
 
-  --font-sans:
-    "Lexend", "Montserrat", "Cabin", ui-sans-serif, system-ui, -apple-system, sans-serif;
-  --font-heading:
-    "Montserrat", "Lexend", "Cabin", ui-sans-serif, system-ui, sans-serif;
-  --font-serif: "Roboto Slab", ui-serif, Georgia, serif;
+  --font-sans: "Marcellus", "Montaga", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-heading: "Marcellus", "Montaga", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "Marcellus", ui-serif, Georgia, serif;
 }
 
 :root {
@@ -179,7 +177,6 @@
 @layer base {
   * {
     border-color: var(--color-border);
-    text-transform: lowercase !important;
     border-radius: var(--radius-lg, 2rem) !important;
   }
 
@@ -193,7 +190,6 @@
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
-    text-transform: lowercase !important;
   }
 
   h1,
@@ -240,7 +236,9 @@
     box-shadow: var(--shadow-glow);
   }
   .shadow-glow-purple {
-    box-shadow: 0 0 20px oklch(0.65 0.24 295 / 0.4), 0 0 40px oklch(0.65 0.24 295 / 0.2);
+    box-shadow:
+      0 0 20px oklch(0.65 0.24 295 / 0.4),
+      0 0 40px oklch(0.65 0.24 295 / 0.2);
   }
   .transition-base {
     transition: var(--transition-base);
@@ -250,10 +248,16 @@
   .ant-input,
   .ant-input-affix-wrapper,
   .ant-select-selector,
+  .ant-select-selection-item,
+  .ant-select-selection-wrap,
+  .ant-select-content,
   .ant-picker,
   .ant-upload-wrapper .ant-upload-select,
-  .ant-btn {
+  .ant-btn,
+  [role="region"],
+  [role="tabpanel"] {
     border-radius: 0 !important;
+    overflow: visible !important;
   }
 
   .ant-form-item-label > label {
@@ -306,75 +310,6 @@
     -webkit-backdrop-filter: blur(12px) !important;
   }
 
-  /* Trip search — labels */
-  .trip-search-label {
-    display: block;
-    margin-bottom: 0.5rem;
-    font-size: 1.125rem !important;
-    font-weight: 800 !important;
-    letter-spacing: 0.06em !important;
-    text-transform: uppercase !important;
-    color: oklch(0.38 0.02 260) !important;
-    line-height: 1.2 !important;
-  }
-
-  @media (min-width: 640px) {
-    .trip-search-label {
-      font-size: 1.1875rem !important;
-    }
-  }
-
-  /* Trip search — field values (match suggestion list size) */
-  .trip-search-autocomplete .ant-select-selector,
-  .trip-search-autocomplete .ant-select-selection-wrap,
-  .trip-search-autocomplete .ant-select-selection-item,
-  .trip-search-autocomplete .ant-select-selection-search-input,
-  .trip-search-autocomplete .ant-select-selector input {
-    font-weight: 700 !important;
-    line-height: 1.3 !important;
-    font-size: 1.375rem !important;
-    color: oklch(0.18 0.02 260) !important;
-  }
-
-  .trip-search-autocomplete.ant-select-open .ant-select-selection-search-input {
-    font-size: 1.375rem !important;
-  }
-
-  .trip-search-autocomplete .ant-select-selection-placeholder,
-  .trip-search-autocomplete .ant-select-selection-placeholder input {
-    font-size: 1.1875rem !important;
-    font-weight: 600 !important;
-    color: oklch(0.55 0.02 260) !important;
-  }
-
-  @media (min-width: 1024px) {
-    .trip-search-autocomplete .ant-select-selector,
-    .trip-search-autocomplete .ant-select-selection-wrap,
-    .trip-search-autocomplete .ant-select-selection-item,
-    .trip-search-autocomplete .ant-select-selection-search-input,
-    .trip-search-autocomplete .ant-select-selector input {
-      font-size: 1.5rem !important;
-    }
-
-    .trip-search-autocomplete .ant-select-selection-placeholder,
-    .trip-search-autocomplete .ant-select-selection-placeholder input {
-      font-size: 1.25rem !important;
-    }
-  }
-
-  .trip-search-ac-dropdown .ant-select-item,
-  .trip-search-ac-dropdown .ant-select-item-option-content {
-    font-size: 1.25rem !important;
-    line-height: 1.4 !important;
-    font-weight: 600 !important;
-  }
-
-  .trip-search-ac-dropdown .ant-select-item-option {
-    min-height: 3.25rem !important;
-    padding: 0.875rem 1.125rem !important;
-    align-items: center !important;
-  }
-
   /* Booking & auth — readable form controls on mobile */
   .form-control-lg {
     min-height: 3.25rem !important;
@@ -405,3 +340,289 @@ a.inline-flex.bg-gradient-primary:focus-visible {
   color: var(--color-primary-foreground) !important;
 }
 
+/* ─────────────────────────────────────────────────────────────────────────
+ * ACCORDION FIX — remove rounded corners and overflow clipping
+ * The global * rule applies 32px border-radius + overflow:hidden clips text
+ * ───────────────────────────────────────────────────────────────────────── */
+
+[role="region"][data-orientation="vertical"] {
+  border-radius: 0 !important;
+  overflow: visible !important;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+ * ANT INPUT/SELECT GLOBAL FIX — remove overflow clipping from all inputs
+ * Fixes both pickup and destination autocomplete inputs
+ * ───────────────────────────────────────────────────────────────────────── */
+
+.ant-select-content,
+.ant-select-selection-search-input,
+.ant-input {
+  border-radius: 0 !important;
+  overflow: visible !important;
+  overflow-x: visible !important;
+  overflow-y: visible !important;
+  white-space: normal !important;
+  word-wrap: break-word !important;
+}
+
+/* Fix all parent containers */
+.ant-select-selector,
+.ant-select,
+.ant-select-selection-wrap,
+.ant-input-wrapper,
+.ant-input-affix-wrapper {
+  overflow: visible !important;
+  overflow-x: visible !important;
+  overflow-y: visible !important;
+}
+
+/* Trip search specific inputs */
+.trip-search-autocomplete,
+.trip-search-autocomplete .ant-select-selector,
+.trip-search-autocomplete .ant-select-content {
+  overflow: visible !important;
+  border-radius: 0 !important;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+ * TRIP SEARCH — intentionally OUTSIDE @layer so these beat Ant Design's
+ * unlayered CSS-in-JS injections even without !important escalation.
+ * ───────────────────────────────────────────────────────────────────────── */
+
+.trip-search-card {
+  border-radius: 0 !important;
+  overflow: visible !important;
+}
+
+/* Form validation messages — responsive sizing */
+.trip-search-form-item {
+  margin: 0 !important;
+}
+
+.trip-search-form-item .ant-form-item-explain-error {
+  font-size: 0.75rem !important;
+  line-height: 1.2 !important;
+  padding-top: 0.25rem !important;
+  color: oklch(0.65 0.18 25) !important;
+}
+
+@media (max-width: 640px) {
+  .trip-search-form-item .ant-form-item-explain-error {
+    font-size: 0.7rem !important;
+  }
+}
+
+@media (min-width: 1024px) {
+  .trip-search-form-item .ant-form-item-explain-error {
+    font-size: 0.875rem !important;
+  }
+}
+
+.trip-search-label {
+  display: block;
+  margin-bottom: 0.25rem;
+  font-size: 0.65rem !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.12em !important;
+  text-transform: uppercase !important;
+  color: oklch(0.6 0.02 260) !important;
+  line-height: 1 !important;
+}
+
+/* Font sizes are now handled by Ant Design ConfigProvider token
+   which injects CSS vars the component itself reads — guaranteed to win.
+   We only need to ensure the container height and text colour here. */
+.trip-search-autocomplete .ant-select-selector {
+  height: auto !important;
+  overflow: visible !important;
+  display: flex !important;
+  align-items: center !important;
+}
+
+.trip-search-autocomplete .ant-select-selector,
+.trip-search-autocomplete .ant-select-selection-wrap,
+.trip-search-autocomplete .ant-select-selection-item,
+.trip-search-autocomplete .ant-select-selection-search-input {
+  font-weight: 800 !important;
+  color: oklch(0.15 0.02 260) !important;
+}
+
+.trip-search-autocomplete .ant-select-selection-placeholder {
+  font-weight: 500 !important;
+  color: oklch(0.72 0.01 260) !important;
+}
+
+/* Autocomplete dropdown */
+.trip-search-ac-dropdown .ant-select-item,
+.trip-search-ac-dropdown .ant-select-item-option-content {
+  font-size: 1rem !important;
+  line-height: 1.4 !important;
+  font-weight: 600 !important;
+}
+
+.trip-search-ac-dropdown .ant-select-item-option {
+  min-height: 3rem !important;
+  padding: 0.75rem 1rem !important;
+  align-items: center !important;
+}
+
+/* Ant Design DatePicker — responsive popup on mobile */
+@media (max-width: 640px) {
+  .ant-picker-dropdown {
+    left: 0.75rem !important;
+    right: 0.75rem !important;
+    width: auto !important;
+  }
+  .ant-picker-panel-container {
+    max-width: calc(100vw - 1.5rem) !important;
+    overflow-x: auto !important;
+  }
+}
+
+/* Trip publish DatePicker responsive on mobile */
+.trip-publish-datepicker .ant-picker-dropdown {
+  left: 0.75rem !important;
+  right: 0.75rem !important;
+  width: auto !important;
+  max-width: calc(100vw - 1.5rem) !important;
+}
+
+.trip-publish-datepicker .ant-picker-panel-container {
+  max-width: calc(100vw - 1.5rem) !important;
+  overflow-x: auto !important;
+  overflow-y: auto !important;
+  max-height: 80vh !important;
+}
+
+/* Responsive trips table on mobile */
+@media (max-width: 640px) {
+  .ant-table {
+    font-size: 0.875rem;
+  }
+
+  .ant-table-cell {
+    padding: 8px 12px !important;
+  }
+
+  .ant-table thead > tr > th {
+    padding: 8px 12px !important;
+  }
+
+  .ant-table-tbody > tr > td {
+    padding: 8px 12px !important;
+  }
+
+  .ant-table-column-title {
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+
+  .ant-pagination-item {
+    min-width: 28px !important;
+    height: 28px !important;
+    line-height: 28px !important;
+  }
+
+  .ant-pagination-options {
+    display: none !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .ant-table {
+    font-size: 0.75rem;
+  }
+
+  .ant-table-cell {
+    padding: 6px 8px !important;
+  }
+
+  .ant-table thead > tr > th {
+    padding: 6px 8px !important;
+  }
+
+  .ant-table-tbody > tr > td {
+    padding: 6px 8px !important;
+  }
+
+  .ant-space-item {
+    margin-right: 0 !important;
+  }
+
+  .ant-btn {
+    height: 28px !important;
+    padding: 0 6px !important;
+    font-size: 0.75rem !important;
+  }
+}
+
+/* Profile dropdown enhancement */
+.profile-dropdown .ant-dropdown-menu {
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+  min-width: 280px;
+}
+
+.profile-dropdown .ant-dropdown-menu-item {
+  padding: 12px 16px;
+  font-size: 0.95rem;
+}
+
+.profile-dropdown .ant-dropdown-menu-item:first-child {
+  padding: 0;
+  background: transparent;
+  border: none;
+}
+
+.profile-dropdown .ant-dropdown-menu-item:first-child:hover {
+  background: transparent;
+}
+
+.profile-dropdown .ant-dropdown-menu-item-icon {
+  margin-right: 8px;
+}
+
+.profile-dropdown .ant-dropdown-menu-item-danger {
+  color: #ff4d4f;
+}
+
+.profile-dropdown .ant-dropdown-menu-item-danger:hover {
+  background-color: #fff1f0;
+}
+
+.profile-dropdown .ant-dropdown-menu-divider {
+  margin: 4px 0;
+}
+
+/* Remove border-radius from all input fields */
+.ant-input,
+.ant-input-number,
+.ant-picker,
+.ant-select-selector,
+.ant-input::placeholder {
+  border-radius: 0 !important;
+}
+
+.ant-input-affix-wrapper,
+.ant-picker-input,
+.ant-select {
+  border-radius: 0 !important;
+}
+
+.ant-input:focus,
+.ant-input-number:focus,
+.ant-picker:focus,
+.ant-input-focused {
+  border-radius: 0 !important;
+}
+
+/* Override autocomplete input */
+.ant-auto-complete .ant-input {
+  border-radius: 0 !important;
+}
+
+.ant-auto-complete-dropdown {
+  border-radius: 0 !important;
+}

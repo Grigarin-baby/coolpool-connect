@@ -1,11 +1,8 @@
 import { Client, Databases, Storage, ID } from "node-appwrite";
 
-const endpoint =
-  process.env.APPWRITE_ENDPOINT || process.env.VITE_APPWRITE_ENDPOINT || "";
-const projectId =
-  process.env.APPWRITE_PROJECT_ID || process.env.VITE_APPWRITE_PROJECT_ID || "";
-const databaseId =
-  process.env.APPWRITE_DATABASE_ID || process.env.VITE_APPWRITE_DATABASE_ID || "";
+const endpoint = process.env.APPWRITE_ENDPOINT || process.env.VITE_APPWRITE_ENDPOINT || "";
+const projectId = process.env.APPWRITE_PROJECT_ID || process.env.VITE_APPWRITE_PROJECT_ID || "";
+const databaseId = process.env.APPWRITE_DATABASE_ID || process.env.VITE_APPWRITE_DATABASE_ID || "";
 const apiKey = process.env.APPWRITE_API_KEY || "";
 
 if (!endpoint || !projectId || !databaseId || !apiKey) {
@@ -52,7 +49,7 @@ async function ensureBucket(bucketId, name) {
         ["jpg", "jpeg", "png", "gif", "webp", "svg"], // extensions
         "none", // compression
         false, // encryption
-        false // antimalware
+        false, // antimalware
       );
       console.log(`Created bucket: ${bucketId}`);
     } catch (error) {

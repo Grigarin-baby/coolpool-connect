@@ -1,5 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { useAuth, type MemberGoogleOAuthOptions } from "@/hooks/useAuth";
+import { useState } from "react";
+import { toast } from "sonner";
 
 interface GoogleLoginButtonProps {
   busy?: boolean;
@@ -8,19 +10,40 @@ interface GoogleLoginButtonProps {
   className?: string;
 }
 
-export function GoogleLoginButton({ busy, redirect, successUrl, className }: GoogleLoginButtonProps) {
+export function GoogleLoginButton({
+  busy,
+  redirect,
+  successUrl,
+  className,
+}: GoogleLoginButtonProps) {
   const { signInWithGoogle } = useAuth();
+  const [loading, setLoading] = useState(false);
+
+  const handleGoogleLogin = async () => {
+    setLoading(true);
+    try {
+      signInWithGoogle({ resumeRedirect: redirect, successUrl });
+      // If we reach here, the OAuth was likely set up but may not redirect immediately
+      // The redirect should happen in a moment
+    } catch (error) {
+      setLoading(false);
+      console.error("Google login error:", error);
+      toast.error(
+        "Google login failed. Make sure Google OAuth is configured in Appwrite settings.",
+      );
+    }
+  };
 
   return (
     <Button
       type="button"
       variant="outline"
       className={`w-full rounded-3xl border-border h-11 gap-2 bg-background ${className}`}
-      disabled={busy}
-      onClick={() => signInWithGoogle({ resumeRedirect: redirect, successUrl })}
+      disabled={busy || loading}
+      onClick={handleGoogleLogin}
     >
       <GoogleGlyph className="h-5 w-5 shrink-0" />
-      Continue with Google
+      {loading ? "Redirecting to Google..." : "Continue with Google"}
     </Button>
   );
 }

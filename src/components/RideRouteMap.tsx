@@ -11,7 +11,14 @@ interface RideRouteMapProps {
   isAirportDrop?: boolean;
 }
 
-export function RideRouteMap({ fromLat, fromLng, toLat, toLng, polyline, isAirportDrop }: RideRouteMapProps) {
+export function RideRouteMap({
+  fromLat,
+  fromLng,
+  toLat,
+  toLng,
+  polyline,
+  isAirportDrop,
+}: RideRouteMapProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const googleMapRef = useRef<any>(null);
   const [mapsReady, setMapsReady] = useState(false);
@@ -52,7 +59,7 @@ export function RideRouteMap({ fromLat, fromLng, toLat, toLng, polyline, isAirpo
 
   useEffect(() => {
     if (!mapsReady || !mapRef.current) return;
-    
+
     const google = (window as any).google;
 
     // Initialize Map
@@ -65,9 +72,9 @@ export function RideRouteMap({ fromLat, fromLng, toLat, toLng, polyline, isAirpo
           {
             featureType: "poi",
             elementType: "labels",
-            stylers: [{ visibility: "off" }]
-          }
-        ]
+            stylers: [{ visibility: "off" }],
+          },
+        ],
       });
     }
 
@@ -109,7 +116,7 @@ export function RideRouteMap({ fromLat, fromLng, toLat, toLng, polyline, isAirpo
           strokeColor: "#6C5CE7",
           strokeOpacity: 0.8,
           strokeWeight: 5,
-        }
+        },
       });
 
       directionsService.route(
@@ -124,7 +131,10 @@ export function RideRouteMap({ fromLat, fromLng, toLat, toLng, polyline, isAirpo
           } else {
             // Ultimate fallback to straight line
             routePolyline = new google.maps.Polyline({
-              path: [{ lat: fromLat, lng: fromLng }, { lat: toLat, lng: toLng }],
+              path: [
+                { lat: fromLat, lng: fromLng },
+                { lat: toLat, lng: toLng },
+              ],
               geodesic: true,
               strokeColor: "#6C5CE7",
               strokeOpacity: 0.8,
@@ -136,7 +146,7 @@ export function RideRouteMap({ fromLat, fromLng, toLat, toLng, polyline, isAirpo
             bounds.extend({ lat: toLat, lng: toLng });
             map.fitBounds(bounds, 40);
           }
-        }
+        },
       );
     }
 

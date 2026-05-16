@@ -32,7 +32,7 @@ export function buildSeatLayout(seatCapacity: number): SeatSlot[] {
 
   // Row 0: Front Passenger (Left) + Driver (Right)
   let passengerNo = 1;
-  
+
   // Front Passenger on Left (Col 0)
   if (cap > 1) {
     push(0, 0, "passenger", String(passengerNo));

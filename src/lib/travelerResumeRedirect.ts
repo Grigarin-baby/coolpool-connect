@@ -21,8 +21,7 @@ export function normalizeTravelerResumeRedirect(candidate: string): string | und
     return undefined;
   }
 
-  const resume =
-    pathname.startsWith("/booking/") || pathname === "/trips" || pathname === "/";
+  const resume = pathname.startsWith("/booking/") || pathname === "/trips" || pathname === "/";
 
   return resume ? pathAndQuery : undefined;
 }

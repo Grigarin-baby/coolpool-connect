@@ -66,7 +66,8 @@ export function getCollectionIds(): AppwriteCollectionIds {
       "VITE_APPWRITE_COLLECTION_VEHICLES / APPWRITE_COLLECTION_VEHICLES",
     ),
     heroBanners: requireCollectionId(
-      import.meta.env.VITE_APPWRITE_COLLECTION_HERO_BANNERS || process.env.APPWRITE_COLLECTION_HERO_BANNERS,
+      import.meta.env.VITE_APPWRITE_COLLECTION_HERO_BANNERS ||
+        process.env.APPWRITE_COLLECTION_HERO_BANNERS,
       "VITE_APPWRITE_COLLECTION_HERO_BANNERS / APPWRITE_COLLECTION_HERO_BANNERS",
     ),
   };
@@ -75,7 +76,8 @@ export function getCollectionIds(): AppwriteCollectionIds {
 export function getBucketIds(): AppwriteBucketIds {
   return {
     driverDocs: requireCollectionId(
-      import.meta.env.VITE_APPWRITE_DRIVER_DOCS_BUCKET_ID || process.env.APPWRITE_DRIVER_DOCS_BUCKET_ID,
+      import.meta.env.VITE_APPWRITE_DRIVER_DOCS_BUCKET_ID ||
+        process.env.APPWRITE_DRIVER_DOCS_BUCKET_ID,
       "VITE_APPWRITE_DRIVER_DOCS_BUCKET_ID / APPWRITE_DRIVER_DOCS_BUCKET_ID",
     ),
     banners: requireCollectionId(

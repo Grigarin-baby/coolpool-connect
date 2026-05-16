@@ -21,7 +21,12 @@ import {
   TrendingUp,
   Map,
 } from "lucide-react";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import { SiteHeader } from "@/components/SiteHeader";
 import { SiteFooter } from "@/components/SiteFooter";
 import { TripSearchProvider, TripSearchForm, TripSearchResults } from "@/components/TripSearch";
@@ -74,7 +79,10 @@ function Home() {
               { icon: <Map className="h-6 w-6" />, label: "Dynamic Segment Pricing" },
               { icon: <Wallet className="h-6 w-6" />, label: "Secure Digital Payments" },
             ].map((item, i) => (
-              <div key={i} className="flex flex-col items-center justify-center pt-6 sm:pt-0 first:pt-0">
+              <div
+                key={i}
+                className="flex flex-col items-center justify-center pt-6 sm:pt-0 first:pt-0"
+              >
                 <div className="h-12 w-12 rounded-full bg-primary/10 text-primary flex items-center justify-center mb-3">
                   {item.icon}
                 </div>
@@ -89,7 +97,7 @@ function Home() {
       <section className="container mx-auto px-4 sm:px-5 py-16 sm:py-24 max-w-7xl">
         <div className="text-center max-w-2xl mx-auto mb-12">
           <h2 className="text-3xl sm:text-4xl font-bold tracking-tight font-heading">
-            A smarter way to <span className="text-gradient-primary">travel together</span>
+            A smarter way to <span className="text-gradient-primary">Travel Together</span>
           </h2>
         </div>
 
@@ -162,22 +170,46 @@ function Home() {
         <div className="absolute inset-0 bg-gradient-mesh opacity-40 pointer-events-none" />
         <div className="container mx-auto px-4 sm:px-5 max-w-7xl relative z-10">
           <div className="text-center mb-12 sm:mb-16">
-            <h2 className="text-3xl sm:text-4xl font-bold font-heading">Trusted by <span className="text-gradient-primary">thousands</span></h2>
+            <h2 className="text-3xl sm:text-4xl font-bold font-heading">
+              Trusted by <span className="text-gradient-primary">thousands</span>
+            </h2>
           </div>
           <div className="grid md:grid-cols-3 gap-8">
             {[
-              { name: "Rahul S.", role: "Regular Traveler", text: "The segment booking is a lifesaver. I saved 50% on my commute from Bengaluru to Tumakuru compared to a cab.", rating: 5 },
-              { name: "Ananya M.", role: "Host", text: "Hosting on Coolpool has helped me cover my fuel costs and I've met some amazing people on my weekend trips home.", rating: 5 },
-              { name: "Vikram K.", role: "Tech Professional", text: "Clean, reliable, and way more comfortable than the bus. The app is super intuitive to use.", rating: 4 },
+              {
+                name: "Rahul S.",
+                role: "Regular Traveler",
+                text: "The segment booking is a lifesaver. I saved 50% on my commute from Bengaluru to Tumakuru compared to a cab.",
+                rating: 5,
+              },
+              {
+                name: "Ananya M.",
+                role: "Host",
+                text: "Hosting on Coolpool has helped me cover my fuel costs and I've met some amazing people on my weekend trips home.",
+                rating: 5,
+              },
+              {
+                name: "Vikram K.",
+                role: "Tech Professional",
+                text: "Clean, reliable, and way more comfortable than the bus. The app is super intuitive to use.",
+                rating: 4,
+              },
             ].map((t, i) => (
-              <Card key={i} className="p-8 border-border/40 rounded-3xl bg-card/80 backdrop-blur-md shadow-card hover:-translate-y-1 transition-transform">
+              <Card
+                key={i}
+                className="p-8 border-border/40 rounded-3xl bg-card/80 backdrop-blur-md shadow-card hover:-translate-y-1 transition-transform"
+              >
                 <div className="flex gap-1 mb-6">
-                  {[...Array(t.rating)].map((_, j) => <Star key={j} className="h-4 w-4 fill-primary text-primary" />)}
+                  {[...Array(t.rating)].map((_, j) => (
+                    <Star key={j} className="h-4 w-4 fill-primary text-primary" />
+                  ))}
                 </div>
                 <p className="text-lg mb-8 leading-relaxed text-foreground/90">"{t.text}"</p>
                 <div className="mt-auto border-t border-border/60 pt-4">
                   <p className="font-bold">{t.name}</p>
-                  <p className="text-xs text-muted-foreground uppercase tracking-widest mt-1">{t.role}</p>
+                  <p className="text-xs text-muted-foreground uppercase tracking-widest mt-1">
+                    {t.role}
+                  </p>
                 </div>
               </Card>
             ))}
@@ -188,18 +220,36 @@ function Home() {
       {/* FAQ SECTION */}
       <section className="container mx-auto px-4 sm:px-5 py-16 sm:py-24 max-w-3xl">
         <div className="text-center mb-12">
-          <h2 className="text-3xl sm:text-4xl font-bold font-heading">Frequently Asked <span className="text-primary">Questions</span></h2>
+          <h2 className="text-3xl sm:text-4xl font-bold font-heading">
+            Frequently Asked <span className="text-primary">Questions</span>
+          </h2>
         </div>
         <Accordion type="single" collapsible className="w-full">
           {[
-            { q: "How is the price calculated?", a: "Prices are calculated based on the distance of your specific segment (pickup to drop) and the host's per-kilometer rate." },
-            { q: "Is it safe to travel with strangers?", a: "Yes, we verify all users via official IDs. Our rating system ensures high community standards, and you can share your live trip status." },
-            { q: "Can I cancel my booking?", a: "At this time, we do not offer cancellations or refunds for confirmed bookings. Please review your trip details carefully before booking, as all reservations are currently final." },
-            { q: "What if the host cancels?", a: "If a host cancels, you receive a 100% refund immediately, and we notify you of alternative rides on the same route." },
+            {
+              q: "How is the price calculated?",
+              a: "Prices are calculated based on the distance of your specific segment (pickup to drop) and the host's per-kilometer rate.",
+            },
+            {
+              q: "Is it safe to travel with strangers?",
+              a: "Yes, we verify all users via official IDs. Our rating system ensures high community standards, and you can share your live trip status.",
+            },
+            {
+              q: "Can I cancel my booking?",
+              a: "At this time, we do not offer cancellations or refunds for confirmed bookings. Please review your trip details carefully before booking, as all reservations are currently final.",
+            },
+            {
+              q: "What if the host cancels?",
+              a: "If a host cancels, you receive a 100% refund immediately, and we notify you of alternative rides on the same route.",
+            },
           ].map((faq, i) => (
             <AccordionItem key={i} value={`item-${i}`} className="border-border/60">
-              <AccordionTrigger className="text-left font-bold text-lg hover:text-primary transition-colors py-5">{faq.q}</AccordionTrigger>
-              <AccordionContent className="text-muted-foreground text-base leading-relaxed pb-5">{faq.a}</AccordionContent>
+              <AccordionTrigger className="text-left font-bold text-lg hover:text-primary transition-colors py-5">
+                {faq.q}
+              </AccordionTrigger>
+              <AccordionContent className="text-muted-foreground text-base leading-relaxed pb-5">
+                {faq.a}
+              </AccordionContent>
             </AccordionItem>
           ))}
         </Accordion>
@@ -217,10 +267,22 @@ function Home() {
               Join thousands of people saving money and making new friends on the road.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button asChild variant="hero" size="xl" className="rounded-3xl px-12 h-14 text-lg shadow-glow">
-                <a href="#find-a-ride">Find a Ride <ArrowRight /></a>
+              <Button
+                asChild
+                variant="hero"
+                size="xl"
+                className="rounded-3xl px-12 h-14 text-lg shadow-glow"
+              >
+                <a href="#find-a-ride">
+                  Find a Ride <ArrowRight />
+                </a>
               </Button>
-              <Button asChild variant="outline" size="xl" className="rounded-3xl px-12 h-14 text-lg bg-card/50 backdrop-blur-sm hover:bg-card">
+              <Button
+                asChild
+                variant="outline"
+                size="xl"
+                className="rounded-3xl px-12 h-14 text-lg bg-card/50 backdrop-blur-sm hover:bg-card"
+              >
                 <Link to="/host">Become a Host</Link>
               </Button>
             </div>
@@ -265,7 +327,10 @@ function RoleCard({
         <p className="mt-3 text-muted-foreground leading-relaxed">{text}</p>
         <ul className="mt-6 space-y-3">
           {bullets.map((bullet) => (
-            <li key={bullet} className="flex items-start gap-3 text-sm text-foreground/90 font-medium">
+            <li
+              key={bullet}
+              className="flex items-start gap-3 text-sm text-foreground/90 font-medium"
+            >
               <CheckCircle2 className="h-5 w-5 text-primary shrink-0" />
               <span>{bullet}</span>
             </li>

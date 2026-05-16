@@ -11,6 +11,7 @@ import {
 import { Link } from "@tanstack/react-router";
 import {
   AutoComplete,
+  ConfigProvider,
   DatePicker,
   Empty,
   Form,
@@ -19,18 +20,40 @@ import {
   Typography,
   message,
 } from "antd";
-import { 
-  ArrowRight, 
-  Calendar, 
-  MapPin, 
-  Navigation, 
-  Users, 
-  Clock, 
-  Star, 
+
+/* Ant Design theme injected directly into the component tree — this is
+   the only reliable way to override font sizes in Ant Design v5+ because
+   the CSS-in-JS hash-scoped selectors beat any external stylesheet. */
+const SEARCH_INPUT_THEME = {
+  token: {
+    fontSize: 32, // 2rem — balanced for mobile, adjusts up with CSS media query for desktop
+    fontSizeLG: 32,
+    controlHeight: 56, // 3.5rem — responsive height
+    controlHeightLG: 64,
+  },
+} as const;
+
+// Desktop theme with larger font sizes
+const SEARCH_INPUT_THEME_DESKTOP = {
+  token: {
+    fontSize: 48, // 3rem — readable hero size for desktop
+    fontSizeLG: 48,
+    controlHeight: 72, // tall enough to hold 3rem text comfortably
+    controlHeightLG: 80,
+  },
+} as const;
+import {
+  ArrowRight,
+  Calendar,
+  MapPin,
+  Navigation,
+  Users,
+  Clock,
+  Star,
   ShieldCheck,
   ChevronRight,
   Filter,
-  Map as MapIcon
+  Map as MapIcon,
 } from "lucide-react";
 import dayjs, { Dayjs } from "dayjs";
 import { Button as UiButton } from "@/components/ui/button";
@@ -100,16 +123,22 @@ function matchesLocation(tripLocation: string, searchLocation: string) {
   return routeCitySegmentsMatch(primarySegment(tripLocation), primarySegment(searchLocation));
 }
 
-
-const SOUTH_INDIA_STATES = ["karnataka", "kerala", "tamil nadu", "andhra pradesh", "telangana", "goa", "puducherry"];
+const SOUTH_INDIA_STATES = [
+  "karnataka",
+  "kerala",
+  "tamil nadu",
+  "andhra pradesh",
+  "telangana",
+  "goa",
+  "puducherry",
+];
 
 const TRIP_SEARCH_LABEL = "trip-search-label";
-const TRIP_SEARCH_INPUT =
-  "w-full trip-search-autocomplete [&_.ant-select-selector]:px-0 [&_.ant-select-selector]:h-auto [&_.ant-select-selector]:min-h-[2.75rem] lg:[&_.ant-select-selector]:min-h-[2.5rem]";
+const TRIP_SEARCH_INPUT = "w-full trip-search-autocomplete";
 const TRIP_SEARCH_INPUT_COMPACT = TRIP_SEARCH_INPUT;
 const TRIP_SEARCH_DATE_CHIP =
-  "w-full h-11 sm:h-12 rounded-xl text-sm sm:text-base font-black uppercase tracking-wide transition-all border flex items-center justify-center whitespace-nowrap";
-const TRIP_SEARCH_ICON = "shrink-0 p-3 rounded-xl bg-gray-100/80 text-gray-500";
+  "w-full h-20 rounded-2xl text-3xl font-black tracking-wide transition-all duration-200 border-2 flex items-center justify-center whitespace-nowrap active:scale-95";
+const TRIP_SEARCH_ICON = "shrink-0 p-3 rounded-2xl bg-gray-100/80 text-gray-400";
 const TRIP_SEARCH_AC_POPUP = { popupClassName: "trip-search-ac-dropdown" };
 
 export function TripSearchProvider({ children }: { children: ReactNode }) {
@@ -180,61 +209,80 @@ export function TripSearchProvider({ children }: { children: ReactNode }) {
 
     const searchQuery = query;
 
-    service.getPlacePredictions({ input: searchQuery, types: ["geocode"], componentRestrictions: { country: "in" } } as any as any, (predictions, status) => {
-      const lowerQuery = query.toLowerCase();
-      const isAirportQuery = lowerQuery.includes("air") || lowerQuery.includes("flight") || lowerQuery.includes("terminal") || lowerQuery.includes("blr") || lowerQuery.includes("kempegowda") || lowerQuery.includes("hal") || lowerQuery.includes("jakkur");
+    service.getPlacePredictions(
+      {
+        input: searchQuery,
+        types: ["geocode"],
+        componentRestrictions: { country: "in" },
+      } as any as any,
+      (predictions, status) => {
+        const lowerQuery = query.toLowerCase();
+        const isAirportQuery =
+          lowerQuery.includes("air") ||
+          lowerQuery.includes("flight") ||
+          lowerQuery.includes("terminal") ||
+          lowerQuery.includes("blr") ||
+          lowerQuery.includes("kempegowda") ||
+          lowerQuery.includes("hal") ||
+          lowerQuery.includes("jakkur");
 
-      if ((status !== "OK" || !predictions) && !isAirportQuery) {
-        if (target === "from") setFromOptions([]);
-        else setToOptions([]);
-        return;
-      }
+        if ((status !== "OK" || !predictions) && !isAirportQuery) {
+          if (target === "from") setFromOptions([]);
+          else setToOptions([]);
+          return;
+        }
 
-      const safePredictions = predictions || [];
-      
-      let filteredPredictions = safePredictions.filter(p => {
-        const desc = p.description.toLowerCase();
-        return SOUTH_INDIA_STATES.some(state => desc.includes(state)) || isAirportQuery;
-      });
+        const safePredictions = predictions || [];
 
-      if (filteredPredictions.length === 0 && safePredictions.length > 0 && !isAirportQuery) {
-        const outOfBoundsOptions = [{ value: "", label: "🚫 Out of Service Area (South India & Goa only)", disabled: true }] as any[];
-        if (target === "from") setFromOptions(outOfBoundsOptions);
-        else setToOptions(outOfBoundsOptions);
-        return;
-      }
-let options: any[] = filteredPredictions.map((p) => ({ value: p.description, label: p.description }));
-      
-      if (isAirportQuery) {
-        const airportOptions = BENGALURU_AIRPORTS.map(a => ({
-          value: `${a.name}, ${SERVICE_CITY}`,
-          label: (
-            <div className="flex items-center gap-2">
-              <span>✈️</span>
-              <span className="font-medium text-gray-900">{a.name} <span className="text-gray-400 font-normal">({a.code})</span></span>
-            </div>
-          )
-        }));
-        
-        // Reverse array before unshifting to maintain order since we unshift one by one
-        [...airportOptions].reverse().forEach(ao => {
-          if (!options.find(o => o.value === ao.value)) {
-            options.unshift(ao);
-          }
+        let filteredPredictions = safePredictions.filter((p) => {
+          const desc = p.description.toLowerCase();
+          return SOUTH_INDIA_STATES.some((state) => desc.includes(state)) || isAirportQuery;
         });
-      }
 
-      if (target === "from") setFromOptions(options);
-      else setToOptions(options);
-    });
+        if (filteredPredictions.length === 0 && safePredictions.length > 0 && !isAirportQuery) {
+          const outOfBoundsOptions = [
+            { value: "", label: "🚫 Out of Service Area (South India & Goa only)", disabled: true },
+          ] as any[];
+          if (target === "from") setFromOptions(outOfBoundsOptions);
+          else setToOptions(outOfBoundsOptions);
+          return;
+        }
+        let options: any[] = filteredPredictions.map((p) => ({
+          value: p.description,
+          label: p.description,
+        }));
+
+        if (isAirportQuery) {
+          const airportOptions = BENGALURU_AIRPORTS.map((a) => ({
+            value: `${a.name}, ${SERVICE_CITY}`,
+            label: (
+              <div className="flex items-center gap-2">
+                <span>✈️</span>
+                <span className="font-medium text-gray-900">
+                  {a.name} <span className="text-gray-400 font-normal">({a.code})</span>
+                </span>
+              </div>
+            ),
+          }));
+
+          // Reverse array before unshifting to maintain order since we unshift one by one
+          [...airportOptions].reverse().forEach((ao) => {
+            if (!options.find((o) => o.value === ao.value)) {
+              options.unshift(ao);
+            }
+          });
+        }
+
+        if (target === "from") setFromOptions(options);
+        else setToOptions(options);
+      },
+    );
   }, []);
 
   const onSearch = useCallback(async (values: { from: string; to: string; date?: Dayjs }) => {
     const fromNeedle = values.from.trim();
     const toNeedle = values.to.trim();
     const searchDate = values.date;
-
-    
 
     setLoading(true);
     try {
@@ -244,19 +292,19 @@ let options: any[] = filteredPredictions.map((p) => ({ value: p.description, lab
         .filter((trip) => {
           const fromOk = matchesLocation(trip.fromLocation, fromNeedle);
           const toOk = matchesLocation(trip.toLocation, toNeedle);
-          
+
           let dateOk = true;
           if (searchDate) {
             const tripDate = dayjs(trip.departureAt);
             dateOk = tripDate.isSame(searchDate, "day");
           }
-          
+
           return fromOk && toOk && dateOk;
         })
         .sort((a, b) => new Date(a.departureAt).getTime() - new Date(b.departureAt).getTime());
 
       setResults(filtered);
-      
+
       // Validate South India via Geocoder
       if ((window as any).google && (window as any).google.maps) {
         const geocoder = new (window as any).google.maps.Geocoder();
@@ -270,7 +318,7 @@ let options: any[] = filteredPredictions.map((p) => ({ value: p.description, lab
                     state = component.long_name.toLowerCase();
                   }
                 }
-                resolve(SOUTH_INDIA_STATES.some(s => state.includes(s)));
+                resolve(SOUTH_INDIA_STATES.some((s) => state.includes(s)));
               } else {
                 resolve(true); // Default pass if geocoding fails
               }
@@ -282,7 +330,9 @@ let options: any[] = filteredPredictions.map((p) => ({ value: p.description, lab
         const isToValid = await validateLocation(values.to);
 
         if (!isFromValid || !isToValid) {
-          import("sonner").then(m => m.toast.error("We currently only operate in South India and Goa."));
+          import("sonner").then((m) =>
+            m.toast.error("We currently only operate in South India and Goa."),
+          );
           setLoading(false);
           return;
         }
@@ -318,89 +368,111 @@ let options: any[] = filteredPredictions.map((p) => ({ value: p.description, lab
   return <TripSearchContext.Provider value={value}>{children}</TripSearchContext.Provider>;
 }
 
-export function TripSearchForm({
-  variant,
-  id,
-}: {
-  variant: "landing" | "page";
-  id?: string;
-}) {
-  const { loading, fromOptions, toOptions, searchPlaces, onSearch, summary } = useTripSearchContext();
+export function TripSearchForm({ variant, id }: { variant: "landing" | "page"; id?: string }) {
+  const { loading, fromOptions, toOptions, searchPlaces, onSearch, summary } =
+    useTripSearchContext();
   const [form] = Form.useForm();
   const selectedDate = Form.useWatch("date", form);
   const [locating, setLocating] = useState(false);
 
-  const locateUser = useCallback((highAccuracy = true) => {
-    if (!navigator.geolocation) {
-      import("sonner").then(m => m.toast.error("Geolocation is not supported by your browser."));
-      return;
-    }
-
-    setLocating(true);
-
-    const handleIPFallback = async () => {
-      try {
-        const response = await fetch("https://ipapi.co/json/");
-        const data = await response.json();
-        if (data && data.city) {
-          form.setFieldsValue({ from: data.city });
-          import("sonner").then(m => m.toast.success(`Detected via IP: ${data.city}`));
-        }
-      } catch (e) {
-        console.error("IP Fallback failed:", e);
-      } finally {
-        setLocating(false);
+  const locateUser = useCallback(
+    (highAccuracy = true) => {
+      if (!navigator.geolocation) {
+        import("sonner").then((m) =>
+          m.toast.error("Geolocation is not supported by your browser."),
+        );
+        return;
       }
-    };
 
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const { latitude, longitude } = position.coords;
-        if ((window as any).google && (window as any).google.maps) {
-          const geocoder = new (window as any).google.maps.Geocoder();
-          geocoder.geocode({ location: { lat: latitude, lng: longitude } }, (results: any, status: any) => {
-            if (status === "OK" && results && results.length > 0) {
-              let city = "";
-              let state = "";
-              
-              for (const component of results[0].address_components) {
-                const types = component.types;
-                if (types.includes("administrative_area_level_1")) state = component.long_name.toLowerCase();
-                if (types.includes("locality") || types.includes("administrative_area_level_2") || types.includes("sublocality") || types.includes("neighborhood")) {
-                  if (!city) city = component.long_name;
-                }
-              }
+      setLocating(true);
 
-              const southIndiaStates = ["karnataka", "kerala", "tamil nadu", "andhra pradesh", "telangana", "goa"];
-              const isSouthIndia = state ? southIndiaStates.some(s => state.includes(s)) : true;
-              
-              if (!isSouthIndia && state) {
-                import("sonner").then(m => m.toast.error(`Service currently unavailable in ${state}. We are live in South India & Goa!`));
-              } else if (city) {
-                form.setFieldsValue({ from: city });
-                import("sonner").then(m => m.toast.success(`Location detected: ${city}`));
-              }
-            }
-            setLocating(false);
-          });
-        } else {
+      const handleIPFallback = async () => {
+        try {
+          const response = await fetch("https://ipapi.co/json/");
+          const data = await response.json();
+          if (data && data.city) {
+            form.setFieldsValue({ from: data.city });
+            import("sonner").then((m) => m.toast.success(`Detected via IP: ${data.city}`));
+          }
+        } catch (e) {
+          console.error("IP Fallback failed:", e);
+        } finally {
           setLocating(false);
         }
-      },
-      (error) => {
-        // If high accuracy failed, try standard accuracy
-        if (highAccuracy && (error.code === 2 || error.code === 3)) {
-          locateUser(false);
-          return;
-        }
+      };
 
-        // If all GPS attempts failed, use IP fallback
-        console.log("GPS failed, trying IP fallback...");
-        handleIPFallback();
-      },
-      { timeout: highAccuracy ? 5000 : 10000, enableHighAccuracy: highAccuracy }
-    );
-  }, [form]);
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords;
+          if ((window as any).google && (window as any).google.maps) {
+            const geocoder = new (window as any).google.maps.Geocoder();
+            geocoder.geocode(
+              { location: { lat: latitude, lng: longitude } },
+              (results: any, status: any) => {
+                if (status === "OK" && results && results.length > 0) {
+                  let city = "";
+                  let state = "";
+
+                  for (const component of results[0].address_components) {
+                    const types = component.types;
+                    if (types.includes("administrative_area_level_1"))
+                      state = component.long_name.toLowerCase();
+                    if (
+                      types.includes("locality") ||
+                      types.includes("administrative_area_level_2") ||
+                      types.includes("sublocality") ||
+                      types.includes("neighborhood")
+                    ) {
+                      if (!city) city = component.long_name;
+                    }
+                  }
+
+                  const southIndiaStates = [
+                    "karnataka",
+                    "kerala",
+                    "tamil nadu",
+                    "andhra pradesh",
+                    "telangana",
+                    "goa",
+                  ];
+                  const isSouthIndia = state
+                    ? southIndiaStates.some((s) => state.includes(s))
+                    : true;
+
+                  if (!isSouthIndia && state) {
+                    import("sonner").then((m) =>
+                      m.toast.error(
+                        `Service currently unavailable in ${state}. We are live in South India & Goa!`,
+                      ),
+                    );
+                  } else if (city) {
+                    form.setFieldsValue({ from: city });
+                    import("sonner").then((m) => m.toast.success(`Location detected: ${city}`));
+                  }
+                }
+                setLocating(false);
+              },
+            );
+          } else {
+            setLocating(false);
+          }
+        },
+        (error) => {
+          // If high accuracy failed, try standard accuracy
+          if (highAccuracy && (error.code === 2 || error.code === 3)) {
+            locateUser(false);
+            return;
+          }
+
+          // If all GPS attempts failed, use IP fallback
+          console.log("GPS failed, trying IP fallback...");
+          handleIPFallback();
+        },
+        { timeout: highAccuracy ? 5000 : 10000, enableHighAccuracy: highAccuracy },
+      );
+    },
+    [form],
+  );
 
   useEffect(() => {
     // Set default values
@@ -417,9 +489,9 @@ export function TripSearchForm({
 
   useEffect(() => {
     const handleCityDetected = (e: Event) => {
-      const customEvent = e as CustomEvent<{from: string; to: string} | string>;
+      const customEvent = e as CustomEvent<{ from: string; to: string } | string>;
       const detail = customEvent.detail;
-      
+
       if (typeof detail === "string") {
         if (!form.getFieldValue("from")) form.setFieldsValue({ from: detail });
       } else {
@@ -427,14 +499,17 @@ export function TripSearchForm({
         if (!form.getFieldValue("to")) form.setFieldsValue({ to: detail.to });
       }
     };
-    
+
     window.addEventListener("coolpool:cityDetected", handleCityDetected);
     return () => window.removeEventListener("coolpool:cityDetected", handleCityDetected);
   }, [form]);
 
   if (variant === "page") {
     return (
-      <Card id={id} className="bg-white p-4 border-gray-100 shadow-sm max-w-2xl mx-auto rounded-[2rem]">
+      <Card
+        id={id}
+        className="bg-white p-4 border-gray-100 shadow-sm max-w-2xl mx-auto rounded-[2rem]"
+      >
         <Form
           form={form}
           id="page-trip-search"
@@ -463,7 +538,12 @@ export function TripSearchForm({
               variant="borderless"
             />
           </Form.Item>
-          <UiButton type="submit" variant="hero" size="sm" className="h-12 w-12 p-0 rounded-full shrink-0">
+          <UiButton
+            type="submit"
+            variant="hero"
+            size="sm"
+            className="h-12 w-12 p-0 rounded-full shrink-0"
+          >
             <ArrowRight size={20} />
           </UiButton>
         </Form>
@@ -471,42 +551,49 @@ export function TripSearchForm({
     );
   }
 
+  const todaySelected = dayjs().isSame(selectedDate, "day");
+  const tomorrowSelected = dayjs().add(1, "day").isSame(selectedDate, "day");
+
+  const closeKeyboard = () => {
+    if (document.activeElement instanceof HTMLInputElement) {
+      document.activeElement.blur();
+    }
+  };
+
   return (
     <div
       id={id}
-      className="w-full max-w-[1200px] mx-auto px-6 relative z-10 -mt-16 sm:-mt-20 animate-in fade-in slide-in-from-bottom-6 duration-700"
+      className="w-full max-w-[900px] mx-auto px-4 sm:px-6 relative z-10 -mt-14 sm:-mt-20 animate-in fade-in slide-in-from-bottom-6 duration-700"
     >
-      {/* The outer container: clean white pill, no overflow clipping */}
-      <div className="bg-white/97 backdrop-blur-2xl rounded-[2rem] shadow-2xl border border-gray-100 ring-1 ring-black/5">
-        <Form
-          form={form}
-          id="landing-trip-search"
-          onFinish={onSearch}
-        >
-          {/* ───── DESKTOP LAYOUT ───── */}
-          <div className="hidden lg:flex items-center min-h-[7.5rem] h-auto py-3 px-2">
-
-            {/* ── PICKUP (27%) ── */}
-            <div
-              style={{ flex: "0 0 27%" }}
-              className="h-full flex items-center px-6 hover:bg-gray-50/60 rounded-2xl transition-colors group cursor-pointer"
-              onClick={() => !locating && locateUser()}
-            >
-              <div className="flex items-center gap-4 w-full min-w-0">
-                <div className={cn(TRIP_SEARCH_ICON, "group-hover:bg-primary/10 group-hover:text-primary transition-all duration-250 relative")}>
+      <div className="trip-search-card bg-white shadow-2xl border border-gray-100/80 ring-1 ring-black/[0.04]">
+        <Form form={form} id="landing-trip-search" onFinish={onSearch}>
+          {/* ── DESKTOP LAYOUT (lg and above) ── */}
+          <ConfigProvider theme={SEARCH_INPUT_THEME_DESKTOP}>
+            <div className="hidden lg:flex flex-col divide-y divide-gray-100">
+              {/* Pickup */}
+              <div
+                className="flex items-start gap-4 px-6 py-6 cursor-pointer hover:bg-gray-50/60 transition-colors group"
+                onClick={() => !locating && locateUser()}
+              >
+                <div className="shrink-0 w-12 h-12 rounded-xl bg-primary/8 flex items-center justify-center text-primary group-hover:bg-primary/15 transition-colors mt-1">
                   {locating ? (
-                    <div className="h-6 w-6 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+                    <div className="h-5 w-5 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
                   ) : (
-                    <Navigation size={24} strokeWidth={2.5} />
+                    <Navigation size={24} strokeWidth={2} />
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className={TRIP_SEARCH_LABEL}>Pickup</p>
-                  <Form.Item name="from" rules={[{ required: true }]} className="m-0">
+                  <Form.Item
+                    name="from"
+                    rules={[{ required: true }]}
+                    className="trip-search-form-item"
+                  >
                     <AutoComplete
                       {...TRIP_SEARCH_AC_POPUP}
                       options={fromOptions}
-                      onSearch={(text) => searchPlaces(text, "from")}
+                      onSearch={(t) => searchPlaces(t, "from")}
+                      onSelect={closeKeyboard}
                       placeholder="City or area"
                       variant="borderless"
                       className={TRIP_SEARCH_INPUT}
@@ -514,27 +601,24 @@ export function TripSearchForm({
                   </Form.Item>
                 </div>
               </div>
-            </div>
 
-            {/* divider */}
-            <div className="w-px h-16 bg-gray-100 shrink-0 self-center" />
-
-            {/* ── DESTINATION (33%) ── */}
-            <div
-              style={{ flex: "0 0 33%" }}
-              className="h-full flex items-center px-6 hover:bg-gray-50/60 rounded-2xl transition-colors group cursor-pointer"
-            >
-              <div className="flex items-center gap-4 w-full min-w-0">
-                <div className={cn(TRIP_SEARCH_ICON, "group-hover:bg-secondary/10 group-hover:text-secondary transition-all duration-250")}>
-                  <MapPin size={24} strokeWidth={2.5} />
+              {/* Destination */}
+              <div className="flex items-start gap-4 px-6 py-6 hover:bg-gray-50/60 transition-colors group">
+                <div className="shrink-0 w-12 h-12 rounded-xl bg-rose-50 flex items-center justify-center text-rose-400 group-hover:bg-rose-100 transition-colors mt-1">
+                  <MapPin size={24} strokeWidth={2} />
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className={TRIP_SEARCH_LABEL}>Destination</p>
-                  <Form.Item name="to" rules={[{ required: true }]} className="m-0">
+                  <Form.Item
+                    name="to"
+                    rules={[{ required: true }]}
+                    className="trip-search-form-item"
+                  >
                     <AutoComplete
                       {...TRIP_SEARCH_AC_POPUP}
                       options={toOptions}
-                      onSearch={(text) => searchPlaces(text, "to")}
+                      onSearch={(t) => searchPlaces(t, "to")}
+                      onSelect={closeKeyboard}
                       placeholder="Where to?"
                       variant="borderless"
                       className={TRIP_SEARCH_INPUT}
@@ -542,170 +626,166 @@ export function TripSearchForm({
                   </Form.Item>
                 </div>
               </div>
-            </div>
 
-            {/* divider */}
-            <div className="w-px h-16 bg-gray-100 shrink-0 self-center" />
-
-            {/* ── DATE SELECTOR (22%) ── */}
-            <div
-              style={{ flex: "0 0 22%" }}
-              className="h-full flex items-center px-8 hover:bg-gray-50/60 rounded-2xl transition-colors group"
-            >
-              <div className="flex items-center gap-5 w-full min-w-0">
-                <div className={cn(TRIP_SEARCH_ICON, "group-hover:bg-amber-50 group-hover:text-amber-500 transition-all duration-250")}>
-                  <Clock size={24} strokeWidth={2.5} />
-                </div>
-                <div className="flex-1 min-w-0 flex flex-col gap-2">
+              {/* Date section */}
+              <div className="px-6 py-6">
+                {/* <p className={cn(TRIP_SEARCH_LABEL, "mb-4")}>When are you travsselling?</p> */}
+                <div className="flex gap-3">
                   <button
                     type="button"
-                    onClick={() => form.setFieldsValue({ date: dayjs() })}
+                    onClick={() => {
+                      form.setFieldsValue({ date: dayjs() });
+                      form.submit();
+                    }}
                     className={cn(
                       TRIP_SEARCH_DATE_CHIP,
-                      dayjs().isSame(selectedDate, "day")
-                        ? "bg-primary text-white border-transparent shadow-md shadow-primary/25"
-                        : "bg-gray-50 text-gray-400 border-gray-100 hover:border-primary/30 hover:text-primary"
+                      todaySelected
+                        ? "bg-gradient-primary text-white border-transparent shadow-glow-sm"
+                        : "bg-white text-gray-700 border-gray-200 hover:border-primary/50 hover:text-primary",
                     )}
                   >
                     Today
                   </button>
                   <button
                     type="button"
-                    onClick={() => form.setFieldsValue({ date: dayjs().add(1, 'day') })}
+                    onClick={() => {
+                      form.setFieldsValue({ date: dayjs().add(1, "day") });
+                      form.submit();
+                    }}
                     className={cn(
                       TRIP_SEARCH_DATE_CHIP,
-                      dayjs().add(1, 'day').isSame(selectedDate, "day")
-                        ? "bg-primary text-white border-transparent shadow-md shadow-primary/25"
-                        : "bg-gray-50 text-gray-400 border-gray-100 hover:border-primary/30 hover:text-primary"
+                      tomorrowSelected
+                        ? "bg-gradient-primary text-white border-transparent shadow-glow-sm"
+                        : "bg-white text-gray-700 border-gray-200 hover:border-primary/50 hover:text-primary",
                     )}
                   >
                     Tomorrow
                   </button>
-                  <Form.Item name="date" className="hidden">
-                    <DatePicker />
+                </div>
+                <Form.Item name="date" className="hidden">
+                  <DatePicker />
+                </Form.Item>
+              </div>
+            </div>
+          </ConfigProvider>
+
+          {/* ── MOBILE LAYOUT (below lg) ── */}
+          <ConfigProvider theme={SEARCH_INPUT_THEME}>
+            <div className="lg:hidden">
+              {/* Pickup row */}
+              <div className="flex items-start gap-4 px-5 pt-5 pb-4">
+                <div className="shrink-0 w-10 h-10 rounded-lg bg-primary/8 flex items-center justify-center text-primary mt-1">
+                  {locating ? (
+                    <div className="h-4 w-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+                  ) : (
+                    <Navigation size={20} strokeWidth={2} />
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-1">
+                    Pickup
+                  </p>
+                  <Form.Item
+                    name="from"
+                    rules={[{ required: true }]}
+                    className="trip-search-form-item"
+                  >
+                    <AutoComplete
+                      {...TRIP_SEARCH_AC_POPUP}
+                      options={fromOptions}
+                      onSearch={(t) => searchPlaces(t, "from")}
+                      onSelect={closeKeyboard}
+                      placeholder="City"
+                      variant="borderless"
+                      className={TRIP_SEARCH_INPUT}
+                    />
                   </Form.Item>
                 </div>
               </div>
-            </div>
 
-            {/* ── SEARCH BUTTON (18%) ── */}
-            <div style={{ flex: "0 0 18%" }} className="h-full p-2.5 shrink-0 pl-4">
-              <UiButton
-                type="submit"
-                variant="hero"
-                className="w-full h-full min-h-[4.5rem] rounded-2xl font-black text-2xl shadow-glow hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-3"
-                disabled={loading}
-              >
-                {loading ? (
-                  <div className="h-5 w-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                ) : (
-                  <>
-                    <span>Search</span>
-                    <ArrowRight size={24} strokeWidth={3} />
-                  </>
-                )}
-              </UiButton>
-            </div>
-          </div>
-
-          {/* ───── MOBILE LAYOUT (stacked) ───── */}
-          <div className="flex flex-col lg:hidden divide-y divide-gray-100 p-5 gap-1">
-            {/* Pickup */}
-            <div className="flex items-center gap-4 px-2 py-5">
-              <div className={TRIP_SEARCH_ICON}>
-                <Navigation size={24} strokeWidth={2.5} />
+              {/* Route arrow connector */}
+              <div className="flex items-center px-5 -my-1">
+                <div className="ml-5 mr-2 w-px h-4 bg-gray-200" />
+                <ArrowRight size={12} className="text-gray-300" />
               </div>
-              <div className="flex-1 min-w-0">
-                <p className={TRIP_SEARCH_LABEL}>Pickup</p>
-                <Form.Item name="from" rules={[{ required: true }]} className="m-0">
-                  <AutoComplete
-                    {...TRIP_SEARCH_AC_POPUP}
-                    options={fromOptions}
-                    onSearch={(text) => searchPlaces(text, "from")}
-                    placeholder="City or area"
-                    variant="borderless"
-                    className={TRIP_SEARCH_INPUT}
-                  />
+
+              {/* Destination row */}
+              <div className="flex items-start gap-4 px-5 py-4">
+                <div className="shrink-0 w-10 h-10 rounded-lg bg-rose-50 flex items-center justify-center text-rose-400 mt-1">
+                  <MapPin size={20} strokeWidth={2} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-1">
+                    Destination
+                  </p>
+                  <Form.Item
+                    name="to"
+                    rules={[{ required: true }]}
+                    className="trip-search-form-item"
+                  >
+                    <AutoComplete
+                      {...TRIP_SEARCH_AC_POPUP}
+                      options={toOptions}
+                      onSearch={(t) => searchPlaces(t, "to")}
+                      onSelect={closeKeyboard}
+                      placeholder="Where to?"
+                      variant="borderless"
+                      className={TRIP_SEARCH_INPUT}
+                    />
+                  </Form.Item>
+                </div>
+              </div>
+
+              {/* Date section */}
+              <div className="border-t border-gray-100 px-5 pt-4 pb-5">
+                <p className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-3">
+                  When are you travelling?
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      form.setFieldsValue({ date: dayjs() });
+                      form.submit();
+                    }}
+                    className={cn(
+                      "flex-1 h-14 rounded-2xl text-xl font-black border-2 transition-all duration-200 active:scale-95",
+                      todaySelected
+                        ? "bg-gradient-primary text-white border-transparent shadow-glow-sm"
+                        : "bg-white text-gray-700 border-gray-200",
+                    )}
+                  >
+                    Today
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      form.setFieldsValue({ date: dayjs().add(1, "day") });
+                      form.submit();
+                    }}
+                    className={cn(
+                      "flex-1 h-14 rounded-2xl text-xl font-black border-2 transition-all duration-200 active:scale-95",
+                      tomorrowSelected
+                        ? "bg-gradient-primary text-white border-transparent shadow-glow-sm"
+                        : "bg-white text-gray-700 border-gray-200",
+                    )}
+                  >
+                    Tomorrow
+                  </button>
+                </div>
+                <Form.Item name="date" className="hidden">
+                  <DatePicker />
                 </Form.Item>
               </div>
-            </div>
 
-            {/* Destination */}
-            <div className="flex items-center gap-4 px-2 py-5">
-              <div className={TRIP_SEARCH_ICON}>
-                <MapPin size={24} strokeWidth={2.5} />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className={TRIP_SEARCH_LABEL}>Destination</p>
-                <Form.Item name="to" rules={[{ required: true }]} className="m-0">
-                  <AutoComplete
-                    {...TRIP_SEARCH_AC_POPUP}
-                    options={toOptions}
-                    onSearch={(text) => searchPlaces(text, "to")}
-                    placeholder="Where to?"
-                    variant="borderless"
-                    className={TRIP_SEARCH_INPUT}
-                  />
-                </Form.Item>
-              </div>
+              {loading && (
+                <div className="flex justify-center items-center gap-2 pb-4 text-xs text-muted-foreground">
+                  <div className="h-3 w-3 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+                  Searching…
+                </div>
+              )}
             </div>
-
-            {/* When + Search */}
-            <div className="flex items-center gap-3 px-2 pt-4 pb-2">
-              <div className={TRIP_SEARCH_ICON}>
-                <Clock size={24} strokeWidth={2.5} />
-              </div>
-              <div className="flex-1 flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => form.setFieldsValue({ date: dayjs() })}
-                  className={cn(
-                    "flex-1 h-14 rounded-xl text-lg font-bold transition-all border flex items-center justify-center",
-                    dayjs().isSame(selectedDate, "day")
-                      ? "bg-primary text-white border-transparent"
-                      : "bg-gray-50 text-gray-500 border-gray-100"
-                  )}
-                >
-                  Today
-                </button>
-                <button
-                  type="button"
-                  onClick={() => form.setFieldsValue({ date: dayjs().add(1, 'day') })}
-                  className={cn(
-                    "flex-1 h-14 rounded-xl text-lg font-bold transition-all border flex items-center justify-center",
-                    dayjs().add(1, 'day').isSame(selectedDate, "day")
-                      ? "bg-primary text-white border-transparent"
-                      : "bg-gray-50 text-gray-500 border-gray-100"
-                  )}
-                >
-                  Tomorrow
-                </button>
-              </div>
-              <Form.Item name="date" className="hidden">
-                <DatePicker />
-              </Form.Item>
-            </div>
-
-            {/* Mobile Search Button */}
-            <div className="px-2 pt-2 pb-2">
-              <UiButton
-                type="submit"
-                variant="hero"
-                className="w-full h-16 rounded-2xl font-black text-2xl shadow-glow flex items-center justify-center gap-3"
-                disabled={loading}
-              >
-                {loading ? (
-                  <div className="h-6 w-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                ) : (
-                  <>
-                    <span>Search</span>
-                    <ArrowRight size={24} strokeWidth={3} />
-                  </>
-                )}
-              </UiButton>
-            </div>
-          </div>
-
+          </ConfigProvider>
         </Form>
       </div>
     </div>
@@ -771,9 +851,9 @@ export function TripSearchResults({ variant }: { variant: "landing" | "page" }) 
 
           <div className="space-y-4">
             {results.map((trip) => (
-              <Link 
-                key={trip.id} 
-                to="/booking/$tripId" 
+              <Link
+                key={trip.id}
+                to="/booking/$tripId"
                 params={{ tripId: trip.id }}
                 className="block group"
               >
@@ -790,28 +870,31 @@ export function TripSearchResults({ variant }: { variant: "landing" | "page" }) 
                           <div className="w-0.5 flex-1 bg-gray-900" />
                           <div className="h-2.5 w-2.5 rounded-full border-2 border-gray-400" />
                         </div>
-                        <span className="font-bold text-xl text-gray-400 leading-none">
-                          --:--
-                        </span>
+                        <span className="font-bold text-xl text-gray-400 leading-none">--:--</span>
                       </div>
 
                       {/* Location column */}
                       <div className="flex flex-col justify-between py-1 flex-1 min-w-0 gap-8">
                         <div className="min-w-0">
-                          <p className="font-bold text-xl sm:text-2xl text-gray-900 truncate">{primarySegment(trip.fromLocation)}</p>
+                          <p className="font-bold text-xl sm:text-2xl text-gray-900 truncate">
+                            {primarySegment(trip.fromLocation)}
+                          </p>
                           <p className="text-base text-gray-500 truncate">{trip.fromLocation}</p>
                         </div>
                         <div className="min-w-0">
-                          <p className="font-bold text-xl sm:text-2xl text-gray-700 truncate">{primarySegment(trip.toLocation)}</p>
+                          <p className="font-bold text-xl sm:text-2xl text-gray-700 truncate">
+                            {primarySegment(trip.toLocation)}
+                          </p>
                           <p className="text-base text-gray-500 truncate">{trip.toLocation}</p>
                         </div>
                       </div>
 
                       {/* Duration (Absolute centered on timeline) */}
                       <div className="absolute left-[88px] top-[48%] -translate-y-1/2 bg-white px-1">
-                         <span className="text-xs sm:text-sm font-bold text-gray-500 bg-gray-50 px-2.5 py-1 rounded-full border border-gray-100">
-                           {Math.round(trip.totalDistanceKm / 60)}h{Math.round(trip.totalDistanceKm % 60)}m
-                         </span>
+                        <span className="text-xs sm:text-sm font-bold text-gray-500 bg-gray-50 px-2.5 py-1 rounded-full border border-gray-100">
+                          {Math.round(trip.totalDistanceKm / 60)}h
+                          {Math.round(trip.totalDistanceKm % 60)}m
+                        </span>
                       </div>
                     </div>
 
@@ -847,7 +930,10 @@ export function TripSearchResults({ variant }: { variant: "landing" | "page" }) 
                         </div>
                       </div>
                     </div>
-                    <ChevronRight size={20} className="text-gray-200 group-hover:text-primary transition-colors" />
+                    <ChevronRight
+                      size={20}
+                      className="text-gray-200 group-hover:text-primary transition-colors"
+                    />
                   </div>
                 </Card>
               </Link>

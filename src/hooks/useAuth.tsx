@@ -109,13 +109,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const failureParams = new URLSearchParams({ google_auth: "failed" });
     if (safeRedirect) failureParams.set("redirect", safeRedirect);
-    const failure = opts?.successUrl ? `${origin}${opts.successUrl}?google_auth=failed` : `${origin}/members?${failureParams.toString()}`;
+    const failure = opts?.successUrl
+      ? `${origin}${opts.successUrl}?google_auth=failed`
+      : `${origin}/members?${failureParams.toString()}`;
 
-    account.createOAuth2Session({
-      provider: OAuthProvider.Google,
-      success,
-      failure,
-    });
+    try {
+      account.createOAuth2Session({
+        provider: OAuthProvider.Google,
+        success,
+        failure,
+      });
+    } catch (error) {
+      console.error("Google OAuth error:", error);
+      throw error;
+    }
   }, []);
 
   const becomeRideHost = async (phone: string) => {
@@ -175,4 +182,3 @@ export function useAuth() {
   if (!ctx) throw new Error("useAuth must be used inside AuthProvider");
   return ctx;
 }
-

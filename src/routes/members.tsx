@@ -218,7 +218,9 @@ function MembersPage() {
                 {mode === "signin" ? (
                   <form onSubmit={handleSignIn} className="mt-6 space-y-4">
                     <div className="space-y-2">
-                      <Label htmlFor="mem-si-email" className="text-base">Email</Label>
+                      <Label htmlFor="mem-si-email" className="text-base">
+                        Email
+                      </Label>
                       <Input
                         id="mem-si-email"
                         type="email"
@@ -230,7 +232,9 @@ function MembersPage() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="mem-si-password" className="text-base">Password</Label>
+                      <Label htmlFor="mem-si-password" className="text-base">
+                        Password
+                      </Label>
                       <Input
                         id="mem-si-password"
                         type="password"
@@ -253,7 +257,9 @@ function MembersPage() {
                 ) : (
                   <form onSubmit={handleSignUp} className="mt-6 space-y-4">
                     <div className="space-y-2">
-                      <Label htmlFor="mem-su-name" className="text-base">Full name</Label>
+                      <Label htmlFor="mem-su-name" className="text-base">
+                        Full name
+                      </Label>
                       <Input
                         id="mem-su-name"
                         required
@@ -264,7 +270,9 @@ function MembersPage() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="mem-su-email" className="text-base">Email</Label>
+                      <Label htmlFor="mem-su-email" className="text-base">
+                        Email
+                      </Label>
                       <Input
                         id="mem-su-email"
                         type="email"
@@ -276,7 +284,9 @@ function MembersPage() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="mem-su-password" className="text-base">Password</Label>
+                      <Label htmlFor="mem-su-password" className="text-base">
+                        Password
+                      </Label>
                       <Input
                         id="mem-su-password"
                         type="password"

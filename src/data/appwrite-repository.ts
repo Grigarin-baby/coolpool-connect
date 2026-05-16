@@ -16,7 +16,6 @@ import type {
   TripStop,
 } from "@/lib/domain";
 
-
 type Doc = Models.Document;
 
 function toTrip(doc: any): Trip {
@@ -35,11 +34,12 @@ function toTrip(doc: any): Trip {
     pricePerKm: Number(doc.price_per_km || 0),
     totalSeats: Number(doc.total_seats || 1),
     departureAt: String(doc.departure_at || new Date().toISOString()),
-    status: (String(doc.status || "scheduled")) as TripStatus,
+    status: String(doc.status || "scheduled") as TripStatus,
     notes: doc.notes ? String(doc.notes) : null,
     vehicleId: doc.vehicle_id ? String(doc.vehicle_id) : undefined,
     assignedDriverId: doc.assigned_driver_id ? String(doc.assigned_driver_id) : undefined,
-    seatConfig: doc.seat_config && Array.isArray(doc.seat_config) ? doc.seat_config.map(String) : undefined,
+    seatConfig:
+      doc.seat_config && Array.isArray(doc.seat_config) ? doc.seat_config.map(String) : undefined,
   };
 }
 
@@ -224,8 +224,6 @@ export async function listHostTrips(hostId: string): Promise<Trip[]> {
 export async function createTrip(input: CreateTripInput): Promise<Trip> {
   const c = ids();
 
-  
-
   const doc = await databases.createDocument(
     appwriteConfig.databaseId,
     c.trips,
@@ -264,43 +262,40 @@ export async function updateTrip(tripId: string, input: Partial<CreateTripInput>
   const c = ids();
 
   if (input.fromLocation || input.toLocation) {
-    
   }
 
-  const doc = await databases.updateDocument(
-    appwriteConfig.databaseId,
-    c.trips,
-    tripId,
-    {
-      host_id: input.hostId,
-      from_location: input.fromLocation,
-      from_lat: input.fromLat,
-      from_lng: input.fromLng,
-      to_location: input.toLocation,
-      to_lat: input.toLat,
-      to_lng: input.toLng,
-      polyline: input.polyline,
-      total_distance_km: input.totalDistanceKm,
-      total_price: input.totalPrice,
-      price_per_km: input.pricePerKm,
-      total_seats: input.totalSeats,
-      departure_at: input.departureAt,
-      status: input.status,
-      notes: input.notes,
-      vehicle_id: input.vehicleId,
-      assigned_driver_id: input.assignedDriverId,
-      seat_config: input.seatConfig,
-    }
-  );
+  const doc = await databases.updateDocument(appwriteConfig.databaseId, c.trips, tripId, {
+    host_id: input.hostId,
+    from_location: input.fromLocation,
+    from_lat: input.fromLat,
+    from_lng: input.fromLng,
+    to_location: input.toLocation,
+    to_lat: input.toLat,
+    to_lng: input.toLng,
+    polyline: input.polyline,
+    total_distance_km: input.totalDistanceKm,
+    total_price: input.totalPrice,
+    price_per_km: input.pricePerKm,
+    total_seats: input.totalSeats,
+    departure_at: input.departureAt,
+    status: input.status,
+    notes: input.notes,
+    vehicle_id: input.vehicleId,
+    assigned_driver_id: input.assignedDriverId,
+    seat_config: input.seatConfig,
+  });
   return toTrip(doc);
+}
+
+export async function deleteTrip(tripId: string): Promise<void> {
+  const c = ids();
+  await databases.deleteDocument(appwriteConfig.databaseId, c.trips, tripId);
 }
 
 export async function deleteTripStop(stopId: string): Promise<void> {
   const c = ids();
   await databases.deleteDocument(appwriteConfig.databaseId, c.tripStops, stopId);
 }
-
-
 
 export async function createTripStop(input: CreateTripStopInput): Promise<TripStop> {
   const c = ids();
@@ -321,7 +316,7 @@ export async function createTripStop(input: CreateTripStopInput): Promise<TripSt
       Permission.read(Role.any()),
       Permission.update(Role.any()), // Adjust if you want only the host to update
       Permission.delete(Role.any()), // Adjust if you want only the host to delete
-    ]
+    ],
   );
   return toTripStop(doc);
 }
@@ -341,22 +336,17 @@ export async function createBooking(
 ): Promise<Booking> {
   const c = ids();
 
-  const doc = await databases.createDocument(
-    appwriteConfig.databaseId,
-    c.bookings,
-    ID.unique(),
-    {
-      trip_id: input.tripId,
-      traveler_id: input.travelerId,
-      from_stop_index: input.fromStopIndex,
-      to_stop_index: input.toStopIndex,
-      seats_booked: input.seatsBooked,
-      segment_price: input.segmentPrice,
-      passenger_name: input.passengerName,
-      passenger_phone: input.passengerPhone,
-      status: input.status ?? "pending",
-    }
-  );
+  const doc = await databases.createDocument(appwriteConfig.databaseId, c.bookings, ID.unique(), {
+    trip_id: input.tripId,
+    traveler_id: input.travelerId,
+    from_stop_index: input.fromStopIndex,
+    to_stop_index: input.toStopIndex,
+    seats_booked: input.seatsBooked,
+    segment_price: input.segmentPrice,
+    passenger_name: input.passengerName,
+    passenger_phone: input.passengerPhone,
+    status: input.status ?? "pending",
+  });
   return toBooking(doc);
 }
 
@@ -373,7 +363,9 @@ export function tripSeatReservationDocumentId(tripId: string, seatCode: string):
   return `${tripId.slice(-14)}_${slug}`.slice(0, 36);
 }
 
-export async function getVehicleByDriverUserId(driverUserId: string): Promise<DriverVehicle | null> {
+export async function getVehicleByDriverUserId(
+  driverUserId: string,
+): Promise<DriverVehicle | null> {
   const c = ids();
   const result = await databases.listDocuments(appwriteConfig.databaseId, c.vehicles, [
     Query.equal("driver_user_id", driverUserId),
@@ -400,21 +392,16 @@ export async function deleteDriverVehicle(vehicleId: string): Promise<void> {
 
 export async function createDriverVehicle(input: CreateDriverVehicleInput): Promise<DriverVehicle> {
   const c = ids();
-  const doc = await databases.createDocument(
-    appwriteConfig.databaseId,
-    c.vehicles,
-    ID.unique(),
-    {
-      driver_user_id: input.driverUserId,
-      model_name: input.modelName,
-      plate_number: input.plateNumber,
-      seat_capacity: input.seatCapacity,
-      color: input.color ?? null,
-      registration_doc: input.registrationDoc ?? null,
-      insurance_doc: input.insuranceDoc ?? null,
-      car_images: input.carImages ?? [],
-    },
-  );
+  const doc = await databases.createDocument(appwriteConfig.databaseId, c.vehicles, ID.unique(), {
+    driver_user_id: input.driverUserId,
+    model_name: input.modelName,
+    plate_number: input.plateNumber,
+    seat_capacity: input.seatCapacity,
+    color: input.color ?? null,
+    registration_doc: input.registrationDoc ?? null,
+    insurance_doc: input.insuranceDoc ?? null,
+    car_images: input.carImages ?? [],
+  });
   return toDriverVehicle(doc);
 }
 
@@ -456,20 +443,15 @@ export interface CreateTeamDriverInput {
 
 export async function createTeamDriver(input: CreateTeamDriverInput): Promise<DriverProfile> {
   const c = ids();
-  const doc = await databases.createDocument(
-    appwriteConfig.databaseId,
-    c.drivers,
-    ID.unique(),
-    {
-      user_id: `team_${ID.unique()}`,
-      owner_user_id: input.ownerUserId,
-      full_name: input.fullName,
-      email: input.email,
-      phone: input.phone,
-      license_number: input.licenseNumber,
-      city: input.city,
-    },
-  );
+  const doc = await databases.createDocument(appwriteConfig.databaseId, c.drivers, ID.unique(), {
+    user_id: `team_${ID.unique()}`,
+    owner_user_id: input.ownerUserId,
+    full_name: input.fullName,
+    email: input.email,
+    phone: input.phone,
+    license_number: input.licenseNumber,
+    city: input.city,
+  });
   return toDriverProfileWithOwner(doc);
 }
 
@@ -524,7 +506,7 @@ async function createTripSeatReservation(input: {
       trip_id: input.tripId,
       seat_code: input.seatCode,
       booking_id: input.bookingId,
-    }
+    },
   );
   return toTripSeatReservation(doc);
 }
@@ -593,8 +575,8 @@ export async function listHostBookings(hostId: string): Promise<Booking[]> {
     Query.equal("host_id", hostId),
     Query.limit(100),
   ]);
-  const tripIds = trips.documents.map(t => t.$id);
-  
+  const tripIds = trips.documents.map((t) => t.$id);
+
   if (tripIds.length === 0) return [];
 
   const result = await databases.listDocuments(appwriteConfig.databaseId, c.bookings, [
@@ -605,7 +587,11 @@ export async function listHostBookings(hostId: string): Promise<Booking[]> {
   return result.documents.map(toBooking);
 }
 
-export async function updateBookingRating(bookingId: string, rating: number, comment?: string): Promise<void> {
+export async function updateBookingRating(
+  bookingId: string,
+  rating: number,
+  comment?: string,
+): Promise<void> {
   const c = ids();
   await databases.updateDocument(appwriteConfig.databaseId, c.bookings, bookingId, {
     rating_by_host: rating,
@@ -744,7 +730,7 @@ export async function listActiveTrips(limit = 200): Promise<Trip[]> {
 function toHeroBanner(doc: any): HeroBanner {
   const imageId = String(doc.imageId || "");
   let imageUrl = doc.imageUrl ? String(doc.imageUrl) : null;
-  
+
   if (!imageUrl && imageId) {
     imageUrl = getBannerImageUrl(imageId);
   }
@@ -788,32 +774,26 @@ export async function createHeroBanner(input: Omit<HeroBanner, "id">): Promise<H
       isActive: input.isActive,
       sortOrder: input.sortOrder,
     },
-    [
-      Permission.read(Role.any()),
-      Permission.update(Role.any()),
-      Permission.delete(Role.any()),
-    ]
+    [Permission.read(Role.any()), Permission.update(Role.any()), Permission.delete(Role.any())],
   );
   return toHeroBanner(doc);
 }
 
-export async function updateHeroBanner(id: string, input: Partial<Omit<HeroBanner, "id">>): Promise<HeroBanner> {
+export async function updateHeroBanner(
+  id: string,
+  input: Partial<Omit<HeroBanner, "id">>,
+): Promise<HeroBanner> {
   const c = ids();
-  const doc = await databases.updateDocument(
-    appwriteConfig.databaseId,
-    c.heroBanners,
-    id,
-    {
-      title: input.title,
-      imageId: input.imageId,
-      imageUrl: input.imageUrl,
-      linkUrl: input.linkUrl,
-      startDate: input.startDate,
-      endDate: input.endDate,
-      isActive: input.isActive,
-      sortOrder: input.sortOrder,
-    }
-  );
+  const doc = await databases.updateDocument(appwriteConfig.databaseId, c.heroBanners, id, {
+    title: input.title,
+    imageId: input.imageId,
+    imageUrl: input.imageUrl,
+    linkUrl: input.linkUrl,
+    startDate: input.startDate,
+    endDate: input.endDate,
+    isActive: input.isActive,
+    sortOrder: input.sortOrder,
+  });
   return toHeroBanner(doc);
 }
 
@@ -823,16 +803,11 @@ export async function deleteHeroBanner(id: string): Promise<void> {
 }
 
 export async function uploadBannerImage(file: File): Promise<string> {
-  const result = await storage.createFile(
-    appwriteConfig.bannersBucketId, 
-    ID.unique(), 
-    file,
-    [
-      Permission.read(Role.any()),
-      Permission.update(Role.users()),
-      Permission.delete(Role.users()),
-    ]
-  );
+  const result = await storage.createFile(appwriteConfig.bannersBucketId, ID.unique(), file, [
+    Permission.read(Role.any()),
+    Permission.update(Role.users()),
+    Permission.delete(Role.users()),
+  ]);
   return result.$id;
 }
 
