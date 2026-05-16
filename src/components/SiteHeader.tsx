@@ -13,11 +13,14 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { memberPortalLinkSearch } from "@/lib/travelerResumeRedirect";
+import { UserProfileDialog } from "@/components/UserProfileDialog";
+import { getUserDisplayName, getUserInitial } from "@/lib/user-display";
 
 const navLinks = [{ to: "/" as const, label: "Home" }];
 
 export function SiteHeader() {
-  const { user, isDriver, isAdmin, signOut } = useAuth();
+  const { user, isDriver, isAdmin, signOut, roles } = useAuth();
+  const [profileOpen, setProfileOpen] = useState(false);
   const memberSearch = useRouterState({
     select: (r) => {
       const search = memberPortalLinkSearch(r.location.href);
@@ -55,16 +58,23 @@ export function SiteHeader() {
                   <DropdownMenuTrigger asChild>
                     <Button variant="ghost" className="rounded-3xl h-10 px-4 gap-2">
                       <div className="h-7 w-7 rounded-3xl bg-gradient-primary flex items-center justify-center text-xs font-bold text-primary-foreground">
-                        {(user.email?.[0] ?? "U").toUpperCase()}
+                        {getUserInitial(user)}
                       </div>
-                      <span className="text-sm">Account</span>
+                      <span className="text-sm max-w-[120px] truncate">{getUserDisplayName(user)}</span>
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-56 rounded-3xl">
-                    <DropdownMenuLabel className="font-normal text-xs text-muted-foreground truncate">
-                      {user.email}
+                    <DropdownMenuLabel className="font-normal space-y-1">
+                      <p className="text-sm font-medium text-foreground truncate">{getUserDisplayName(user)}</p>
+                      <p className="text-xs text-muted-foreground truncate">{user.email}</p>
                     </DropdownMenuLabel>
                     <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      className="cursor-pointer"
+                      onSelect={() => setProfileOpen(true)}
+                    >
+                      <UserIcon className="h-4 w-4 mr-2" /> My profile
+                    </DropdownMenuItem>
                     <DropdownMenuItem asChild>
                       <Link to="/trips" className="cursor-pointer">
                         <UserIcon className="h-4 w-4 mr-2" /> My trips
@@ -136,6 +146,19 @@ export function SiteHeader() {
             <div className="h-px bg-border/60 my-2" />
             {user ? (
               <>
+                <p className="text-sm text-muted-foreground px-2">
+                  Signed in as <span className="font-semibold text-foreground">{getUserDisplayName(user)}</span>
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setOpen(false);
+                    setProfileOpen(true);
+                  }}
+                  className="text-2xl font-bold hover:text-primary transition-colors"
+                >
+                  My profile
+                </button>
                 {dashboardPath && (
                   <Link
                     to={dashboardPath}
@@ -174,6 +197,8 @@ export function SiteHeader() {
           </div>
         </div>
       )}
+
+      <UserProfileDialog open={profileOpen} onOpenChange={setProfileOpen} user={user} roles={roles} />
     </>
   );
 }

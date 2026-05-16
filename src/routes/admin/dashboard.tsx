@@ -32,6 +32,8 @@ import {
 import { useAuth } from "@/hooks/useAuth";
 import { listActiveTrips, listDriverProfiles } from "@/data/appwrite-repository";
 import { BannersManager } from "@/components/admin/BannersManager";
+import { UserProfileModal } from "@/components/UserProfileModal";
+import { getUserDisplayName } from "@/lib/user-display";
 import logo from "@/assets/logo.png";
 import { APP_FONT_FAMILY } from "@/lib/fonts";
 
@@ -49,8 +51,9 @@ export const Route = createFileRoute("/admin/dashboard")({
 });
 
 function AdminDashboardPage() {
-  const { isAdmin, signOut, user } = useAuth();
+  const { isAdmin, signOut, user, roles } = useAuth();
   const [activeModule, setActiveModule] = useState("overview");
+  const [profileModalOpen, setProfileModalOpen] = useState(false);
 
   const { data: drivers = [], isLoading: driversLoading } = useQuery({
     queryKey: ["admin-drivers"],
@@ -185,17 +188,20 @@ function AdminDashboardPage() {
               </div>
             </div>
             <div className="flex items-center gap-4">
-              <div className="text-right hidden md:flex flex-col justify-center">
-                <Text strong className="text-sm leading-tight block">
-                  System Admin
+              <div className="text-right hidden md:flex flex-col justify-center max-w-[180px]">
+                <Text strong className="text-sm leading-tight block truncate">
+                  {getUserDisplayName(user)}
                 </Text>
-                <Text className="text-[10px] text-primary font-bold uppercase tracking-wider leading-tight">
-                  Root Access
+                <Text className="text-[10px] text-primary font-bold uppercase tracking-wider leading-tight truncate">
+                  {user?.email ?? "Administrator"}
                 </Text>
               </div>
 
               <Dropdown
                 menu={{
+                  onClick: ({ key }) => {
+                    if (key === "profile") setProfileModalOpen(true);
+                  },
                   items: [
                     { key: "profile", label: "My Profile", icon: <User size={14} /> },
                     { key: "settings", label: "System Config", icon: <Settings size={14} /> },
@@ -489,6 +495,13 @@ function AdminDashboardPage() {
           </Content>
         </Layout>
       </Layout>
+
+      <UserProfileModal
+        open={profileModalOpen}
+        onClose={() => setProfileModalOpen(false)}
+        user={user}
+        roles={roles}
+      />
     </ConfigProvider>
   );
 }

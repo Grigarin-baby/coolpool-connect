@@ -85,6 +85,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { appwriteConfig } from "@/integrations/appwrite/client";
 import { SERVICE_CITY, BENGALURU_AIRPORTS } from "@/lib/config";
 import { SeatPicker, type SeatId } from "@/components/SeatPicker";
+import { UserProfileModal } from "@/components/UserProfileModal";
+import { getUserDisplayName } from "@/lib/user-display";
 
 import logo from "@/assets/logo.png";
 
@@ -178,7 +180,8 @@ export const Route = createFileRoute("/driver/dashboard")({
 });
 
 function DriverDashboardPage() {
-  const { isDriver, user, signOut, loading, refreshRoles } = useAuth();
+  const { isDriver, user, signOut, loading, refreshRoles, roles } = useAuth();
+  const [profileModalOpen, setProfileModalOpen] = useState(false);
   const [activeModule, setActiveModule] = useState("dashboard");
   const [form] = Form.useForm();
   const queryClient = useQueryClient();
@@ -842,6 +845,9 @@ let options: any[] = filteredPredictions.map((prediction) => ({
             <div className="flex items-center gap-4">
               <Dropdown
                 menu={{
+                  onClick: ({ key }) => {
+                    if (key === "profile") setProfileModalOpen(true);
+                  },
                   items: [
                     { key: "profile", label: "My Profile", icon: <User size={14} /> },
                     { key: "settings", label: "Settings", icon: <Settings size={14} /> },
@@ -861,8 +867,8 @@ let options: any[] = filteredPredictions.map((prediction) => ({
                 <div className="group flex items-center h-12 gap-3 bg-white/40 hover:bg-white/60 pl-4 pr-1.5 rounded-full border border-white/20 shadow-sm backdrop-blur-xl transition-all duration-300 cursor-pointer">
                   <div className="hidden md:flex flex-col items-end justify-center h-full gap-0.5">
                     <div className="flex items-center gap-1">
-                      <Text strong className="text-[14px] text-gray-800 leading-none">
-                        {user?.name || "Ride Host"}
+                      <Text strong className="text-[14px] text-gray-800 leading-none max-w-[140px] truncate">
+                        {getUserDisplayName(user)}
                       </Text>
                       <CheckCircle size={13} className={isVerifiedHost ? "text-blue-500 fill-blue-500/10" : "text-amber-500 fill-amber-500/10"} />
                     </div>
@@ -912,7 +918,7 @@ let options: any[] = filteredPredictions.map((prediction) => ({
                 <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
                   <div className="flex flex-col gap-1">
                     <Title level={2} style={{ margin: 0 }}>
-                      Welcome back, {user?.name?.split(" ")[0]}!
+                      Welcome back, {getUserDisplayName(user).split(" ")[0]}!
                     </Title>
                     <Text type="secondary" className="text-lg">
                       Here's what's happening with your trips today.
@@ -2403,6 +2409,13 @@ let options: any[] = filteredPredictions.map((prediction) => ({
             </Form.Item>
           </Form>
         </Drawer>
+
+        <UserProfileModal
+          open={profileModalOpen}
+          onClose={() => setProfileModalOpen(false)}
+          user={user}
+          roles={roles}
+        />
     </ConfigProvider>
   );
 }
