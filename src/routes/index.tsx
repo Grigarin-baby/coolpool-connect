@@ -78,7 +78,7 @@ function Home() {
                 <div className="h-12 w-12 rounded-full bg-primary/10 text-primary flex items-center justify-center mb-3">
                   {item.icon}
                 </div>
-                <h4 className="font-bold text-sm tracking-wide">{item.label}</h4>
+                <h4 className="font-bold text-base tracking-wide">{item.label}</h4>
               </div>
             ))}
           </div>

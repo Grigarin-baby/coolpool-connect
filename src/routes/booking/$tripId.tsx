@@ -272,23 +272,23 @@ function BookingTripPage() {
         </Button>
 
         <Card className="p-6 md:p-8 rounded-3xl border-border/60 shadow-soft bg-card/90 backdrop-blur-sm mb-8">
-          <h1 className="text-2xl font-bold tracking-tight">Choose your seats</h1>
-          <p className="text-muted-foreground mt-1">
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Choose your seats</h1>
+          <p className="text-base sm:text-lg text-foreground/90 mt-2 font-medium">
             {trip.fromLocation} → {trip.toLocation}
           </p>
-          <p className="text-sm text-muted-foreground mt-2">
+          <p className="text-sm sm:text-base text-muted-foreground mt-2">
             Departure: {new Date(trip.departureAt).toLocaleString()}
           </p>
           <div className="mt-4 flex flex-wrap gap-2">
-            <span className="rounded-3xl bg-secondary px-3 py-1 text-xs font-medium">
+            <span className="rounded-3xl bg-secondary px-3 py-1.5 text-sm font-semibold">
               {remainingTripSeats} seat{remainingTripSeats !== 1 ? "s" : ""} left on this trip
             </span>
-            <span className="rounded-3xl bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
+            <span className="rounded-3xl bg-primary/10 px-3 py-1.5 text-sm font-semibold text-primary">
               {formatCurrency(pricePerSeat)} / seat
             </span>
           </div>
           {vehicleMissing && (
-            <p className="mt-3 text-xs text-amber-700 dark:text-amber-400">
+            <p className="mt-3 text-sm text-amber-700 dark:text-amber-400">
               Vehicle profile not found — layout uses trip seat count + ride host seat as an estimate.
             </p>
           )}
@@ -329,32 +329,32 @@ function BookingTripPage() {
             <Card className="mt-8 p-6 rounded-3xl border-border/60 space-y-4">
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="p-name">Passenger name</Label>
+                  <Label htmlFor="p-name" className="text-base">Passenger name</Label>
                   <Input
                     id="p-name"
                     value={passengerName}
                     onChange={(e) => setPassengerName(e.target.value)}
                     placeholder="Full name"
-                    className="rounded-3xl"
+                    className="rounded-3xl form-control-lg"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="p-phone">Phone</Label>
+                  <Label htmlFor="p-phone" className="text-base">Phone</Label>
                   <Input
                     id="p-phone"
                     value={passengerPhone}
                     onChange={(e) => setPassengerPhone(e.target.value)}
                     placeholder="Mobile number"
-                    className="rounded-3xl"
+                    className="rounded-3xl form-control-lg"
                   />
                 </div>
               </div>
               <div className="pt-6 border-t border-border/60">
-                <h3 className="text-lg font-semibold mb-4">Payment Method</h3>
+                <h3 className="text-lg sm:text-xl font-semibold mb-4">Payment Method</h3>
                 <RadioGroup defaultValue="pay_on_car" className="space-y-3">
                   <div className="flex items-center space-x-3 border border-border/60 p-4 bg-card/50 cursor-pointer">
                     <RadioGroupItem value="pay_on_car" id="pay_on_car" />
-                    <Label htmlFor="pay_on_car" className="flex items-center gap-2 cursor-pointer w-full text-base font-medium">
+                    <Label htmlFor="pay_on_car" className="flex items-center gap-2 cursor-pointer w-full text-base sm:text-lg font-medium">
                       <Banknote className="h-5 w-5 text-primary" />
                       Pay on car
                     </Label>
@@ -363,18 +363,18 @@ function BookingTripPage() {
               </div>
 
               <div className="bg-muted/30 p-4 border border-border/60 space-y-3">
-                <h3 className="font-semibold text-sm uppercase tracking-wider text-muted-foreground mb-4">Price Breakdown</h3>
-                <div className="flex justify-between text-sm">
+                <h3 className="font-semibold text-sm sm:text-base uppercase tracking-wider text-muted-foreground mb-4">Price Breakdown</h3>
+                <div className="flex justify-between text-base">
                   <span>Tickets ({selected.size} seat{selected.size !== 1 ? "s" : ""})</span>
                   <span>{formatCurrency(pricePerSeat * selected.size)}</span>
                 </div>
                 {selected.size > 0 && (
-                  <div className="flex justify-between text-sm text-muted-foreground">
+                  <div className="flex justify-between text-base text-muted-foreground">
                     <span>Platform fee</span>
                     <span>{formatCurrency(29)}</span>
                   </div>
                 )}
-                <div className="pt-3 border-t border-border/60 flex justify-between font-bold text-lg">
+                <div className="pt-3 border-t border-border/60 flex justify-between font-bold text-xl sm:text-2xl">
                   <span>Total Amount</span>
                   <span className="text-primary">{formatCurrency(selected.size > 0 ? (pricePerSeat * selected.size) + 29 : 0)}</span>
                 </div>
@@ -384,7 +384,7 @@ function BookingTripPage() {
                 <Button
                   variant="hero"
                   size="lg"
-                  className="rounded-3xl px-8 w-full sm:w-auto"
+                  className="rounded-3xl px-8 w-full sm:w-auto text-base sm:text-lg h-12 sm:h-14"
                   disabled={
                     bookingMutation.isPending || selected.size === 0 || remainingTripSeats === 0
                   }

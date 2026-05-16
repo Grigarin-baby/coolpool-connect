@@ -215,7 +215,7 @@ export function DynamicTrendingRoutes() {
         <div className="flex items-center justify-between mb-10">
           <div>
             {city && (
-              <div className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-widest text-primary mb-2">
+              <div className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-bold uppercase tracking-widest text-primary mb-2">
                 <Navigation className="h-3.5 w-3.5" /> Near you
               </div>
             )}
@@ -251,8 +251,8 @@ export function DynamicTrendingRoutes() {
                           {hostInitials}
                         </div>
                         <div>
-                          <p className="font-bold text-sm text-gray-900 leading-none mb-1.5">Verified Host</p>
-                          <div className="flex items-center gap-1 text-[11px] text-gray-500 font-medium">
+                          <p className="font-bold text-base text-gray-900 leading-none mb-1.5">Verified Host</p>
+                          <div className="flex items-center gap-1 text-sm text-gray-500 font-medium">
                             <Star size={10} className="fill-amber-400 text-amber-400" />
                             <span>4.8 · 120 trips</span>
                           </div>
@@ -271,7 +271,7 @@ export function DynamicTrendingRoutes() {
                           <Clock size={14} />
                           <span className="font-bold text-lg">{dayjs(trip.departureAt).format("hh:mm A")}</span>
                         </div>
-                        <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">{dayjs(trip.departureAt).format("MMM DD")}</span>
+                        <span className="text-sm font-bold text-gray-500 uppercase tracking-wider">{dayjs(trip.departureAt).format("MMM DD")}</span>
                       </div>
                       
                       <div className="flex items-center gap-3 relative">
@@ -282,10 +282,10 @@ export function DynamicTrendingRoutes() {
                         </div>
                         <div className="flex flex-col gap-3 min-w-0 flex-1">
                           <div className="min-w-0">
-                            <p className="font-bold text-sm text-gray-900 truncate" title={trip.fromLocation}>{fromShort}</p>
+                            <p className="font-bold text-base sm:text-lg text-gray-900 truncate" title={trip.fromLocation}>{fromShort}</p>
                           </div>
                           <div className="min-w-0">
-                            <p className="font-bold text-sm text-gray-500 truncate" title={trip.toLocation}>{toShort}</p>
+                            <p className="font-bold text-base sm:text-lg text-gray-600 truncate" title={trip.toLocation}>{toShort}</p>
                           </div>
                         </div>
                       </div>
@@ -299,19 +299,19 @@ export function DynamicTrendingRoutes() {
                           <span>Standard Sedan</span>
                         </div>
                         <div className="bg-primary/10 text-primary px-2 py-1 rounded-full">
-                          <span className="text-[10px] font-bold uppercase tracking-wider">{trip.totalSeats} seats left</span>
+                          <span className="text-xs sm:text-sm font-bold uppercase tracking-wider">{trip.totalSeats} seats left</span>
                         </div>
                       </div>
 
                       <div className="flex items-end justify-between">
                         <div>
-                          <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-0.5">Price</p>
+                          <p className="text-xs sm:text-sm text-gray-500 font-bold uppercase tracking-widest mb-0.5">Price</p>
                           <div className="flex items-baseline gap-1">
-                            <span className="text-2xl font-black text-gray-900 leading-none">{formatCurrency(pricePerSeat)}</span>
-                            <span className="text-xs text-gray-500 font-medium">/seat</span>
+                            <span className="text-2xl sm:text-3xl font-black text-gray-900 leading-none">{formatCurrency(pricePerSeat)}</span>
+                            <span className="text-sm text-gray-500 font-medium">/seat</span>
                           </div>
                         </div>
-                        <div className="h-10 px-5 bg-gray-900 group-hover:bg-primary text-white rounded-full flex items-center justify-center font-bold text-sm transition-colors shadow-sm gap-1.5">
+                        <div className="h-11 px-5 bg-gray-900 group-hover:bg-primary text-white rounded-full flex items-center justify-center font-bold text-base transition-colors shadow-sm gap-1.5">
                           Book
                           <ChevronRight size={16} />
                         </div>

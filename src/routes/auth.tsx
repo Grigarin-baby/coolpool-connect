@@ -56,7 +56,7 @@ function PasswordField({
         placeholder={placeholder}
         onChange={(e) => onChange(e.target.value)}
         className={cn(
-          "h-11 rounded-3xl border-border/80 bg-background/80 pr-10 placeholder:text-xs md:text-sm",
+          "h-12 rounded-3xl border-border/80 bg-background/80 pr-10 form-control-lg placeholder:text-sm",
           "[&::-ms-reveal]:hidden [&::-ms-clear]:hidden",
         )}
       />
@@ -179,7 +179,7 @@ function AuthPage() {
 
               <form onSubmit={handleBecomeHost} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="phone" className="text-sm font-medium">
+                  <Label htmlFor="phone" className="text-base font-medium">
                     Phone Number
                   </Label>
                   <Input
@@ -189,7 +189,7 @@ function AuthPage() {
                     value={phone}
                     placeholder="+91 98765 43210"
                     onChange={(e) => setPhone(e.target.value)}
-                    className="h-11 rounded-3xl border-border/80 bg-background/80 placeholder:text-xs md:text-sm"
+                    className="h-12 rounded-3xl border-border/80 bg-background/80 form-control-lg placeholder:text-sm"
                   />
                 </div>
                 <Button
@@ -248,7 +248,7 @@ function AuthPage() {
                 <TabsContent value="login" className="mt-0 outline-none">
                   <form onSubmit={handleSignIn} className="space-y-4">
                     <div className="space-y-2">
-                      <Label htmlFor="si-email" className="text-sm font-medium">
+                      <Label htmlFor="si-email" className="text-base font-medium">
                         Email
                       </Label>
                       <Input
@@ -259,11 +259,11 @@ function AuthPage() {
                         value={signInEmail}
                         placeholder="you@company.com"
                         onChange={(e) => setSignInEmail(e.target.value)}
-                        className="h-11 rounded-3xl border-border/80 bg-background/80 placeholder:text-xs md:text-sm"
+                        className="h-12 rounded-3xl border-border/80 bg-background/80 form-control-lg placeholder:text-sm"
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="si-password" className="text-sm font-medium">
+                      <Label htmlFor="si-password" className="text-base font-medium">
                         Password
                       </Label>
                       <PasswordField
@@ -290,7 +290,7 @@ function AuthPage() {
                 <TabsContent value="signup" className="mt-6 outline-none">
                   <form onSubmit={handleSignUp} className="space-y-4">
                     <div className="space-y-2">
-                      <Label htmlFor="su-name" className="text-sm font-medium">
+                      <Label htmlFor="su-name" className="text-base font-medium">
                         Full name
                       </Label>
                       <Input
@@ -300,11 +300,11 @@ function AuthPage() {
                         value={name}
                         placeholder="Jane Doe"
                         onChange={(e) => setName(e.target.value)}
-                        className="h-11 rounded-3xl border-border/80 bg-background/80 placeholder:text-xs md:text-sm"
+                        className="h-12 rounded-3xl border-border/80 bg-background/80 form-control-lg placeholder:text-sm"
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="su-email" className="text-sm font-medium">
+                      <Label htmlFor="su-email" className="text-base font-medium">
                         Email
                       </Label>
                       <Input
@@ -315,11 +315,11 @@ function AuthPage() {
                         value={signUpEmail}
                         placeholder="you@company.com"
                         onChange={(e) => setSignUpEmail(e.target.value)}
-                        className="h-11 rounded-3xl border-border/80 bg-background/80 placeholder:text-xs md:text-sm"
+                        className="h-12 rounded-3xl border-border/80 bg-background/80 form-control-lg placeholder:text-sm"
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="su-password" className="text-sm font-medium">
+                      <Label htmlFor="su-password" className="text-base font-medium">
                         Password
                       </Label>
                       <PasswordField
@@ -331,7 +331,7 @@ function AuthPage() {
                         minLength={6}
                         placeholder="Create a password (min. 6 characters)"
                       />
-                      <p className="text-xs text-muted-foreground">At least 6 characters.</p>
+                      <p className="text-sm text-muted-foreground">At least 6 characters.</p>
                     </div>
                     <Button
                       type="submit"

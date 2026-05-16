@@ -218,7 +218,7 @@ function MembersPage() {
                 {mode === "signin" ? (
                   <form onSubmit={handleSignIn} className="mt-6 space-y-4">
                     <div className="space-y-2">
-                      <Label htmlFor="mem-si-email">Email</Label>
+                      <Label htmlFor="mem-si-email" className="text-base">Email</Label>
                       <Input
                         id="mem-si-email"
                         type="email"
@@ -226,11 +226,11 @@ function MembersPage() {
                         autoComplete="email"
                         value={signInEmail}
                         onChange={(e) => setSignInEmail(e.target.value)}
-                        className="h-11 rounded-3xl"
+                        className="h-12 rounded-3xl form-control-lg"
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="mem-si-password">Password</Label>
+                      <Label htmlFor="mem-si-password" className="text-base">Password</Label>
                       <Input
                         id="mem-si-password"
                         type="password"
@@ -238,7 +238,7 @@ function MembersPage() {
                         autoComplete="current-password"
                         value={signInPassword}
                         onChange={(e) => setSignInPassword(e.target.value)}
-                        className="h-11 rounded-3xl"
+                        className="h-12 rounded-3xl form-control-lg"
                       />
                     </div>
                     <Button
@@ -253,18 +253,18 @@ function MembersPage() {
                 ) : (
                   <form onSubmit={handleSignUp} className="mt-6 space-y-4">
                     <div className="space-y-2">
-                      <Label htmlFor="mem-su-name">Full name</Label>
+                      <Label htmlFor="mem-su-name" className="text-base">Full name</Label>
                       <Input
                         id="mem-su-name"
                         required
                         autoComplete="name"
                         value={name}
                         onChange={(e) => setName(e.target.value)}
-                        className="h-11 rounded-3xl"
+                        className="h-12 rounded-3xl form-control-lg"
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="mem-su-email">Email</Label>
+                      <Label htmlFor="mem-su-email" className="text-base">Email</Label>
                       <Input
                         id="mem-su-email"
                         type="email"
@@ -272,11 +272,11 @@ function MembersPage() {
                         autoComplete="email"
                         value={signUpEmail}
                         onChange={(e) => setSignUpEmail(e.target.value)}
-                        className="h-11 rounded-3xl"
+                        className="h-12 rounded-3xl form-control-lg"
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="mem-su-password">Password</Label>
+                      <Label htmlFor="mem-su-password" className="text-base">Password</Label>
                       <Input
                         id="mem-su-password"
                         type="password"
@@ -285,9 +285,9 @@ function MembersPage() {
                         autoComplete="new-password"
                         value={signUpPassword}
                         onChange={(e) => setSignUpPassword(e.target.value)}
-                        className="h-11 rounded-3xl"
+                        className="h-12 rounded-3xl form-control-lg"
                       />
-                      <p className="text-xs text-muted-foreground">At least 6 characters.</p>
+                      <p className="text-sm text-muted-foreground">At least 6 characters.</p>
                     </div>
                     <Button
                       type="submit"

@@ -103,6 +103,15 @@ function matchesLocation(tripLocation: string, searchLocation: string) {
 
 const SOUTH_INDIA_STATES = ["karnataka", "kerala", "tamil nadu", "andhra pradesh", "telangana", "goa", "puducherry"];
 
+const TRIP_SEARCH_LABEL = "trip-search-label";
+const TRIP_SEARCH_INPUT =
+  "w-full trip-search-autocomplete [&_.ant-select-selector]:px-0 [&_.ant-select-selector]:h-auto [&_.ant-select-selector]:min-h-[2.75rem] lg:[&_.ant-select-selector]:min-h-[2.5rem]";
+const TRIP_SEARCH_INPUT_COMPACT = TRIP_SEARCH_INPUT;
+const TRIP_SEARCH_DATE_CHIP =
+  "w-full h-11 sm:h-12 rounded-xl text-sm sm:text-base font-black uppercase tracking-wide transition-all border flex items-center justify-center whitespace-nowrap";
+const TRIP_SEARCH_ICON = "shrink-0 p-3 rounded-xl bg-gray-100/80 text-gray-500";
+const TRIP_SEARCH_AC_POPUP = { popupClassName: "trip-search-ac-dropdown" };
+
 export function TripSearchProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<TripRow[]>([]);
@@ -425,35 +434,37 @@ export function TripSearchForm({
 
   if (variant === "page") {
     return (
-      <Card id={id} className="bg-white p-3 border-gray-100 shadow-sm max-w-2xl mx-auto rounded-[2rem]">
+      <Card id={id} className="bg-white p-4 border-gray-100 shadow-sm max-w-2xl mx-auto rounded-[2rem]">
         <Form
           form={form}
           id="page-trip-search"
           layout="horizontal"
           onFinish={onSearch}
-          className="flex items-center gap-2"
+          className="flex items-center gap-3"
         >
           <Form.Item name="from" className="m-0 flex-1">
             <AutoComplete
+              {...TRIP_SEARCH_AC_POPUP}
               options={fromOptions}
               onSearch={(text) => searchPlaces(text, "from")}
               placeholder="From"
-              className="bg-gray-50 rounded-2xl w-full"
+              className={cn("bg-gray-50 rounded-2xl", TRIP_SEARCH_INPUT_COMPACT)}
               variant="borderless"
             />
           </Form.Item>
-          <ArrowRight size={14} className="text-gray-300" />
+          <ArrowRight size={18} className="text-gray-300 shrink-0" />
           <Form.Item name="to" className="m-0 flex-1">
             <AutoComplete
+              {...TRIP_SEARCH_AC_POPUP}
               options={toOptions}
               onSearch={(text) => searchPlaces(text, "to")}
               placeholder="To"
-              className="bg-gray-50 rounded-2xl w-full"
+              className={cn("bg-gray-50 rounded-2xl", TRIP_SEARCH_INPUT_COMPACT)}
               variant="borderless"
             />
           </Form.Item>
-          <UiButton type="submit" variant="hero" size="sm" className="h-10 w-10 p-0 rounded-full">
-            <ArrowRight size={18} />
+          <UiButton type="submit" variant="hero" size="sm" className="h-12 w-12 p-0 rounded-full shrink-0">
+            <ArrowRight size={20} />
           </UiButton>
         </Form>
       </Card>
@@ -473,7 +484,7 @@ export function TripSearchForm({
           onFinish={onSearch}
         >
           {/* ───── DESKTOP LAYOUT ───── */}
-          <div className="hidden lg:flex items-center h-24 px-2">
+          <div className="hidden lg:flex items-center min-h-[7.5rem] h-auto py-3 px-2">
 
             {/* ── PICKUP (27%) ── */}
             <div
@@ -482,22 +493,23 @@ export function TripSearchForm({
               onClick={() => !locating && locateUser()}
             >
               <div className="flex items-center gap-4 w-full min-w-0">
-                <div className="shrink-0 p-2.5 rounded-xl bg-gray-100/80 text-gray-400 group-hover:bg-primary/10 group-hover:text-primary transition-all duration-250 relative">
+                <div className={cn(TRIP_SEARCH_ICON, "group-hover:bg-primary/10 group-hover:text-primary transition-all duration-250 relative")}>
                   {locating ? (
-                    <div className="h-5 w-5 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+                    <div className="h-6 w-6 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
                   ) : (
-                    <Navigation size={20} strokeWidth={2.5} />
+                    <Navigation size={24} strokeWidth={2.5} />
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-[10px] font-black uppercase tracking-[0.12em] text-gray-400 mb-0.5">Pickup</p>
+                  <p className={TRIP_SEARCH_LABEL}>Pickup</p>
                   <Form.Item name="from" rules={[{ required: true }]} className="m-0">
                     <AutoComplete
+                      {...TRIP_SEARCH_AC_POPUP}
                       options={fromOptions}
                       onSearch={(text) => searchPlaces(text, "from")}
                       placeholder="City or area"
                       variant="borderless"
-                      className="w-full [&_.ant-select-selector]:px-0 [&_.ant-select-selector]:h-auto [&_.ant-select-selection-item]:text-[17px] [&_.ant-select-selection-item]:font-bold [&_.ant-select-selection-item]:text-gray-900 [&_.ant-select-selection-placeholder]:text-gray-300 [&_.ant-select-selection-placeholder]:text-base [&_.ant-select-selection-placeholder]:font-semibold [&_.ant-select-selection-search-input]:text-[17px] [&_.ant-select-selection-search-input]:font-bold"
+                      className={TRIP_SEARCH_INPUT}
                     />
                   </Form.Item>
                 </div>
@@ -505,7 +517,7 @@ export function TripSearchForm({
             </div>
 
             {/* divider */}
-            <div className="w-px h-12 bg-gray-100 shrink-0" />
+            <div className="w-px h-16 bg-gray-100 shrink-0 self-center" />
 
             {/* ── DESTINATION (33%) ── */}
             <div
@@ -513,18 +525,19 @@ export function TripSearchForm({
               className="h-full flex items-center px-6 hover:bg-gray-50/60 rounded-2xl transition-colors group cursor-pointer"
             >
               <div className="flex items-center gap-4 w-full min-w-0">
-                <div className="shrink-0 p-2.5 rounded-xl bg-gray-100/80 text-gray-400 group-hover:bg-secondary/10 group-hover:text-secondary transition-all duration-250">
-                  <MapPin size={20} strokeWidth={2.5} />
+                <div className={cn(TRIP_SEARCH_ICON, "group-hover:bg-secondary/10 group-hover:text-secondary transition-all duration-250")}>
+                  <MapPin size={24} strokeWidth={2.5} />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-[10px] font-black uppercase tracking-[0.12em] text-gray-400 mb-0.5">Destination</p>
+                  <p className={TRIP_SEARCH_LABEL}>Destination</p>
                   <Form.Item name="to" rules={[{ required: true }]} className="m-0">
                     <AutoComplete
+                      {...TRIP_SEARCH_AC_POPUP}
                       options={toOptions}
                       onSearch={(text) => searchPlaces(text, "to")}
                       placeholder="Where to?"
                       variant="borderless"
-                      className="w-full [&_.ant-select-selector]:px-0 [&_.ant-select-selector]:h-auto [&_.ant-select-selection-item]:text-[17px] [&_.ant-select-selection-item]:font-bold [&_.ant-select-selection-item]:text-gray-900 [&_.ant-select-selection-placeholder]:text-gray-300 [&_.ant-select-selection-placeholder]:text-base [&_.ant-select-selection-placeholder]:font-semibold [&_.ant-select-selection-search-input]:text-[17px] [&_.ant-select-selection-search-input]:font-bold"
+                      className={TRIP_SEARCH_INPUT}
                     />
                   </Form.Item>
                 </div>
@@ -532,7 +545,7 @@ export function TripSearchForm({
             </div>
 
             {/* divider */}
-            <div className="w-px h-12 bg-gray-100 shrink-0" />
+            <div className="w-px h-16 bg-gray-100 shrink-0 self-center" />
 
             {/* ── DATE SELECTOR (22%) ── */}
             <div
@@ -540,15 +553,15 @@ export function TripSearchForm({
               className="h-full flex items-center px-8 hover:bg-gray-50/60 rounded-2xl transition-colors group"
             >
               <div className="flex items-center gap-5 w-full min-w-0">
-                <div className="shrink-0 p-2.5 rounded-xl bg-gray-100/80 text-gray-400 group-hover:bg-amber-50 group-hover:text-amber-500 transition-all duration-250">
-                  <Clock size={20} strokeWidth={2.5} />
+                <div className={cn(TRIP_SEARCH_ICON, "group-hover:bg-amber-50 group-hover:text-amber-500 transition-all duration-250")}>
+                  <Clock size={24} strokeWidth={2.5} />
                 </div>
                 <div className="flex-1 min-w-0 flex flex-col gap-2">
                   <button
                     type="button"
                     onClick={() => form.setFieldsValue({ date: dayjs() })}
                     className={cn(
-                      "w-full h-[32px] rounded-lg text-[10px] font-black uppercase tracking-wider transition-all border flex items-center justify-center whitespace-nowrap",
+                      TRIP_SEARCH_DATE_CHIP,
                       dayjs().isSame(selectedDate, "day")
                         ? "bg-primary text-white border-transparent shadow-md shadow-primary/25"
                         : "bg-gray-50 text-gray-400 border-gray-100 hover:border-primary/30 hover:text-primary"
@@ -560,7 +573,7 @@ export function TripSearchForm({
                     type="button"
                     onClick={() => form.setFieldsValue({ date: dayjs().add(1, 'day') })}
                     className={cn(
-                      "w-full h-[32px] rounded-lg text-[10px] font-black uppercase tracking-wider transition-all border flex items-center justify-center whitespace-nowrap",
+                      TRIP_SEARCH_DATE_CHIP,
                       dayjs().add(1, 'day').isSame(selectedDate, "day")
                         ? "bg-primary text-white border-transparent shadow-md shadow-primary/25"
                         : "bg-gray-50 text-gray-400 border-gray-100 hover:border-primary/30 hover:text-primary"
@@ -580,7 +593,7 @@ export function TripSearchForm({
               <UiButton
                 type="submit"
                 variant="hero"
-                className="w-full h-full rounded-2xl font-black text-lg shadow-glow hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2.5"
+                className="w-full h-full min-h-[4.5rem] rounded-2xl font-black text-2xl shadow-glow hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-3"
                 disabled={loading}
               >
                 {loading ? (
@@ -588,7 +601,7 @@ export function TripSearchForm({
                 ) : (
                   <>
                     <span>Search</span>
-                    <ArrowRight size={20} strokeWidth={3} />
+                    <ArrowRight size={24} strokeWidth={3} />
                   </>
                 )}
               </UiButton>
@@ -596,56 +609,58 @@ export function TripSearchForm({
           </div>
 
           {/* ───── MOBILE LAYOUT (stacked) ───── */}
-          <div className="flex flex-col lg:hidden divide-y divide-gray-100 p-3 gap-1">
+          <div className="flex flex-col lg:hidden divide-y divide-gray-100 p-5 gap-1">
             {/* Pickup */}
-            <div className="flex items-center gap-4 px-4 py-4">
-              <div className="shrink-0 p-2.5 rounded-xl bg-gray-100 text-gray-400">
-                <Navigation size={20} strokeWidth={2.5} />
+            <div className="flex items-center gap-4 px-2 py-5">
+              <div className={TRIP_SEARCH_ICON}>
+                <Navigation size={24} strokeWidth={2.5} />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-[10px] font-black uppercase tracking-[0.12em] text-gray-400 mb-0.5">Pickup</p>
+                <p className={TRIP_SEARCH_LABEL}>Pickup</p>
                 <Form.Item name="from" rules={[{ required: true }]} className="m-0">
                   <AutoComplete
+                    {...TRIP_SEARCH_AC_POPUP}
                     options={fromOptions}
                     onSearch={(text) => searchPlaces(text, "from")}
                     placeholder="City or area"
                     variant="borderless"
-                    className="w-full [&_.ant-select-selector]:px-0 [&_.ant-select-selection-item]:text-base [&_.ant-select-selection-item]:font-bold"
+                    className={TRIP_SEARCH_INPUT}
                   />
                 </Form.Item>
               </div>
             </div>
 
             {/* Destination */}
-            <div className="flex items-center gap-4 px-4 py-4">
-              <div className="shrink-0 p-2.5 rounded-xl bg-gray-100 text-gray-400">
-                <MapPin size={20} strokeWidth={2.5} />
+            <div className="flex items-center gap-4 px-2 py-5">
+              <div className={TRIP_SEARCH_ICON}>
+                <MapPin size={24} strokeWidth={2.5} />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-[10px] font-black uppercase tracking-[0.12em] text-gray-400 mb-0.5">Destination</p>
+                <p className={TRIP_SEARCH_LABEL}>Destination</p>
                 <Form.Item name="to" rules={[{ required: true }]} className="m-0">
                   <AutoComplete
+                    {...TRIP_SEARCH_AC_POPUP}
                     options={toOptions}
                     onSearch={(text) => searchPlaces(text, "to")}
                     placeholder="Where to?"
                     variant="borderless"
-                    className="w-full [&_.ant-select-selector]:px-0 [&_.ant-select-selection-item]:text-base [&_.ant-select-selection-item]:font-bold"
+                    className={TRIP_SEARCH_INPUT}
                   />
                 </Form.Item>
               </div>
             </div>
 
             {/* When + Search */}
-            <div className="flex items-center gap-3 px-4 pt-4 pb-2">
-              <div className="shrink-0 p-2.5 rounded-xl bg-gray-100 text-gray-400">
-                <Clock size={20} strokeWidth={2.5} />
+            <div className="flex items-center gap-3 px-2 pt-4 pb-2">
+              <div className={TRIP_SEARCH_ICON}>
+                <Clock size={24} strokeWidth={2.5} />
               </div>
               <div className="flex-1 flex items-center gap-2">
                 <button
                   type="button"
                   onClick={() => form.setFieldsValue({ date: dayjs() })}
                   className={cn(
-                    "flex-1 h-11 rounded-xl text-sm font-bold transition-all border flex items-center justify-center",
+                    "flex-1 h-14 rounded-xl text-lg font-bold transition-all border flex items-center justify-center",
                     dayjs().isSame(selectedDate, "day")
                       ? "bg-primary text-white border-transparent"
                       : "bg-gray-50 text-gray-500 border-gray-100"
@@ -657,7 +672,7 @@ export function TripSearchForm({
                   type="button"
                   onClick={() => form.setFieldsValue({ date: dayjs().add(1, 'day') })}
                   className={cn(
-                    "flex-1 h-11 rounded-xl text-sm font-bold transition-all border flex items-center justify-center",
+                    "flex-1 h-14 rounded-xl text-lg font-bold transition-all border flex items-center justify-center",
                     dayjs().add(1, 'day').isSame(selectedDate, "day")
                       ? "bg-primary text-white border-transparent"
                       : "bg-gray-50 text-gray-500 border-gray-100"
@@ -676,15 +691,15 @@ export function TripSearchForm({
               <UiButton
                 type="submit"
                 variant="hero"
-                className="w-full h-14 rounded-2xl font-black text-lg shadow-glow flex items-center justify-center gap-2.5"
+                className="w-full h-16 rounded-2xl font-black text-2xl shadow-glow flex items-center justify-center gap-3"
                 disabled={loading}
               >
                 {loading ? (
-                  <div className="h-5 w-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  <div className="h-6 w-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                 ) : (
                   <>
                     <span>Search</span>
-                    <ArrowRight size={20} strokeWidth={3} />
+                    <ArrowRight size={24} strokeWidth={3} />
                   </>
                 )}
               </UiButton>
@@ -746,7 +761,7 @@ export function TripSearchResults({ variant }: { variant: "landing" | "page" }) 
       {!loading && results.length > 0 && (
         <div className="space-y-6 w-full max-w-2xl mx-auto min-w-0 pb-20">
           <div className="flex items-center justify-between gap-4 px-2">
-            <h3 className="text-xl font-bold tracking-tight text-gray-900">
+            <h3 className="text-xl sm:text-2xl font-bold tracking-tight text-gray-900">
               {dayjs(results[0].departureAt).format("dddd, MMM DD")}
             </h3>
             <UiButton variant="ghost" size="sm" className="rounded-2xl text-primary font-bold">
@@ -767,7 +782,7 @@ export function TripSearchResults({ variant }: { variant: "landing" | "page" }) 
                     <div className="flex gap-5 flex-1 min-w-0">
                       {/* Timeline column */}
                       <div className="flex flex-col items-center justify-between py-1 shrink-0">
-                        <span className="font-bold text-lg text-gray-900 leading-none">
+                        <span className="font-bold text-2xl sm:text-3xl text-gray-900 leading-none">
                           {dayjs(trip.departureAt).format("HH:mm")}
                         </span>
                         <div className="flex flex-col items-center gap-1 my-2 flex-1">
@@ -775,7 +790,7 @@ export function TripSearchResults({ variant }: { variant: "landing" | "page" }) 
                           <div className="w-0.5 flex-1 bg-gray-900" />
                           <div className="h-2.5 w-2.5 rounded-full border-2 border-gray-400" />
                         </div>
-                        <span className="font-bold text-lg text-gray-400 leading-none">
+                        <span className="font-bold text-xl text-gray-400 leading-none">
                           --:--
                         </span>
                       </div>
@@ -783,18 +798,18 @@ export function TripSearchResults({ variant }: { variant: "landing" | "page" }) 
                       {/* Location column */}
                       <div className="flex flex-col justify-between py-1 flex-1 min-w-0 gap-8">
                         <div className="min-w-0">
-                          <p className="font-bold text-lg text-gray-900 truncate">{primarySegment(trip.fromLocation)}</p>
-                          <p className="text-xs text-gray-400 truncate">{trip.fromLocation}</p>
+                          <p className="font-bold text-xl sm:text-2xl text-gray-900 truncate">{primarySegment(trip.fromLocation)}</p>
+                          <p className="text-base text-gray-500 truncate">{trip.fromLocation}</p>
                         </div>
                         <div className="min-w-0">
-                          <p className="font-bold text-lg text-gray-400 truncate">{primarySegment(trip.toLocation)}</p>
-                          <p className="text-xs text-gray-400 truncate">{trip.toLocation}</p>
+                          <p className="font-bold text-xl sm:text-2xl text-gray-700 truncate">{primarySegment(trip.toLocation)}</p>
+                          <p className="text-base text-gray-500 truncate">{trip.toLocation}</p>
                         </div>
                       </div>
 
                       {/* Duration (Absolute centered on timeline) */}
                       <div className="absolute left-[88px] top-[48%] -translate-y-1/2 bg-white px-1">
-                         <span className="text-[10px] font-bold text-gray-400 bg-gray-50 px-2 py-0.5 rounded-full border border-gray-100">
+                         <span className="text-xs sm:text-sm font-bold text-gray-500 bg-gray-50 px-2.5 py-1 rounded-full border border-gray-100">
                            {Math.round(trip.totalDistanceKm / 60)}h{Math.round(trip.totalDistanceKm % 60)}m
                          </span>
                       </div>
@@ -802,10 +817,10 @@ export function TripSearchResults({ variant }: { variant: "landing" | "page" }) 
 
                     {/* Price */}
                     <div className="flex flex-col items-end shrink-0 ml-4">
-                      <div className="text-2xl font-black text-gray-900">
+                      <div className="text-3xl sm:text-4xl font-black text-gray-900">
                         {formatCurrency(trip.totalPrice / trip.totalSeats)}
                       </div>
-                      <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-1">
+                      <span className="text-xs sm:text-sm text-gray-500 font-bold uppercase tracking-widest mt-1">
                         per seat
                       </span>
                     </div>
@@ -825,8 +840,8 @@ export function TripSearchResults({ variant }: { variant: "landing" | "page" }) 
                         </div>
                       </div>
                       <div>
-                        <p className="font-bold text-sm text-gray-800">Verified Host</p>
-                        <div className="flex items-center gap-1 text-xs text-gray-400 font-medium">
+                        <p className="font-bold text-base text-gray-800">Verified Host</p>
+                        <div className="flex items-center gap-1 text-sm text-gray-500 font-medium">
                           <Star size={12} className="fill-amber-400 text-amber-400" />
                           <span>4.8 · {trip.totalSeats} seats left</span>
                         </div>

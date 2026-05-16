@@ -305,6 +305,88 @@
     backdrop-filter: blur(12px) !important;
     -webkit-backdrop-filter: blur(12px) !important;
   }
+
+  /* Trip search — labels */
+  .trip-search-label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-size: 1.125rem !important;
+    font-weight: 800 !important;
+    letter-spacing: 0.06em !important;
+    text-transform: uppercase !important;
+    color: oklch(0.38 0.02 260) !important;
+    line-height: 1.2 !important;
+  }
+
+  @media (min-width: 640px) {
+    .trip-search-label {
+      font-size: 1.1875rem !important;
+    }
+  }
+
+  /* Trip search — field values (match suggestion list size) */
+  .trip-search-autocomplete .ant-select-selector,
+  .trip-search-autocomplete .ant-select-selection-wrap,
+  .trip-search-autocomplete .ant-select-selection-item,
+  .trip-search-autocomplete .ant-select-selection-search-input,
+  .trip-search-autocomplete .ant-select-selector input {
+    font-weight: 700 !important;
+    line-height: 1.3 !important;
+    font-size: 1.375rem !important;
+    color: oklch(0.18 0.02 260) !important;
+  }
+
+  .trip-search-autocomplete.ant-select-open .ant-select-selection-search-input {
+    font-size: 1.375rem !important;
+  }
+
+  .trip-search-autocomplete .ant-select-selection-placeholder,
+  .trip-search-autocomplete .ant-select-selection-placeholder input {
+    font-size: 1.1875rem !important;
+    font-weight: 600 !important;
+    color: oklch(0.55 0.02 260) !important;
+  }
+
+  @media (min-width: 1024px) {
+    .trip-search-autocomplete .ant-select-selector,
+    .trip-search-autocomplete .ant-select-selection-wrap,
+    .trip-search-autocomplete .ant-select-selection-item,
+    .trip-search-autocomplete .ant-select-selection-search-input,
+    .trip-search-autocomplete .ant-select-selector input {
+      font-size: 1.5rem !important;
+    }
+
+    .trip-search-autocomplete .ant-select-selection-placeholder,
+    .trip-search-autocomplete .ant-select-selection-placeholder input {
+      font-size: 1.25rem !important;
+    }
+  }
+
+  .trip-search-ac-dropdown .ant-select-item,
+  .trip-search-ac-dropdown .ant-select-item-option-content {
+    font-size: 1.25rem !important;
+    line-height: 1.4 !important;
+    font-weight: 600 !important;
+  }
+
+  .trip-search-ac-dropdown .ant-select-item-option {
+    min-height: 3.25rem !important;
+    padding: 0.875rem 1.125rem !important;
+    align-items: center !important;
+  }
+
+  /* Booking & auth — readable form controls on mobile */
+  .form-control-lg {
+    min-height: 3.25rem !important;
+    font-size: 1.125rem !important;
+  }
+
+  @media (min-width: 768px) {
+    .form-control-lg {
+      min-height: 3rem !important;
+      font-size: 1.0625rem !important;
+    }
+  }
 }
 
 /*

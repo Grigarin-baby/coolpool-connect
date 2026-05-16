@@ -131,15 +131,15 @@ export function SeatMap({
                 )}
               >
                 {isDriver ? (
-                  <span className="text-[10px] font-black uppercase text-white/40 tracking-tighter">Host</span>
+                  <span className="text-xs font-black uppercase text-white/40 tracking-tighter">Host</span>
                 ) : isBooked ? (
-                  <span className="text-sm font-bold text-white/50 drop-shadow-md">{slot.displayLabel}</span>
+                  <span className="text-base font-bold text-white/50 drop-shadow-md">{slot.displayLabel}</span>
                 ) : isUnavailable ? (
-                  <span className="text-sm font-bold text-slate-200 drop-shadow-md">{slot.displayLabel}</span>
+                  <span className="text-base font-bold text-slate-200 drop-shadow-md">{slot.displayLabel}</span>
                 ) : selected ? (
                   <Check size={24} strokeWidth={4} className="animate-in zoom-in duration-300" />
                 ) : (
-                  <span className="text-sm font-bold text-white drop-shadow-md">{slot.displayLabel}</span>
+                  <span className="text-base font-bold text-white drop-shadow-md">{slot.displayLabel}</span>
                 )}
               </button>
             </div>
@@ -148,7 +148,7 @@ export function SeatMap({
 
       </div>
 
-      <div className="flex justify-center gap-6 text-[10px] font-bold uppercase tracking-widest text-slate-500">
+      <div className="flex flex-wrap justify-center gap-4 sm:gap-6 text-xs sm:text-sm font-bold uppercase tracking-widest text-slate-600">
         <div className="flex items-center gap-2">
           <div className="w-3 h-3 rounded-full bg-emerald-500/40 border border-emerald-500/60" />
           Available
