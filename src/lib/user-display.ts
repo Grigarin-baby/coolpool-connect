@@ -22,11 +22,11 @@ export function getUserInitial(user: UserLike): string {
 export function formatRoleLabel(role: AppRole): string {
   switch (role) {
     case "admin":
-      return "Administrator";
+      return "Admin";
     case "driver":
-      return "Ride host";
+      return "Host";
     case "user":
-      return "Traveler";
+      return "Passenger";
     default:
       return role;
   }

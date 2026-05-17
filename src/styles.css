@@ -407,19 +407,63 @@ a.inline-flex.bg-gradient-primary:focus-visible {
   }
 }
 
-/* Trip publish DatePicker responsive on mobile */
-.trip-publish-datepicker .ant-picker-dropdown {
-  left: 0.75rem !important;
-  right: 0.75rem !important;
-  width: auto !important;
-  max-width: calc(100vw - 1.5rem) !important;
+/* Trip publish DatePicker responsive on mobile.
+   NOTE: popupClassName puts the class ON the dropdown root, so the selector
+   must be `.trip-publish-datepicker.ant-picker-dropdown` (same element). */
+.trip-publish-datepicker.ant-picker-dropdown {
+  max-width: calc(100vw - 1rem) !important;
 }
 
 .trip-publish-datepicker .ant-picker-panel-container {
-  max-width: calc(100vw - 1.5rem) !important;
-  overflow-x: auto !important;
-  overflow-y: auto !important;
+  max-width: calc(100vw - 1rem) !important;
+  overflow: auto !important;
   max-height: 80vh !important;
+}
+
+/* The dashboard antd theme uses a translucent `colorBgElevated`; the popup
+   renders to <body> with no glass backdrop, so force a solid surface. */
+.trip-publish-datepicker.ant-picker-dropdown,
+.trip-publish-datepicker .ant-picker-panel-container,
+.trip-publish-datepicker .ant-picker-panel,
+.trip-publish-datepicker .ant-picker-date-panel,
+.trip-publish-datepicker .ant-picker-time-panel {
+  background: #ffffff !important;
+}
+
+.trip-publish-datepicker.ant-picker-dropdown,
+.trip-publish-datepicker .ant-picker-panel-container {
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.18) !important;
+}
+
+@media (max-width: 640px) {
+  /* Center the popup so it can never overflow off-screen */
+  .trip-publish-datepicker.ant-picker-dropdown {
+    position: fixed !important;
+    inset: auto !important;
+    left: 50% !important;
+    top: 50% !important;
+    transform: translate(-50%, -50%) !important;
+  }
+
+  /* Stack the date panel above the time panel so it fits a phone width */
+  .trip-publish-datepicker .ant-picker-datetime-panel {
+    flex-direction: column !important;
+  }
+
+  .trip-publish-datepicker .ant-picker-time-panel {
+    width: 100% !important;
+    border-inline-start: none !important;
+    border-top: 1px solid rgba(0, 0, 0, 0.06) !important;
+  }
+
+  .trip-publish-datepicker .ant-picker-date-panel,
+  .trip-publish-datepicker .ant-picker-time-panel {
+    max-width: 100% !important;
+  }
+
+  .trip-publish-datepicker .ant-picker-time-panel .ant-picker-content {
+    max-height: 140px !important;
+  }
 }
 
 /* Responsive trips table on mobile */
@@ -521,4 +565,12 @@ a.inline-flex.bg-gradient-primary:focus-visible {
 
 .profile-dropdown .ant-dropdown-menu-divider {
   margin: 4px 0;
+}
+
+/* Profile modal — same translucent `colorBgElevated` issue as the datepicker;
+   the dialog renders to <body> so force a solid surface. */
+.profile-modal .ant-modal-content,
+.profile-modal.ant-modal-content,
+.profile-modal .ant-modal-header {
+  background: #ffffff !important;
 }

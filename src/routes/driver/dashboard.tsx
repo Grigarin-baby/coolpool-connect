@@ -88,7 +88,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { appwriteConfig } from "@/integrations/appwrite/client";
 import { SERVICE_CITY, BENGALURU_AIRPORTS } from "@/lib/config";
 import { SeatPicker, type SeatId } from "@/components/SeatPicker";
-import { UserProfileModal } from "@/components/UserProfileModal";
 import { getUserDisplayName } from "@/lib/user-display";
 
 import logo from "@/assets/logo.png";
@@ -178,7 +177,55 @@ const SOUTH_INDIA_STATES = [
   "puducherry",
 ];
 
+const DASHBOARD_MODULES = [
+  "dashboard",
+  "trips",
+  "history",
+  "drivers",
+  "settings",
+  "customers",
+  "onboarding",
+] as const;
+type DashboardModule = (typeof DASHBOARD_MODULES)[number];
+
+function normalizeModule(value: unknown): DashboardModule {
+  return (DASHBOARD_MODULES as readonly string[]).includes(String(value))
+    ? (value as DashboardModule)
+    : "dashboard";
+}
+
+// Trips can only be scheduled for today or tomorrow.
+const TRIP_DATE_WINDOW_DAYS = 2;
+
+function disabledTripDate(current: dayjs.Dayjs): boolean {
+  if (!current) return false;
+  const today = dayjs().startOf("day");
+  const limit = dayjs().add(TRIP_DATE_WINDOW_DAYS, "day").startOf("day");
+  return current.isBefore(today) || !current.isBefore(limit);
+}
+
+// When the selected day is today, forbid any hour/minute that is already in the
+// past so a host can never publish a trip with a departure time before now.
+function disabledTripTime(current: dayjs.Dayjs | null) {
+  const now = dayjs();
+  if (!current || !current.isSame(now, "day")) return {};
+  const currentHour = now.hour();
+  const currentMinute = now.minute();
+  return {
+    disabledHours: () => Array.from({ length: currentHour }, (_, i) => i),
+    disabledMinutes: (selectedHour: number) => {
+      if (selectedHour < currentHour) return Array.from({ length: 60 }, (_, i) => i);
+      if (selectedHour === currentHour)
+        return Array.from({ length: 60 }, (_, i) => i).filter((m) => m <= currentMinute);
+      return [];
+    },
+  };
+}
+
 export const Route = createFileRoute("/driver/dashboard")({
+  validateSearch: (search: Record<string, unknown>): { module: DashboardModule } => ({
+    module: normalizeModule(search.module),
+  }),
   head: () => ({
     meta: [
       { title: "Ride Host dashboard — Coolpool" },
@@ -190,8 +237,9 @@ export const Route = createFileRoute("/driver/dashboard")({
 
 function DriverDashboardPage() {
   const { isDriver, user, signOut, loading, refreshRoles, roles } = useAuth();
-  const [profileModalOpen, setProfileModalOpen] = useState(false);
-  const [activeModule, setActiveModule] = useState("dashboard");
+  const search = Route.useSearch();
+  const navigate = Route.useNavigate();
+  const [activeModule, setActiveModule] = useState<DashboardModule>(search.module);
   const [form] = Form.useForm();
   const queryClient = useQueryClient();
   const [fromOptions, setFromOptions] = useState<CityOption[]>([]);
@@ -222,6 +270,24 @@ function DriverDashboardPage() {
   const directionsServiceRef = useRef<DirectionsServiceLike | null>(null);
   const seatsWatch = Form.useWatch("totalSeats", form);
   const totalPriceWatch = Form.useWatch("totalTripPrice", form);
+  // Persist the active module in the URL so a page refresh restores it.
+  useEffect(() => {
+    if (search.module !== activeModule) {
+      void navigate({
+        search: (prev) => ({ ...prev, module: activeModule }),
+        replace: true,
+      });
+    }
+  }, [activeModule, search.module, navigate]);
+
+  // Reflect URL changes (back/forward, direct link) back into state.
+  useEffect(() => {
+    if (search.module !== activeModule) {
+      setActiveModule(search.module);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search.module]);
+
   const [onboardingSubmitting, setOnboardingSubmitting] = useState(false);
   const [regFileList, setRegFileList] = useState<UploadFile[]>([]);
   const [insFileList, setInsFileList] = useState<UploadFile[]>([]);
@@ -417,7 +483,9 @@ function DriverDashboardPage() {
       setSelectedFrom(null);
       setSelectedTo(null);
       void queryClient.invalidateQueries({ queryKey: ["host-trips"] });
-      setActiveModule("dashboard");
+      // Close the form but stay in the current module (don't redirect to dashboard).
+      setShowTripForm(false);
+      setPublishModalView("trips");
     },
     onError: (error) => {
       message.error(error instanceof Error ? error.message : "Unable to create trip.");
@@ -816,7 +884,7 @@ function DriverDashboardPage() {
               mode="inline"
               selectedKeys={[activeModule]}
               onClick={({ key }) => {
-                setActiveModule(key);
+                setActiveModule(normalizeModule(key));
                 if (key === "trips") {
                   setEditingTripId(null);
                   setIsEditingTrip(false);
@@ -894,9 +962,6 @@ function DriverDashboardPage() {
               <div className="flex items-center gap-4">
                 <Dropdown
                   menu={{
-                    onClick: ({ key }) => {
-                      if (key === "profile") setProfileModalOpen(true);
-                    },
                     items: [
                       {
                         key: "header",
@@ -916,7 +981,9 @@ function DriverDashboardPage() {
                                 <div className="text-xs text-gray-600 truncate">
                                   {user?.email}
                                 </div>
-                                <div className={`text-xs font-semibold mt-1 flex items-center gap-1 ${isVerifiedHost ? "text-blue-600" : "text-amber-600"}`}>
+                                <div
+                                  className={`text-xs font-semibold mt-1 flex items-center gap-1 ${isVerifiedHost ? "text-blue-600" : "text-amber-600"}`}
+                                >
                                   {isVerifiedHost ? (
                                     <>
                                       <CheckCircle size={12} />
@@ -1988,38 +2055,8 @@ function DriverDashboardPage() {
                                   placement="bottomLeft"
                                   popupClassName="trip-publish-datepicker"
                                   getPopupContainer={() => document.body}
-                                  disabledDate={(current) => {
-                                    if (!current) return false;
-                                    const today = dayjs().startOf("day");
-                                    const dayAfterTomorrow = dayjs().add(2, "day").startOf("day");
-                                    return current < today || current >= dayAfterTomorrow;
-                                  }}
-                                  disabledHours={() => {
-                                    const now = dayjs();
-                                    const selectedDate = form.getFieldValue("departureAt");
-                                    if (!selectedDate) return [];
-                                    const today = dayjs().startOf("day");
-                                    const selectedDay = dayjs(selectedDate).startOf("day");
-                                    if (selectedDay.isSame(today, "day")) {
-                                      const currentHour = now.hour();
-                                      return Array.from({ length: currentHour }, (_, i) => i);
-                                    }
-                                    return [];
-                                  }}
-                                  disabledMinutes={(hour) => {
-                                    const now = dayjs();
-                                    const selectedDate = form.getFieldValue("departureAt");
-                                    if (!selectedDate) return [];
-                                    const today = dayjs().startOf("day");
-                                    const selectedDay = dayjs(selectedDate).startOf("day");
-                                    const currentHour = now.hour();
-                                    if (selectedDay.isSame(today, "day") && hour === currentHour) {
-                                      const currentMinute = now.minute();
-                                      const roundedMinute = Math.ceil(currentMinute / 15) * 15;
-                                      return Array.from({ length: roundedMinute / 15 }, (_, i) => i * 15);
-                                    }
-                                    return [];
-                                  }}
+                                  disabledDate={disabledTripDate}
+                                  disabledTime={disabledTripTime}
                                 />
                               </Form.Item>
 
@@ -2146,10 +2183,7 @@ function DriverDashboardPage() {
                             <Form.Item
                               label={<span className="font-bold text-gray-900">Price Per Seat</span>}
                               name="totalTripPrice"
-                              rules={[
-                                { required: true, message: "Please enter price" },
-                                { type: "number", max: 9999, message: "Price cannot exceed ₹9,999" },
-                              ]}
+                              rules={[{ required: true, message: "Please enter price" }]}
                               extra={
                                 <Text type="secondary" className="text-sm">
                                   Segment pricing is automatically calculated for partial routes
@@ -2159,17 +2193,15 @@ function DriverDashboardPage() {
                             >
                               <InputNumber
                                 min={1}
+                                max={999}
+                                precision={0}
                                 size="large"
                                 className="w-full h-14 rounded-none text-base font-bold border-gray-300"
                                 prefix="₹"
                                 placeholder="0"
-                                formatter={(value) =>
-                                  `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
-                                }
                                 onChange={(val) => {
-                                  if (val !== null && val > 9999) {
-                                    message.warning("Max price is ₹9,999");
-                                    form.setFieldsValue({ totalTripPrice: 9999 });
+                                  if (typeof val === "number" && val > 999) {
+                                    form.setFieldsValue({ totalTripPrice: 999 });
                                   }
                                 }}
                               />
@@ -3600,13 +3632,6 @@ function DriverDashboardPage() {
         </Form>
       </Drawer>
 
-      <UserProfileModal
-        open={profileModalOpen}
-        onClose={() => setProfileModalOpen(false)}
-        user={user}
-        roles={roles}
-      />
-
       {/* Publish Trips Modal */}
       <Modal
         title={publishModalView === "trips" ? "Manage Your Published Trips" : "Publish a New Trip"}
@@ -3858,44 +3883,8 @@ function DriverDashboardPage() {
                       placement="bottomLeft"
                       popupClassName="trip-publish-datepicker"
                       getPopupContainer={() => document.body}
-                      disabledDate={(current) => {
-                        if (!current) return false;
-                        const today = dayjs().startOf("day");
-                        const dayAfterTomorrow = dayjs().add(2, "day").startOf("day");
-                        return current < today || current >= dayAfterTomorrow;
-                      }}
-                      disabledHours={() => {
-                        const now = dayjs();
-                        const selectedDate = form.getFieldValue("departureAt");
-                        if (!selectedDate) return [];
-
-                        const today = dayjs().startOf("day");
-                        const selectedDay = dayjs(selectedDate).startOf("day");
-
-                        if (selectedDay.isSame(today, "day")) {
-                          const currentHour = now.hour();
-                          return Array.from({ length: currentHour }, (_, i) => i);
-                        }
-
-                        return [];
-                      }}
-                      disabledMinutes={(hour) => {
-                        const now = dayjs();
-                        const selectedDate = form.getFieldValue("departureAt");
-                        if (!selectedDate) return [];
-
-                        const today = dayjs().startOf("day");
-                        const selectedDay = dayjs(selectedDate).startOf("day");
-                        const currentHour = now.hour();
-
-                        if (selectedDay.isSame(today, "day") && hour === currentHour) {
-                          const currentMinute = now.minute();
-                          const roundedMinute = Math.ceil(currentMinute / 15) * 15;
-                          return Array.from({ length: roundedMinute / 15 }, (_, i) => i * 15);
-                        }
-
-                        return [];
-                      }}
+                      disabledDate={disabledTripDate}
+                      disabledTime={disabledTripTime}
                     />
                   </Form.Item>
                 </div>
@@ -3995,8 +3984,15 @@ function DriverDashboardPage() {
                     <InputNumber
                       prefix="₹"
                       min={0}
+                      max={999}
+                      precision={0}
                       size="large"
                       className="w-full h-12 rounded-2xl"
+                      onChange={(val) => {
+                        if (typeof val === "number" && val > 999) {
+                          form.setFieldsValue({ totalTripPrice: 999 });
+                        }
+                      }}
                     />
                   </Form.Item>
                 </div>
