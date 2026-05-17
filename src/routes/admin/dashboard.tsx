@@ -94,7 +94,7 @@ function AdminDashboardPage() {
       theme={{
         token: {
           colorPrimary: "#6b46c1",
-          borderRadius: 6,
+          borderRadius: 0,
           fontFamily: APP_FONT_FAMILY,
         },
         components: {

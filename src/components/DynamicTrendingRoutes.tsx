@@ -5,8 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import dayjs from "dayjs";
 import { appwriteConfig } from "@/integrations/appwrite/client";
-import { listTrips } from "@/data/appwrite-repository";
-import { routeCitySegmentsMatch } from "@/lib/geo";
+import { listTrendingRoutes } from "@/data/appwrite-repository";
 import { SERVICE_CITY, BENGALURU_AIRPORTS } from "@/lib/config";
 
 // Need Google Maps window typing
@@ -23,7 +22,7 @@ export function DynamicTrendingRoutes() {
     "idle" | "locating" | "fetching" | "success" | "error" | "denied"
   >("idle");
   const [city, setCity] = useState<string | null>(null);
-  const [trips, setTrips] = useState<Awaited<ReturnType<typeof listTrips>>>([]);
+  const [trips, setTrips] = useState<Awaited<ReturnType<typeof listTrendingRoutes>>>([]);
 
   useEffect(() => {
     let mounted = true;
@@ -110,21 +109,11 @@ export function DynamicTrendingRoutes() {
           );
         }
 
-        // Fetch trips
-        const now = Date.now();
-        const allTrips = await listTrips(100);
-        const filtered = allTrips
-          .filter((t) => new Date(t.departureAt).getTime() > now)
-          .filter(
-            (t) =>
-              routeCitySegmentsMatch(t.fromLocation, SERVICE_CITY) ||
-              routeCitySegmentsMatch(t.toLocation, SERVICE_CITY),
-          )
-          .sort((a, b) => new Date(a.departureAt).getTime() - new Date(b.departureAt).getTime())
-          .slice(0, 4);
+        // Fetch trending routes (valid + ranked) for the service city
+        const trending = await listTrendingRoutes({ city: SERVICE_CITY });
 
         if (mounted) {
-          setTrips(filtered);
+          setTrips(trending);
           setStatus("success");
         }
       } catch (e) {
@@ -144,15 +133,10 @@ export function DynamicTrendingRoutes() {
           );
         }
 
-        const now = Date.now();
-        const allTrips = await listTrips(100);
-        const filtered = allTrips
-          .filter((t) => new Date(t.departureAt).getTime() > now)
-          .sort((a, b) => new Date(a.departureAt).getTime() - new Date(b.departureAt).getTime())
-          .slice(0, 4);
+        const trending = await listTrendingRoutes();
 
         if (mounted) {
-          setTrips(filtered);
+          setTrips(trending);
           setStatus("success");
         }
       } catch (e) {

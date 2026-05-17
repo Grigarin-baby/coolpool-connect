@@ -177,7 +177,6 @@
 @layer base {
   * {
     border-color: var(--color-border);
-    border-radius: var(--radius-lg, 2rem) !important;
   }
 
   html {
@@ -245,21 +244,6 @@
   }
 
   /* Ant Design global polish */
-  .ant-input,
-  .ant-input-affix-wrapper,
-  .ant-select-selector,
-  .ant-select-selection-item,
-  .ant-select-selection-wrap,
-  .ant-select-content,
-  .ant-picker,
-  .ant-upload-wrapper .ant-upload-select,
-  .ant-btn,
-  [role="region"],
-  [role="tabpanel"] {
-    border-radius: 0 !important;
-    overflow: visible !important;
-  }
-
   .ant-form-item-label > label {
     color: var(--color-foreground) !important;
     font-weight: 600;
@@ -280,7 +264,6 @@
   }
 
   .ant-menu-item {
-    border-radius: 0 !important;
     margin-block: 4px !important;
     width: 100% !important;
     margin-inline: 0 !important;
@@ -340,61 +323,6 @@ a.inline-flex.bg-gradient-primary:focus-visible {
   color: var(--color-primary-foreground) !important;
 }
 
-/* ─────────────────────────────────────────────────────────────────────────
- * ACCORDION FIX — remove rounded corners and overflow clipping
- * The global * rule applies 32px border-radius + overflow:hidden clips text
- * ───────────────────────────────────────────────────────────────────────── */
-
-[role="region"][data-orientation="vertical"] {
-  border-radius: 0 !important;
-  overflow: visible !important;
-}
-
-/* ─────────────────────────────────────────────────────────────────────────
- * ANT INPUT/SELECT GLOBAL FIX — remove overflow clipping from all inputs
- * Fixes both pickup and destination autocomplete inputs
- * ───────────────────────────────────────────────────────────────────────── */
-
-.ant-select-content,
-.ant-select-selection-search-input,
-.ant-input {
-  border-radius: 0 !important;
-  overflow: visible !important;
-  overflow-x: visible !important;
-  overflow-y: visible !important;
-  white-space: normal !important;
-  word-wrap: break-word !important;
-}
-
-/* Fix all parent containers */
-.ant-select-selector,
-.ant-select,
-.ant-select-selection-wrap,
-.ant-input-wrapper,
-.ant-input-affix-wrapper {
-  overflow: visible !important;
-  overflow-x: visible !important;
-  overflow-y: visible !important;
-}
-
-/* Trip search specific inputs */
-.trip-search-autocomplete,
-.trip-search-autocomplete .ant-select-selector,
-.trip-search-autocomplete .ant-select-content {
-  overflow: visible !important;
-  border-radius: 0 !important;
-}
-
-/* ─────────────────────────────────────────────────────────────────────────
- * TRIP SEARCH — intentionally OUTSIDE @layer so these beat Ant Design's
- * unlayered CSS-in-JS injections even without !important escalation.
- * ───────────────────────────────────────────────────────────────────────── */
-
-.trip-search-card {
-  border-radius: 0 !important;
-  overflow: visible !important;
-}
-
 /* Form validation messages — responsive sizing */
 .trip-search-form-item {
   margin: 0 !important;
@@ -435,7 +363,6 @@ a.inline-flex.bg-gradient-primary:focus-visible {
    We only need to ensure the container height and text colour here. */
 .trip-search-autocomplete .ant-select-selector {
   height: auto !important;
-  overflow: visible !important;
   display: flex !important;
   align-items: center !important;
 }
@@ -594,35 +521,4 @@ a.inline-flex.bg-gradient-primary:focus-visible {
 
 .profile-dropdown .ant-dropdown-menu-divider {
   margin: 4px 0;
-}
-
-/* Remove border-radius from all input fields */
-.ant-input,
-.ant-input-number,
-.ant-picker,
-.ant-select-selector,
-.ant-input::placeholder {
-  border-radius: 0 !important;
-}
-
-.ant-input-affix-wrapper,
-.ant-picker-input,
-.ant-select {
-  border-radius: 0 !important;
-}
-
-.ant-input:focus,
-.ant-input-number:focus,
-.ant-picker:focus,
-.ant-input-focused {
-  border-radius: 0 !important;
-}
-
-/* Override autocomplete input */
-.ant-auto-complete .ant-input {
-  border-radius: 0 !important;
-}
-
-.ant-auto-complete-dropdown {
-  border-radius: 0 !important;
 }

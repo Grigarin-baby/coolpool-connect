@@ -770,7 +770,7 @@ function DriverDashboardPage() {
       theme={{
         token: {
           colorPrimary: "#6b46c1",
-          borderRadius: 16,
+          borderRadius: 0,
           fontFamily: APP_FONT_FAMILY,
           colorBgContainer: "rgba(255, 255, 255, 0.7)",
           colorBgElevated: "rgba(255, 255, 255, 0.9)",

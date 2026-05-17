@@ -1,6 +1,7 @@
 import { ID, Permission, Query, Role, type Models } from "appwrite";
 import { databases, storage, appwriteConfig } from "@/integrations/appwrite/client";
 import { getCollectionIds } from "@/integrations/appwrite/schema";
+import { routeCitySegmentsMatch } from "@/lib/geo";
 import type {
   AppRole,
   Booking,
@@ -725,6 +726,90 @@ export async function listActiveTrips(limit = 200): Promise<Trip[]> {
     Query.limit(limit),
   ]);
   return result.documents.map(toTrip);
+}
+
+export interface TrendingRoutesOptions {
+  /** When set, only routes touching this city are considered. */
+  city?: string | null;
+  /** Max route cards to return (default 4). */
+  limit?: number;
+}
+
+function tripRouteSegment(value: string): string {
+  return value
+    .toLowerCase()
+    .split(",")[0]
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * Trending routes for the home page. Valid trips only (status scheduled/in_progress,
+ * departure not before today's calendar date — server-side filtered in Appwrite).
+ * Groups remaining trips by `from -> to` city segment and returns the representative
+ * (earliest upcoming) trip of each route that occurs more than once, ranked by
+ * occurrence count. If no route repeats, falls back to the 3 earliest-created trips.
+ */
+export async function listTrendingRoutes(options?: TrendingRoutesOptions): Promise<Trip[]> {
+  const c = ids();
+  const maxCards = options?.limit ?? 4;
+
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+
+  const result = await databases.listDocuments(appwriteConfig.databaseId, c.trips, [
+    Query.equal("status", ["scheduled", "in_progress"]),
+    Query.greaterThanEqual("departure_at", startOfToday.toISOString()),
+    Query.orderAsc("departure_at"),
+    Query.limit(200),
+  ]);
+
+  let rows = result.documents.map((d) => ({
+    trip: toTrip(d),
+    createdAt: String(d.$createdAt ?? ""),
+  }));
+
+  const city = options?.city?.trim();
+  if (city) {
+    const cityKey = tripRouteSegment(city);
+    rows = rows.filter(
+      ({ trip }) =>
+        routeCitySegmentsMatch(tripRouteSegment(trip.fromLocation), cityKey) ||
+        routeCitySegmentsMatch(tripRouteSegment(trip.toLocation), cityKey),
+    );
+  }
+
+  // rows are already ordered by departure_at asc, so the first trip seen for a
+  // route key is its earliest upcoming representative.
+  const groups = new Map<string, { representative: Trip; count: number }>();
+  for (const { trip } of rows) {
+    const key = `${tripRouteSegment(trip.fromLocation)}|${tripRouteSegment(trip.toLocation)}`;
+    const existing = groups.get(key);
+    if (existing) {
+      existing.count += 1;
+    } else {
+      groups.set(key, { representative: trip, count: 1 });
+    }
+  }
+
+  const trending = [...groups.values()]
+    .filter((g) => g.count > 1)
+    .sort(
+      (a, b) =>
+        b.count - a.count ||
+        new Date(a.representative.departureAt).getTime() -
+          new Date(b.representative.departureAt).getTime(),
+    )
+    .slice(0, maxCards)
+    .map((g) => g.representative);
+
+  if (trending.length > 0) return trending;
+
+  // Fallback: no route repeats — show the 3 earliest-created valid trips.
+  return [...rows]
+    .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+    .slice(0, 3)
+    .map((r) => r.trip);
 }
 
 function toHeroBanner(doc: any): HeroBanner {

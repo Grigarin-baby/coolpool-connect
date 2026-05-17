@@ -13,7 +13,6 @@ import {
   AutoComplete,
   ConfigProvider,
   DatePicker,
-  Empty,
   Form,
   Spin,
   Tag,
@@ -26,6 +25,7 @@ import {
    the CSS-in-JS hash-scoped selectors beat any external stylesheet. */
 const SEARCH_INPUT_THEME = {
   token: {
+    borderRadius: 0,
     fontSize: 32, // 2rem — balanced for mobile, adjusts up with CSS media query for desktop
     fontSizeLG: 32,
     controlHeight: 56, // 3.5rem — responsive height
@@ -36,6 +36,7 @@ const SEARCH_INPUT_THEME = {
 // Desktop theme with larger font sizes
 const SEARCH_INPUT_THEME_DESKTOP = {
   token: {
+    borderRadius: 0,
     fontSize: 48, // 3rem — readable hero size for desktop
     fontSizeLG: 48,
     controlHeight: 72, // tall enough to hold 3rem text comfortably
@@ -44,6 +45,8 @@ const SEARCH_INPUT_THEME_DESKTOP = {
 } as const;
 import {
   ArrowRight,
+  ArrowLeftRight,
+  ArrowUpDown,
   Calendar,
   MapPin,
   Navigation,
@@ -54,6 +57,7 @@ import {
   ChevronRight,
   Filter,
   Map as MapIcon,
+  SearchX,
 } from "lucide-react";
 import dayjs, { Dayjs } from "dayjs";
 import { Button as UiButton } from "@/components/ui/button";
@@ -504,6 +508,11 @@ export function TripSearchForm({ variant, id }: { variant: "landing" | "page"; i
     return () => window.removeEventListener("coolpool:cityDetected", handleCityDetected);
   }, [form]);
 
+  const swapLocations = () => {
+    const { from, to } = form.getFieldsValue(["from", "to"]);
+    form.setFieldsValue({ from: to ?? "", to: from ?? "" });
+  };
+
   if (variant === "page") {
     return (
       <Card
@@ -527,7 +536,14 @@ export function TripSearchForm({ variant, id }: { variant: "landing" | "page"; i
               variant="borderless"
             />
           </Form.Item>
-          <ArrowRight size={18} className="text-gray-300 shrink-0" />
+          <button
+            type="button"
+            onClick={swapLocations}
+            aria-label="Swap pickup and destination"
+            className="shrink-0 flex items-center justify-center h-9 w-9 rounded-full bg-white border border-gray-200 text-gray-400 hover:text-primary hover:border-primary/40 active:scale-90 transition-all"
+          >
+            <ArrowLeftRight size={16} />
+          </button>
           <Form.Item name="to" className="m-0 flex-1">
             <AutoComplete
               {...TRIP_SEARCH_AC_POPUP}
@@ -603,7 +619,15 @@ export function TripSearchForm({ variant, id }: { variant: "landing" | "page"; i
               </div>
 
               {/* Destination */}
-              <div className="flex items-start gap-4 px-6 py-6 hover:bg-gray-50/60 transition-colors group">
+              <div className="relative flex items-start gap-4 px-6 py-6 hover:bg-gray-50/60 transition-colors group">
+                <button
+                  type="button"
+                  onClick={swapLocations}
+                  aria-label="Swap pickup and destination"
+                  className="absolute right-6 -top-7 z-10 flex items-center justify-center h-12 w-12 rounded-full bg-white border border-gray-200 text-gray-400 shadow-sm hover:text-primary hover:border-primary/40 active:scale-90 transition-all"
+                >
+                  <ArrowUpDown size={20} />
+                </button>
                 <div className="shrink-0 w-12 h-12 rounded-xl bg-rose-50 flex items-center justify-center text-rose-400 group-hover:bg-rose-100 transition-colors mt-1">
                   <MapPin size={24} strokeWidth={2} />
                 </div>
@@ -703,10 +727,17 @@ export function TripSearchForm({ variant, id }: { variant: "landing" | "page"; i
                 </div>
               </div>
 
-              {/* Route arrow connector */}
-              <div className="flex items-center px-5 -my-1">
+              {/* Swap connector */}
+              <div className="relative flex items-center px-5 -my-1">
                 <div className="ml-5 mr-2 w-px h-4 bg-gray-200" />
-                <ArrowRight size={12} className="text-gray-300" />
+                <button
+                  type="button"
+                  onClick={swapLocations}
+                  aria-label="Swap pickup and destination"
+                  className="absolute right-5 -translate-y-0 flex items-center justify-center h-10 w-10 rounded-full bg-white border border-gray-200 text-gray-400 shadow-sm hover:text-primary hover:border-primary/40 active:scale-90 transition-all"
+                >
+                  <ArrowUpDown size={18} />
+                </button>
               </div>
 
               {/* Destination row */}
@@ -833,8 +864,18 @@ export function TripSearchResults({ variant }: { variant: "landing" | "page" }) 
       )}
 
       {!loading && searched && results.length === 0 && (
-        <Card className="rounded-3xl border-border/60 bg-card/90 backdrop-blur-sm p-8 md:p-12 border-dashed">
-          <Empty description="No trips match this route yet. Try nearby cities or check back soon." />
+        <Card className="rounded-3xl border border-dashed border-destructive/40 bg-destructive/5 p-8 md:p-12 text-center">
+          <div className="flex flex-col items-center gap-4">
+            <div className="h-16 w-16 rounded-full bg-destructive/10 text-destructive flex items-center justify-center">
+              <SearchX className="h-8 w-8" />
+            </div>
+            <h3 className="text-xl sm:text-2xl font-bold text-destructive">
+              No trips found on this route
+            </h3>
+            <p className="text-destructive/80 text-base max-w-md leading-relaxed">
+              No trips match this route yet. Try nearby cities or check back soon.
+            </p>
+          </div>
         </Card>
       )}
 
