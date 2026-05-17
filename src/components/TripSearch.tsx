@@ -62,7 +62,8 @@ import {
 import dayjs, { Dayjs } from "dayjs";
 import { Button as UiButton } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { listTrips } from "@/data/appwrite-repository";
+import { useQuery } from "@tanstack/react-query";
+import { listTrips, listDriverProfilesByUserIds } from "@/data/appwrite-repository";
 import { routeCitySegmentsMatch } from "@/lib/geo";
 import { formatCurrency } from "@/lib/pricing";
 import { appwriteConfig } from "@/integrations/appwrite/client";
@@ -581,7 +582,7 @@ export function TripSearchForm({ variant, id }: { variant: "landing" | "page"; i
       id={id}
       className="w-full max-w-[900px] mx-auto px-4 sm:px-6 relative z-10 -mt-14 sm:-mt-20 animate-in fade-in slide-in-from-bottom-6 duration-700"
     >
-      <div className="trip-search-card bg-white shadow-2xl border border-gray-100/80 ring-1 ring-black/[0.04]">
+      <div className="trip-search-card bg-white shadow-2xl border border-gray-100/80 ring-1 ring-black/[0.04] rounded-3xl overflow-hidden">
         <Form form={form} id="landing-trip-search" onFinish={onSearch}>
           {/* ── DESKTOP LAYOUT (lg and above) ── */}
           <ConfigProvider theme={SEARCH_INPUT_THEME_DESKTOP}>
@@ -664,7 +665,7 @@ export function TripSearchForm({ variant, id }: { variant: "landing" | "page"; i
                     className={cn(
                       TRIP_SEARCH_DATE_CHIP,
                       todaySelected
-                        ? "bg-gradient-primary text-white border-transparent shadow-glow-sm"
+                        ? "bg-gradient-primary !text-white border-transparent shadow-glow-sm"
                         : "bg-white text-gray-700 border-gray-200 hover:border-primary/50 hover:text-primary",
                     )}
                   >
@@ -679,7 +680,7 @@ export function TripSearchForm({ variant, id }: { variant: "landing" | "page"; i
                     className={cn(
                       TRIP_SEARCH_DATE_CHIP,
                       tomorrowSelected
-                        ? "bg-gradient-primary text-white border-transparent shadow-glow-sm"
+                        ? "bg-gradient-primary !text-white border-transparent shadow-glow-sm"
                         : "bg-white text-gray-700 border-gray-200 hover:border-primary/50 hover:text-primary",
                     )}
                   >
@@ -782,7 +783,7 @@ export function TripSearchForm({ variant, id }: { variant: "landing" | "page"; i
                     className={cn(
                       "flex-1 h-14 rounded-2xl text-xl font-black border-2 transition-all duration-200 active:scale-95",
                       todaySelected
-                        ? "bg-gradient-primary text-white border-transparent shadow-glow-sm"
+                        ? "bg-gradient-primary !text-white border-transparent shadow-glow-sm"
                         : "bg-white text-gray-700 border-gray-200",
                     )}
                   >
@@ -797,7 +798,7 @@ export function TripSearchForm({ variant, id }: { variant: "landing" | "page"; i
                     className={cn(
                       "flex-1 h-14 rounded-2xl text-xl font-black border-2 transition-all duration-200 active:scale-95",
                       tomorrowSelected
-                        ? "bg-gradient-primary text-white border-transparent shadow-glow-sm"
+                        ? "bg-gradient-primary !text-white border-transparent shadow-glow-sm"
                         : "bg-white text-gray-700 border-gray-200",
                     )}
                   >
@@ -826,6 +827,24 @@ export function TripSearchForm({ variant, id }: { variant: "landing" | "page"; i
 export function TripSearchResults({ variant }: { variant: "landing" | "page" }) {
   const { loading, searched, results } = useTripSearchContext();
   const resultsAnchorRef = useRef<HTMLDivElement>(null);
+
+  const hostIds = useMemo(
+    () => [...new Set(results.map((t) => t.hostId).filter(Boolean))],
+    [results],
+  );
+  const { data: hostProfiles } = useQuery({
+    queryKey: ["host-profiles", hostIds.join(",")],
+    queryFn: () => listDriverProfilesByUserIds(hostIds),
+    enabled: hostIds.length > 0,
+    staleTime: 1000 * 60 * 5,
+  });
+  const hostNameById = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const p of hostProfiles ?? []) {
+      if (p.fullName?.trim()) map[p.userId] = p.fullName.trim();
+    }
+    return map;
+  }, [hostProfiles]);
 
   useEffect(() => {
     if (!searched || loading) return;
@@ -891,94 +910,89 @@ export function TripSearchResults({ variant }: { variant: "landing" | "page" }) 
           </div>
 
           <div className="space-y-4">
-            {results.map((trip) => (
-              <Link
-                key={trip.id}
-                to="/booking/$tripId"
-                params={{ tripId: trip.id }}
-                className="block group"
-              >
-                <Card className="rounded-3xl border border-gray-100 bg-white shadow-soft hover:shadow-elevated hover:border-primary/20 transition-all duration-300 overflow-hidden relative p-6">
-                  <div className="flex justify-between items-start mb-6">
-                    <div className="flex gap-5 flex-1 min-w-0">
-                      {/* Timeline column */}
-                      <div className="flex flex-col items-center justify-between py-1 shrink-0">
-                        <span className="font-bold text-2xl sm:text-3xl text-gray-900 leading-none">
-                          {dayjs(trip.departureAt).format("HH:mm")}
+            {results.map((trip) => {
+              const hostName = hostNameById[trip.hostId] || "Host";
+              const hostInitial = hostName.charAt(0).toUpperCase();
+              return (
+                <Link
+                  key={trip.id}
+                  to="/booking/$tripId"
+                  params={{ tripId: trip.id }}
+                  className="block group"
+                >
+                  <Card className="rounded-2xl border border-gray-100 bg-white shadow-soft hover:shadow-elevated hover:border-primary/20 transition-all duration-300 p-4 sm:p-6">
+                    <div className="flex items-start justify-between gap-3 sm:gap-4">
+                      <div className="flex gap-3 sm:gap-4 min-w-0 flex-1">
+                        <div className="flex flex-col items-center pt-1 shrink-0">
+                          <span className="font-bold text-lg sm:text-2xl text-gray-900 leading-none">
+                            {dayjs(trip.departureAt).format("HH:mm")}
+                          </span>
+                          <div className="flex flex-col items-center gap-1 my-2 flex-1">
+                            <div className="h-2 w-2 rounded-full border-2 border-gray-900" />
+                            <div className="w-0.5 flex-1 min-h-[28px] bg-gray-300" />
+                            <div className="h-2 w-2 rounded-full border-2 border-gray-400" />
+                          </div>
+                        </div>
+                        <div className="flex flex-col justify-between gap-5 sm:gap-6 min-w-0 flex-1">
+                          <div className="min-w-0">
+                            <p className="font-bold text-base sm:text-xl text-gray-900 truncate">
+                              {primarySegment(trip.fromLocation)}
+                            </p>
+                            <p className="text-xs sm:text-sm text-gray-500 truncate">
+                              {trip.fromLocation}
+                            </p>
+                          </div>
+                          <div className="min-w-0">
+                            <p className="font-bold text-base sm:text-xl text-gray-700 truncate">
+                              {primarySegment(trip.toLocation)}
+                            </p>
+                            <p className="text-xs sm:text-sm text-gray-500 truncate">
+                              {trip.toLocation}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex flex-col items-end shrink-0">
+                        <div className="text-xl sm:text-3xl font-black text-gray-900 whitespace-nowrap">
+                          {formatCurrency(trip.totalPrice / trip.totalSeats)}
+                        </div>
+                        <span className="text-[10px] sm:text-xs text-gray-500 font-bold uppercase tracking-wider mt-1">
+                          per seat
                         </span>
-                        <div className="flex flex-col items-center gap-1 my-2 flex-1">
-                          <div className="h-2.5 w-2.5 rounded-full border-2 border-gray-900" />
-                          <div className="w-0.5 flex-1 bg-gray-900" />
-                          <div className="h-2.5 w-2.5 rounded-full border-2 border-gray-400" />
-                        </div>
-                        <span className="font-bold text-xl text-gray-400 leading-none">--:--</span>
                       </div>
+                    </div>
 
-                      {/* Location column */}
-                      <div className="flex flex-col justify-between py-1 flex-1 min-w-0 gap-8">
+                    <div className="h-px bg-gray-100 my-4" />
+
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="relative shrink-0">
+                          <div className="h-9 w-9 sm:h-10 sm:w-10 rounded-full bg-gradient-to-br from-primary/15 to-primary/5 flex items-center justify-center text-primary font-bold text-sm uppercase">
+                            {hostInitial}
+                          </div>
+                          <div className="absolute -bottom-0.5 -right-0.5 bg-white rounded-full p-0.5 shadow-sm">
+                            <ShieldCheck size={12} className="text-blue-500 fill-blue-500/10" />
+                          </div>
+                        </div>
                         <div className="min-w-0">
-                          <p className="font-bold text-xl sm:text-2xl text-gray-900 truncate">
-                            {primarySegment(trip.fromLocation)}
+                          <p className="font-bold text-sm sm:text-base text-gray-800 truncate">
+                            {hostName}
                           </p>
-                          <p className="text-base text-gray-500 truncate">{trip.fromLocation}</p>
-                        </div>
-                        <div className="min-w-0">
-                          <p className="font-bold text-xl sm:text-2xl text-gray-700 truncate">
-                            {primarySegment(trip.toLocation)}
-                          </p>
-                          <p className="text-base text-gray-500 truncate">{trip.toLocation}</p>
+                          <div className="flex items-center gap-1 text-xs sm:text-sm text-gray-500 font-medium">
+                            <Star size={12} className="fill-amber-400 text-amber-400 shrink-0" />
+                            <span className="truncate">4.8 · {trip.totalSeats} seats left</span>
+                          </div>
                         </div>
                       </div>
-
-                      {/* Duration (Absolute centered on timeline) */}
-                      <div className="absolute left-[88px] top-[48%] -translate-y-1/2 bg-white px-1">
-                        <span className="text-xs sm:text-sm font-bold text-gray-500 bg-gray-50 px-2.5 py-1 rounded-full border border-gray-100">
-                          {Math.round(trip.totalDistanceKm / 60)}h
-                          {Math.round(trip.totalDistanceKm % 60)}m
-                        </span>
-                      </div>
+                      <ChevronRight
+                        size={20}
+                        className="text-gray-300 group-hover:text-primary transition-colors shrink-0"
+                      />
                     </div>
-
-                    {/* Price */}
-                    <div className="flex flex-col items-end shrink-0 ml-4">
-                      <div className="text-3xl sm:text-4xl font-black text-gray-900">
-                        {formatCurrency(trip.totalPrice / trip.totalSeats)}
-                      </div>
-                      <span className="text-xs sm:text-sm text-gray-500 font-bold uppercase tracking-widest mt-1">
-                        per seat
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="h-px bg-gray-50 -mx-6 mb-4" />
-
-                  {/* Driver Footer */}
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="relative">
-                        <div className="h-10 w-10 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center text-gray-400 font-bold overflow-hidden border border-gray-50">
-                          {trip.hostId[0].toUpperCase()}
-                        </div>
-                        <div className="absolute -bottom-0.5 -right-0.5 bg-white rounded-full p-0.5 shadow-sm">
-                          <ShieldCheck size={14} className="text-blue-500 fill-blue-500/10" />
-                        </div>
-                      </div>
-                      <div>
-                        <p className="font-bold text-base text-gray-800">Verified Host</p>
-                        <div className="flex items-center gap-1 text-sm text-gray-500 font-medium">
-                          <Star size={12} className="fill-amber-400 text-amber-400" />
-                          <span>4.8 · {trip.totalSeats} seats left</span>
-                        </div>
-                      </div>
-                    </div>
-                    <ChevronRight
-                      size={20}
-                      className="text-gray-200 group-hover:text-primary transition-colors"
-                    />
-                  </div>
-                </Card>
-              </Link>
-            ))}
+                  </Card>
+                </Link>
+              );
+            })}
           </div>
 
           {/* Floating Map Button */}

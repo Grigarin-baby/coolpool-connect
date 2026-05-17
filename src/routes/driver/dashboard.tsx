@@ -809,7 +809,7 @@ function DriverDashboardPage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gradient-hero p-4">
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-emerald-50 via-green-50 to-emerald-100 p-4">
         <Spin size="large" />
       </div>
     );
@@ -817,7 +817,7 @@ function DriverDashboardPage() {
 
   if (!isDriver) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gradient-hero p-4">
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-emerald-50 via-green-50 to-emerald-100 p-4">
         <Card className="max-w-md text-center shadow-elevated rounded-3xl border-none">
           <Text type="danger" strong>
             ACCESS DENIED
@@ -861,7 +861,7 @@ function DriverDashboardPage() {
         },
       }}
     >
-      <div className="min-h-screen bg-gradient-hero bg-fixed">
+      <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-green-50 to-emerald-100 bg-fixed">
         <Layout className="bg-transparent max-w-[1600px] mx-auto relative flex">
           <Sider
             breakpoint="lg"

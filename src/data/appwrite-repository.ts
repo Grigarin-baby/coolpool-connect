@@ -718,6 +718,20 @@ export async function listDriverProfiles(): Promise<DriverProfile[]> {
   return result.documents.map(toDriverProfile);
 }
 
+/** Resolve host display info for a set of host user ids (used by trip cards). */
+export async function listDriverProfilesByUserIds(
+  userIds: string[],
+): Promise<DriverProfile[]> {
+  const unique = [...new Set(userIds.filter(Boolean))];
+  if (unique.length === 0) return [];
+  const c = ids();
+  const result = await databases.listDocuments(appwriteConfig.databaseId, c.drivers, [
+    Query.equal("user_id", unique),
+    Query.limit(100),
+  ]);
+  return result.documents.map(toDriverProfile);
+}
+
 export async function listActiveTrips(limit = 200): Promise<Trip[]> {
   const c = ids();
   const result = await databases.listDocuments(appwriteConfig.databaseId, c.trips, [
