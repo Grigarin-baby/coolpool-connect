@@ -194,8 +194,8 @@ function normalizeModule(value: unknown): DashboardModule {
     : "dashboard";
 }
 
-// Trips can only be scheduled for today or tomorrow.
-const TRIP_DATE_WINDOW_DAYS = 2;
+// Trips can only be scheduled within 7 days from today.
+const TRIP_DATE_WINDOW_DAYS = 7;
 
 function disabledTripDate(current: dayjs.Dayjs): boolean {
   if (!current) return false;
@@ -228,7 +228,7 @@ export const Route = createFileRoute("/driver/dashboard")({
   }),
   head: () => ({
     meta: [
-      { title: "Ride Host dashboard — Coolpool" },
+      { title: "Ride Host dashboard â€” Coolpool" },
       { name: "description", content: "Manage your rides and bookings as a Coolpool ride host." },
     ],
   }),
@@ -265,6 +265,7 @@ function DriverDashboardPage() {
   const [publishTripsModalOpen, setPublishTripsModalOpen] = useState(false);
   const [publishModalView, setPublishModalView] = useState<"trips" | "form">("trips");
   const [showTripForm, setShowTripForm] = useState(false);
+  const [tripPublishedSuccess, setTripPublishedSuccess] = useState(false);
   const autocompleteServiceRef = useRef<PlacesAutocompleteServiceLike | null>(null);
   const geocoderRef = useRef<GeocoderLike | null>(null);
   const directionsServiceRef = useRef<DirectionsServiceLike | null>(null);
@@ -438,8 +439,8 @@ function DriverDashboardPage() {
     historyFilter === "all"
       ? trips
       : trips.filter((t) =>
-          historyFilter === "completed" ? t.status === "completed" : t.status === "cancelled",
-        );
+        historyFilter === "completed" ? t.status === "completed" : t.status === "cancelled",
+      );
 
   const upcomingTrips = trips.filter((t) => dayjs(t.departureAt).isAfter(dayjs()));
 
@@ -476,7 +477,12 @@ function DriverDashboardPage() {
           toLocation: trip.toLocation,
         });
       }
-      message.success(editingTripId ? "Trip updated." : "Trip created.");
+      if (editingTripId) {
+        message.success("Trip updated.");
+      } else {
+        setTripPublishedSuccess(true);
+        window.setTimeout(() => setTripPublishedSuccess(false), 2400);
+      }
       form.resetFields();
       setEditingTripId(null);
       setIsEditingTrip(false);
@@ -654,7 +660,7 @@ function DriverDashboardPage() {
             pricePerKm: calcPricePerKm(totalPrice, totalDistanceKm),
             totalSeats,
             departureAt: values.departureAt.toISOString(),
-            notes: `Created from ride host trip module. Total price: ₹${totalPrice}.`,
+            notes: `Created from ride host trip module. Total price: â‚¹${totalPrice}.`,
             vehicleId: values.vehicleId,
             assignedDriverId: values.driverId,
             seatConfig: values.seatConfig,
@@ -734,7 +740,7 @@ function DriverDashboardPage() {
 
         if (filteredPredictions.length === 0 && safePredictions.length > 0 && !isAirportQuery) {
           const options = [
-            { value: "", label: "🚫 Out of Service Area (South India & Goa only)", disabled: true },
+            { value: "", label: "ðŸš« Out of Service Area (South India & Goa only)", disabled: true },
           ];
           if (target === "from") setFromOptions(options as any);
           else if (target === "to") setToOptions(options as any);
@@ -753,7 +759,7 @@ function DriverDashboardPage() {
             value: `${a.name}, ${SERVICE_CITY}`,
             label: (
               <div className="flex items-center gap-2">
-                <span>✈️</span>
+                <span>âœˆï¸</span>
                 <span className="font-medium text-gray-900">
                   {a.name} <span className="text-gray-400 font-normal">({a.code})</span>
                 </span>
@@ -809,7 +815,7 @@ function DriverDashboardPage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-emerald-50 via-green-50 to-emerald-100 p-4">
+      <div className="flex min-h-screen items-center justify-center bg-gradient-hero p-4">
         <Spin size="large" />
       </div>
     );
@@ -817,7 +823,7 @@ function DriverDashboardPage() {
 
   if (!isDriver) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-emerald-50 via-green-50 to-emerald-100 p-4">
+      <div className="flex min-h-screen items-center justify-center bg-gradient-hero p-4">
         <Card className="max-w-md text-center shadow-elevated rounded-3xl border-none">
           <Text type="danger" strong>
             ACCESS DENIED
@@ -861,7 +867,40 @@ function DriverDashboardPage() {
         },
       }}
     >
-      <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-green-50 to-emerald-100 bg-fixed">
+      <div className="min-h-screen bg-gradient-hero bg-fixed">
+        {tripPublishedSuccess && (
+          <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-white/95 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="flex flex-col items-center px-6 text-center">
+              <div className="relative flex h-28 w-28 items-center justify-center">
+                <span className="absolute inset-0 rounded-full bg-emerald-500/20 animate-ping" />
+                <div className="relative flex h-24 w-24 items-center justify-center rounded-full bg-emerald-500 shadow-[0_10px_35px_rgba(16,185,129,0.45)] animate-in zoom-in-50 duration-300">
+                  <svg viewBox="0 0 52 52" className="h-12 w-12" aria-hidden>
+                    <path
+                      fill="none"
+                      stroke="white"
+                      strokeWidth="5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M14 27 L22 35 L38 18"
+                      style={{
+                        strokeDasharray: 48,
+                        strokeDashoffset: 48,
+                        animation: "cp-check-draw 0.4s ease-out 0.2s forwards",
+                      }}
+                    />
+                  </svg>
+                </div>
+              </div>
+              <p className="mt-6 text-2xl font-bold text-gray-900">
+                Trip published successfully
+              </p>
+              <p className="mt-1 text-sm text-gray-500">
+                Your ride is now live for travelers.
+              </p>
+              <style>{`@keyframes cp-check-draw { to { stroke-dashoffset: 0; } }`}</style>
+            </div>
+          </div>
+        )}
         <Layout className="bg-transparent max-w-[1600px] mx-auto relative flex">
           <Sider
             breakpoint="lg"
@@ -1142,14 +1181,14 @@ function DriverDashboardPage() {
                       <div className="absolute -right-6 -bottom-6 w-24 h-24 bg-emerald-500/10 rounded-full blur-xl group-hover:bg-emerald-500/20 transition-all"></div>
                       <div className="flex items-center gap-3 mb-2">
                         <div className="p-2 bg-emerald-100 rounded-3xl text-emerald-600">
-                          <span className="font-bold text-lg">₹</span>
+                          <span className="font-bold text-lg">â‚¹</span>
                         </div>
                         <Text type="secondary" className="font-medium text-gray-500">
                           Total Earnings
                         </Text>
                       </div>
                       <Title level={2} style={{ margin: "12px 0 8px 0" }} className="text-gray-800">
-                        ₹0
+                        â‚¹0
                       </Title>
                       <Text type="secondary" className="text-sm">
                         Settlement pending
@@ -1235,11 +1274,11 @@ function DriverDashboardPage() {
                                   color="purple"
                                   className="rounded-full border-none px-3 py-1 font-semibold text-xs m-0"
                                 >
-                                  {dayjs(item.departureAt).format("MMM D, YYYY • h:mm A")}
+                                  {dayjs(item.departureAt).format("MMM D, YYYY â€¢ h:mm A")}
                                 </Tag>
                                 <div className="flex items-center gap-2">
                                   <Text strong className="text-lg text-emerald-600">
-                                    ₹{item.totalPrice}
+                                    â‚¹{item.totalPrice}
                                   </Text>
                                   <Dropdown
                                     menu={{
@@ -1589,7 +1628,7 @@ function DriverDashboardPage() {
                                           totalSeats: trip.totalSeats,
                                           totalTripPrice: Math.round(
                                             trip.totalPrice /
-                                              (trip.totalSeats || 1),
+                                            (trip.totalSeats || 1),
                                           ),
                                           vehicleId: trip.vehicleId,
                                           driverId: trip.assignedDriverId,
@@ -1764,7 +1803,7 @@ function DriverDashboardPage() {
                                       Price per Seat
                                     </Text>
                                     <Text strong className="text-emerald-600 text-lg mt-1">
-                                      ₹{trip.totalPrice?.toLocaleString("en-IN")}
+                                      â‚¹{trip.totalPrice?.toLocaleString("en-IN")}
                                     </Text>
                                   </div>
                                 </div>
@@ -1835,7 +1874,7 @@ function DriverDashboardPage() {
                                           totalSeats: trip.totalSeats,
                                           totalTripPrice: Math.round(
                                             trip.totalPrice /
-                                              (trip.totalSeats || 1),
+                                            (trip.totalSeats || 1),
                                           ),
                                           vehicleId: trip.vehicleId,
                                           driverId: trip.assignedDriverId,
@@ -1943,128 +1982,191 @@ function DriverDashboardPage() {
                         </Text>
                       </div>
 
-                  <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
-                    <Card className="rounded-2xl border border-white/60 shadow-card bg-white/80 backdrop-blur-md p-6 md:p-8 xl:col-span-2 relative overflow-hidden">
-                      <Form
-                        form={form}
-                        layout="vertical"
-                        onFinish={onFinish}
-                        initialValues={{
-                          totalSeats: 3,
-                          seatConfig: ["R1-C0", "R1-C1", "R1-C2"] as SeatId[],
-                          driverId: user?.$id,
-                        }}
-                        requiredMark={false}
-                      >
-                        <div className="space-y-12">
-                          {/* Route Section */}
-                          <div className="relative">
-                            <div className="absolute -left-6 -top-6 w-1 h-16 bg-gradient-primary rounded-full"></div>
-                            <div className="mb-6">
-                              <div className="flex items-center gap-3 mb-2">
-                                <div className="h-10 w-10 rounded-lg bg-gradient-primary flex items-center justify-center">
-                                  <RouteIcon size={20} className="text-white" />
-                                </div>
-                                <Title level={3} className="!m-0 !font-bold">
-                                  Your Route
-                                </Title>
-                              </div>
-                              <Text type="secondary" className="text-base ml-13">
-                                Where are you traveling?
-                              </Text>
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                              <Form.Item
-                                label={<span className="font-bold text-gray-900">Departure City</span>}
-                                name="fromLocation"
-                                rules={[{ required: true, message: "Please enter origin" }]}
-                                className="mb-0"
-                              >
-                                <AutoComplete
-                                  options={fromOptions}
-                                  disabled={!mapsReady}
-                                  onSearch={(text) => {
-                                    setSelectedFrom(null);
-                                    void searchCities(text, "from");
-                                  }}
-                                  onSelect={(value) => onSelectCity(value, "from")}
+                      <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
+                        <Card className="rounded-2xl border border-white/60 shadow-card bg-white/80 backdrop-blur-md p-5 md:p-6 xl:col-span-2 relative overflow-hidden">
+                          <Form
+                            form={form}
+                            layout="vertical"
+                            onFinish={onFinish}
+                            initialValues={{
+                              totalSeats: 3,
+                              seatConfig: ["R1-C0", "R1-C1", "R1-C2"] as SeatId[],
+                              driverId: user?.$id,
+                            }}
+                            requiredMark={false}
+                          >
+                            <div className="space-y-5">
+                              {/* Row 1 – Route */}
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <Form.Item
+                                  label={<span className="font-semibold text-gray-700 text-sm">From City</span>}
+                                  name="fromLocation"
+                                  rules={[{ required: true, message: "Please enter origin" }]}
+                                  className="mb-0"
                                 >
-                                  <Input
-                                    placeholder="Enter city name"
-                                    size="large"
-                                    className="h-14 rounded-none text-base border border-gray-300 transition-all hover:border-primary focus:border-primary"
-                                  />
-                                </AutoComplete>
-                              </Form.Item>
+                                  <AutoComplete
+                                    options={fromOptions}
+                                    disabled={!mapsReady}
+                                    onSearch={(text) => {
+                                      setSelectedFrom(null);
+                                      void searchCities(text, "from");
+                                    }}
+                                    onSelect={(value) => onSelectCity(value, "from")}
+                                  >
+                                    <Input
+                                      placeholder="Departure city"
+                                      size="large"
+                                      style={{ borderRadius: '8px', height: '44px' }}
+                                      className="text-sm border border-gray-300 transition-all"
+                                    />
+                                  </AutoComplete>
+                                </Form.Item>
 
-                              <Form.Item
-                                label={<span className="font-bold text-gray-900">Destination City</span>}
-                                name="toLocation"
-                                rules={[{ required: true, message: "Please enter destination" }]}
-                                className="mb-0"
-                              >
-                                <AutoComplete
-                                  options={toOptions}
-                                  disabled={!mapsReady}
-                                  onSearch={(text) => {
-                                    setSelectedTo(null);
-                                    void searchCities(text, "to");
-                                  }}
-                                  onSelect={(value) => onSelectCity(value, "to")}
+                                <Form.Item
+                                  label={<span className="font-semibold text-gray-700 text-sm">To City</span>}
+                                  name="toLocation"
+                                  rules={[{ required: true, message: "Please enter destination" }]}
+                                  className="mb-0"
                                 >
-                                  <Input
-                                    placeholder="Enter city name"
-                                    size="large"
-                                    className="h-14 rounded-none text-base border border-gray-300 transition-all hover:border-primary focus:border-primary"
-                                  />
-                                </AutoComplete>
-                              </Form.Item>
-                            </div>
-                          </div>
-
-                          {/* Schedule Section */}
-                          <div className="relative">
-                            <div className="absolute -left-6 -top-6 w-1 h-16 bg-gradient-primary rounded-full"></div>
-                            <div className="mb-6">
-                              <div className="flex items-center gap-3 mb-2">
-                                <div className="h-10 w-10 rounded-lg bg-gradient-primary flex items-center justify-center">
-                                  <Sparkles size={20} className="text-white" />
-                                </div>
-                                <Title level={3} className="!m-0 !font-bold">
-                                  When & How Many Seats
-                                </Title>
+                                  <AutoComplete
+                                    options={toOptions}
+                                    disabled={!mapsReady}
+                                    onSearch={(text) => {
+                                      setSelectedTo(null);
+                                      void searchCities(text, "to");
+                                    }}
+                                    onSelect={(value) => onSelectCity(value, "to")}
+                                  >
+                                    <Input
+                                      placeholder="Destination city"
+                                      size="large"
+                                      style={{ borderRadius: '8px', height: '44px' }}
+                                      className="text-sm border border-gray-300 transition-all"
+                                    />
+                                  </AutoComplete>
+                                </Form.Item>
                               </div>
-                              <Text type="secondary" className="text-base ml-13">
-                                Set your departure time and available seating
-                              </Text>
-                            </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-                              <Form.Item
-                                label={<span className="font-bold text-gray-900">Departure Time</span>}
-                                name="departureAt"
-                                rules={[{ required: true, message: "Please select time" }]}
-                                className="mb-0"
-                              >
-                                <DatePicker
-                                  showTime={{ format: "h:mm A", use12Hours: true, minuteStep: 15 }}
-                                  size="large"
-                                  className="w-full h-14 rounded-none text-base border border-gray-300"
-                                  format="YYYY-MM-DD h:mm A"
-                                  placement="bottomLeft"
-                                  popupClassName="trip-publish-datepicker"
-                                  getPopupContainer={() => document.body}
-                                  disabledDate={disabledTripDate}
-                                  disabledTime={disabledTripTime}
-                                />
-                              </Form.Item>
+                              {/* Row 2 – Departure Time + Price Per Seat */}
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <Form.Item
+                                  label={<span className="font-semibold text-gray-700 text-sm">Departure Date & Time</span>}
+                                  name="departureAt"
+                                  rules={[{ required: true, message: "Please select time" }]}
+                                  className="mb-0"
+                                >
+                                  <DatePicker
+                                    showTime={{ format: "h:mm A", use12Hours: true, minuteStep: 15 }}
+                                    size="large"
+                                    style={{ borderRadius: '8px', height: '44px', width: '100%' }}
+                                    className="text-sm border border-gray-300"
+                                    format="YYYY-MM-DD h:mm A"
+                                    placement="bottomLeft"
+                                    popupClassName="trip-publish-datepicker"
+                                    getPopupContainer={() => document.body}
+                                    disabledDate={disabledTripDate}
+                                    disabledTime={disabledTripTime}
+                                  />
+                                </Form.Item>
 
+                                <Form.Item
+                                  label={<span className="font-semibold text-gray-700 text-sm">Price Per Seat (₹)</span>}
+                                  name="totalTripPrice"
+                                  rules={[{ required: true, message: "Please enter price" }]}
+                                  className="mb-0"
+                                >
+                                  <InputNumber
+                                    min={1}
+                                    max={9999}
+                                    precision={0}
+                                    size="large"
+                                    style={{ borderRadius: '8px', height: '44px', width: '100%' }}
+                                    className="font-bold"
+                                    prefix="₹"
+                                    placeholder="0"
+                                    onChange={(val) => {
+                                      if (typeof val === "number" && val > 9999) {
+                                        form.setFieldsValue({ totalTripPrice: 9999 });
+                                      }
+                                    }}
+                                  />
+                                </Form.Item>
+                              </div>
+
+                              {/* Row 3 – Vehicle + Driver */}
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <Form.Item
+                                  label={<span className="font-semibold text-gray-700 text-sm">Vehicle</span>}
+                                  name="vehicleId"
+                                  rules={[{ required: true, message: "Please select a vehicle" }]}
+                                  className="mb-0"
+                                >
+                                  <Select
+                                    size="large"
+                                    placeholder="Choose vehicle"
+                                    className="w-full"
+                                    style={{ borderRadius: '8px', height: '44px' }}
+                                    options={[
+                                      ...vehicles.map((v) => ({
+                                        label: `${v.modelName} · ${v.plateNumber} · ${v.seatCapacity} seats`,
+                                        value: v.id,
+                                      })),
+                                      {
+                                        label: (
+                                          <span className="text-primary font-medium flex items-center gap-2">
+                                            <Plus size={14} /> Add new vehicle
+                                          </span>
+                                        ),
+                                        value: "ADD_NEW_VEHICLE",
+                                      },
+                                    ]}
+                                    onChange={(val) => {
+                                      if (val === "ADD_NEW_VEHICLE") {
+                                        form.setFieldsValue({ vehicleId: undefined });
+                                        setEditingVehicleId(null);
+                                        vehicleForm.resetFields();
+                                        setVehicleDrawerOpen(true);
+                                        return;
+                                      }
+                                      const selectedVeh = vehicles.find((v) => v.id === val);
+                                      if (selectedVeh) {
+                                        form.setFieldsValue({ totalSeats: selectedVeh.seatCapacity });
+                                      }
+                                    }}
+                                  />
+                                </Form.Item>
+
+                                <Form.Item
+                                  label={<span className="font-semibold text-gray-700 text-sm">Driver</span>}
+                                  name="driverId"
+                                  rules={[{ required: true, message: "Please select a driver" }]}
+                                  className="mb-0"
+                                >
+                                  <Select
+                                    size="large"
+                                    placeholder="Choose driver"
+                                    className="w-full"
+                                    style={{ borderRadius: '8px', height: '44px' }}
+                                    options={[
+                                      {
+                                        label: `You (${user?.name?.split(" ")[0] || "Owner"})`,
+                                        value: user?.$id || "",
+                                      },
+                                      ...teamDrivers.map((d) => ({
+                                        label: `${d.fullName} · ${d.city}`,
+                                        value: d.id,
+                                      })),
+                                    ]}
+                                  />
+                                </Form.Item>
+                              </div>
+
+                              {/* Row 4 – Seat Configuration (full width) */}
                               <div>
-                                <span className="font-bold text-gray-900 block mb-3">Configure Seating</span>
+                                <span className="font-semibold text-gray-700 text-sm block mb-2">Configure Seating</span>
                                 <Form.Item
                                   name="seatConfig"
-                                  rules={[{ required: true, message: "Please offer at least one seat" }]}
+                                  rules={[{ required: true, message: "Please select at least one seat" }]}
                                   className="mb-0"
                                 >
                                   <SeatPicker
@@ -2078,313 +2180,185 @@ function DriverDashboardPage() {
                                 </Form.Item>
                               </div>
                             </div>
-                          </div>
 
-                          {/* Vehicle & Driver Section */}
-                          <div className="relative">
-                            <div className="absolute -left-6 -top-6 w-1 h-16 bg-gradient-primary rounded-full"></div>
-                            <div className="mb-6">
-                              <div className="flex items-center gap-3 mb-2">
-                                <div className="h-10 w-10 rounded-lg bg-gradient-primary flex items-center justify-center">
-                                  <Car size={20} className="text-white" />
-                                </div>
-                                <Title level={3} className="!m-0 !font-bold">
-                                  Vehicle & Driver
-                                </Title>
-                              </div>
-                              <Text type="secondary" className="text-base ml-13">
-                                Assign vehicle and driver for this trip
-                              </Text>
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                              <Form.Item
-                                label={<span className="font-bold text-gray-900">Select Vehicle</span>}
-                                name="vehicleId"
-                                rules={[{ required: true, message: "Please select a vehicle" }]}
-                                className="mb-0"
-                              >
-                                <Select
-                                  size="large"
-                                  placeholder="Choose your vehicle"
-                                  className="h-14 w-full rounded-none border-gray-300"
-                                  options={[
-                                    ...vehicles.map((v) => ({
-                                      label: `${v.modelName} · ${v.plateNumber} · ${v.seatCapacity} seats`,
-                                      value: v.id,
-                                    })),
-                                    {
-                                      label: (
-                                        <span className="text-primary font-medium flex items-center gap-2">
-                                          <Plus size={14} /> Add new vehicle
-                                        </span>
-                                      ),
-                                      value: "ADD_NEW_VEHICLE",
-                                    },
-                                  ]}
-                                  onChange={(val) => {
-                                    if (val === "ADD_NEW_VEHICLE") {
-                                      form.setFieldsValue({ vehicleId: undefined });
-                                      setEditingVehicleId(null);
-                                      vehicleForm.resetFields();
-                                      setVehicleDrawerOpen(true);
-                                      return;
-                                    }
-                                    const selectedVeh = vehicles.find((v) => v.id === val);
-                                    if (selectedVeh) {
-                                      form.setFieldsValue({ totalSeats: selectedVeh.seatCapacity });
-                                    }
-                                  }}
-                                />
-                              </Form.Item>
-
-                              <Form.Item
-                                label={<span className="font-bold text-gray-900">Select Driver</span>}
-                                name="driverId"
-                                rules={[{ required: true, message: "Please select a driver" }]}
-                                className="mb-0"
-                              >
-                                <Select
-                                  size="large"
-                                  placeholder="Choose driver"
-                                  className="h-14 w-full rounded-none border-gray-300"
-                                  options={[
-                                    {
-                                      label: `You (${user?.name?.split(" ")[0] || "Owner"})`,
-                                      value: user?.$id || "",
-                                    },
-                                    ...teamDrivers.map((d) => ({
-                                      label: `${d.fullName} · ${d.city}`,
-                                      value: d.id,
-                                    })),
-                                  ]}
-                                />
-                              </Form.Item>
-                            </div>
-                          </div>
-
-                          {/* Pricing Section */}
-                          <div className="relative">
-                            <div className="absolute -left-6 -top-6 w-1 h-16 bg-gradient-primary rounded-full"></div>
-                            <div className="mb-6">
-                              <div className="flex items-center gap-3 mb-2">
-                                <div className="h-10 w-10 rounded-lg bg-emerald-500 flex items-center justify-center">
-                                  <span className="text-white font-bold text-lg">₹</span>
-                                </div>
-                                <Title level={3} className="!m-0 !font-bold">
-                                  Pricing
-                                </Title>
-                              </div>
-                              <Text type="secondary" className="text-base ml-13">
-                                Set your price per seat
-                              </Text>
-                            </div>
-
-                            <Form.Item
-                              label={<span className="font-bold text-gray-900">Price Per Seat</span>}
-                              name="totalTripPrice"
-                              rules={[{ required: true, message: "Please enter price" }]}
-                              extra={
-                                <Text type="secondary" className="text-sm">
-                                  Segment pricing is automatically calculated for partial routes
-                                </Text>
-                              }
-                              className="mb-0"
-                            >
-                              <InputNumber
-                                min={1}
-                                max={999}
-                                precision={0}
+                            <div className="mt-6 flex flex-col sm:flex-row items-center gap-3 pt-5 border-t border-gray-200">
+                              <Button
+                                type="text"
                                 size="large"
-                                className="w-full h-14 rounded-none text-base font-bold border-gray-300"
-                                prefix="₹"
-                                placeholder="0"
-                                onChange={(val) => {
-                                  if (typeof val === "number" && val > 999) {
-                                    form.setFieldsValue({ totalTripPrice: 999 });
-                                  }
+                                className="h-14 px-8 w-full sm:w-auto font-bold text-gray-600 hover:bg-gray-100 transition-all"
+                                style={{ borderRadius: '8px' }}
+                                onClick={() => {
+                                  setShowTripForm(false);
+                                  form.resetFields();
+                                  setEditingTripId(null);
+                                  setIsEditingTrip(false);
+                                  setSelectedFrom(null);
+                                  setSelectedTo(null);
                                 }}
-                              />
-                            </Form.Item>
+                              >
+                                Cancel
+                              </Button>
+                              <Button
+                                type="primary"
+                                htmlType="submit"
+                                size="large"
+                                loading={creating}
+                                className="h-14 px-12 w-full sm:w-auto bg-gradient-primary border-none font-bold shadow-lg hover:shadow-xl transition-all hover:scale-[1.01]"
+                                style={{ borderRadius: '8px' }}
+                              >
+                                {isEditingTrip ? "Update Trip" : "Publish Journey"}
+                              </Button>
+                            </div>
+
+                          </Form>
+                        </Card>
+
+                        {/* Right Column: Live Preview Panel */}
+                        <div className="hidden xl:block">
+                          <div className="sticky top-24">
+                            <Title level={5} className="mb-4 text-gray-600">
+                              Live Preview
+                            </Title>
+                            <Card className="rounded-2xl border-none shadow-soft bg-white p-5">
+                              {/* Earnings removed as per request */}
+
+                              <div className="bg-gray-50 rounded-3xl p-4 border border-gray-100">
+                                <Text
+                                  type="secondary"
+                                  className="text-xs block mb-3 font-semibold uppercase tracking-wider text-center"
+                                >
+                                  What travelers see
+                                </Text>
+                                <div className="flex items-center justify-between mb-4">
+                                  <Tag
+                                    color="purple"
+                                    className="rounded-full border-none px-2 py-0.5 font-semibold text-[10px] m-0"
+                                  >
+                                    {form.getFieldValue("departureAt")
+                                      ? dayjs(form.getFieldValue("departureAt")).format(
+                                        "MMM D • h:mm A",
+                                      )
+                                      : "Select date"}
+                                  </Tag>
+                                  <Text strong className="text-lg text-emerald-600">
+                                    ₹{totalPriceWatch || "—"}
+                                  </Text>
+                                </div>
+
+                                <div className="flex items-stretch gap-3">
+                                  <div className="flex flex-col items-center justify-between py-1 w-4">
+                                    <div className="w-2.5 h-2.5 rounded-full border-2 border-primary bg-white z-10"></div>
+                                    <div className="w-0.5 bg-gray-200 flex-1 my-1"></div>
+                                    <div className="w-2.5 h-2.5 rounded-full bg-primary z-10"></div>
+                                  </div>
+                                  <div className="flex-1 flex flex-col justify-between py-0.5 gap-3">
+                                    <div>
+                                      <Text strong className="text-sm text-gray-800 line-clamp-1">
+                                        {form.getFieldValue("fromLocation") || "Origin"}
+                                      </Text>
+                                    </div>
+                                    <div>
+                                      <Text strong className="text-sm text-gray-800 line-clamp-1">
+                                        {form.getFieldValue("toLocation") || "Destination"}
+                                      </Text>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <div className="mt-4 pt-3 border-t border-gray-200 flex items-center justify-between text-xs text-gray-500">
+                                  <div className="flex items-center gap-1.5">
+                                    <User size={14} />
+                                    <span>{seatsWatch || 4} seats</span>
+                                  </div>
+                                  <div className="flex gap-0.5">
+                                    {[...Array(Math.min(Number(seatsWatch) || 4, 10))].map((_, i) => (
+                                      <div key={i} className="w-2 h-2 rounded-full bg-primary/20"></div>
+                                    ))}
+                                  </div>
+                                </div>
+                              </div>
+                            </Card>
                           </div>
                         </div>
 
-                        <div className="mt-12 flex flex-col sm:flex-row items-center gap-4 pt-8 border-t border-gray-200">
-                          <Button
-                            type="text"
-                            size="large"
-                            className="h-14 rounded-none px-8 w-full sm:w-auto font-bold text-gray-600 hover:bg-gray-100 transition-all"
-                            onClick={() => {
-                              setShowTripForm(false);
-                              form.resetFields();
-                              setEditingTripId(null);
-                              setIsEditingTrip(false);
-                              setSelectedFrom(null);
-                              setSelectedTo(null);
-                            }}
-                          >
-                            Cancel
-                          </Button>
-                          <Button
-                            type="primary"
-                            htmlType="submit"
-                            size="large"
-                            loading={creating}
-                            className="h-14 rounded-none px-12 w-full sm:w-auto bg-gradient-primary border-none font-bold shadow-lg hover:shadow-xl transition-all hover:scale-[1.01]"
-                          >
-                            {isEditingTrip ? "Update Trip" : "Publish Journey"}
-                          </Button>
-                        </div>
-
-                      </Form>
-                    </Card>
-
-                    {/* Right Column: Live Preview Panel */}
-                    <div className="hidden xl:block">
-                      <div className="sticky top-24">
-                        <Title level={5} className="mb-4 text-gray-600">
-                          Live Preview
-                        </Title>
-                        <Card className="rounded-2xl border-none shadow-soft bg-white p-5">
-                          {/* Earnings removed as per request */}
-
-                          <div className="bg-gray-50 rounded-3xl p-4 border border-gray-100">
+                        {/* Mobile Preview Drawer */}
+                        <Drawer
+                          title="Live Preview"
+                          placement="bottom"
+                          onClose={() => setMobilePreviewOpen(false)}
+                          open={mobilePreviewOpen}
+                          height="auto"
+                          className="rounded-t-3xl"
+                          styles={{ body: { padding: "20px" } }}
+                        >
+                          <div className="bg-gray-50 rounded-2xl p-5 border border-gray-100 shadow-sm mb-4">
                             <Text
                               type="secondary"
-                              className="text-xs block mb-3 font-semibold uppercase tracking-wider text-center"
+                              className="text-xs block mb-4 font-semibold uppercase tracking-wider text-center"
                             >
                               What travelers see
                             </Text>
-                            <div className="flex items-center justify-between mb-4">
+                            <div className="flex items-center justify-between mb-5">
                               <Tag
                                 color="purple"
-                                className="rounded-full border-none px-2 py-0.5 font-semibold text-[10px] m-0"
+                                className="rounded-full border-none px-3 py-1 font-semibold text-xs m-0"
                               >
                                 {form.getFieldValue("departureAt")
-                                  ? dayjs(form.getFieldValue("departureAt")).format(
-                                      "MMM D • h:mm A",
-                                    )
+                                  ? dayjs(form.getFieldValue("departureAt")).format("MMM D • h:mm A")
                                   : "Select date"}
                               </Tag>
-                              <Text strong className="text-lg text-emerald-600">
+                              <Text strong className="text-xl text-emerald-600">
                                 ₹{totalPriceWatch || "—"}
                               </Text>
                             </div>
 
-                            <div className="flex items-stretch gap-3">
-                              <div className="flex flex-col items-center justify-between py-1 w-4">
-                                <div className="w-2.5 h-2.5 rounded-full border-2 border-primary bg-white z-10"></div>
+                            <div className="flex items-stretch gap-4">
+                              <div className="flex flex-col items-center justify-between py-1 w-5">
+                                <div className="w-3 h-3 rounded-full border-2 border-primary bg-white z-10"></div>
                                 <div className="w-0.5 bg-gray-200 flex-1 my-1"></div>
-                                <div className="w-2.5 h-2.5 rounded-full bg-primary z-10"></div>
+                                <div className="w-3 h-3 rounded-full bg-primary z-10"></div>
                               </div>
-                              <div className="flex-1 flex flex-col justify-between py-0.5 gap-3">
+                              <div className="flex-1 flex flex-col justify-between py-0.5 gap-4">
                                 <div>
-                                  <Text strong className="text-sm text-gray-800 line-clamp-1">
+                                  <Text strong className="text-base text-gray-800 line-clamp-1">
                                     {form.getFieldValue("fromLocation") || "Origin"}
                                   </Text>
                                 </div>
                                 <div>
-                                  <Text strong className="text-sm text-gray-800 line-clamp-1">
+                                  <Text strong className="text-base text-gray-800 line-clamp-1">
                                     {form.getFieldValue("toLocation") || "Destination"}
                                   </Text>
                                 </div>
                               </div>
                             </div>
 
-                            <div className="mt-4 pt-3 border-t border-gray-200 flex items-center justify-between text-xs text-gray-500">
+                            <div className="mt-5 pt-4 border-t border-gray-200 flex items-center justify-between text-sm text-gray-500">
                               <div className="flex items-center gap-1.5">
-                                <User size={14} />
+                                <User size={16} />
                                 <span>{seatsWatch || 4} seats</span>
                               </div>
-                              <div className="flex gap-0.5">
+                              <div className="flex gap-1">
                                 {[...Array(Math.min(Number(seatsWatch) || 4, 10))].map((_, i) => (
-                                  <div key={i} className="w-2 h-2 rounded-full bg-primary/20"></div>
+                                  <div key={i} className="w-2.5 h-2.5 rounded-full bg-primary/20"></div>
                                 ))}
                               </div>
                             </div>
                           </div>
-                        </Card>
-                      </div>
-                    </div>
-
-                    {/* Mobile Preview Drawer */}
-                    <Drawer
-                      title="Live Preview"
-                      placement="bottom"
-                      onClose={() => setMobilePreviewOpen(false)}
-                      open={mobilePreviewOpen}
-                      height="auto"
-                      className="rounded-t-3xl"
-                      styles={{ body: { padding: "20px" } }}
-                    >
-                      <div className="bg-gray-50 rounded-2xl p-5 border border-gray-100 shadow-sm mb-4">
-                        <Text
-                          type="secondary"
-                          className="text-xs block mb-4 font-semibold uppercase tracking-wider text-center"
-                        >
-                          What travelers see
-                        </Text>
-                        <div className="flex items-center justify-between mb-5">
-                          <Tag
-                            color="purple"
-                            className="rounded-full border-none px-3 py-1 font-semibold text-xs m-0"
+                          <Button
+                            type="primary"
+                            block
+                            size="large"
+                            className="h-14 rounded-3xl bg-gradient-primary border-none font-bold shadow-glow"
+                            onClick={() => {
+                              setMobilePreviewOpen(false);
+                              form.submit();
+                            }}
+                            loading={creating}
                           >
-                            {form.getFieldValue("departureAt")
-                              ? dayjs(form.getFieldValue("departureAt")).format("MMM D • h:mm A")
-                              : "Select date"}
-                          </Tag>
-                          <Text strong className="text-xl text-emerald-600">
-                            ₹{totalPriceWatch || "—"}
-                          </Text>
-                        </div>
-
-                        <div className="flex items-stretch gap-4">
-                          <div className="flex flex-col items-center justify-between py-1 w-5">
-                            <div className="w-3 h-3 rounded-full border-2 border-primary bg-white z-10"></div>
-                            <div className="w-0.5 bg-gray-200 flex-1 my-1"></div>
-                            <div className="w-3 h-3 rounded-full bg-primary z-10"></div>
-                          </div>
-                          <div className="flex-1 flex flex-col justify-between py-0.5 gap-4">
-                            <div>
-                              <Text strong className="text-base text-gray-800 line-clamp-1">
-                                {form.getFieldValue("fromLocation") || "Origin"}
-                              </Text>
-                            </div>
-                            <div>
-                              <Text strong className="text-base text-gray-800 line-clamp-1">
-                                {form.getFieldValue("toLocation") || "Destination"}
-                              </Text>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="mt-5 pt-4 border-t border-gray-200 flex items-center justify-between text-sm text-gray-500">
-                          <div className="flex items-center gap-1.5">
-                            <User size={16} />
-                            <span>{seatsWatch || 4} seats</span>
-                          </div>
-                          <div className="flex gap-1">
-                            {[...Array(Math.min(Number(seatsWatch) || 4, 10))].map((_, i) => (
-                              <div key={i} className="w-2.5 h-2.5 rounded-full bg-primary/20"></div>
-                            ))}
-                          </div>
-                        </div>
+                            Publish Now
+                          </Button>
+                        </Drawer>
                       </div>
-                      <Button
-                        type="primary"
-                        block
-                        size="large"
-                        className="h-14 rounded-3xl bg-gradient-primary border-none font-bold shadow-glow"
-                        onClick={() => {
-                          setMobilePreviewOpen(false);
-                          form.submit();
-                        }}
-                        loading={creating}
-                      >
-                        Publish Now
-                      </Button>
-                    </Drawer>
-                  </div>
                     </>
                   )}
                 </div>
@@ -2517,7 +2491,7 @@ function DriverDashboardPage() {
                 </div>
               )}
 
-              {/* ── DRIVERS MODULE ── */}
+              {/* — DRIVERS MODULE — */}
               {activeModule === "drivers" && (
                 <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
                   <div className="flex items-center justify-between">
@@ -2712,7 +2686,7 @@ function DriverDashboardPage() {
                 </div>
               )}
 
-              {/* ── VEHICLE FLEET MODULE ── */}
+              {/* — VEHICLE FLEET MODULE — */}
               {activeModule === "settings" && (
                 <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
                   <div className="flex items-center justify-between">
@@ -2835,7 +2809,7 @@ function DriverDashboardPage() {
                   )}
                 </div>
               )}
-              {/* ── CUSTOMER HUB MODULE ── */}
+              {/* — CUSTOMER HUB MODULE — */}
               {activeModule === "customers" && (
                 <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
                   <div className="flex flex-col gap-2">
@@ -3070,11 +3044,10 @@ function DriverDashboardPage() {
                             <button
                               key={val}
                               onClick={() => setRatingValue(val)}
-                              className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all ${
-                                ratingValue >= val
-                                  ? "bg-amber-400 text-white shadow-glow scale-110"
-                                  : "bg-gray-100 text-gray-300 hover:bg-gray-200"
-                              }`}
+                              className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all ${ratingValue >= val
+                                ? "bg-amber-400 text-white shadow-glow scale-110"
+                                : "bg-gray-100 text-gray-300 hover:bg-gray-200"
+                                }`}
                             >
                               <Star
                                 size={28}
@@ -3144,7 +3117,7 @@ function DriverDashboardPage() {
                 </div>
               )}
 
-              {/* ── ONBOARDING MODULE ── */}
+              {/* — ONBOARDING MODULE — */}
               {activeModule === "onboarding" && (
                 <div className="max-w-2xl mx-auto space-y-10 animate-in fade-in slide-in-from-right-4 duration-500">
                   <div className="text-center">
@@ -3167,17 +3140,17 @@ function DriverDashboardPage() {
                         try {
                           const regUp = regFileList[0]?.originFileObj
                             ? await storage.createFile(
-                                appwriteConfig.driverDocsBucketId,
-                                ID.unique(),
-                                regFileList[0].originFileObj as File,
-                              )
+                              appwriteConfig.driverDocsBucketId,
+                              ID.unique(),
+                              regFileList[0].originFileObj as File,
+                            )
                             : null;
                           const insUp = insFileList[0]?.originFileObj
                             ? await storage.createFile(
-                                appwriteConfig.driverDocsBucketId,
-                                ID.unique(),
-                                insFileList[0].originFileObj as File,
-                              )
+                              appwriteConfig.driverDocsBucketId,
+                              ID.unique(),
+                              insFileList[0].originFileObj as File,
+                            )
                             : null;
 
                           await upsertDriverProfile({
@@ -3830,7 +3803,7 @@ function DriverDashboardPage() {
                         <Input
                           placeholder="Search city"
                           size="large"
-                          className="h-12 rounded-2xl"
+                          style={{ borderRadius: '8px', height: '48px' }}
                         />
                       </AutoComplete>
                     </Form.Item>
@@ -3855,7 +3828,7 @@ function DriverDashboardPage() {
                         <Input
                           placeholder="Search city"
                           size="large"
-                          className="h-12 rounded-2xl"
+                          style={{ borderRadius: '8px', height: '48px' }}
                         />
                       </AutoComplete>
                     </Form.Item>
@@ -3878,7 +3851,7 @@ function DriverDashboardPage() {
                     <DatePicker
                       showTime={{ format: "h:mm A", use12Hours: true, minuteStep: 15 }}
                       size="large"
-                      className="w-full h-12 rounded-2xl"
+                      style={{ borderRadius: '8px', height: '48px', width: '100%' }}
                       format="YYYY-MM-DD h:mm A"
                       placement="bottomLeft"
                       popupClassName="trip-publish-datepicker"
@@ -3905,6 +3878,7 @@ function DriverDashboardPage() {
                         size="large"
                         placeholder="Select vehicle"
                         className="h-12 w-full"
+                        style={{ borderRadius: '8px' }}
                         options={[
                           ...vehicles.map((v) => ({
                             label: `${v.modelName} · ${v.plateNumber}`,
@@ -3944,6 +3918,7 @@ function DriverDashboardPage() {
                         size="large"
                         placeholder="Select driver"
                         className="h-12 w-full"
+                        style={{ borderRadius: '8px' }}
                         options={[
                           {
                             label: `You (${user?.name?.split(" ")[0] || "Owner"})`,
@@ -3984,13 +3959,14 @@ function DriverDashboardPage() {
                     <InputNumber
                       prefix="₹"
                       min={0}
-                      max={999}
+                      max={9999}
                       precision={0}
                       size="large"
-                      className="w-full h-12 rounded-2xl"
+                      className="w-full h-12"
+                      style={{ borderRadius: '8px', height: '48px', width: '100%' }}
                       onChange={(val) => {
-                        if (typeof val === "number" && val > 999) {
-                          form.setFieldsValue({ totalTripPrice: 999 });
+                        if (typeof val === "number" && val > 9999) {
+                          form.setFieldsValue({ totalTripPrice: 9999 });
                         }
                       }}
                     />
@@ -4002,7 +3978,7 @@ function DriverDashboardPage() {
                   <Button
                     htmlType="button"
                     size="large"
-                    className="flex-1 rounded-2xl"
+                    className="flex-1 rounded-lg"
                     onClick={() => {
                       setPublishModalView("trips");
                       form.resetFields();
@@ -4016,7 +3992,7 @@ function DriverDashboardPage() {
                     htmlType="submit"
                     type="primary"
                     size="large"
-                    className="flex-1 bg-gradient-primary border-none rounded-2xl font-semibold"
+                    className="flex-1 bg-gradient-primary border-none rounded-lg font-semibold"
                   >
                     {isEditingTrip ? "Update Trip" : "Publish Trip"}
                   </Button>

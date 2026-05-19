@@ -1,7 +1,17 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import logo from "@/assets/logo.png";
 import { useState } from "react";
-import { Menu, X, Sparkles, LogOut, User as UserIcon, LayoutDashboard, Shield } from "lucide-react";
+import {
+  Menu,
+  X,
+  LogOut,
+  User as UserIcon,
+  LayoutDashboard,
+  Shield,
+  Ticket,
+  Home,
+  ChevronRight,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import {
@@ -45,16 +55,40 @@ export function SiteHeader() {
           </Link>
 
           <div className="hidden md:flex items-center gap-2">
+            {/* My trips — always shown; routes to traveler login when signed out */}
+            <Button asChild variant="ghost" className="rounded-3xl">
+              {user ? (
+                <Link to="/trips">
+                  <Ticket className="h-4 w-4 mr-2" />
+                  My trips
+                </Link>
+              ) : (
+                <Link to="/members" search={memberSearch}>
+                  <Ticket className="h-4 w-4 mr-2" />
+                  My trips
+                </Link>
+              )}
+            </Button>
+
+            {/* Dashboard — hidden for members; routes to host login when signed out */}
+            {!user ? (
+              <Button asChild variant="hero" className="rounded-3xl">
+                <Link to="/auth">
+                  <LayoutDashboard className="h-4 w-4 mr-2" />
+                  Host dashboard
+                </Link>
+              </Button>
+            ) : dashboardPath ? (
+              <Button asChild variant="hero" className="rounded-3xl">
+                <Link to={dashboardPath}>
+                  <LayoutDashboard className="h-4 w-4 mr-2" />
+                  {isAdmin ? "Admin" : "Host dashboard"}
+                </Link>
+              </Button>
+            ) : null}
+
             {user ? (
               <>
-                {dashboardPath && (
-                  <Button asChild variant="hero" className="rounded-3xl">
-                    <Link to={dashboardPath}>
-                      <LayoutDashboard className="h-4 w-4 mr-2" />
-                      Dashboard
-                    </Link>
-                  </Button>
-                )}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button variant="ghost" className="rounded-3xl h-10 px-4 gap-2">
@@ -107,20 +141,9 @@ export function SiteHeader() {
                 </DropdownMenu>
               </>
             ) : (
-              <>
-                <Button
-                  asChild
-                  variant="outline"
-                  className="rounded-3xl border-border/80 bg-card/40"
-                >
-                  {/* <Link to="/members" search={memberSearch}>
-                    Become a member
-                  </Link> */}
-                </Button>
-                <Button asChild variant="ghost" className="rounded-3xl">
-                  <Link to="/auth">Login</Link>
-                </Button>
-              </>
+              <Button asChild variant="ghost" className="rounded-3xl">
+                <Link to="/auth">Login</Link>
+              </Button>
             )}
           </div>
 
@@ -135,79 +158,145 @@ export function SiteHeader() {
       </div>
 
       {open && (
-        <div className="fixed inset-0 z-[60] bg-background/95 backdrop-blur-2xl md:hidden p-6 animate-in fade-in zoom-in-95 duration-300">
-          <div className="flex justify-end mb-8">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setOpen(false)}
-              className="rounded-full"
-            >
-              <X className="h-8 w-8" />
-            </Button>
-          </div>
-          <div className="flex flex-col gap-6 text-center">
-            {navLinks.map((l) => (
+        <div className="fixed inset-0 z-[60] md:hidden">
+          {/* Backdrop */}
+          <button
+            aria-label="Close menu"
+            onClick={() => setOpen(false)}
+            className="absolute inset-0 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200"
+          />
+
+          {/* Panel */}
+          <div className="absolute inset-x-0 top-0 bg-background rounded-b-3xl shadow-2xl border-b border-border/40 px-5 pt-5 pb-6 animate-in slide-in-from-top duration-300">
+            <div className="flex items-center justify-between mb-5">
               <Link
-                key={l.to}
-                to={l.to}
+                to="/"
                 onClick={() => setOpen(false)}
-                className="text-3xl font-black tracking-tighter uppercase hover:text-primary transition-colors"
+                className="flex items-center gap-2"
               >
-                {l.label}
+                <img src={logo} alt="Coolpool" className="h-12 w-auto object-contain" />
               </Link>
-            ))}
-            <div className="h-px bg-border/60 my-2" />
-            {user ? (
-              <>
-                <p className="text-sm text-muted-foreground px-2">
-                  Signed in as{" "}
-                  <span className="font-semibold text-foreground">{getUserDisplayName(user)}</span>
-                </p>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setOpen(false);
-                    setProfileOpen(true);
-                  }}
-                  className="text-2xl font-bold hover:text-primary transition-colors"
-                >
-                  My profile
-                </button>
-                {dashboardPath && (
-                  <Link
-                    to={dashboardPath}
-                    onClick={() => setOpen(false)}
-                    className="text-2xl font-bold hover:text-primary transition-colors"
-                  >
-                    Dashboard
-                  </Link>
-                )}
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setOpen(false)}
+                className="rounded-full"
+              >
+                <X className="h-6 w-6" />
+              </Button>
+            </div>
+
+            {user && (
+              <div className="flex items-center gap-3 rounded-2xl bg-muted/50 p-3 mb-4">
+                <div className="h-11 w-11 rounded-2xl bg-gradient-primary flex items-center justify-center text-base font-bold text-primary-foreground shrink-0">
+                  {getUserInitial(user)}
+                </div>
+                <div className="min-w-0">
+                  <p className="font-bold text-sm truncate">{getUserDisplayName(user)}</p>
+                  <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+                </div>
+              </div>
+            )}
+
+            <nav className="flex flex-col gap-1">
+              {navLinks.map((l) => (
                 <Link
-                  to="/trips"
+                  key={l.to}
+                  to={l.to}
                   onClick={() => setOpen(false)}
-                  className="text-2xl font-bold hover:text-primary transition-colors"
+                  className="flex items-center gap-3 rounded-2xl px-4 py-3.5 text-base font-semibold hover:bg-muted active:scale-[0.98] transition-all"
                 >
-                  My trips
+                  <Home className="h-5 w-5 text-muted-foreground shrink-0" />
+                  <span className="flex-1">{l.label}</span>
+                  <ChevronRight className="h-4 w-4 text-muted-foreground/60" />
                 </Link>
-                <button
-                  onClick={() => {
-                    setOpen(false);
-                    signOut();
-                  }}
-                  className="text-2xl font-bold text-destructive"
-                >
-                  Sign out
-                </button>
-              </>
-            ) : (
-              <Link
-                to="/auth"
-                onClick={() => setOpen(false)}
-                className="text-2xl font-bold hover:text-primary transition-colors"
+              ))}
+
+              {user ? (
+                <>
+                  <Link
+                    to="/trips"
+                    onClick={() => setOpen(false)}
+                    className="flex items-center gap-3 rounded-2xl px-4 py-3.5 text-base font-semibold hover:bg-muted active:scale-[0.98] transition-all"
+                  >
+                    <Ticket className="h-5 w-5 text-muted-foreground shrink-0" />
+                    <span className="flex-1">My trips</span>
+                    <ChevronRight className="h-4 w-4 text-muted-foreground/60" />
+                  </Link>
+                  {dashboardPath && (
+                    <Link
+                      to={dashboardPath}
+                      onClick={() => setOpen(false)}
+                      className="flex items-center gap-3 rounded-2xl px-4 py-3.5 text-base font-semibold hover:bg-muted active:scale-[0.98] transition-all"
+                    >
+                      {isAdmin ? (
+                        <Shield className="h-5 w-5 text-muted-foreground shrink-0" />
+                      ) : (
+                        <LayoutDashboard className="h-5 w-5 text-muted-foreground shrink-0" />
+                      )}
+                      <span className="flex-1">
+                        {isAdmin ? "Admin dashboard" : "Host dashboard"}
+                      </span>
+                      <ChevronRight className="h-4 w-4 text-muted-foreground/60" />
+                    </Link>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setOpen(false);
+                      setProfileOpen(true);
+                    }}
+                    className="flex items-center gap-3 rounded-2xl px-4 py-3.5 text-base font-semibold hover:bg-muted active:scale-[0.98] transition-all text-left"
+                  >
+                    <UserIcon className="h-5 w-5 text-muted-foreground shrink-0" />
+                    <span className="flex-1">My profile</span>
+                    <ChevronRight className="h-4 w-4 text-muted-foreground/60" />
+                  </button>
+                </>
+              ) : (
+                <>
+                  <Link
+                    to="/members"
+                    search={memberSearch}
+                    onClick={() => setOpen(false)}
+                    className="flex items-center gap-3 rounded-2xl px-4 py-3.5 text-base font-semibold hover:bg-muted active:scale-[0.98] transition-all"
+                  >
+                    <Ticket className="h-5 w-5 text-muted-foreground shrink-0" />
+                    <span className="flex-1">My trips</span>
+                    <ChevronRight className="h-4 w-4 text-muted-foreground/60" />
+                  </Link>
+                  <Link
+                    to="/auth"
+                    onClick={() => setOpen(false)}
+                    className="flex items-center gap-3 rounded-2xl px-4 py-3.5 text-base font-semibold hover:bg-muted active:scale-[0.98] transition-all"
+                  >
+                    <LayoutDashboard className="h-5 w-5 text-muted-foreground shrink-0" />
+                    <span className="flex-1">Host dashboard</span>
+                    <ChevronRight className="h-4 w-4 text-muted-foreground/60" />
+                  </Link>
+                </>
+              )}
+            </nav>
+
+            <div className="h-px bg-border/60 my-4" />
+
+            {user ? (
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setOpen(false);
+                  signOut();
+                }}
+                className="w-full rounded-2xl h-12 text-destructive border-destructive/30 hover:bg-destructive/5 hover:text-destructive"
               >
-                Login / Register
-              </Link>
+                <LogOut className="h-4 w-4 mr-2" /> Sign out
+              </Button>
+            ) : (
+              <Button asChild variant="hero" className="w-full rounded-2xl h-12 text-base">
+                <Link to="/auth" onClick={() => setOpen(false)}>
+                  Login / Register
+                </Link>
+              </Button>
             )}
           </div>
         </div>

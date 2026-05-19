@@ -50,7 +50,7 @@ function TripsPage() {
         : "Once you book a ride, it'll show up here.";
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col bg-gradient-to-br from-emerald-50 via-green-50 to-emerald-100 bg-fixed">
       <SiteHeader />
       <main className="container mx-auto px-4 py-16 max-w-5xl flex-1">
         <Card className="p-12 rounded-3xl text-center shadow-card border-border/60 bg-gradient-soft">

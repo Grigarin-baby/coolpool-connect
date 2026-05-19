@@ -47,11 +47,6 @@ import {
   ArrowRight,
   ArrowLeftRight,
   ArrowUpDown,
-  Calendar,
-  MapPin,
-  Navigation,
-  Users,
-  Clock,
   Star,
   ShieldCheck,
   ChevronRight,
@@ -589,72 +584,62 @@ export function TripSearchForm({ variant, id }: { variant: "landing" | "page"; i
             <div className="hidden lg:flex flex-col divide-y divide-gray-100">
               {/* Pickup */}
               <div
-                className="flex items-start gap-4 px-6 py-6 cursor-pointer hover:bg-gray-50/60 transition-colors group"
+                className="px-6 py-4 cursor-pointer hover:bg-gray-50/60 transition-colors group"
                 onClick={() => !locating && locateUser()}
               >
-                <div className="shrink-0 w-12 h-12 rounded-xl bg-primary/8 flex items-center justify-center text-primary group-hover:bg-primary/15 transition-colors mt-1">
-                  {locating ? (
-                    <div className="h-5 w-5 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
-                  ) : (
-                    <Navigation size={24} strokeWidth={2} />
+                <p className={cn(TRIP_SEARCH_LABEL, "flex items-center gap-2")}>
+                  Pickup
+                  {locating && (
+                    <span className="h-3 w-3 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
                   )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className={TRIP_SEARCH_LABEL}>Pickup</p>
-                  <Form.Item
-                    name="from"
-                    rules={[{ required: true }]}
-                    className="trip-search-form-item"
-                  >
-                    <AutoComplete
-                      {...TRIP_SEARCH_AC_POPUP}
-                      options={fromOptions}
-                      onSearch={(t) => searchPlaces(t, "from")}
-                      onSelect={closeKeyboard}
-                      placeholder="City or area"
-                      variant="borderless"
-                      className={TRIP_SEARCH_INPUT}
-                    />
-                  </Form.Item>
-                </div>
+                </p>
+                <Form.Item
+                  name="from"
+                  rules={[{ required: true }]}
+                  className="trip-search-form-item"
+                >
+                  <AutoComplete
+                    {...TRIP_SEARCH_AC_POPUP}
+                    options={fromOptions}
+                    onSearch={(t) => searchPlaces(t, "from")}
+                    onSelect={closeKeyboard}
+                    placeholder="City or area"
+                    variant="borderless"
+                    className={TRIP_SEARCH_INPUT}
+                  />
+                </Form.Item>
               </div>
 
               {/* Destination */}
-              <div className="relative flex items-start gap-4 px-6 py-6 hover:bg-gray-50/60 transition-colors group">
+              <div className="relative px-6 py-4 hover:bg-gray-50/60 transition-colors group">
                 <button
                   type="button"
                   onClick={swapLocations}
                   aria-label="Swap pickup and destination"
-                  className="absolute right-6 -top-7 z-10 flex items-center justify-center h-12 w-12 rounded-full bg-white border border-gray-200 text-gray-400 shadow-sm hover:text-primary hover:border-primary/40 active:scale-90 transition-all"
+                  className="absolute right-6 -top-6 z-10 flex items-center justify-center h-11 w-11 rounded-full bg-white border border-gray-200 text-gray-400 shadow-sm hover:text-primary hover:border-primary/40 active:scale-90 transition-all"
                 >
-                  <ArrowUpDown size={20} />
+                  <ArrowUpDown size={18} />
                 </button>
-                <div className="shrink-0 w-12 h-12 rounded-xl bg-rose-50 flex items-center justify-center text-rose-400 group-hover:bg-rose-100 transition-colors mt-1">
-                  <MapPin size={24} strokeWidth={2} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className={TRIP_SEARCH_LABEL}>Destination</p>
-                  <Form.Item
-                    name="to"
-                    rules={[{ required: true }]}
-                    className="trip-search-form-item"
-                  >
-                    <AutoComplete
-                      {...TRIP_SEARCH_AC_POPUP}
-                      options={toOptions}
-                      onSearch={(t) => searchPlaces(t, "to")}
-                      onSelect={closeKeyboard}
-                      placeholder="Where to?"
-                      variant="borderless"
-                      className={TRIP_SEARCH_INPUT}
-                    />
-                  </Form.Item>
-                </div>
+                <p className={TRIP_SEARCH_LABEL}>Destination</p>
+                <Form.Item
+                  name="to"
+                  rules={[{ required: true }]}
+                  className="trip-search-form-item"
+                >
+                  <AutoComplete
+                    {...TRIP_SEARCH_AC_POPUP}
+                    options={toOptions}
+                    onSearch={(t) => searchPlaces(t, "to")}
+                    onSelect={closeKeyboard}
+                    placeholder="Where to?"
+                    variant="borderless"
+                    className={TRIP_SEARCH_INPUT}
+                  />
+                </Form.Item>
               </div>
 
               {/* Date section */}
-              <div className="px-6 py-6">
-                {/* <p className={cn(TRIP_SEARCH_LABEL, "mb-4")}>When are you travsselling?</p> */}
+              <div className="px-6 py-4">
                 <div className="flex gap-3">
                   <button
                     type="button"
@@ -698,78 +683,65 @@ export function TripSearchForm({ variant, id }: { variant: "landing" | "page"; i
           <ConfigProvider theme={SEARCH_INPUT_THEME}>
             <div className="lg:hidden">
               {/* Pickup row */}
-              <div className="flex items-start gap-4 px-5 pt-5 pb-4">
-                <div className="shrink-0 w-10 h-10 rounded-lg bg-primary/8 flex items-center justify-center text-primary mt-1">
-                  {locating ? (
-                    <div className="h-4 w-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
-                  ) : (
-                    <Navigation size={20} strokeWidth={2} />
+              <div
+                className="px-5 pt-4 pb-3 cursor-pointer"
+                onClick={() => !locating && locateUser()}
+              >
+                <p className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-1 flex items-center gap-2">
+                  Pickup
+                  {locating && (
+                    <span className="h-3 w-3 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
                   )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-1">
-                    Pickup
-                  </p>
-                  <Form.Item
-                    name="from"
-                    rules={[{ required: true }]}
-                    className="trip-search-form-item"
-                  >
-                    <AutoComplete
-                      {...TRIP_SEARCH_AC_POPUP}
-                      options={fromOptions}
-                      onSearch={(t) => searchPlaces(t, "from")}
-                      onSelect={closeKeyboard}
-                      placeholder="City"
-                      variant="borderless"
-                      className={TRIP_SEARCH_INPUT}
-                    />
-                  </Form.Item>
-                </div>
+                </p>
+                <Form.Item
+                  name="from"
+                  rules={[{ required: true }]}
+                  className="trip-search-form-item"
+                >
+                  <AutoComplete
+                    {...TRIP_SEARCH_AC_POPUP}
+                    options={fromOptions}
+                    onSearch={(t) => searchPlaces(t, "from")}
+                    onSelect={closeKeyboard}
+                    placeholder="City"
+                    variant="borderless"
+                    className={TRIP_SEARCH_INPUT}
+                  />
+                </Form.Item>
               </div>
 
-              {/* Swap connector */}
-              <div className="relative flex items-center px-5 -my-1">
-                <div className="ml-5 mr-2 w-px h-4 bg-gray-200" />
+              {/* Destination row */}
+              <div className="relative border-t border-gray-100 px-5 pt-3 pb-3">
                 <button
                   type="button"
                   onClick={swapLocations}
                   aria-label="Swap pickup and destination"
-                  className="absolute right-5 -translate-y-0 flex items-center justify-center h-10 w-10 rounded-full bg-white border border-gray-200 text-gray-400 shadow-sm hover:text-primary hover:border-primary/40 active:scale-90 transition-all"
+                  className="absolute right-5 -top-5 z-10 flex items-center justify-center h-10 w-10 rounded-full bg-white border border-gray-200 text-gray-400 shadow-sm hover:text-primary hover:border-primary/40 active:scale-90 transition-all"
                 >
                   <ArrowUpDown size={18} />
                 </button>
-              </div>
-
-              {/* Destination row */}
-              <div className="flex items-start gap-4 px-5 py-4">
-                <div className="shrink-0 w-10 h-10 rounded-lg bg-rose-50 flex items-center justify-center text-rose-400 mt-1">
-                  <MapPin size={20} strokeWidth={2} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-1">
-                    Destination
-                  </p>
-                  <Form.Item
-                    name="to"
-                    rules={[{ required: true }]}
-                    className="trip-search-form-item"
-                  >
-                    <AutoComplete
-                      {...TRIP_SEARCH_AC_POPUP}
-                      options={toOptions}
-                      onSearch={(t) => searchPlaces(t, "to")}
-                      onSelect={closeKeyboard}
-                      placeholder="Where to?"
-                      variant="borderless"
-                      className={TRIP_SEARCH_INPUT}
-                    />
-                  </Form.Item>
-                </div>
+                <p className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-1">
+                  Destination
+                </p>
+                <Form.Item
+                  name="to"
+                  rules={[{ required: true }]}
+                  className="trip-search-form-item"
+                >
+                  <AutoComplete
+                    {...TRIP_SEARCH_AC_POPUP}
+                    options={toOptions}
+                    onSearch={(t) => searchPlaces(t, "to")}
+                    onSelect={closeKeyboard}
+                    placeholder="Where to?"
+                    variant="borderless"
+                    className={TRIP_SEARCH_INPUT}
+                  />
+                </Form.Item>
               </div>
 
               {/* Date section */}
-              <div className="border-t border-gray-100 px-5 pt-4 pb-5">
+              <div className="border-t border-gray-100 px-5 pt-3 pb-4">
                 <p className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-3">
                   When are you travelling?
                 </p>

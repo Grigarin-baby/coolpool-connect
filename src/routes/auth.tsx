@@ -1,16 +1,17 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import logo from "@/assets/logo.png";
-import { useState, type FormEvent, useEffect } from "react";
-import { Sparkles, Loader2, Shield, Eye, EyeOff } from "lucide-react";
+import { useState, type FormEvent, useEffect, useRef } from "react";
+import { Sparkles, Loader2, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
-import { cn } from "@/lib/utils";
 import { GoogleLoginButton } from "@/components/GoogleLoginButton";
+import { PhoneOtpLogin } from "@/components/PhoneOtpLogin";
 
 export const Route = createFileRoute("/auth")({
   head: () => ({
@@ -21,97 +22,162 @@ export const Route = createFileRoute("/auth")({
         content: "Sign in to manage trips, onboarding, and dashboards.",
       },
     ],
+    links: [
+      { rel: "preconnect", href: "https://fonts.googleapis.com" },
+      {
+        rel: "preconnect",
+        href: "https://fonts.gstatic.com",
+        crossOrigin: "anonymous",
+      },
+      {
+        rel: "stylesheet",
+        href: "https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;500;600;700&display=swap",
+      },
+    ],
   }),
   component: AuthPage,
 });
 
-function PasswordField({
+/** 4-digit PIN entered as separate boxes (digits only). */
+function PinField({
   id,
   value,
   onChange,
-  autoComplete,
-  required,
-  minLength,
-  placeholder,
 }: {
   id: string;
   value: string;
   onChange: (v: string) => void;
-  autoComplete?: string;
-  required?: boolean;
-  minLength?: number;
-  placeholder?: string;
 }) {
-  const [visible, setVisible] = useState(false);
-
   return (
-    <div className="relative">
+    <InputOTP
+      id={id}
+      maxLength={4}
+      value={value}
+      onChange={(v) => onChange(v.replace(/\D/g, ""))}
+      inputMode="numeric"
+      containerClassName="w-full"
+    >
+      <InputOTPGroup className="grid w-full grid-cols-4 gap-3">
+        {[0, 1, 2, 3].map((i) => (
+          <InputOTPSlot
+            key={i}
+            index={i}
+            className="h-14 w-full rounded-2xl border border-border/80 bg-background/80 text-2xl font-bold first:rounded-2xl last:rounded-2xl"
+          />
+        ))}
+      </InputOTPGroup>
+    </InputOTP>
+  );
+}
+
+function PhoneField({
+  id,
+  number,
+  onNumberChange,
+}: {
+  id: string;
+  number: string;
+  onNumberChange: (v: string) => void;
+}) {
+  return (
+    <div className="space-y-2">
+      <Label htmlFor={id} className="text-base font-medium">
+        Phone number
+      </Label>
       <Input
         id={id}
-        type={visible ? "text" : "password"}
-        autoComplete={autoComplete}
-        required={required}
-        minLength={minLength}
-        value={value}
-        placeholder={placeholder}
-        onChange={(e) => onChange(e.target.value)}
-        className={cn(
-          "h-12 rounded-3xl border-border/80 bg-background/80 pr-10 form-control-lg placeholder:text-sm",
-          "[&::-ms-reveal]:hidden [&::-ms-clear]:hidden",
-        )}
+        type="tel"
+        inputMode="numeric"
+        autoComplete="tel-national"
+        required
+        value={number}
+        placeholder="9876543210"
+        onChange={(e) => onNumberChange(e.target.value)}
+        style={{ fontSize: "2rem", lineHeight: 1.1, letterSpacing: "0.725rem" }}
+        className="h-16 w-full rounded-3xl border-border/80 bg-background/80 font-bold placeholder:text-muted-foreground/40"
       />
-      <button
-        type="button"
-        className="absolute right-0 top-0 z-10 flex h-11 w-10 items-center justify-center rounded-3xl text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background"
-        aria-label={visible ? "Hide password" : "Show password"}
-        aria-pressed={visible}
-        onClick={() => setVisible((v) => !v)}
-      >
-        {visible ? (
-          <EyeOff className="h-4 w-4 shrink-0" aria-hidden />
-        ) : (
-          <Eye className="h-4 w-4 shrink-0" aria-hidden />
-        )}
-      </button>
     </div>
   );
 }
 
 function AuthPage() {
   const navigate = useNavigate();
-  const { user, loading, roles, signIn, signUp, isAdmin, isDriver, becomeRideHost } = useAuth();
+  const {
+    user,
+    loading,
+    roles,
+    signInWithPhonePassword,
+    signUpWithPhonePassword,
+    isAdmin,
+    isDriver,
+    becomeRideHost,
+  } = useAuth();
   const [busy, setBusy] = useState(false);
   const [showPhoneStep, setShowPhoneStep] = useState(false);
+  const [otpMode, setOtpMode] = useState(false);
   const [phone, setPhone] = useState("");
+  const [tab, setTab] = useState<"login" | "signup">("login");
+  const autoHostRef = useRef(false);
 
-  const [signInEmail, setSignInEmail] = useState("");
+  const [siNumber, setSiNumber] = useState("");
   const [signInPassword, setSignInPassword] = useState("");
 
   const [name, setName] = useState("");
-  const [signUpEmail, setSignUpEmail] = useState("");
+  const [suNumber, setSuNumber] = useState("");
   const [signUpPassword, setSignUpPassword] = useState("");
 
   useEffect(() => {
-    if (!loading && user) {
-      if (isAdmin) void navigate({ to: "/admin/dashboard" });
-      else if (isDriver) void navigate({ to: "/driver/dashboard" });
-      else if (roles.includes("user") && roles.length === 1) {
-        // If they are just a user/traveler but on the host auth page,
-        // we offer them to become a host by providing a phone number.
-        setShowPhoneStep(true);
-      } else if (roles.length > 0) void navigate({ to: "/" });
-      else {
-        // No roles at all - new signup
-        setShowPhoneStep(true);
-      }
+    if (loading || !user) return;
+    if (isAdmin) {
+      void navigate({ to: "/admin/dashboard" });
+      return;
     }
-  }, [user, loading, roles, isAdmin, isDriver, navigate]);
+    if (isDriver) {
+      void navigate({ to: "/driver/dashboard" });
+      return;
+    }
+
+    const onlyUser = (roles.includes("user") && roles.length === 1) || roles.length === 0;
+    if (!onlyUser && roles.length > 0) {
+      void navigate({ to: "/" });
+      return;
+    }
+
+    // They need to be onboarded as a host. If we already captured a phone
+    // during phone+password signup, reuse it instead of asking again.
+    const storedPhone = (user.prefs as Record<string, unknown> | undefined)?.phone;
+    if (typeof storedPhone === "string" && storedPhone.trim() && !autoHostRef.current) {
+      autoHostRef.current = true;
+      void (async () => {
+        try {
+          await becomeRideHost(storedPhone);
+          toast.success("Welcome! You are now a Ride Host.");
+          void navigate({ to: "/driver/dashboard" });
+        } catch {
+          // Fall back to manual entry if onboarding fails.
+          autoHostRef.current = false;
+          setPhone(storedPhone);
+          setShowPhoneStep(true);
+        }
+      })();
+      return;
+    }
+
+    // No phone on record (e.g. Google sign-in) — ask for it once.
+    if (!autoHostRef.current) setShowPhoneStep(true);
+  }, [user, loading, roles, isAdmin, isDriver, navigate, becomeRideHost]);
+
+  const toE164 = (num: string) => `+91${num.replace(/[^\d]/g, "")}`;
 
   const handleSignIn = async (e: FormEvent) => {
     e.preventDefault();
+    if (siNumber.replace(/[^\d]/g, "").length < 6) {
+      toast.error("Enter a valid phone number.");
+      return;
+    }
     setBusy(true);
     try {
-      await signIn(signInEmail, signInPassword);
+      await signInWithPhonePassword(toE164(siNumber), signInPassword);
       toast.success("Logged in.");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Unable to log in.");
@@ -122,9 +188,17 @@ function AuthPage() {
 
   const handleSignUp = async (e: FormEvent) => {
     e.preventDefault();
+    if (suNumber.replace(/[^\d]/g, "").length < 6) {
+      toast.error("Enter a valid phone number.");
+      return;
+    }
+    if (!/^\d{4}$/.test(signUpPassword)) {
+      toast.error("Password must be exactly 4 digits.");
+      return;
+    }
     setBusy(true);
     try {
-      await signUp(name, signUpEmail, signUpPassword);
+      await signUpWithPhonePassword(name, toE164(suNumber), signUpPassword);
       toast.success("Account created.");
       setShowPhoneStep(true);
     } catch (error) {
@@ -153,7 +227,10 @@ function AuthPage() {
   };
 
   return (
-    <div className="min-h-dvh bg-gradient-hero flex flex-col relative overflow-hidden">
+    <div
+      className="min-h-dvh bg-gradient-hero flex flex-col relative overflow-hidden"
+      style={{ fontFamily: "'Open Sans', system-ui, sans-serif" }}
+    >
       <div className="absolute inset-0 bg-gradient-mesh opacity-75 pointer-events-none" />
       <div className="absolute top-1/4 right-0 h-72 w-72 rounded-3xl bg-primary-glow/25 blur-3xl pointer-events-none" />
 
@@ -217,29 +294,41 @@ function AuthPage() {
             </div>
           ) : (
             <>
-              <div className="flex flex-col items-center text-center mb-6">
+              <div className="flex flex-col items-center text-center">
                 <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-3xl bg-gradient-primary text-primary-foreground shadow-glow">
                   <Shield className="h-6 w-6" aria-hidden />
                 </div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-primary mb-1.5">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">
                   Hosts &amp; admins
                 </p>
-                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight font-heading text-balance">
-                  Login
-                </h1>
               </div>
 
-              <Tabs defaultValue="login" className="w-full">
-                <TabsList className="grid w-full grid-cols-2 rounded-3xl h-10 p-1 bg-muted/80 border border-border/60">
+              <Tabs
+                value={tab}
+                className="w-full"
+                onValueChange={(v) => {
+                  setTab(v as "login" | "signup");
+                  setOtpMode(false);
+                }}
+              >
+                <TabsList className="relative grid w-full grid-cols-2 rounded-3xl h-11 p-1 bg-[#f4d8f9] border border-border/60 overflow-hidden">
+                  <span
+                    aria-hidden
+                    className="absolute top-1 bottom-1 left-1 w-[calc(50%-0.25rem)] rounded-3xl bg-white shadow-soft transition-transform duration-300 ease-out"
+                    style={{
+                      transform:
+                        tab === "signup" ? "translateX(100%)" : "translateX(0)",
+                    }}
+                  />
                   <TabsTrigger
                     value="login"
-                    className="rounded-3xl data-[state=active]:shadow-soft text-sm font-semibold"
+                    className="relative z-10 rounded-3xl text-sm font-semibold bg-transparent text-muted-foreground transition-colors duration-300 data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-foreground"
                   >
                     Login
                   </TabsTrigger>
                   <TabsTrigger
                     value="signup"
-                    className="rounded-3xl data-[state=active]:shadow-soft text-sm font-semibold"
+                    className="relative z-10 rounded-3xl text-sm font-semibold bg-transparent text-muted-foreground transition-colors duration-300 data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-foreground"
                   >
                     Sign up
                   </TabsTrigger>
@@ -252,54 +341,69 @@ function AuthPage() {
                     <span className="w-full border-t border-border" />
                   </div>
                   <div className="relative flex justify-center text-[10px] font-semibold uppercase tracking-wider">
-                    <span className="bg-card px-2 text-muted-foreground">Or email password</span>
+                    <span className="bg-card px-2 text-muted-foreground">
+                      OR
+                    </span>
                   </div>
                 </div>
 
                 <TabsContent value="login" className="mt-0 outline-none">
-                  <form onSubmit={handleSignIn} className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="si-email" className="text-base font-medium">
-                        Email
-                      </Label>
-                      <Input
-                        id="si-email"
-                        type="email"
-                        autoComplete="email"
-                        required
-                        value={signInEmail}
-                        placeholder="you@company.com"
-                        onChange={(e) => setSignInEmail(e.target.value)}
-                        className="h-12 rounded-3xl border-border/80 bg-background/80 form-control-lg placeholder:text-sm"
+                  {otpMode ? (
+                    <div className="animate-in fade-in duration-300">
+                      <PhoneOtpLogin
+                        idPrefix="auth"
+                        submitClassName="bg-gradient-primary text-primary-foreground shadow-glow"
                       />
+                      <button
+                        type="button"
+                        className="mt-4 w-full text-center text-sm font-medium text-primary hover:underline"
+                        onClick={() => setOtpMode(false)}
+                      >
+                        Log in with password
+                      </button>
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="si-password" className="text-base font-medium">
-                        Password
-                      </Label>
-                      <PasswordField
-                        id="si-password"
-                        value={signInPassword}
-                        onChange={setSignInPassword}
-                        autoComplete="current-password"
-                        required
-                        placeholder="Enter your password"
-                      />
-                    </div>
-                    <Button
-                      type="submit"
-                      variant="hero"
-                      size="lg"
-                      className="w-full rounded-3xl h-11 font-semibold shadow-glow mt-1"
-                      disabled={busy}
-                    >
-                      {busy ? <Loader2 className="h-5 w-5 animate-spin" /> : "Login"}
-                    </Button>
-                  </form>
+                  ) : (
+                    <>
+                      <form onSubmit={handleSignIn} className="space-y-2">
+                        <PhoneField
+                          id="si-phone"
+                          number={siNumber}
+                          onNumberChange={setSiNumber}
+                        />
+                        <div className="space-y-2">
+                          <Label htmlFor="si-password" className="text-base font-medium">
+                            Password
+                          </Label>
+                          <PinField
+                            id="si-password"
+                            value={signInPassword}
+                            onChange={setSignInPassword}
+                          />
+                        </div>
+                        <Button
+                          type="submit"
+                          variant="hero"
+                          size="lg"
+                          style={{ color: "#fff" }}
+                          className="w-full rounded-3xl h-11 font-semibold shadow-glow mt-1"
+                          disabled={busy}
+                        >
+                          {busy ? <Loader2 className="h-5 w-5 animate-spin" /> : "Login"}
+                        </Button>
+                      </form>
+                      <button
+                        type="button"
+                        className="mt-5 w-full text-center text-sm font-medium text-primary hover:underline"
+                        onClick={() => setOtpMode(true)}
+                      >
+                        Log in with OTP
+                      </button>
+                    </>
+                  )}
                 </TabsContent>
 
                 <TabsContent value="signup" className="mt-6 outline-none">
-                  <form onSubmit={handleSignUp} className="space-y-4">
+                  <form onSubmit={handleSignUp} className="space-y-2">
                     <div className="space-y-2">
                       <Label htmlFor="su-name" className="text-base font-medium">
                         Full name
@@ -311,47 +415,35 @@ function AuthPage() {
                         value={name}
                         placeholder="Jane Doe"
                         onChange={(e) => setName(e.target.value)}
-                        className="h-12 rounded-3xl border-border/80 bg-background/80 form-control-lg placeholder:text-sm"
+                        style={{ fontSize: "2rem", lineHeight: 1.1 }}
+                        className="h-16 w-full rounded-3xl border-border/80 bg-background/80 font-bold placeholder:text-muted-foreground/40"
                       />
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="su-email" className="text-base font-medium">
-                        Email
-                      </Label>
-                      <Input
-                        id="su-email"
-                        type="email"
-                        autoComplete="email"
-                        required
-                        value={signUpEmail}
-                        placeholder="you@company.com"
-                        onChange={(e) => setSignUpEmail(e.target.value)}
-                        className="h-12 rounded-3xl border-border/80 bg-background/80 form-control-lg placeholder:text-sm"
-                      />
-                    </div>
+                    <PhoneField
+                      id="su-phone"
+                      number={suNumber}
+                      onNumberChange={setSuNumber}
+                    />
                     <div className="space-y-2">
                       <Label htmlFor="su-password" className="text-base font-medium">
                         Password
                       </Label>
-                      <PasswordField
+                      <PinField
                         id="su-password"
                         value={signUpPassword}
                         onChange={setSignUpPassword}
-                        autoComplete="new-password"
-                        required
-                        minLength={6}
-                        placeholder="Create a password (min. 6 characters)"
                       />
-                      <p className="text-sm text-muted-foreground">At least 6 characters.</p>
+
                     </div>
                     <Button
                       type="submit"
                       variant="hero"
                       size="lg"
+                      style={{ color: "#fff" }}
                       className="w-full rounded-3xl h-11 font-semibold shadow-glow mt-1"
                       disabled={busy}
                     >
-                      {busy ? <Loader2 className="h-5 w-5 animate-spin" /> : "Create account"}
+                      {busy ? <Loader2 className="h-5 w-5 animate-spin" /> : "Create Account"}
                     </Button>
                   </form>
                 </TabsContent>

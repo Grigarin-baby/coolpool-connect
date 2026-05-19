@@ -1,9 +1,19 @@
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { ID, OAuthProvider, type Models } from "appwrite";
 import { account } from "@/integrations/appwrite/client";
 import { listUserRoles, assignRole, upsertDriverProfile } from "@/data/appwrite-repository";
 import type { AppRole } from "@/lib/domain";
 import { parseTravelerResumeRedirectParam } from "@/lib/travelerResumeRedirect";
+import { sendOtp, confirmOtp, resetRecaptcha, type ConfirmationResult } from "@/integrations/firebase/client";
+import { exchangeFirebaseTokenForAppwrite } from "@/integrations/firebase/bridge";
 
 export interface MemberGoogleOAuthOptions {
   resumeRedirect?: string;
@@ -21,6 +31,18 @@ interface AuthContextValue {
   isAdmin: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (name: string, email: string, password: string) => Promise<void>;
+  /** Logs in with phone number + password (phone is the identity). */
+  signInWithPhonePassword: (phoneE164: string, password: string) => Promise<void>;
+  /** Creates an account with name + phone number + password. */
+  signUpWithPhonePassword: (
+    name: string,
+    phoneE164: string,
+    password: string,
+  ) => Promise<void>;
+  /** Sends an SMS OTP via Firebase to an E.164 phone number. */
+  sendPhoneOtp: (phoneE164: string, recaptchaContainerId: string) => Promise<void>;
+  /** Verifies the OTP and signs the user into Appwrite. */
+  verifyPhoneOtp: (code: string) => Promise<void>;
   /** Starts Appwrite Google OAuth (redirects away). Configure Google in Appwrite Auth settings. */
   signInWithGoogle: (opts?: MemberGoogleOAuthOptions) => void;
   signOut: () => Promise<void>;
@@ -30,11 +52,28 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
+/**
+ * Appwrite requires passwords of 8+ chars. The client wants 4–6 char user
+ * passwords, so the short password (salted with the phone number) is hashed to
+ * a deterministic, strong, fixed-length secret that is what Appwrite actually
+ * stores. Same phone + same short password always yields the same secret.
+ */
+async function derivePassword(phoneE164: string, raw: string): Promise<string> {
+  const digits = phoneE164.replace(/[^\d]/g, "");
+  const bytes = new TextEncoder().encode(`coolpool:${digits}:${raw}`);
+  const hash = await crypto.subtle.digest("SHA-256", bytes);
+  const hex = Array.from(new Uint8Array(hash))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+  return `cp_${hex}`;
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<{ userId: string } | null>(null);
   const [user, setUser] = useState<AppwriteUser | null>(null);
   const [roles, setRoles] = useState<AppRole[]>([]);
   const [loading, setLoading] = useState(true);
+  const phoneConfirmation = useRef<ConfirmationResult | null>(null);
 
   const loadRoles = async (currentUser: AppwriteUser) => {
     try {
@@ -91,6 +130,77 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await account.create(ID.unique(), email, password, name);
     await account.createEmailPasswordSession(email, password);
     await account.updatePrefs({ roles: ["user"], fullName: name });
+    await refreshSession();
+  };
+
+  // Appwrite has no native phone+password session, so the phone becomes a
+  // deterministic synthetic email. The user only ever sees/enters the phone.
+  const phoneToEmail = (phoneE164: string) =>
+    `u${phoneE164.replace(/[^\d]/g, "")}@phone.coolpool.in`;
+
+  const signInWithPhonePassword = async (phoneE164: string, password: string) => {
+    const secret = await derivePassword(phoneE164, password);
+    await account.createEmailPasswordSession(phoneToEmail(phoneE164), secret);
+    await refreshSession();
+  };
+
+  const signUpWithPhonePassword = async (
+    name: string,
+    phoneE164: string,
+    password: string,
+  ) => {
+    const email = phoneToEmail(phoneE164);
+    const secret = await derivePassword(phoneE164, password);
+    try {
+      await account.create(ID.unique(), email, secret, name);
+    } catch (error) {
+      const appwriteError = error as { code?: number; type?: string; message?: string };
+      const alreadyExists =
+        appwriteError?.code === 409 ||
+        appwriteError?.type === "user_already_exists" ||
+        /already exists/i.test(appwriteError?.message ?? "");
+      if (alreadyExists) {
+        throw new Error(
+          "An account with this phone number already exists. Please log in instead.",
+        );
+      }
+      throw error;
+    }
+    await account.createEmailPasswordSession(email, secret);
+    await account.updatePrefs({ roles: ["user"], fullName: name, phone: phoneE164 });
+    // Link the real phone so OTP login resolves to the same account. Best-effort.
+    try {
+      await account.updatePhone(phoneE164, secret);
+    } catch {
+      /* phone provider off or number already linked — non-fatal */
+    }
+    await refreshSession();
+  };
+
+  const sendPhoneOtp = async (phoneE164: string, recaptchaContainerId: string) => {
+    phoneConfirmation.current = await sendOtp(phoneE164, recaptchaContainerId);
+  };
+
+  const verifyPhoneOtp = async (code: string) => {
+    if (!phoneConfirmation.current) {
+      throw new Error("Request an OTP first.");
+    }
+    let idToken: string;
+    try {
+      idToken = await confirmOtp(phoneConfirmation.current, code);
+    } catch {
+      throw new Error("Invalid or expired OTP. Please try again.");
+    }
+    const { userId, secret } = await exchangeFirebaseTokenForAppwrite({ data: { idToken } });
+    // Clear any leftover anonymous/previous session before swapping in the new one.
+    try {
+      await account.deleteSession("current");
+    } catch {
+      /* no existing session */
+    }
+    await account.createSession(userId, secret);
+    phoneConfirmation.current = null;
+    resetRecaptcha();
     await refreshSession();
   };
 
@@ -166,6 +276,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isAdmin: roles.includes("admin"),
         signIn,
         signUp,
+        signInWithPhonePassword,
+        signUpWithPhonePassword,
+        sendPhoneOtp,
+        verifyPhoneOtp,
         signInWithGoogle,
         signOut,
         refreshRoles,

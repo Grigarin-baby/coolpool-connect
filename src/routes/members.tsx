@@ -4,12 +4,14 @@ import { Loader2, MapPin, Ticket, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import { SiteHeader } from "@/components/SiteHeader";
 import { SiteFooter } from "@/components/SiteFooter";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { parseTravelerResumeRedirectParam } from "@/lib/travelerResumeRedirect";
 import { GoogleLoginButton } from "@/components/GoogleLoginButton";
+import { PhoneOtpLogin } from "@/components/PhoneOtpLogin";
 
 export const Route = createFileRoute("/members")({
   validateSearch: (search: Record<string, unknown>) => ({
@@ -24,22 +26,97 @@ export const Route = createFileRoute("/members")({
         content: "Join as a Coolpool traveler to search routes and book seats.",
       },
     ],
+    links: [
+      { rel: "preconnect", href: "https://fonts.googleapis.com" },
+      {
+        rel: "preconnect",
+        href: "https://fonts.gstatic.com",
+        crossOrigin: "anonymous",
+      },
+      {
+        rel: "stylesheet",
+        href: "https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;500;600;700&display=swap",
+      },
+    ],
   }),
   component: MembersPage,
 });
 
+/** 4-digit PIN entered as separate boxes (digits only). */
+function PinField({
+  id,
+  value,
+  onChange,
+}: {
+  id: string;
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <InputOTP
+      id={id}
+      maxLength={4}
+      value={value}
+      onChange={(v) => onChange(v.replace(/\D/g, ""))}
+      inputMode="numeric"
+      containerClassName="w-full"
+    >
+      <InputOTPGroup className="grid w-full grid-cols-4 gap-3">
+        {[0, 1, 2, 3].map((i) => (
+          <InputOTPSlot
+            key={i}
+            index={i}
+            className="h-14 w-full rounded-2xl border border-border/80 bg-background/80 text-2xl font-bold first:rounded-2xl last:rounded-2xl"
+          />
+        ))}
+      </InputOTPGroup>
+    </InputOTP>
+  );
+}
+
+function PhoneField({
+  id,
+  number,
+  onNumberChange,
+}: {
+  id: string;
+  number: string;
+  onNumberChange: (v: string) => void;
+}) {
+  return (
+    <div className="space-y-2">
+      <Label htmlFor={id} className="text-base">
+        Phone number
+      </Label>
+      <Input
+        id={id}
+        type="tel"
+        inputMode="numeric"
+        autoComplete="tel-national"
+        required
+        value={number}
+        placeholder="9876543210"
+        onChange={(e) => onNumberChange(e.target.value)}
+        style={{ fontSize: "2rem", lineHeight: 1.1, letterSpacing: "0.725rem" }}
+        className="h-16 w-full rounded-3xl border-border/80 bg-background/80 font-bold placeholder:text-muted-foreground/40"
+      />
+    </div>
+  );
+}
+
 function MembersPage() {
   const navigate = useNavigate();
   const { redirect, google_auth } = Route.useSearch();
-  const { user, loading, roles, signIn, signUp, signInWithGoogle } = useAuth();
+  const { user, loading, roles, signInWithPhonePassword, signUpWithPhonePassword } = useAuth();
   const [busy, setBusy] = useState(false);
   const [mode, setMode] = useState<"signin" | "signup">("signin");
+  const [otpMode, setOtpMode] = useState(false);
 
-  const [signInEmail, setSignInEmail] = useState("");
+  const [siNumber, setSiNumber] = useState("");
   const [signInPassword, setSignInPassword] = useState("");
 
   const [name, setName] = useState("");
-  const [signUpEmail, setSignUpEmail] = useState("");
+  const [suNumber, setSuNumber] = useState("");
   const [signUpPassword, setSignUpPassword] = useState("");
 
   useEffect(() => {
@@ -63,11 +140,17 @@ function MembersPage() {
     });
   }, [google_auth, navigate, redirect]);
 
+  const toE164 = (num: string) => `+91${num.replace(/[^\d]/g, "")}`;
+
   const handleSignIn = async (e: FormEvent) => {
     e.preventDefault();
+    if (siNumber.replace(/[^\d]/g, "").length < 6) {
+      toast.error("Enter a valid phone number.");
+      return;
+    }
     setBusy(true);
     try {
-      await signIn(signInEmail, signInPassword);
+      await signInWithPhonePassword(toE164(siNumber), signInPassword);
       toast.success("Signed in — let's find your ride.");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Unable to sign in.");
@@ -78,9 +161,17 @@ function MembersPage() {
 
   const handleSignUp = async (e: FormEvent) => {
     e.preventDefault();
+    if (suNumber.replace(/[^\d]/g, "").length < 6) {
+      toast.error("Enter a valid phone number.");
+      return;
+    }
+    if (!/^\d{4}$/.test(signUpPassword)) {
+      toast.error("Password must be exactly 4 digits.");
+      return;
+    }
     setBusy(true);
     try {
-      await signUp(name, signUpEmail, signUpPassword);
+      await signUpWithPhonePassword(name, toE164(suNumber), signUpPassword);
       toast.success("Welcome — you're ready to book.");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Unable to create account.");
@@ -92,10 +183,13 @@ function MembersPage() {
   const bookingHint = redirect?.startsWith("/booking/");
 
   return (
-    <div className="min-h-screen flex flex-col bg-background">
+    <div
+      className="min-h-screen flex flex-col bg-background"
+      style={{ fontFamily: "'Open Sans', system-ui, sans-serif" }}
+    >
       <SiteHeader />
 
-      <main className="flex-1">
+      <main className="flex-1 pt-20 md:pt-10">
         <div className="relative border-b border-border/60 bg-linear-to-br from-teal-500/7 via-background to-background dark:from-teal-400/6">
           <div className="container mx-auto px-4 py-10 md:py-14 max-w-6xl grid lg:grid-cols-[minmax(0,1fr)_420px] gap-10 lg:gap-14 items-start">
             <div className="space-y-8 order-2 lg:order-1">
@@ -170,10 +264,7 @@ function MembersPage() {
 
             <div className="order-1 lg:order-2 w-full">
               <div className="rounded-2xl border border-teal-500/25 bg-card shadow-xl shadow-teal-950/5 dark:shadow-black/40 p-6 sm:p-8">
-                <h2 className="text-xl font-bold tracking-tight">
-                  {bookingHint ? "Sign in to finish booking" : "Traveler account"}
-                </h2>
-                <p className="text-sm text-muted-foreground mt-1">
+                <p className="text-sm text-muted-foreground">
                   {bookingHint
                     ? "We'll take you back to your seats after you sign in or register."
                     : "Sign in or create a free traveler profile."}
@@ -186,76 +277,105 @@ function MembersPage() {
                     <span className="w-full border-t border-border" />
                   </div>
                   <div className="relative flex justify-center text-[11px] font-semibold uppercase tracking-wide">
-                    <span className="bg-card px-2 text-muted-foreground">Or email</span>
+                    <span className="bg-card px-2 text-muted-foreground">OR</span>
                   </div>
                 </div>
 
-                <div className="mt-0 flex rounded-3xl border border-border bg-muted/40 p-1">
+                <div className="relative mt-0 grid grid-cols-2 rounded-3xl border border-border bg-[#f4d8f9] p-1 overflow-hidden">
+                  <span
+                    aria-hidden
+                    className="absolute top-1 bottom-1 left-1 w-[calc(50%-0.25rem)] rounded-3xl bg-white shadow-sm transition-transform duration-300 ease-out"
+                    style={{
+                      transform:
+                        mode === "signup" ? "translateX(100%)" : "translateX(0)",
+                    }}
+                  />
                   <button
                     type="button"
-                    className={`flex-1 rounded-3xl py-2.5 text-sm font-semibold transition-colors ${
-                      mode === "signin"
-                        ? "bg-background text-foreground shadow-sm"
-                        : "text-muted-foreground hover:text-foreground"
-                    }`}
-                    onClick={() => setMode("signin")}
+                    className={`relative z-10 rounded-3xl py-2.5 text-sm font-semibold transition-colors duration-300 ${mode === "signin"
+                      ? "text-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    onClick={() => {
+                      setMode("signin");
+                      setOtpMode(false);
+                    }}
                   >
                     Sign in
                   </button>
                   <button
                     type="button"
-                    className={`flex-1 rounded-3xl py-2.5 text-sm font-semibold transition-colors ${
-                      mode === "signup"
-                        ? "bg-background text-foreground shadow-sm"
-                        : "text-muted-foreground hover:text-foreground"
-                    }`}
-                    onClick={() => setMode("signup")}
+                    className={`relative z-10 rounded-3xl py-2.5 text-sm font-semibold transition-colors duration-300 ${mode === "signup"
+                      ? "text-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    onClick={() => {
+                      setMode("signup");
+                      setOtpMode(false);
+                    }}
                   >
                     New traveler
                   </button>
                 </div>
 
                 {mode === "signin" ? (
-                  <form onSubmit={handleSignIn} className="mt-6 space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="mem-si-email" className="text-base">
-                        Email
-                      </Label>
-                      <Input
-                        id="mem-si-email"
-                        type="email"
-                        required
-                        autoComplete="email"
-                        value={signInEmail}
-                        onChange={(e) => setSignInEmail(e.target.value)}
-                        className="h-12 rounded-3xl form-control-lg"
+                  otpMode ? (
+                    <div className="mt-6 animate-in fade-in duration-300">
+                      <PhoneOtpLogin
+                        idPrefix="members"
+                        submitClassName="bg-teal-600 text-white hover:bg-teal-700 dark:bg-teal-600 dark:hover:bg-teal-500"
                       />
+                      <button
+                        type="button"
+                        className="mt-4 w-full text-center text-sm font-medium text-teal-700 dark:text-teal-400 hover:underline"
+                        onClick={() => setOtpMode(false)}
+                      >
+                        ← Sign in with password instead
+                      </button>
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="mem-si-password" className="text-base">
-                        Password
-                      </Label>
-                      <Input
-                        id="mem-si-password"
-                        type="password"
-                        required
-                        autoComplete="current-password"
-                        value={signInPassword}
-                        onChange={(e) => setSignInPassword(e.target.value)}
-                        className="h-12 rounded-3xl form-control-lg"
-                      />
-                    </div>
-                    <Button
-                      type="submit"
-                      size="lg"
-                      className="w-full rounded-3xl bg-teal-600 text-white hover:bg-teal-700 dark:bg-teal-600 dark:hover:bg-teal-500"
-                      disabled={busy}
-                    >
-                      {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Continue as traveler"}
-                    </Button>
-                  </form>
+                  ) : (
+                    <>
+                      <form onSubmit={handleSignIn} className="mt-6 space-y-2">
+                        <PhoneField
+                          id="mem-si-phone"
+                          number={siNumber}
+                          onNumberChange={setSiNumber}
+                        />
+                        <div className="space-y-2">
+                          <Label htmlFor="mem-si-password" className="text-base">
+                            Password
+                          </Label>
+                          <PinField
+                            id="mem-si-password"
+                            value={signInPassword}
+                            onChange={setSignInPassword}
+                          />
+                        </div>
+                        <Button
+                          type="submit"
+                          size="lg"
+                          style={{ color: "#fff" }}
+                          className="w-full rounded-3xl bg-teal-600 hover:bg-teal-700 dark:bg-teal-600 dark:hover:bg-teal-500"
+                          disabled={busy}
+                        >
+                          {busy ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            "Continue as traveler"
+                          )}
+                        </Button>
+                      </form>
+                      <button
+                        type="button"
+                        className="mt-5 w-full text-center text-sm font-medium text-teal-700 dark:text-teal-400 hover:underline"
+                        onClick={() => setOtpMode(true)}
+                      >
+                        Log in with OTP instead?
+                      </button>
+                    </>
+                  )
                 ) : (
-                  <form onSubmit={handleSignUp} className="mt-6 space-y-4">
+                  <form onSubmit={handleSignUp} className="mt-6 space-y-2">
                     <div className="space-y-2">
                       <Label htmlFor="mem-su-name" className="text-base">
                         Full name
@@ -266,49 +386,37 @@ function MembersPage() {
                         autoComplete="name"
                         value={name}
                         onChange={(e) => setName(e.target.value)}
-                        className="h-12 rounded-3xl form-control-lg"
+                        style={{ fontSize: "2rem", lineHeight: 1.1 }}
+                        className="h-16 w-full rounded-3xl border-border/80 bg-background/80 font-bold placeholder:text-muted-foreground/40"
                       />
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="mem-su-email" className="text-base">
-                        Email
-                      </Label>
-                      <Input
-                        id="mem-su-email"
-                        type="email"
-                        required
-                        autoComplete="email"
-                        value={signUpEmail}
-                        onChange={(e) => setSignUpEmail(e.target.value)}
-                        className="h-12 rounded-3xl form-control-lg"
-                      />
-                    </div>
+                    <PhoneField
+                      id="mem-su-phone"
+                      number={suNumber}
+                      onNumberChange={setSuNumber}
+                    />
                     <div className="space-y-2">
                       <Label htmlFor="mem-su-password" className="text-base">
                         Password
                       </Label>
-                      <Input
+                      <PinField
                         id="mem-su-password"
-                        type="password"
-                        required
-                        minLength={6}
-                        autoComplete="new-password"
                         value={signUpPassword}
-                        onChange={(e) => setSignUpPassword(e.target.value)}
-                        className="h-12 rounded-3xl form-control-lg"
+                        onChange={setSignUpPassword}
                       />
-                      <p className="text-sm text-muted-foreground">At least 6 characters.</p>
+
                     </div>
                     <Button
                       type="submit"
                       size="lg"
-                      className="w-full rounded-3xl bg-teal-600 text-white hover:bg-teal-700 dark:bg-teal-600 dark:hover:bg-teal-500"
+                      style={{ color: "#fff" }}
+                      className="w-full rounded-3xl bg-teal-600 hover:bg-teal-700 dark:bg-teal-600 dark:hover:bg-teal-500"
                       disabled={busy}
                     >
                       {busy ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
                       ) : (
-                        "Create traveler account"
+                        "Create Account"
                       )}
                     </Button>
                   </form>
@@ -321,28 +429,5 @@ function MembersPage() {
 
       <SiteFooter />
     </div>
-  );
-}
-
-function GoogleGlyph({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" aria-hidden>
-      <path
-        fill="#4285F4"
-        d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-      />
-      <path
-        fill="#34A853"
-        d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-      />
-      <path
-        fill="#FBBC05"
-        d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-      />
-      <path
-        fill="#EA4335"
-        d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-      />
-    </svg>
   );
 }

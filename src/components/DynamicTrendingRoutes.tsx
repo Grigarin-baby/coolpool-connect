@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { TrendingUp, Navigation, CarFront, ArrowRight, ChevronRight } from "lucide-react";
+import { TrendingUp, Navigation, CarFront } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import dayjs from "dayjs";
@@ -204,9 +204,9 @@ export function DynamicTrendingRoutes() {
             <div className="h-6 w-44 bg-muted animate-pulse rounded" />
           </div>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
-          {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-24 rounded-2xl bg-muted animate-pulse" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="h-32 rounded-2xl bg-muted animate-pulse" />
           ))}
         </div>
       </section>
@@ -239,11 +239,12 @@ export function DynamicTrendingRoutes() {
         </div>
 
         {trips.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {trips.map((trip, i) => {
               const fromShort = trip.fromLocation.split(",")[0].trim();
               const toShort = trip.toLocation.split(",")[0].trim();
               const dateStr = dayjs(trip.departureAt).format("ddd, MMM D");
+              const timeStr = dayjs(trip.departureAt).format("h:mm A");
 
               return (
                 <Link
@@ -253,49 +254,46 @@ export function DynamicTrendingRoutes() {
                   className="block group"
                 >
                   <div
-                    className="relative rounded-2xl border border-gray-100 bg-white overflow-hidden shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 p-4"
+                    className="relative rounded-2xl border border-gray-100 bg-white overflow-hidden shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 p-5"
                     style={{ animationDelay: `${i * 60}ms` }}
                   >
                     {/* Subtle gradient accent strip */}
                     <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-primary opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-t-2xl" />
 
-                    {/* Route */}
-                    <div className="flex flex-col gap-2">
-                      <div className="flex items-start gap-2.5">
-                        {/* Timeline dots */}
-                        <div className="flex flex-col items-center pt-1.5 shrink-0">
-                          <div className="h-2 w-2 rounded-full bg-primary" />
-                          <div className="w-px h-5 bg-gray-200 my-1" />
-                          <div className="h-2 w-2 rounded-full border-2 border-gray-300" />
-                        </div>
-                        {/* City names */}
-                        <div className="flex-1 min-w-0 flex flex-col gap-2.5">
-                          <p
-                            className="font-bold text-base text-gray-900 truncate leading-none"
-                            title={trip.fromLocation}
-                          >
-                            {fromShort}
-                          </p>
-                          <p
-                            className="font-bold text-base text-gray-500 truncate leading-none"
-                            title={trip.toLocation}
-                          >
-                            {toShort}
-                          </p>
-                        </div>
-                        {/* Chevron */}
-                        <ChevronRight
-                          size={16}
-                          className="text-gray-200 group-hover:text-primary group-hover:translate-x-0.5 transition-all duration-200 shrink-0 mt-0.5"
-                        />
+                    {/* Route — full width */}
+                    <div className="flex items-center gap-3">
+                      {/* Timeline dots */}
+                      <div className="flex flex-col items-center shrink-0 self-stretch py-2">
+                        <div className="h-2.5 w-2.5 rounded-full bg-primary" />
+                        <div className="w-px flex-1 min-h-[2rem] bg-gray-200 my-1.5" />
+                        <div className="h-2.5 w-2.5 rounded-full border-2 border-gray-300" />
                       </div>
+                      {/* City names */}
+                      <div className="flex-1 min-w-0 flex flex-col justify-center gap-3">
+                        <p
+                          className="font-black text-[3rem] text-gray-900 leading-none whitespace-nowrap truncate"
+                          title={trip.fromLocation}
+                        >
+                          {fromShort}
+                        </p>
+                        <p
+                          className="font-black text-[3rem] text-gray-500 leading-none whitespace-nowrap truncate"
+                          title={trip.toLocation}
+                        >
+                          {toShort}
+                        </p>
+                      </div>
+                    </div>
 
-                      {/* Date badge */}
-                      <div className="mt-1">
-                        <span className="inline-block text-xs font-semibold text-muted-foreground bg-gray-50 rounded-full px-3 py-1">
-                          {dateStr}
-                        </span>
-                      </div>
+                    {/* Date + time — bottom center */}
+                    <div className="mt-5 flex items-center justify-center gap-2 text-muted-foreground">
+                      <span className="text-sm font-bold uppercase tracking-wide">
+                        {dateStr}
+                      </span>
+                      <span className="h-1 w-1 rounded-full bg-current opacity-50" />
+                      <span className="text-base font-black text-gray-900 tabular-nums">
+                        {timeStr}
+                      </span>
                     </div>
                   </div>
                 </Link>
