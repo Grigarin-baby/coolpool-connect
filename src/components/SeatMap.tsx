@@ -153,7 +153,16 @@ export function SeatMap({
                       {slot.displayLabel}
                     </span>
                   ) : selected ? (
-                    <Check size={24} strokeWidth={4} className="animate-in zoom-in duration-300" />
+                    <span className="relative flex items-center justify-center">
+                      <span className="text-base font-extrabold text-white drop-shadow-md">
+                        {slot.displayLabel}
+                      </span>
+                      <Check
+                        size={12}
+                        strokeWidth={4}
+                        className="absolute -top-2 -right-3 rounded-full bg-emerald-500 text-white p-0.5"
+                      />
+                    </span>
                   ) : (
                     <span className="text-base font-bold text-white drop-shadow-md">
                       {slot.displayLabel}

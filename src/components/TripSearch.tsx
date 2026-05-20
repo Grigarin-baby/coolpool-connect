@@ -575,7 +575,7 @@ export function TripSearchForm({ variant, id }: { variant: "landing" | "page"; i
   return (
     <div
       id={id}
-      className="w-full max-w-[900px] mx-auto px-4 sm:px-6 relative z-10 -mt-14 sm:-mt-20 animate-in fade-in slide-in-from-bottom-6 duration-700"
+      className="w-full max-w-[1440px] mx-auto px-0 sm:px-4 relative z-10 -mt-14 sm:-mt-20 animate-in fade-in slide-in-from-bottom-6 duration-700"
     >
       <div className="trip-search-card bg-white shadow-2xl border border-gray-100/80 ring-1 ring-black/[0.04] rounded-3xl overflow-hidden">
         <Form form={form} id="landing-trip-search" onFinish={onSearch}>

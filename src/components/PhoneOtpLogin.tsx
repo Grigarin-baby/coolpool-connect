@@ -30,14 +30,13 @@ interface PhoneOtpLoginProps {
 export function PhoneOtpLogin({ onSuccess, submitClassName, idPrefix }: PhoneOtpLoginProps) {
   const { sendPhoneOtp, verifyPhoneOtp } = useAuth();
   const [step, setStep] = useState<"phone" | "otp">("phone");
-  const [dialCode, setDialCode] = useState("+91");
   const [localNumber, setLocalNumber] = useState("");
   const [otp, setOtp] = useState("");
   const [busy, setBusy] = useState(false);
 
   const recaptchaId = `${idPrefix}-recaptcha`;
   const configured = isFirebaseConfigured();
-  const e164 = `${dialCode}${localNumber.replace(/[^\d]/g, "")}`;
+  const e164 = `+91${localNumber.replace(/[^\d]/g, "")}`;
 
   const handleSendOtp = async (e: FormEvent) => {
     e.preventDefault();
@@ -94,35 +93,23 @@ export function PhoneOtpLogin({ onSuccess, submitClassName, idPrefix }: PhoneOtp
             <Label htmlFor={`${idPrefix}-phone`} className="text-base font-medium">
               Phone number
             </Label>
-            <div className="flex gap-2">
-              <select
-                aria-label="Country code"
-                value={dialCode}
-                onChange={(e) => setDialCode(e.target.value)}
-                className="h-12 rounded-3xl border border-border/80 bg-background/80 px-3 text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                {COUNTRY_CODES.map((c) => (
-                  <option key={c.code} value={c.code}>
-                    {c.label}
-                  </option>
-                ))}
-              </select>
-              <Input
-                id={`${idPrefix}-phone`}
-                type="tel"
-                inputMode="numeric"
-                autoComplete="tel-national"
-                required
-                value={localNumber}
-                placeholder="98765 43210"
-                onChange={(e) => setLocalNumber(e.target.value)}
-                className="h-12 flex-1 rounded-3xl border-border/80 bg-background/80 form-control-lg placeholder:text-sm"
-              />
-            </div>
+            <Input
+              id={`${idPrefix}-phone`}
+              type="tel"
+              inputMode="numeric"
+              autoComplete="tel-national"
+              required
+              value={localNumber}
+              placeholder="9876543210"
+              onChange={(e) => setLocalNumber(e.target.value)}
+              style={{ fontSize: "2rem", lineHeight: 1.1, letterSpacing: "0.725rem" }}
+              className="h-16 w-full rounded-3xl border-border/80 bg-background/80 font-bold placeholder:text-muted-foreground/40"
+            />
           </div>
           <Button
             type="submit"
             size="lg"
+            style={{ color: "#fff" }}
             className={cn("w-full rounded-3xl h-11 font-semibold", submitClassName)}
             disabled={busy}
           >
@@ -160,6 +147,7 @@ export function PhoneOtpLogin({ onSuccess, submitClassName, idPrefix }: PhoneOtp
           <Button
             type="submit"
             size="lg"
+            style={{ color: "#fff" }}
             className={cn("w-full rounded-3xl h-11 font-semibold", submitClassName)}
             disabled={busy}
           >

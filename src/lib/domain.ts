@@ -58,6 +58,8 @@ export interface Booking {
   createdAt: string;
   ratingByHost?: number;
   commentByHost?: string;
+  otp?: string;
+  verified?: boolean;
 }
 
 export interface DriverProfile {

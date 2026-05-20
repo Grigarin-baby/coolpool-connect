@@ -300,6 +300,8 @@ async function run() {
   await ensureIntegerAttribute(COLLECTIONS.bookings, "rating_by_host", false, 1, 5);
   await ensureStringAttribute(COLLECTIONS.bookings, "comment_by_host", 500, false);
   await ensureDatetimeAttribute(COLLECTIONS.bookings, "created_at", false);
+  await ensureStringAttribute(COLLECTIONS.bookings, "otp", 10, false);
+  await ensureBooleanAttribute(COLLECTIONS.bookings, "verified", false, false);
 
   // user roles
   await ensureStringAttribute(COLLECTIONS.userRoles, "user_id", 64, true);

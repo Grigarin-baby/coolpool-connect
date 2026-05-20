@@ -41,8 +41,28 @@ function BookingTripPage() {
   const queryClient = useQueryClient();
   const { user, loading: authLoading } = useAuth();
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
-  const [passengerName, setPassengerName] = useState("");
-  const [passengerPhone, setPassengerPhone] = useState("");
+  const [passengers, setPassengers] = useState<{ name: string; phone: string }[]>([
+    { name: "", phone: "" },
+  ]);
+
+  // Keep passengers array length in sync with number of selected seats (at least 1 row)
+  useEffect(() => {
+    const target = Math.max(1, selected.size);
+    setPassengers((prev) => {
+      if (prev.length === target) return prev;
+      if (prev.length < target) {
+        return [
+          ...prev,
+          ...Array.from({ length: target - prev.length }, () => ({ name: "", phone: "" })),
+        ];
+      }
+      return prev.slice(0, target);
+    });
+  }, [selected.size]);
+
+  const updatePassenger = (idx: number, patch: Partial<{ name: string; phone: string }>) => {
+    setPassengers((prev) => prev.map((p, i) => (i === idx ? { ...p, ...patch } : p)));
+  };
 
   const tripQuery = useQuery({
     queryKey: ["trip", tripId],
@@ -73,24 +93,31 @@ function BookingTripPage() {
   useEffect(() => {
     if (!user) return;
 
-    if (!passengerName && user.name) {
-      setPassengerName(user.name);
-    }
+    setPassengers((prev) => {
+      const first = prev[0] || { name: "", phone: "" };
+      let { name, phone } = first;
+      const recent =
+        pastBookingsQuery.data && pastBookingsQuery.data.length > 0
+          ? [...pastBookingsQuery.data].sort(
+              (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+            )[0]
+          : undefined;
 
-    if (!passengerPhone) {
-      if (user.prefs?.defaultPhone) {
-        setPassengerPhone(user.prefs.defaultPhone);
-      } else if (pastBookingsQuery.data && pastBookingsQuery.data.length > 0) {
-        // Fallback to most recent booking
-        const recentBooking = [...pastBookingsQuery.data].sort(
-          (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-        )[0];
-        if (recentBooking?.passengerPhone) {
-          setPassengerPhone(recentBooking.passengerPhone);
-        }
+      if (!name) {
+        if (user.name) name = user.name;
+        else if (recent?.passengerName) name = recent.passengerName;
       }
-    }
-  }, [user, pastBookingsQuery.data, passengerName, passengerPhone]);
+      if (!phone) {
+        if (user.prefs?.defaultPhone) phone = user.prefs.defaultPhone;
+        else if ((user as any).phone) phone = (user as any).phone;
+        else if (recent?.passengerPhone) phone = recent.passengerPhone;
+      }
+      if (name === first.name && phone === first.phone) return prev;
+      const next = [...prev];
+      next[0] = { name, phone };
+      return next;
+    });
+  }, [user, pastBookingsQuery.data]);
 
   const layoutCapacity = useMemo(() => {
     const vehicleCap = vehicleQuery.data?.seatCapacity ?? 0;
@@ -101,6 +128,13 @@ function BookingTripPage() {
   }, [vehicleQuery.data?.seatCapacity, tripQuery.data?.totalSeats]);
 
   const layout = useMemo(() => buildSeatLayout(layoutCapacity), [layoutCapacity]);
+  const seatLabelByCode = useMemo(() => {
+    const m: Record<string, string> = {};
+    layout.forEach((s) => {
+      m[s.seatCode] = s.displayLabel;
+    });
+    return m;
+  }, [layout]);
 
   const occupiedCodes = useMemo(
     () => new Set(reservationsQuery.data?.map((r) => r.seatCode) ?? []),
@@ -125,18 +159,32 @@ function BookingTripPage() {
       if (!user || !tripQuery.data) throw new Error("Not signed in.");
       const codes = [...selected];
       if (codes.length === 0) throw new Error("Select at least one seat.");
-      const name = passengerName.trim();
-      const phone = passengerPhone.trim();
-      if (!name || !phone) throw new Error("Enter passenger name and phone.");
 
-      // Save phone to preferences if it's new or missing
-      if (!user.prefs?.defaultPhone || user.prefs.defaultPhone !== phone) {
+      const trimmed = passengers.slice(0, codes.length).map((p) => ({
+        name: p.name.trim(),
+        phone: p.phone.trim(),
+      }));
+      if (trimmed.some((p) => !p.name || !p.phone)) {
+        throw new Error("Enter name and phone for every passenger.");
+      }
+
+      const primaryPhone = trimmed[0].phone;
+      // Save first passenger's phone to preferences if new
+      if (!user.prefs?.defaultPhone || user.prefs.defaultPhone !== primaryPhone) {
         try {
-          await account.updatePrefs({ ...(user.prefs || {}), defaultPhone: phone });
+          await account.updatePrefs({ ...(user.prefs || {}), defaultPhone: primaryPhone });
         } catch (e) {
           console.error("Failed to update user prefs", e);
         }
       }
+
+      const joinedName = trimmed
+        .map((p, i) => {
+          const label = seatLabelByCode[codes[i]] ?? codes[i];
+          return `Seat ${label}: ${p.name}`;
+        })
+        .join(" | ");
+      const joinedPhone = trimmed.map((p) => p.phone).join(" | ");
 
       return createBookingWithSeatReservations({
         tripId: tripQuery.data.id,
@@ -146,17 +194,20 @@ function BookingTripPage() {
         toStopIndex: 0,
         seatsBooked: codes.length,
         segmentPrice: Math.round(pricePerSeat * codes.length * 100) / 100,
-        passengerName: name,
-        passengerPhone: phone,
+        passengerName: joinedName,
+        passengerPhone: joinedPhone,
         status: "confirmed",
         seatCodes: codes,
       });
     },
-    onSuccess: async () => {
+    onSuccess: async (booking) => {
       toast.success("Booking confirmed.");
       await queryClient.invalidateQueries({ queryKey: ["trip-seat-reservations", tripId] });
       await queryClient.invalidateQueries({ queryKey: ["traveler-bookings"] });
-      navigate({ to: "/trips" });
+      navigate({
+        to: "/trips",
+        search: { booking: booking.id } as any,
+      });
     },
     onError: (e) => {
       toast.error(e instanceof Error ? e.message : "Booking failed.");
@@ -234,23 +285,6 @@ function BookingTripPage() {
     );
   }
 
-  if (user && user.$id === trip.hostId) {
-    return (
-      <div className="min-h-screen flex flex-col">
-        <SiteHeader />
-        <main className="container mx-auto px-4 py-16 max-w-lg flex-1">
-          <Card className="p-8 rounded-3xl text-center space-y-4">
-            <p className="font-semibold">You cannot book your own trip.</p>
-            <Button asChild variant="outline">
-              <Link to="/driver/dashboard">Ride Host dashboard</Link>
-            </Button>
-          </Card>
-        </main>
-        <SiteFooter />
-      </div>
-    );
-  }
-
   const toggleSeat = (code: string) => {
     setSelected((prev) => {
       const next = new Set(prev);
@@ -262,55 +296,47 @@ function BookingTripPage() {
 
   const vehicleMissing = vehicleQuery.data == null && vehicleQuery.isFetched;
 
+  const totalAmount =
+    selected.size > 0 ? pricePerSeat * selected.size + 29 : 0;
+
   return (
     <div className="min-h-screen flex flex-col bg-gradient-hero">
       <SiteHeader />
-      <main className="container mx-auto px-4 py-10 max-w-3xl flex-1">
-        <Button variant="ghost" className="mb-6 gap-2 -ml-2" asChild>
+      <main className="container mx-auto px-3 sm:px-4 pt-24 pb-10 md:pt-28 md:pb-14 max-w-6xl flex-1">
+        <Button variant="ghost" className="mb-3 gap-2 -ml-2 h-9" asChild>
           <a href="/#find-a-ride">
             <ArrowLeft className="h-4 w-4" />
             Find rides
           </a>
         </Button>
 
-        <Card className="p-6 md:p-8 rounded-3xl border-border/60 shadow-soft bg-card/90 backdrop-blur-sm mb-8">
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Choose your seats</h1>
-          <p className="text-base sm:text-lg text-foreground/90 mt-2 font-medium">
-            {trip.fromLocation} → {trip.toLocation}
-          </p>
-          <p className="text-sm sm:text-base text-muted-foreground mt-2">
-            Departure: {new Date(trip.departureAt).toLocaleString()}
-          </p>
-          <div className="mt-4 flex flex-wrap gap-2">
-            <span className="rounded-3xl bg-secondary px-3 py-1.5 text-sm font-semibold">
-              {remainingTripSeats} seat{remainingTripSeats !== 1 ? "s" : ""} left on this trip
-            </span>
-            <span className="rounded-3xl bg-primary/10 px-3 py-1.5 text-sm font-semibold text-primary">
-              {formatCurrency(pricePerSeat)} / seat
-            </span>
+        {/* Compact header */}
+        <Card className="p-4 sm:p-5 rounded-3xl border-border/60 shadow-soft bg-card/90 backdrop-blur-sm mb-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="min-w-0">
+              <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Book your seat</h1>
+              <div className="mt-2 flex items-center gap-2 text-sm sm:text-base">
+                <span className="font-semibold truncate">{trip.fromLocation}</span>
+                <span className="text-muted-foreground">→</span>
+                <span className="font-semibold truncate">{trip.toLocation}</span>
+              </div>
+              <p className="text-xs sm:text-sm text-muted-foreground mt-1">
+                {new Date(trip.departureAt).toLocaleString()}
+              </p>
+            </div>
+            <div className="flex flex-col items-end gap-1.5">
+              <span className="rounded-full bg-primary/10 px-3 py-1 text-sm font-bold text-primary">
+                {formatCurrency(pricePerSeat)} / seat
+              </span>
+              <span className="rounded-full bg-secondary px-3 py-1 text-xs font-semibold">
+                {remainingTripSeats} left
+              </span>
+            </div>
           </div>
           {vehicleMissing && (
-            <p className="mt-3 text-sm text-amber-700 dark:text-amber-400">
-              Vehicle profile not found — layout uses trip seat count + ride host seat as an
-              estimate.
+            <p className="mt-3 text-xs text-amber-700 dark:text-amber-400">
+              Vehicle profile not found — seat layout is estimated.
             </p>
-          )}
-
-          {trip.polyline && !!trip.fromLat && !!trip.fromLng && !!trip.toLat && !!trip.toLng && (
-            <div className="mt-6">
-              <RideRouteMap
-                fromLat={trip.fromLat}
-                fromLng={trip.fromLng}
-                toLat={trip.toLat}
-                toLng={trip.toLng}
-                polyline={trip.polyline}
-                isAirportDrop={
-                  (trip.toLocation || "").toLowerCase().includes("air") ||
-                  (trip.toLocation || "").toLowerCase().includes("flight") ||
-                  (trip.toLocation || "").toLowerCase().includes("terminal")
-                }
-              />
-            </div>
           )}
         </Card>
 
@@ -322,106 +348,179 @@ function BookingTripPage() {
             </Button>
           </Card>
         ) : (
-          <>
-            <SeatMap
-              slots={layout}
-              occupiedCodes={occupiedCodes}
-              selectedCodes={selected}
-              onTogglePassengerSeat={toggleSeat}
-              maxSelectable={remainingTripSeats}
-              seatConfig={trip.seatConfig}
-              disabled={bookingMutation.isPending || reservationsQuery.isPending}
-            />
+          <div className="grid gap-4 lg:grid-cols-[1fr_380px] items-start">
+            {/* Left column: seats + route */}
+            <div className="space-y-4 min-w-0">
+              <Card className="p-4 sm:p-5 rounded-3xl border-border/60 shadow-soft bg-card/90 backdrop-blur-sm">
+                <h2 className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-3">
+                  Choose your seats
+                </h2>
+                <SeatMap
+                  slots={layout}
+                  occupiedCodes={occupiedCodes}
+                  selectedCodes={selected}
+                  onTogglePassengerSeat={toggleSeat}
+                  maxSelectable={remainingTripSeats}
+                  seatConfig={trip.seatConfig}
+                  disabled={bookingMutation.isPending || reservationsQuery.isPending}
+                />
+              </Card>
 
-            <Card className="mt-8 p-6 rounded-3xl border-border/60 space-y-4">
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="p-name" className="text-base">
-                    Passenger name
-                  </Label>
-                  <Input
-                    id="p-name"
-                    value={passengerName}
-                    onChange={(e) => setPassengerName(e.target.value)}
-                    placeholder="Full name"
-                    className="rounded-3xl form-control-lg"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="p-phone" className="text-base">
-                    Phone
-                  </Label>
-                  <Input
-                    id="p-phone"
-                    value={passengerPhone}
-                    onChange={(e) => setPassengerPhone(e.target.value)}
-                    placeholder="Mobile number"
-                    className="rounded-3xl form-control-lg"
-                  />
+              {trip.polyline && !!trip.fromLat && !!trip.fromLng && !!trip.toLat && !!trip.toLng && (
+                <Card className="p-4 sm:p-5 rounded-3xl border-border/60 shadow-soft bg-card/90 backdrop-blur-sm overflow-hidden">
+                  <details className="group">
+                    <summary className="flex items-center justify-between cursor-pointer list-none">
+                      <h2 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
+                        Route preview
+                      </h2>
+                      <span className="text-xs text-primary font-semibold group-open:hidden">
+                        Show
+                      </span>
+                      <span className="text-xs text-primary font-semibold hidden group-open:inline">
+                        Hide
+                      </span>
+                    </summary>
+                    <div className="rounded-2xl overflow-hidden mt-3">
+                      <RideRouteMap
+                        fromLat={trip.fromLat}
+                        fromLng={trip.fromLng}
+                        toLat={trip.toLat}
+                        toLng={trip.toLng}
+                        polyline={trip.polyline}
+                        isAirportDrop={
+                          (trip.toLocation || "").toLowerCase().includes("air") ||
+                          (trip.toLocation || "").toLowerCase().includes("flight") ||
+                          (trip.toLocation || "").toLowerCase().includes("terminal")
+                        }
+                      />
+                    </div>
+                  </details>
+                </Card>
+              )}
+            </div>
+
+            {/* Right column: details + payment + summary (sticky on desktop) */}
+            <Card className="p-4 sm:p-5 rounded-3xl border-border/60 shadow-soft bg-card/90 backdrop-blur-sm lg:sticky lg:top-24 space-y-4">
+              <div>
+                <h2 className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-3">
+                  Passenger{passengers.length > 1 ? "s" : ""}
+                </h2>
+                <div className="space-y-4">
+                  {passengers.map((p, idx) => {
+                    const seatCode = [...selected][idx];
+                    return (
+                      <div
+                        key={idx}
+                        className="rounded-2xl border border-border/60 bg-card/60 p-3 space-y-2"
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold uppercase tracking-wider text-primary">
+                            Passenger {idx + 1}
+                          </span>
+                          {seatCode && (
+                            <span className="text-[10px] font-semibold rounded-full bg-primary/10 text-primary px-2 py-0.5">
+                              Seat #{seatLabelByCode[seatCode] ?? seatCode}
+                            </span>
+                          )}
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label
+                            htmlFor={`p-name-${idx}`}
+                            className="text-xs font-semibold text-muted-foreground"
+                          >
+                            Full name
+                          </Label>
+                          <Input
+                            id={`p-name-${idx}`}
+                            value={p.name}
+                            onChange={(e) => updatePassenger(idx, { name: e.target.value })}
+                            placeholder="Full name"
+                            className="rounded-xl h-10"
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label
+                            htmlFor={`p-phone-${idx}`}
+                            className="text-xs font-semibold text-muted-foreground"
+                          >
+                            Mobile number
+                          </Label>
+                          <Input
+                            id={`p-phone-${idx}`}
+                            value={p.phone}
+                            onChange={(e) => updatePassenger(idx, { phone: e.target.value })}
+                            placeholder="Mobile number"
+                            className="rounded-xl h-10"
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
-              <div className="pt-6 border-t border-border/60">
-                <h3 className="text-lg sm:text-xl font-semibold mb-4">Payment Method</h3>
-                <RadioGroup defaultValue="pay_on_car" className="space-y-3">
-                  <div className="flex items-center space-x-3 border border-border/60 p-4 bg-card/50 cursor-pointer">
+
+              <div className="pt-3 border-t border-border/60">
+                <h2 className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-3">
+                  Payment
+                </h2>
+                <RadioGroup defaultValue="pay_on_car">
+                  <div className="flex items-center gap-3 rounded-2xl border border-border/60 px-3 py-2.5 bg-card/50 cursor-pointer">
                     <RadioGroupItem value="pay_on_car" id="pay_on_car" />
                     <Label
                       htmlFor="pay_on_car"
-                      className="flex items-center gap-2 cursor-pointer w-full text-base sm:text-lg font-medium"
+                      className="flex items-center gap-2 cursor-pointer w-full text-sm font-semibold"
                     >
-                      <Banknote className="h-5 w-5 text-primary" />
+                      <Banknote className="h-4 w-4 text-primary" />
                       Pay on car
                     </Label>
                   </div>
                 </RadioGroup>
               </div>
 
-              <div className="bg-muted/30 p-4 border border-border/60 space-y-3">
-                <h3 className="font-semibold text-sm sm:text-base uppercase tracking-wider text-muted-foreground mb-4">
-                  Price Breakdown
-                </h3>
-                <div className="flex justify-between text-base">
-                  <span>
-                    Tickets ({selected.size} seat{selected.size !== 1 ? "s" : ""})
+              <div className="pt-3 border-t border-border/60 space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">
+                    Tickets ({selected.size})
                   </span>
-                  <span>{formatCurrency(pricePerSeat * selected.size)}</span>
+                  <span className="font-semibold">
+                    {formatCurrency(pricePerSeat * selected.size)}
+                  </span>
                 </div>
                 {selected.size > 0 && (
-                  <div className="flex justify-between text-base text-muted-foreground">
-                    <span>Platform fee</span>
-                    <span>{formatCurrency(29)}</span>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Platform fee</span>
+                    <span className="font-semibold">{formatCurrency(29)}</span>
                   </div>
                 )}
-                <div className="pt-3 border-t border-border/60 flex justify-between font-bold text-xl sm:text-2xl">
-                  <span>Total Amount</span>
-                  <span className="text-primary">
-                    {formatCurrency(selected.size > 0 ? pricePerSeat * selected.size + 29 : 0)}
+                <div className="pt-2 border-t border-border/60 flex justify-between items-baseline">
+                  <span className="font-bold">Total</span>
+                  <span className="text-2xl font-extrabold text-primary">
+                    {formatCurrency(totalAmount)}
                   </span>
                 </div>
               </div>
 
-              <div className="pt-4 flex justify-end">
-                <Button
-                  variant="hero"
-                  size="lg"
-                  className="rounded-3xl px-8 w-full sm:w-auto text-base sm:text-lg h-12 sm:h-14"
-                  disabled={
-                    bookingMutation.isPending || selected.size === 0 || remainingTripSeats === 0
-                  }
-                  onClick={() => bookingMutation.mutate()}
-                >
-                  {bookingMutation.isPending ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                      Confirming…
-                    </>
-                  ) : (
-                    "Confirm booking"
-                  )}
-                </Button>
-              </div>
+              <Button
+                variant="hero"
+                size="lg"
+                className="w-full rounded-2xl h-12 text-base"
+                style={{ color: "#fff" }}
+                disabled={
+                  bookingMutation.isPending || selected.size === 0 || remainingTripSeats === 0
+                }
+                onClick={() => bookingMutation.mutate()}
+              >
+                {bookingMutation.isPending ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    Confirming…
+                  </>
+                ) : (
+                  `Confirm booking${selected.size > 0 ? ` • ${formatCurrency(totalAmount)}` : ""}`
+                )}
+              </Button>
             </Card>
-          </>
+          </div>
         )}
       </main>
       <SiteFooter />

@@ -72,6 +72,8 @@ function toBooking(doc: any): Booking {
     createdAt: String(doc.created_at ?? doc.$createdAt),
     ratingByHost: doc.rating_by_host ? Number(doc.rating_by_host) : undefined,
     commentByHost: doc.comment_by_host ? String(doc.comment_by_host) : undefined,
+    otp: doc.otp ? String(doc.otp) : undefined,
+    verified: doc.verified === true || doc.verified === "true",
   };
 }
 
@@ -332,12 +334,16 @@ export async function listTravelerBookings(travelerId: string): Promise<Booking[
   return result.documents.map(toBooking);
 }
 
+function generateBookingOtp(): string {
+  return String(Math.floor(1000 + Math.random() * 9000));
+}
+
 export async function createBooking(
   input: CreateBookingInput & { hostIdForPermissions?: string },
 ): Promise<Booking> {
   const c = ids();
 
-  const doc = await databases.createDocument(appwriteConfig.databaseId, c.bookings, ID.unique(), {
+  const payload: Record<string, unknown> = {
     trip_id: input.tripId,
     traveler_id: input.travelerId,
     from_stop_index: input.fromStopIndex,
@@ -347,8 +353,56 @@ export async function createBooking(
     passenger_name: input.passengerName,
     passenger_phone: input.passengerPhone,
     status: input.status ?? "pending",
-  });
+    otp: generateBookingOtp(),
+    verified: false,
+  };
+
+  let doc;
+  try {
+    doc = await databases.createDocument(
+      appwriteConfig.databaseId,
+      c.bookings,
+      ID.unique(),
+      payload,
+    );
+  } catch (err) {
+    console.warn(
+      "[createBooking] retry without otp/verified — add these attributes to the bookings collection to enable OTP verification.",
+      err,
+    );
+    delete payload.otp;
+    delete payload.verified;
+    doc = await databases.createDocument(
+      appwriteConfig.databaseId,
+      c.bookings,
+      ID.unique(),
+      payload,
+    );
+  }
   return toBooking(doc);
+}
+
+export async function verifyBookingOtp(bookingId: string, otp: string): Promise<Booking> {
+  const c = ids();
+  const existing = await databases.getDocument(
+    appwriteConfig.databaseId,
+    c.bookings,
+    bookingId,
+  );
+  const storedOtp = existing.otp ? String(existing.otp) : "";
+  if (!storedOtp) {
+    throw new Error("No OTP on file for this booking.");
+  }
+  if (storedOtp !== otp.trim()) {
+    throw new Error("Incorrect OTP.");
+  }
+  const updated = await databases.updateDocument(
+    appwriteConfig.databaseId,
+    c.bookings,
+    bookingId,
+    { verified: true },
+  );
+  return toBooking(updated);
 }
 
 export async function deleteBooking(bookingId: string): Promise<void> {

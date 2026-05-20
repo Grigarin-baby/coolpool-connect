@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import logo from "@/assets/logo.png";
 import { useState, type FormEvent, useEffect, useRef } from "react";
-import { Sparkles, Loader2, Shield } from "lucide-react";
+import { Sparkles, Loader2, Shield, Home } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -234,17 +234,25 @@ function AuthPage() {
       <div className="absolute inset-0 bg-gradient-mesh opacity-75 pointer-events-none" />
       <div className="absolute top-1/4 right-0 h-72 w-72 rounded-3xl bg-primary-glow/25 blur-3xl pointer-events-none" />
 
-      <header className="relative shrink-0 container mx-auto px-4 sm:px-5 py-4 max-w-7xl">
+      <header className="relative shrink-0 container mx-auto px-4 sm:px-5 py-4 max-w-7xl flex items-center justify-between gap-3">
         <Link
           to="/"
           className="inline-flex items-center group rounded-3xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background"
         >
-          <img src={logo} alt="Coolpool Logo" className="h-16 w-auto object-contain" />
+          <img src={logo} alt="Coolpool Logo" className="h-12 sm:h-16 w-auto object-contain" />
+        </Link>
+        <Link
+          to="/"
+          aria-label="Back to home"
+          className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-white/70 backdrop-blur-md px-3 sm:px-4 py-2 text-sm font-semibold text-foreground shadow-sm hover:bg-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <Home className="h-4 w-4" />
+          <span className="hidden sm:inline">Home</span>
         </Link>
       </header>
 
-      <main className="relative flex-1 flex flex-col items-center justify-center px-4 sm:px-5 py-6 min-h-0">
-        <Card className="w-full max-w-[380px] p-6 sm:p-7 rounded-3xl shadow-elevated border-border/70 bg-card/92 backdrop-blur-xl ring-1 ring-primary/10">
+      <main className="relative flex-1 flex flex-col items-center justify-center px-3 sm:px-5 py-6 min-h-0">
+        <Card className="w-full max-w-[460px] p-5 sm:p-7 rounded-3xl shadow-elevated border-border/70 bg-card/92 backdrop-blur-xl ring-1 ring-primary/10">
           {showPhoneStep ? (
             <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
               <div className="flex flex-col items-center text-center mb-6">
@@ -413,7 +421,7 @@ function AuthPage() {
                         autoComplete="name"
                         required
                         value={name}
-                        placeholder="Jane Doe"
+                        placeholder="Kiran Kumar"
                         onChange={(e) => setName(e.target.value)}
                         style={{ fontSize: "2rem", lineHeight: 1.1 }}
                         className="h-16 w-full rounded-3xl border-border/80 bg-background/80 font-bold placeholder:text-muted-foreground/40"

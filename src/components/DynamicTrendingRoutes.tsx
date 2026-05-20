@@ -323,7 +323,7 @@ export function DynamicTrendingRoutes() {
                 variant="hero"
                 className="rounded-3xl shadow-glow px-8 h-12 text-base"
               >
-                <Link to="/host">Host a Ride Now</Link>
+                <Link to="/host">Host a Ride </Link>
               </Button>
             </div>
           </Card>

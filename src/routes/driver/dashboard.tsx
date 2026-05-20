@@ -75,6 +75,7 @@ import {
   upsertDriverProfile,
   assignRole,
   listHostBookings,
+  verifyBookingOtp,
   type CreateTeamDriverInput,
 } from "@/data/appwrite-repository";
 import { storage } from "@/integrations/appwrite/client";
@@ -88,6 +89,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { appwriteConfig } from "@/integrations/appwrite/client";
 import { SERVICE_CITY, BENGALURU_AIRPORTS } from "@/lib/config";
 import { SeatPicker, type SeatId } from "@/components/SeatPicker";
+import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import { getUserDisplayName } from "@/lib/user-display";
 
 import logo from "@/assets/logo.png";
@@ -266,6 +268,27 @@ function DriverDashboardPage() {
   const [publishModalView, setPublishModalView] = useState<"trips" | "form">("trips");
   const [showTripForm, setShowTripForm] = useState(false);
   const [tripPublishedSuccess, setTripPublishedSuccess] = useState(false);
+  const [otpInputs, setOtpInputs] = useState<Record<string, string>>({});
+  const [verifyingId, setVerifyingId] = useState<string | null>(null);
+
+  const handleVerifyOtp = async (bookingId: string) => {
+    const code = (otpInputs[bookingId] || "").trim();
+    if (!/^\d{4}$/.test(code)) {
+      message.error("Enter the 4-digit OTP.");
+      return;
+    }
+    setVerifyingId(bookingId);
+    try {
+      await verifyBookingOtp(bookingId, code);
+      message.success("Customer verified.");
+      setOtpInputs((prev) => ({ ...prev, [bookingId]: "" }));
+      void queryClient.invalidateQueries({ queryKey: ["host-bookings"] });
+    } catch (err) {
+      message.error(err instanceof Error ? err.message : "Verification failed.");
+    } finally {
+      setVerifyingId(null);
+    }
+  };
   const autocompleteServiceRef = useRef<PlacesAutocompleteServiceLike | null>(null);
   const geocoderRef = useRef<GeocoderLike | null>(null);
   const directionsServiceRef = useRef<DirectionsServiceLike | null>(null);
@@ -444,9 +467,9 @@ function DriverDashboardPage() {
 
   const upcomingTrips = trips.filter((t) => dayjs(t.departureAt).isAfter(dayjs()));
 
-  const sortedTrips = [...trips].sort((a, b) =>
-    new Date(b.departureAt).getTime() - new Date(a.departureAt).getTime()
-  );
+  const sortedTrips = trips
+    .filter((t) => t.status !== "cancelled" && dayjs(t.departureAt).isAfter(dayjs()))
+    .sort((a, b) => new Date(a.departureAt).getTime() - new Date(b.departureAt).getTime());
 
   const isVerifiedHost = vehicles.length > 0;
 
@@ -603,20 +626,7 @@ function DriverDashboardPage() {
       return;
     }
 
-    dirService.route(
-      {
-        origin: { lat: finalFrom.lat, lng: finalFrom.lng },
-        destination: { lat: finalTo.lat, lng: finalTo.lng },
-        waypoints: [],
-        travelMode: "DRIVING",
-      },
-      (result, status) => {
-        if (status !== "OK" || !result) {
-          console.error("[Publish] Directions API failed:", status, result);
-          message.error(`Route calculation failed: ${status}. Please check your stops.`);
-          return;
-        }
-
+    const handleRouteResult = (result: any) => {
         const route = result.routes[0];
         const polyline = route.overview_polyline;
 
@@ -677,8 +687,37 @@ function DriverDashboardPage() {
         }
 
         performCreateTrip(payload);
-      },
-    );
+    };
+
+    try {
+      const routeRequest = {
+        origin: { lat: finalFrom.lat, lng: finalFrom.lng },
+        destination: { lat: finalTo.lat, lng: finalTo.lng },
+        waypoints: [],
+        travelMode: "DRIVING" as any,
+      };
+      const maybePromise: any = (dirService as any).route(routeRequest);
+      if (maybePromise && typeof maybePromise.then === "function") {
+        const result = await maybePromise;
+        handleRouteResult(result);
+      } else {
+        await new Promise<void>((resolve) => {
+          (dirService as any).route(routeRequest, (result: any, status: string) => {
+            if (status !== "OK" || !result) {
+              console.error("[Publish] Directions API failed:", status, result);
+              message.error(`Route calculation failed: ${status}. Please check your stops.`);
+              resolve();
+              return;
+            }
+            handleRouteResult(result);
+            resolve();
+          });
+        });
+      }
+    } catch (err) {
+      console.error("[Publish] Directions API threw:", err);
+      message.error("Route calculation failed. Please check your stops.");
+    }
   };
 
   const searchCities = async (query: string, target: "from" | "to") => {
@@ -863,6 +902,35 @@ function DriverDashboardPage() {
           },
           Card: {
             colorBgContainer: "rgba(255, 255, 255, 0.8)",
+            borderRadius: 16,
+            borderRadiusLG: 16,
+          },
+          Button: {
+            borderRadius: 12,
+            borderRadiusLG: 14,
+            borderRadiusSM: 10,
+          },
+          Modal: {
+            borderRadiusLG: 16,
+          },
+          Tag: {
+            borderRadiusSM: 999,
+          },
+          Input: {
+            borderRadius: 12,
+            borderRadiusLG: 14,
+          },
+          InputNumber: {
+            borderRadius: 12,
+            borderRadiusLG: 14,
+          },
+          Select: {
+            borderRadius: 12,
+            borderRadiusLG: 14,
+          },
+          DatePicker: {
+            borderRadius: 12,
+            borderRadiusLG: 14,
           },
         },
       }}
@@ -1589,6 +1657,14 @@ function DriverDashboardPage() {
                                     type="link"
                                     size="small"
                                     className="text-primary font-medium p-0"
+                                    onClick={() => setManagingTripId(trip.id)}
+                                  >
+                                    View
+                                  </Button>
+                                  <Button
+                                    type="link"
+                                    size="small"
+                                    className="text-primary font-medium p-0"
                                     onClick={async () => {
                                       const hide = message.loading(
                                         "Fetching trip details...",
@@ -1632,6 +1708,7 @@ function DriverDashboardPage() {
                                           ),
                                           vehicleId: trip.vehicleId,
                                           driverId: trip.assignedDriverId,
+                                          seatConfig: (trip as any).seatConfig ?? [],
                                         });
 
                                         setShowTripForm(true);
@@ -1832,9 +1909,16 @@ function DriverDashboardPage() {
                                 {/* Actions */}
                                 <div className="flex gap-2 pt-2">
                                   <Button
+                                    size="small"
+                                    className="flex-1 rounded-xl"
+                                    onClick={() => setManagingTripId(trip.id)}
+                                  >
+                                    View
+                                  </Button>
+                                  <Button
                                     type="primary"
                                     size="small"
-                                    className="flex-1 bg-gradient-primary border-none rounded-none"
+                                    className="flex-1 bg-gradient-primary border-none rounded-xl"
                                     onClick={async () => {
                                       const hide = message.loading(
                                         "Fetching trip details...",
@@ -1878,6 +1962,7 @@ function DriverDashboardPage() {
                                           ),
                                           vehicleId: trip.vehicleId,
                                           driverId: trip.assignedDriverId,
+                                          seatConfig: (trip as any).seatConfig ?? [],
                                         });
 
                                         setShowTripForm(true);
@@ -1925,7 +2010,7 @@ function DriverDashboardPage() {
                                     <Button
                                       size="small"
                                       danger
-                                      className="rounded-none"
+                                      className="rounded-xl"
                                     >
                                       Cancel
                                     </Button>
@@ -1959,7 +2044,7 @@ function DriverDashboardPage() {
                                     <Button
                                       size="small"
                                       danger
-                                      className="rounded-none"
+                                      className="rounded-xl"
                                     >
                                       Delete
                                     </Button>
@@ -2871,55 +2956,69 @@ function DriverDashboardPage() {
                             }
                             return acc;
                           }, {}),
-                        ).map((customer: any) => (
+                        ).map((customer: any) => {
+                          const anyVerified = customer.latestBookings.some(
+                            (b: Booking) => b.verified,
+                          );
+                          return (
                           <Card
                             key={customer.travelerId}
-                            className="rounded-3xl border border-white/60 shadow-soft hover:shadow-card transition-all bg-white/80 backdrop-blur-md overflow-hidden"
+                            className="rounded-2xl border border-white/60 shadow-soft hover:shadow-card transition-all bg-white/80 backdrop-blur-md overflow-hidden"
+                            bodyStyle={{ padding: 16 }}
                           >
-                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 p-2">
-                              <div className="flex items-center gap-5">
+                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                              <div className="flex items-center gap-3">
                                 <Avatar
-                                  size={70}
+                                  size={44}
                                   className="bg-gradient-primary shadow-soft flex-shrink-0"
                                 >
                                   {customer.name[0]}
                                 </Avatar>
                                 <div>
-                                  <div className="flex items-center gap-3 flex-wrap">
-                                    <Title level={3} className="m-0">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <Title level={5} className="m-0">
                                       {customer.name}
                                     </Title>
+                                    {anyVerified && (
+                                      <Tag
+                                        color="green"
+                                        className="rounded-full px-2 border-none font-bold uppercase text-[10px] m-0"
+                                      >
+                                        Verified
+                                      </Tag>
+                                    )}
                                     {customer.totalTrips >= 3 && (
                                       <Tag
                                         color="gold"
-                                        className="rounded-full px-3 border-none font-bold uppercase text-[10px] m-0"
+                                        className="rounded-full px-2 border-none font-bold uppercase text-[10px] m-0"
                                       >
-                                        Frequent Traveler
+                                        Frequent
                                       </Tag>
                                     )}
-                                    <div className="flex items-center gap-1 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
+                                    <div className="flex items-center gap-1 bg-emerald-500/10 px-1.5 py-0.5 rounded-full border border-emerald-500/20">
                                       <Star
-                                        size={12}
+                                        size={10}
                                         className="text-emerald-600 fill-emerald-600"
                                       />
-                                      <Text className="text-[12px] text-emerald-700 font-bold">
+                                      <Text className="text-[11px] text-emerald-700 font-bold">
                                         {customer.ratingsCount > 0
                                           ? (customer.avgRating / customer.ratingsCount).toFixed(1)
                                           : "New"}
                                       </Text>
                                     </div>
                                   </div>
-                                  <div className="flex items-center gap-4 mt-2 text-gray-500 font-medium">
-                                    <Text type="secondary">{customer.phone}</Text>
+                                  <div className="flex items-center gap-2 mt-1 text-gray-500 text-xs">
+                                    <Text type="secondary" className="text-xs">{customer.phone}</Text>
                                     <span className="w-1 h-1 bg-gray-300 rounded-full"></span>
-                                    <Text type="secondary">{customer.totalTrips} Total Trips</Text>
+                                    <Text type="secondary" className="text-xs">{customer.totalTrips} Trips</Text>
                                   </div>
                                 </div>
                               </div>
-                              <div className="flex items-center gap-3">
+                              <div className="flex items-center gap-2">
                                 <Button
                                   type="primary"
-                                  className="h-12 rounded-2xl bg-purple-600 border-none font-bold shadow-soft"
+                                  size="middle"
+                                  className="h-9 rounded-xl bg-purple-600 border-none font-semibold shadow-soft"
                                   onClick={() => {
                                     setSelectedBooking(customer.latestBookings[0]);
                                     setRatingValue(customer.latestBookings[0].ratingByHost || 5);
@@ -2934,68 +3033,65 @@ function DriverDashboardPage() {
                               </div>
                             </div>
 
-                            <div className="mt-6 pt-6 border-t border-gray-100">
+                            <div className="mt-4 pt-4 border-t border-gray-100">
                               <Text
                                 strong
-                                className="text-gray-400 uppercase text-[10px] tracking-widest block mb-4"
+                                className="text-gray-400 uppercase text-[10px] tracking-widest block mb-3"
                               >
                                 Trip History with you
                               </Text>
-                              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                                 {customer.latestBookings.slice(0, 3).map((b: Booking) => (
                                   <div
                                     key={b.id}
-                                    className="bg-gray-50/50 p-4 rounded-2xl border border-gray-100 flex flex-col justify-between"
+                                    className="bg-gray-50/50 p-3 rounded-xl border border-gray-100 flex flex-col gap-2"
                                   >
-                                    <div>
-                                      <Text strong className="block mb-1">
-                                        {b.passengerName}
-                                      </Text>
+                                    <div className="flex items-center justify-between gap-2">
                                       <Text
                                         type="secondary"
-                                        className="text-[11px] uppercase tracking-wider block mb-2"
+                                        className="text-[10px] uppercase tracking-wider"
                                       >
                                         {dayjs(b.createdAt).format("MMM D, YYYY")}
                                       </Text>
-                                      <div className="flex items-center gap-2 mb-1">
-                                        <Tag
-                                          color={
-                                            b.status === "confirmed"
-                                              ? "green"
-                                              : b.status === "completed"
-                                                ? "blue"
-                                                : "orange"
-                                          }
-                                          className="rounded-full text-[10px] border-none font-bold uppercase px-2"
-                                        >
-                                          {b.status}
-                                        </Tag>
-                                        <Text className="text-xs font-semibold">
-                                          {b.seatsBooked} Seats • ₹{b.segmentPrice}
+                                      <Tag
+                                        color={
+                                          b.status === "confirmed"
+                                            ? "green"
+                                            : b.status === "completed"
+                                              ? "blue"
+                                              : "orange"
+                                        }
+                                        className="rounded-full text-[9px] border-none font-bold uppercase px-1.5 m-0"
+                                      >
+                                        {b.status}
+                                      </Tag>
+                                    </div>
+                                    <Text className="text-xs font-semibold">
+                                      {b.seatsBooked} Seat{b.seatsBooked > 1 ? "s" : ""} • ₹{b.segmentPrice}
+                                    </Text>
+
+                                    {b.verified && (
+                                      <div className="flex items-center gap-1.5 rounded-lg bg-emerald-50 border border-emerald-200 px-2 py-1.5">
+                                        <Star size={12} className="text-emerald-600 fill-emerald-600" />
+                                        <Text className="text-[11px] font-bold text-emerald-700">
+                                          Customer Verified
                                         </Text>
                                       </div>
-                                    </div>
+                                    )}
+
                                     {b.ratingByHost && (
-                                      <div className="mt-3 flex items-center gap-2 pt-3 border-t border-gray-100/50">
-                                        <div className="flex items-center gap-1">
-                                          {[...Array(5)].map((_, i) => (
-                                            <Star
-                                              key={i}
-                                              size={10}
-                                              className={
-                                                i < b.ratingByHost!
-                                                  ? "text-amber-400 fill-amber-400"
-                                                  : "text-gray-200"
-                                              }
-                                            />
-                                          ))}
-                                        </div>
-                                        <Text
-                                          italic
-                                          className="text-[10px] text-gray-400 line-clamp-1"
-                                        >
-                                          "{b.commentByHost}"
-                                        </Text>
+                                      <div className="flex items-center gap-1.5">
+                                        {[...Array(5)].map((_, i) => (
+                                          <Star
+                                            key={i}
+                                            size={10}
+                                            className={
+                                              i < b.ratingByHost!
+                                                ? "text-amber-400 fill-amber-400"
+                                                : "text-gray-200"
+                                            }
+                                          />
+                                        ))}
                                       </div>
                                     )}
                                   </div>
@@ -3003,7 +3099,8 @@ function DriverDashboardPage() {
                               </div>
                             </div>
                           </Card>
-                        ))}
+                          );
+                        })}
                       </div>
                     )}
                   </div>
@@ -3507,6 +3604,55 @@ function DriverDashboardPage() {
                               <span className="font-medium text-purple-900">
                                 {b.seatsBooked} seats booked
                               </span>
+                            </div>
+
+                            <div className="mt-4 pt-4 border-t border-gray-100">
+                              {b.verified ? (
+                                <div className="flex items-center gap-2 rounded-xl bg-emerald-50 border border-emerald-200 px-3 py-2">
+                                  <Star size={14} className="text-emerald-600 fill-emerald-600" />
+                                  <Text className="text-sm font-bold text-emerald-700">
+                                    Customer Verified
+                                  </Text>
+                                </div>
+                              ) : (
+                                <div>
+                                  <Text className="text-[10px] uppercase tracking-widest text-gray-400 block mb-2 font-bold">
+                                    Boarding OTP
+                                  </Text>
+                                  <div className="flex items-center gap-3">
+                                    <InputOTP
+                                      maxLength={4}
+                                      value={otpInputs[b.id] || ""}
+                                      onChange={(v) =>
+                                        setOtpInputs((prev) => ({
+                                          ...prev,
+                                          [b.id]: v.replace(/\D/g, ""),
+                                        }))
+                                      }
+                                      inputMode="numeric"
+                                      containerClassName="flex-1"
+                                    >
+                                      <InputOTPGroup className="grid w-full grid-cols-4 gap-2">
+                                        {[0, 1, 2, 3].map((i) => (
+                                          <InputOTPSlot
+                                            key={i}
+                                            index={i}
+                                            className="h-12 w-full rounded-xl border border-border/80 bg-background text-xl font-bold first:rounded-xl last:rounded-xl"
+                                          />
+                                        ))}
+                                      </InputOTPGroup>
+                                    </InputOTP>
+                                    <Button
+                                      type="primary"
+                                      loading={verifyingId === b.id}
+                                      onClick={() => handleVerifyOtp(b.id)}
+                                      className="rounded-xl bg-purple-600 border-none font-semibold h-12 px-5"
+                                    >
+                                      Verify
+                                    </Button>
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           </Card>
                         ))}

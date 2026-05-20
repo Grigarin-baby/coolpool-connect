@@ -191,7 +191,7 @@ function MembersPage() {
 
       <main className="flex-1 pt-20 md:pt-10">
         <div className="relative border-b border-border/60 bg-linear-to-br from-teal-500/7 via-background to-background dark:from-teal-400/6">
-          <div className="container mx-auto px-4 py-10 md:py-14 max-w-6xl grid lg:grid-cols-[minmax(0,1fr)_420px] gap-10 lg:gap-14 items-start">
+          <div className="container mx-auto px-3 sm:px-4 py-10 md:py-14 max-w-6xl grid lg:grid-cols-[minmax(0,1fr)_480px] gap-10 lg:gap-14 items-start">
             <div className="space-y-8 order-2 lg:order-1">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.2em] text-teal-700 dark:text-teal-400">
@@ -263,7 +263,7 @@ function MembersPage() {
             </div>
 
             <div className="order-1 lg:order-2 w-full">
-              <div className="rounded-2xl border border-teal-500/25 bg-card shadow-xl shadow-teal-950/5 dark:shadow-black/40 p-6 sm:p-8">
+              <div className="rounded-2xl border border-teal-500/25 bg-card shadow-xl shadow-teal-950/5 dark:shadow-black/40 p-4 sm:p-8">
                 <p className="text-sm text-muted-foreground">
                   {bookingHint
                     ? "We'll take you back to your seats after you sign in or register."
@@ -385,6 +385,7 @@ function MembersPage() {
                         required
                         autoComplete="name"
                         value={name}
+                        placeholder="Kiran Kumar"
                         onChange={(e) => setName(e.target.value)}
                         style={{ fontSize: "2rem", lineHeight: 1.1 }}
                         className="h-16 w-full rounded-3xl border-border/80 bg-background/80 font-bold placeholder:text-muted-foreground/40"
