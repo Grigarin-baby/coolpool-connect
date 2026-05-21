@@ -12,8 +12,7 @@ import { account } from "@/integrations/appwrite/client";
 import { listUserRoles, assignRole, upsertDriverProfile } from "@/data/appwrite-repository";
 import type { AppRole } from "@/lib/domain";
 import { parseTravelerResumeRedirectParam } from "@/lib/travelerResumeRedirect";
-import { sendOtp, confirmOtp, resetRecaptcha, type ConfirmationResult } from "@/integrations/firebase/client";
-import { exchangeFirebaseTokenForAppwrite } from "@/integrations/firebase/bridge";
+import { sendMsg91Otp, verifyMsg91Otp } from "@/integrations/msg91/otp";
 
 export interface MemberGoogleOAuthOptions {
   resumeRedirect?: string;
@@ -39,9 +38,9 @@ interface AuthContextValue {
     phoneE164: string,
     password: string,
   ) => Promise<void>;
-  /** Sends an SMS OTP via Firebase to an E.164 phone number. */
-  sendPhoneOtp: (phoneE164: string, recaptchaContainerId: string) => Promise<void>;
-  /** Verifies the OTP and signs the user into Appwrite. */
+  /** Sends an SMS OTP via MSG91 to an E.164 phone number. */
+  sendPhoneOtp: (phoneE164: string) => Promise<void>;
+  /** Verifies the OTP (for the last number sent to) and signs the user into Appwrite. */
   verifyPhoneOtp: (code: string) => Promise<void>;
   /** Starts Appwrite Google OAuth (redirects away). Configure Google in Appwrite Auth settings. */
   signInWithGoogle: (opts?: MemberGoogleOAuthOptions) => void;
@@ -73,7 +72,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AppwriteUser | null>(null);
   const [roles, setRoles] = useState<AppRole[]>([]);
   const [loading, setLoading] = useState(true);
-  const phoneConfirmation = useRef<ConfirmationResult | null>(null);
+  /** The E.164 number the current OTP was sent to (MSG91 verify needs it again). */
+  const otpPhone = useRef<string | null>(null);
 
   const loadRoles = async (currentUser: AppwriteUser) => {
     try {
@@ -177,21 +177,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await refreshSession();
   };
 
-  const sendPhoneOtp = async (phoneE164: string, recaptchaContainerId: string) => {
-    phoneConfirmation.current = await sendOtp(phoneE164, recaptchaContainerId);
+  const sendPhoneOtp = async (phoneE164: string) => {
+    await sendMsg91Otp({ data: { phone: phoneE164 } });
+    otpPhone.current = phoneE164;
   };
 
   const verifyPhoneOtp = async (code: string) => {
-    if (!phoneConfirmation.current) {
+    const phone = otpPhone.current;
+    if (!phone) {
       throw new Error("Request an OTP first.");
     }
-    let idToken: string;
-    try {
-      idToken = await confirmOtp(phoneConfirmation.current, code);
-    } catch {
-      throw new Error("Invalid or expired OTP. Please try again.");
-    }
-    const { userId, secret } = await exchangeFirebaseTokenForAppwrite({ data: { idToken } });
+    const { userId, secret } = await verifyMsg91Otp({ data: { phone, code } });
     // Clear any leftover anonymous/previous session before swapping in the new one.
     try {
       await account.deleteSession("current");
@@ -199,8 +195,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       /* no existing session */
     }
     await account.createSession(userId, secret);
-    phoneConfirmation.current = null;
-    resetRecaptcha();
+    otpPhone.current = null;
     await refreshSession();
   };
 

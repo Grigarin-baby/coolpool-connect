@@ -670,7 +670,7 @@ function DriverDashboardPage() {
             pricePerKm: calcPricePerKm(totalPrice, totalDistanceKm),
             totalSeats,
             departureAt: values.departureAt.toISOString(),
-            notes: `Created from ride host trip module. Total price: â‚¹${totalPrice}.`,
+            notes: `Created from ride host trip module. Total price: ₹${totalPrice}.`,
             vehicleId: values.vehicleId,
             assignedDriverId: values.driverId,
             seatConfig: values.seatConfig,
@@ -854,7 +854,7 @@ function DriverDashboardPage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gradient-hero p-4">
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-emerald-200 via-green-200 to-emerald-300 p-4">
         <Spin size="large" />
       </div>
     );
@@ -862,7 +862,7 @@ function DriverDashboardPage() {
 
   if (!isDriver) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gradient-hero p-4">
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-emerald-200 via-green-200 to-emerald-300 p-4">
         <Card className="max-w-md text-center shadow-elevated rounded-3xl border-none">
           <Text type="danger" strong>
             ACCESS DENIED
@@ -935,7 +935,10 @@ function DriverDashboardPage() {
         },
       }}
     >
-      <div className="min-h-screen bg-gradient-hero bg-fixed">
+      <div
+        className="min-h-screen bg-fixed bg-gradient-to-br from-emerald-200 via-green-200 to-emerald-300"
+        style={{ fontFamily: APP_FONT_FAMILY }}
+      >
         {tripPublishedSuccess && (
           <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-white/95 backdrop-blur-sm animate-in fade-in duration-200">
             <div className="flex flex-col items-center px-6 text-center">
@@ -1249,14 +1252,14 @@ function DriverDashboardPage() {
                       <div className="absolute -right-6 -bottom-6 w-24 h-24 bg-emerald-500/10 rounded-full blur-xl group-hover:bg-emerald-500/20 transition-all"></div>
                       <div className="flex items-center gap-3 mb-2">
                         <div className="p-2 bg-emerald-100 rounded-3xl text-emerald-600">
-                          <span className="font-bold text-lg">â‚¹</span>
+                          <span className="font-bold text-lg">₹</span>
                         </div>
                         <Text type="secondary" className="font-medium text-gray-500">
                           Total Earnings
                         </Text>
                       </div>
                       <Title level={2} style={{ margin: "12px 0 8px 0" }} className="text-gray-800">
-                        â‚¹0
+                        ₹0
                       </Title>
                       <Text type="secondary" className="text-sm">
                         Settlement pending
@@ -1346,7 +1349,7 @@ function DriverDashboardPage() {
                                 </Tag>
                                 <div className="flex items-center gap-2">
                                   <Text strong className="text-lg text-emerald-600">
-                                    â‚¹{item.totalPrice}
+                                    ₹{item.totalPrice}
                                   </Text>
                                   <Dropdown
                                     menu={{
@@ -1880,7 +1883,7 @@ function DriverDashboardPage() {
                                       Price per Seat
                                     </Text>
                                     <Text strong className="text-emerald-600 text-lg mt-1">
-                                      â‚¹{trip.totalPrice?.toLocaleString("en-IN")}
+                                      ₹{trip.totalPrice?.toLocaleString("en-IN")}
                                     </Text>
                                   </div>
                                 </div>
@@ -3230,30 +3233,61 @@ function DriverDashboardPage() {
                   <Card className="rounded-3xl border border-white/60 shadow-card bg-white/80 backdrop-blur-md p-8">
                     <Form
                       layout="vertical"
-                      initialValues={{ seatCapacity: 4 }}
+                      initialValues={{
+                        seatCapacity: 4,
+                        phone:
+                          (user?.prefs as Record<string, unknown> | undefined)?.phone ??
+                          (user as { phone?: string } | null)?.phone ??
+                          "",
+                      }}
                       onFinish={async (v) => {
                         if (!user) return;
                         setOnboardingSubmitting(true);
                         try {
-                          const regUp = regFileList[0]?.originFileObj
-                            ? await storage.createFile(
-                              appwriteConfig.driverDocsBucketId,
-                              ID.unique(),
-                              regFileList[0].originFileObj as File,
-                            )
-                            : null;
-                          const insUp = insFileList[0]?.originFileObj
-                            ? await storage.createFile(
-                              appwriteConfig.driverDocsBucketId,
-                              ID.unique(),
-                              insFileList[0].originFileObj as File,
-                            )
-                            : null;
+                          const phoneDigits = String(v.phone || "").replace(/[^\d]/g, "");
+                          // The `drivers` collection requires a non-empty email.
+                          // Phone-based accounts may have no real email, so fall
+                          // back to a deterministic phone-derived address.
+                          const profileEmail =
+                            user.email && user.email.trim()
+                              ? user.email
+                              : `u${phoneDigits}@phone.coolpool.in`;
 
+                          // Documents are optional — a failed upload must never
+                          // block verification, so each upload is best-effort.
+                          let regDocId: string | undefined;
+                          let insDocId: string | undefined;
+                          if (regFileList[0]?.originFileObj) {
+                            try {
+                              const up = await storage.createFile(
+                                appwriteConfig.driverDocsBucketId,
+                                ID.unique(),
+                                regFileList[0].originFileObj as File,
+                              );
+                              regDocId = up.$id;
+                            } catch {
+                              message.warning("Registration document upload failed — you can add it later.");
+                            }
+                          }
+                          if (insFileList[0]?.originFileObj) {
+                            try {
+                              const up = await storage.createFile(
+                                appwriteConfig.driverDocsBucketId,
+                                ID.unique(),
+                                insFileList[0].originFileObj as File,
+                              );
+                              insDocId = up.$id;
+                            } catch {
+                              message.warning("Insurance document upload failed — you can add it later.");
+                            }
+                          }
+
+                          // Profile + vehicle are what grant verification — these
+                          // run after uploads so a doc failure can't abort them.
                           await upsertDriverProfile({
                             userId: user.$id,
-                            fullName: user.name || "",
-                            email: user.email || "",
+                            fullName: user.name || String(v.phone || ""),
+                            email: profileEmail,
                             phone: String(v.phone),
                             licenseNumber: String(v.licenseNumber),
                             city: String(v.city),
@@ -3265,13 +3299,14 @@ function DriverDashboardPage() {
                             plateNumber: v.plate,
                             seatCapacity: 5,
                             color: v.color,
-                            registrationDoc: regUp?.$id,
-                            insuranceDoc: insUp?.$id,
+                            registrationDoc: regDocId,
+                            insuranceDoc: insDocId,
                           });
 
                           await assignRole(user.$id, "driver");
                           message.success("Onboarding complete! You are now a verified host.");
-                          void queryClient.invalidateQueries({ queryKey: ["driver-vehicles"] });
+                          await queryClient.invalidateQueries({ queryKey: ["driver-vehicles"] });
+                          await refreshRoles();
                           setActiveModule("dashboard");
                         } catch (err) {
                           message.error(err instanceof Error ? err.message : "Onboarding failed");

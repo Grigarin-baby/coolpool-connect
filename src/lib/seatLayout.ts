@@ -30,13 +30,13 @@ export function buildSeatLayout(seatCapacity: number): SeatSlot[] {
     });
   };
 
-  // Row 0: Front Passenger (Left) + Driver (Right)
-  let passengerNo = 1;
+  // Seat code = row letter (A, B, C…) + seat number within that row (1, 2, 3…).
+  const rowLetter = (r: number) => String.fromCharCode(65 + r);
 
+  // Row 0: Front Passenger (Left) + Driver (Right)
   // Front Passenger on Left (Col 0)
   if (cap > 1) {
-    push(0, 0, "passenger", String(passengerNo));
-    passengerNo++;
+    push(0, 0, "passenger", `${rowLetter(0)}1`);
   }
 
   // Driver on Right (Col 1)
@@ -49,8 +49,7 @@ export function buildSeatLayout(seatCapacity: number): SeatSlot[] {
   while (slots.length < cap) {
     const seatsInThisRow = isLargeVehicle ? 2 : 3;
     for (let c = 0; c < seatsInThisRow && slots.length < cap; c++) {
-      push(row, c, "passenger", String(passengerNo));
-      passengerNo++;
+      push(row, c, "passenger", `${rowLetter(row)}${c + 1}`);
     }
     row++;
   }

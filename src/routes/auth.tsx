@@ -200,7 +200,8 @@ function AuthPage() {
     try {
       await signUpWithPhonePassword(name, toE164(suNumber), signUpPassword);
       toast.success("Account created.");
-      setShowPhoneStep(true);
+      // Phone was already captured during signup and saved to prefs — the
+      // useEffect picks it up and auto-onboards the host. No extra step.
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Unable to create account.");
     } finally {

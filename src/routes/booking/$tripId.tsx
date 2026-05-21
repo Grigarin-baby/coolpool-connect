@@ -368,33 +368,23 @@ function BookingTripPage() {
 
               {trip.polyline && !!trip.fromLat && !!trip.fromLng && !!trip.toLat && !!trip.toLng && (
                 <Card className="p-4 sm:p-5 rounded-3xl border-border/60 shadow-soft bg-card/90 backdrop-blur-sm overflow-hidden">
-                  <details className="group">
-                    <summary className="flex items-center justify-between cursor-pointer list-none">
-                      <h2 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
-                        Route preview
-                      </h2>
-                      <span className="text-xs text-primary font-semibold group-open:hidden">
-                        Show
-                      </span>
-                      <span className="text-xs text-primary font-semibold hidden group-open:inline">
-                        Hide
-                      </span>
-                    </summary>
-                    <div className="rounded-2xl overflow-hidden mt-3">
-                      <RideRouteMap
-                        fromLat={trip.fromLat}
-                        fromLng={trip.fromLng}
-                        toLat={trip.toLat}
-                        toLng={trip.toLng}
-                        polyline={trip.polyline}
-                        isAirportDrop={
-                          (trip.toLocation || "").toLowerCase().includes("air") ||
-                          (trip.toLocation || "").toLowerCase().includes("flight") ||
-                          (trip.toLocation || "").toLowerCase().includes("terminal")
-                        }
-                      />
-                    </div>
-                  </details>
+                  <h2 className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-3">
+                    Route preview
+                  </h2>
+                  <div className="rounded-2xl overflow-hidden">
+                    <RideRouteMap
+                      fromLat={trip.fromLat}
+                      fromLng={trip.fromLng}
+                      toLat={trip.toLat}
+                      toLng={trip.toLng}
+                      polyline={trip.polyline}
+                      isAirportDrop={
+                        (trip.toLocation || "").toLowerCase().includes("air") ||
+                        (trip.toLocation || "").toLowerCase().includes("flight") ||
+                        (trip.toLocation || "").toLowerCase().includes("terminal")
+                      }
+                    />
+                  </div>
                 </Card>
               )}
             </div>

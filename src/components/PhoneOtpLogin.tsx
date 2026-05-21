@@ -6,24 +6,14 @@ import { Label } from "@/components/ui/label";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
-import { isFirebaseConfigured } from "@/integrations/firebase/client";
 import { cn } from "@/lib/utils";
-
-export const COUNTRY_CODES = [
-  { code: "+91", label: "🇮🇳 +91" },
-  { code: "+1", label: "🇺🇸 +1" },
-  { code: "+44", label: "🇬🇧 +44" },
-  { code: "+971", label: "🇦🇪 +971" },
-  { code: "+61", label: "🇦🇺 +61" },
-  { code: "+65", label: "🇸🇬 +65" },
-];
 
 interface PhoneOtpLoginProps {
   /** Called after a successful Appwrite session is established. */
   onSuccess?: () => void;
   /** Tailwind classes for the primary submit button (page accent color). */
   submitClassName?: string;
-  /** Unique prefix so reCAPTCHA + field ids don't collide across pages. */
+  /** Unique prefix so field ids don't collide across pages. */
   idPrefix: string;
 }
 
@@ -34,8 +24,6 @@ export function PhoneOtpLogin({ onSuccess, submitClassName, idPrefix }: PhoneOtp
   const [otp, setOtp] = useState("");
   const [busy, setBusy] = useState(false);
 
-  const recaptchaId = `${idPrefix}-recaptcha`;
-  const configured = isFirebaseConfigured();
   const e164 = `+91${localNumber.replace(/[^\d]/g, "")}`;
 
   const handleSendOtp = async (e: FormEvent) => {
@@ -47,7 +35,7 @@ export function PhoneOtpLogin({ onSuccess, submitClassName, idPrefix }: PhoneOtp
     }
     setBusy(true);
     try {
-      await sendPhoneOtp(e164, recaptchaId);
+      await sendPhoneOtp(e164);
       setStep("otp");
       toast.success(`OTP sent to ${e164}`);
     } catch (error) {
@@ -59,8 +47,8 @@ export function PhoneOtpLogin({ onSuccess, submitClassName, idPrefix }: PhoneOtp
 
   const handleVerify = async (e: FormEvent) => {
     e.preventDefault();
-    if (otp.length !== 6) {
-      toast.error("Enter the 6-digit code.");
+    if (otp.length !== 4) {
+      toast.error("Enter the 4-digit code.");
       return;
     }
     setBusy(true);
@@ -75,15 +63,6 @@ export function PhoneOtpLogin({ onSuccess, submitClassName, idPrefix }: PhoneOtp
       setBusy(false);
     }
   };
-
-  if (!configured) {
-    return (
-      <div className="rounded-3xl border border-amber-300/60 bg-amber-50 p-4 text-sm text-amber-800">
-        Phone login isn't configured yet. Add the <code>VITE_FIREBASE_*</code> keys from{" "}
-        <code>FIREBASE_OTP_SETUP.md</code> to enable it.
-      </div>
-    );
-  }
 
   return (
     <div>
@@ -125,19 +104,19 @@ export function PhoneOtpLogin({ onSuccess, submitClassName, idPrefix }: PhoneOtp
       ) : (
         <form onSubmit={handleVerify} className="space-y-4">
           <div className="space-y-2 text-center">
-            <Label className="text-base font-medium">Enter the 6-digit code</Label>
+            <Label className="text-base font-medium">Enter the 4-digit code</Label>
             <p className="text-sm text-muted-foreground">
               Sent to <span className="font-semibold">{e164}</span>
             </p>
             <div className="flex justify-center pt-1">
               <InputOTP
-                maxLength={6}
+                maxLength={4}
                 value={otp}
                 onChange={setOtp}
                 containerClassName="justify-center"
               >
                 <InputOTPGroup>
-                  {[0, 1, 2, 3, 4, 5].map((i) => (
+                  {[0, 1, 2, 3].map((i) => (
                     <InputOTPSlot key={i} index={i} className="h-12 w-11 text-lg" />
                   ))}
                 </InputOTPGroup>
@@ -173,9 +152,6 @@ export function PhoneOtpLogin({ onSuccess, submitClassName, idPrefix }: PhoneOtp
           </Button>
         </form>
       )}
-
-      {/* Invisible reCAPTCHA mount — Firebase requires this in the DOM. */}
-      <div id={recaptchaId} />
     </div>
   );
 }
