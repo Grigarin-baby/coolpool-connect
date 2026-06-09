@@ -392,7 +392,11 @@ a.inline-flex.bg-gradient-primary:focus-visible {
   color: oklch(0.72 0.01 260) !important;
 }
 
-/* Autocomplete dropdown */
+/* Autocomplete dropdown — z-index must exceed the wizard overlay (z-[1100]) */
+.trip-search-ac-dropdown {
+  z-index: 1200 !important;
+}
+
 .trip-search-ac-dropdown .ant-select-item,
 .trip-search-ac-dropdown .ant-select-item-option-content {
   font-size: 1rem !important;
