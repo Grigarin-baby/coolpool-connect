@@ -4,7 +4,7 @@ function getClientConfig() {
   const endpoint =
     import.meta.env.VITE_APPWRITE_ENDPOINT ||
     process.env.APPWRITE_ENDPOINT ||
-    "http://appwrite-ljdtlive600781krllbzu915.187.127.156.240.sslip.io/v1";
+    "https://coolpool.in/v1";
   const projectId =
     import.meta.env.VITE_APPWRITE_PROJECT_ID ||
     process.env.APPWRITE_PROJECT_ID ||
