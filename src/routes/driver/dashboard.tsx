@@ -1524,7 +1524,8 @@ function DriverDashboardPage() {
                       {
                         key: "header",
                         label: (
-                          <div className="px-1 py-3">
+                          <div className="px-1 py-3" style={{ minWidth: 240 }}>
+                            {/* User info */}
                             <div className="flex items-center gap-3 mb-3">
                               <Avatar
                                 size={48}
@@ -1556,7 +1557,74 @@ function DriverDashboardPage() {
                                 </div>
                               </div>
                             </div>
-                            <div className="border-t border-gray-100 pt-3" />
+
+                            {/* Ride preferences row */}
+                            <div className="border-t border-gray-100 pt-3 pb-1">
+                              <div className="flex items-center justify-between mb-2">
+                                <span className="text-[11px] font-bold uppercase tracking-widest text-gray-400">
+                                  Ride Preferences
+                                </span>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setPrefsLocal(
+                                      savedPrefs ?? {
+                                        smokingAllowed: false,
+                                        alcoholAllowed: false,
+                                        musicAllowed: false,
+                                        musicType: null,
+                                      },
+                                    );
+                                    setPrefsDrawerOpen(true);
+                                  }}
+                                  className="flex items-center gap-1 text-[11px] font-semibold text-primary hover:text-primary/70 transition-colors"
+                                >
+                                  <Pencil size={11} /> Edit
+                                </button>
+                              </div>
+                              {savedPrefs &&
+                              (savedPrefs.smokingAllowed ||
+                                savedPrefs.alcoholAllowed ||
+                                savedPrefs.musicAllowed) ? (
+                                <div className="flex flex-wrap gap-1.5">
+                                  {savedPrefs.smokingAllowed && (
+                                    <span className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full bg-amber-50 text-amber-600 border border-amber-200">
+                                      <Cigarette size={10} /> Smoking OK
+                                    </span>
+                                  )}
+                                  {savedPrefs.alcoholAllowed && (
+                                    <span className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full bg-rose-50 text-rose-500 border border-rose-200">
+                                      <Wine size={10} /> Alcohol OK
+                                    </span>
+                                  )}
+                                  {savedPrefs.musicAllowed && (
+                                    <span className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full bg-green-50 text-green-600 border border-green-200">
+                                      <Music2 size={10} />
+                                      {savedPrefs.musicType && savedPrefs.musicType !== "any"
+                                        ? savedPrefs.musicType.charAt(0).toUpperCase() +
+                                          savedPrefs.musicType.slice(1)
+                                        : "Music"}
+                                    </span>
+                                  )}
+                                </div>
+                              ) : (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setPrefsLocal({
+                                      smokingAllowed: false,
+                                      alcoholAllowed: false,
+                                      musicAllowed: false,
+                                      musicType: null,
+                                    });
+                                    setPrefsDrawerOpen(true);
+                                  }}
+                                  className="text-[11px] text-gray-400 hover:text-primary transition-colors flex items-center gap-1"
+                                >
+                                  <Pencil size={10} /> Tap to configure
+                                </button>
+                              )}
+                            </div>
                           </div>
                         ),
                         disabled: true,
