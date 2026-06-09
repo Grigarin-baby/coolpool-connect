@@ -31,7 +31,9 @@ export function RideRouteMap({
     }
 
     const scriptId = "google-maps-script";
-    const existingScript = document.getElementById(scriptId) as HTMLScriptElement;
+    const existingScript =
+      (document.getElementById(scriptId) as HTMLScriptElement) ||
+      (document.querySelector('script[data-google-maps]') as HTMLScriptElement);
 
     if (existingScript) {
       if (existingScript.dataset.loaded === "true") {
@@ -44,7 +46,8 @@ export function RideRouteMap({
 
     const script = document.createElement("script");
     script.id = scriptId;
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${appwriteConfig.googleMapsApiKey}&libraries=geometry`;
+    script.dataset.googleMaps = "places";
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${appwriteConfig.googleMapsApiKey}&libraries=places,geometry`;
     script.async = true;
     script.defer = true;
     script.addEventListener("load", () => {

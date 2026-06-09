@@ -237,7 +237,12 @@ export function TripSearchProvider({ children }: { children: ReactNode }) {
     }
 
     const script = document.createElement("script");
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${appwriteConfig.googleMapsApiKey}&libraries=places`;
+    script.id = "google-maps-script";
+    // Load `geometry` alongside `places` so the trip-publish wizard can
+    // reuse this same script tag without needing to inject a second one
+    // (which makes Google show "You have included the Google Maps JavaScript
+    // API multiple times" error).
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${appwriteConfig.googleMapsApiKey}&libraries=places,geometry`;
     script.async = true;
     script.defer = true;
     script.dataset.googleMaps = "places";

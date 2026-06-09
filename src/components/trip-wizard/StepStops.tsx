@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { AutoComplete } from "antd";
 import { MapPin, Plus, Trash2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { closestPolylineIndex, decodePolyline, distanceAlongPolylineKm } from "@/lib/geo";
 import { StopsMap } from "./StopsMap";
+import { fetchPlaceSuggestions, resolvePlace } from "./placesAutocomplete";
 import type { PlacePoint, RouteAlternative, WizardStop } from "./types";
 
 interface StepStopsProps {
@@ -12,11 +13,6 @@ interface StepStopsProps {
   alternative: RouteAlternative;
   stops: WizardStop[];
   onStopsChange: (stops: WizardStop[]) => void;
-}
-
-interface PlacePrediction {
-  description: string;
-  place_id: string;
 }
 
 function reorderByDistance(stops: WizardStop[]): WizardStop[] {
@@ -29,18 +25,8 @@ export function StepStops({ from, to, alternative, stops, onStopsChange }: StepS
   const [predictions, setPredictions] = useState<
     { value: string; label: string; place_id: string }[]
   >([]);
-  const autocompleteRef = useRef<any>(null);
-  const placesServiceRef = useRef<any>(null);
 
   const decodedPath = useMemo(() => decodePolyline(alternative.polyline), [alternative.polyline]);
-
-  useEffect(() => {
-    const google = (window as any).google;
-    if (!google?.maps?.places) return;
-    autocompleteRef.current = new google.maps.places.AutocompleteService();
-    const div = document.createElement("div");
-    placesServiceRef.current = new google.maps.places.PlacesService(div);
-  }, []);
 
   const projectOntoRoute = useCallback(
     (lat: number, lng: number) => {
@@ -81,43 +67,30 @@ export function StepStops({ from, to, alternative, stops, onStopsChange }: StepS
     [addStop, stops.length],
   );
 
-  const searchPlaces = (q: string) => {
+  const searchPlaces = async (q: string) => {
     setQuery(q);
-    const svc = autocompleteRef.current;
-    if (!q.trim() || !svc) {
+    if (!q.trim()) {
       setPredictions([]);
       return;
     }
-    svc.getPlacePredictions(
-      { input: q, types: ["geocode"] },
-      (results: PlacePrediction[] | null) => {
-        setPredictions(
-          (results || []).slice(0, 6).map((r) => ({
-            value: r.description,
-            label: r.description,
-            place_id: r.place_id,
-          })),
-        );
-      },
+    const suggestions = await fetchPlaceSuggestions(q);
+    setPredictions(
+      suggestions.slice(0, 6).map((s) => ({
+        value: s.description,
+        label: s.description,
+        place_id: s.id,
+      })),
     );
   };
 
-  const handleSelectPlace = (value: string) => {
+  const handleSelectPlace = async (value: string) => {
     const hit = predictions.find((p) => p.value === value);
     if (!hit) return;
-    placesServiceRef.current?.getDetails(
-      { placeId: hit.place_id, fields: ["formatted_address", "geometry", "name"] },
-      (place: any, status: string) => {
-        if (status !== "OK" || !place?.geometry?.location) return;
-        addStop(
-          place.name || place.formatted_address || "Stop",
-          place.geometry.location.lat(),
-          place.geometry.location.lng(),
-        );
-        setQuery("");
-        setPredictions([]);
-      },
-    );
+    const resolved = await resolvePlace(hit.place_id);
+    if (!resolved) return;
+    addStop(value || resolved.label, resolved.lat, resolved.lng);
+    setQuery("");
+    setPredictions([]);
   };
 
   return (
@@ -130,13 +103,13 @@ export function StepStops({ from, to, alternative, stops, onStopsChange }: StepS
           <AutoComplete
             value={query}
             options={predictions}
-            onSearch={(v) => searchPlaces(v)}
-            onSelect={(v) => handleSelectPlace(v)}
+            onSearch={(v) => void searchPlaces(v)}
+            onSelect={(v) => void handleSelectPlace(v)}
             onChange={(v) => setQuery(typeof v === "string" ? v : "")}
             placeholder="Add a boarding point — city, area, landmark"
             className="w-full"
             variant="borderless"
-            popupClassName="trip-search-ac-dropdown"
+            classNames={{ popup: { root: "trip-search-ac-dropdown" } }}
           />
         </div>
       </div>

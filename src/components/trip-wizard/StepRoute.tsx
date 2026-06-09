@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AutoComplete, Spin } from "antd";
-import { ArrowDown, MapPin, Search } from "lucide-react";
+import { ArrowDown, MapPin } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useWizardMaps } from "./useWizardMaps";
 import { RouteMap } from "./RouteMap";
+import { BENGALURU_AIRPORTS, SERVICE_CITY } from "@/lib/config";
+import { fetchPlaceSuggestions, resolvePlace } from "./placesAutocomplete";
 import type { PlacePoint, RouteAlternative } from "./types";
 
 interface StepRouteProps {
@@ -16,68 +18,25 @@ interface StepRouteProps {
   onAlternativesChange: (alts: RouteAlternative[], selectedAltId: number | null) => void;
 }
 
-interface PlacePrediction {
-  description: string;
-  place_id: string;
+interface CityOption {
+  value: string;
+  label: React.ReactNode;
+  lat?: number;
+  lng?: number;
+  placeId?: string;
 }
 
-function usePlacesAutocomplete() {
-  const serviceRef = useRef<any>(null);
-  const placesServiceRef = useRef<any>(null);
-  const [predictions, setPredictions] = useState<
-    Record<"from" | "to", { value: string; label: string; place_id: string }[]>
-  >({ from: [], to: [] });
+const SOUTH_INDIA_STATES = [
+  "karnataka",
+  "kerala",
+  "tamil nadu",
+  "andhra pradesh",
+  "telangana",
+  "goa",
+  "puducherry",
+];
 
-  useEffect(() => {
-    const google = (window as any).google;
-    if (!google?.maps?.places) return;
-    serviceRef.current = new google.maps.places.AutocompleteService();
-    // PlacesService needs an HTMLElement or a Map; using a throwaway div keeps it self-contained.
-    const div = document.createElement("div");
-    placesServiceRef.current = new google.maps.places.PlacesService(div);
-  }, []);
-
-  const search = useCallback((query: string, side: "from" | "to") => {
-    const svc = serviceRef.current;
-    if (!query.trim() || !svc) {
-      setPredictions((prev) => ({ ...prev, [side]: [] }));
-      return;
-    }
-    svc.getPlacePredictions(
-      { input: query, types: ["geocode"] },
-      (results: PlacePrediction[] | null) => {
-        setPredictions((prev) => ({
-          ...prev,
-          [side]: (results || []).slice(0, 6).map((r) => ({
-            value: r.description,
-            label: r.description,
-            place_id: r.place_id,
-          })),
-        }));
-      },
-    );
-  }, []);
-
-  const resolveByPlaceId = useCallback((placeId: string): Promise<PlacePoint | null> => {
-    return new Promise((resolve) => {
-      const svc = placesServiceRef.current;
-      if (!svc) return resolve(null);
-      svc.getDetails(
-        { placeId, fields: ["formatted_address", "geometry", "name"] },
-        (place: any, status: string) => {
-          if (status !== "OK" || !place?.geometry?.location) return resolve(null);
-          resolve({
-            label: place.formatted_address || place.name,
-            lat: place.geometry.location.lat(),
-            lng: place.geometry.location.lng(),
-          });
-        },
-      );
-    });
-  }, []);
-
-  return { predictions, search, resolveByPlaceId };
-}
+const AIRPORT_KEYWORDS = ["air", "flight", "terminal", "blr", "kempegowda", "hal", "jakkur"];
 
 export function StepRoute({
   from,
@@ -89,27 +48,105 @@ export function StepRoute({
   onAlternativesChange,
 }: StepRouteProps) {
   const { ready, error } = useWizardMaps();
-  const { predictions, search, resolveByPlaceId } = usePlacesAutocomplete();
-  const [fetchingRoutes, setFetchingRoutes] = useState(false);
   const [fromText, setFromText] = useState(from?.label ?? "");
   const [toText, setToText] = useState(to?.label ?? "");
+  const [fromOptions, setFromOptions] = useState<CityOption[]>([]);
+  const [toOptions, setToOptions] = useState<CityOption[]>([]);
+  const [fetchingRoutes, setFetchingRoutes] = useState(false);
 
-  const directionsServiceRef = useRef<any>(null);
+  const directionsRef = useRef<any>(null);
+
+  // Initialize Directions service once maps is ready
   useEffect(() => {
     if (!ready) return;
     const google = (window as any).google;
-    if (!directionsServiceRef.current) {
-      directionsServiceRef.current = new google.maps.DirectionsService();
+    if (!directionsRef.current && google?.maps?.DirectionsService) {
+      directionsRef.current = new google.maps.DirectionsService();
     }
   }, [ready]);
 
-  // Fetch alternatives whenever both endpoints are set
+  // Same predicate the home-page search uses, so the dropdown feels identical.
+  // Uses the NEW Places autocomplete API which works for new-customer accounts.
+  const searchCities = useCallback(async (query: string, target: "from" | "to") => {
+    if (!query || query.trim().length < 2) {
+      if (target === "from") setFromOptions([]);
+      else setToOptions([]);
+      return;
+    }
+    const lower = query.toLowerCase();
+    const isAirport = AIRPORT_KEYWORDS.some((k) => lower.includes(k));
+
+    const suggestions = await fetchPlaceSuggestions(query);
+    const filtered = suggestions.filter((s) => {
+      const desc = s.description.toLowerCase();
+      return SOUTH_INDIA_STATES.some((st) => desc.includes(st)) || isAirport;
+    });
+
+    const options: CityOption[] = filtered.map((s) => ({
+      value: s.description,
+      label: s.description,
+      placeId: s.id,
+    }));
+
+    if (isAirport) {
+      const airportOptions: CityOption[] = BENGALURU_AIRPORTS.map((a) => ({
+        value: `${a.name}, ${SERVICE_CITY}`,
+        label: (
+          <div className="flex items-center gap-2">
+            <span>✈️</span>
+            <span className="font-medium text-gray-900">
+              {a.name} <span className="text-gray-400 font-normal">({a.code})</span>
+            </span>
+          </div>
+        ),
+        lat: a.lat,
+        lng: a.lng,
+      }));
+      [...airportOptions].reverse().forEach((ao) => {
+        if (!options.find((o) => o.value === ao.value)) options.unshift(ao);
+      });
+    }
+
+    if (target === "from") setFromOptions(options);
+    else setToOptions(options);
+  }, []);
+
+  const resolveCoords = useCallback(
+    async (option: CityOption): Promise<PlacePoint | null> => {
+      // Airports come with coords already.
+      if (typeof option.lat === "number" && typeof option.lng === "number") {
+        return { label: option.value, lat: option.lat, lng: option.lng };
+      }
+      if (!option.placeId) return null;
+      const resolved = await resolvePlace(option.placeId);
+      if (!resolved) return null;
+      // Prefer the label the user actually saw in the dropdown over the
+      // sometimes-shorter formatted_address Google returns.
+      return { ...resolved, label: option.value };
+    },
+    [],
+  );
+
+  const handleSelect = async (side: "from" | "to", value: string) => {
+    const list = side === "from" ? fromOptions : toOptions;
+    const hit = list.find((o) => o.value === value);
+    if (!hit) return;
+    const point = await resolveCoords(hit);
+    if (!point) return;
+    if (side === "from") {
+      onFromChange(point);
+      setFromText(point.label);
+    } else {
+      onToChange(point);
+      setToText(point.label);
+    }
+  };
+
+  // Whenever both endpoints are set, fetch route alternatives
   useEffect(() => {
-    if (!ready || !from || !to) return;
-    const svc = directionsServiceRef.current;
-    if (!svc) return;
+    if (!ready || !from || !to || !directionsRef.current) return;
     setFetchingRoutes(true);
-    svc.route(
+    directionsRef.current.route(
       {
         origin: { lat: from.lat, lng: from.lng },
         destination: { lat: to.lat, lng: to.lng },
@@ -137,32 +174,13 @@ export function StepRoute({
     );
   }, [ready, from, to, onAlternativesChange]);
 
-  const handleSelectPlace = async (side: "from" | "to", value: string) => {
-    const list = predictions[side];
-    const hit = list.find((p) => p.value === value);
-    if (!hit) {
-      // Manual text with no autocomplete pick — leave the endpoint alone.
-      return;
-    }
-    const point = await resolveByPlaceId(hit.place_id);
-    if (!point) return;
-    if (side === "from") {
-      onFromChange(point);
-      setFromText(point.label);
-    } else {
-      onToChange(point);
-      setToText(point.label);
-    }
-  };
-
-  const sortedAlternatives = useMemo(
+  const sortedAlts = useMemo(
     () => [...alternatives].sort((a, b) => a.id - b.id),
     [alternatives],
   );
 
   return (
     <div className="flex flex-col gap-4 px-4 pb-6">
-      {/* From / To inputs */}
       <div className="relative space-y-2 rounded-3xl border border-gray-100 bg-white p-4 shadow-sm">
         <div className="flex items-center gap-3">
           <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-primary/10 text-primary">
@@ -170,17 +188,17 @@ export function StepRoute({
           </span>
           <AutoComplete
             value={fromText}
-            options={predictions.from}
+            options={fromOptions}
             onSearch={(v) => {
               setFromText(v);
-              search(v, "from");
+              void searchCities(v, "from");
             }}
-            onSelect={(v) => void handleSelectPlace("from", v)}
+            onSelect={(v) => void handleSelect("from", v)}
             onChange={(v) => setFromText(typeof v === "string" ? v : "")}
             placeholder="Pickup city or area"
             className="w-full"
             variant="borderless"
-            popupClassName="trip-search-ac-dropdown"
+            classNames={{ popup: { root: "trip-search-ac-dropdown" } }}
           />
         </div>
         <div className="ml-[1.125rem] my-1 flex items-center text-gray-300">
@@ -192,22 +210,21 @@ export function StepRoute({
           </span>
           <AutoComplete
             value={toText}
-            options={predictions.to}
+            options={toOptions}
             onSearch={(v) => {
               setToText(v);
-              search(v, "to");
+              void searchCities(v, "to");
             }}
-            onSelect={(v) => void handleSelectPlace("to", v)}
+            onSelect={(v) => void handleSelect("to", v)}
             onChange={(v) => setToText(typeof v === "string" ? v : "")}
             placeholder="Drop-off city or area"
             className="w-full"
             variant="borderless"
-            popupClassName="trip-search-ac-dropdown"
+            classNames={{ popup: { root: "trip-search-ac-dropdown" } }}
           />
         </div>
       </div>
 
-      {/* Map */}
       <div className="relative">
         {!ready && !error && (
           <div className="grid h-64 place-items-center rounded-3xl border border-gray-100 bg-white text-gray-400">
@@ -240,14 +257,13 @@ export function StepRoute({
         )}
       </div>
 
-      {/* Alternatives cards */}
       {alternatives.length > 1 && (
         <div>
           <p className="mb-2 text-xs font-bold uppercase tracking-widest text-gray-500">
             Choose a route
           </p>
           <div className="flex gap-3 overflow-x-auto pb-1">
-            {sortedAlternatives.map((alt) => {
+            {sortedAlts.map((alt) => {
               const isSelected = alt.id === selectedAltId;
               return (
                 <button
@@ -269,7 +285,7 @@ export function StepRoute({
                   )}
                   {isSelected && (
                     <span className="mt-2 inline-flex items-center gap-1 text-[10px] font-extrabold uppercase tracking-widest text-primary">
-                      <Search size={10} /> Selected
+                      Selected
                     </span>
                   )}
                 </button>
