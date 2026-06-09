@@ -724,6 +724,7 @@ function DriverDashboardPage() {
         const seatPrice = Number(values.totalTripPrice);
         const totalSeats = Number(values.totalSeats);
         const totalPrice = seatPrice * totalSeats;
+        const selectedVehicle = vehicles.find((vehicle) => vehicle.id === values.vehicleId);
         setSegmentPricePreview(
           stopsData.flatMap((fromStop, fromIndex) =>
             stopsData.slice(fromIndex + 1).map((toStop) => {
@@ -758,6 +759,11 @@ function DriverDashboardPage() {
             departureAt,
             arrivalAt: values.departureAt.add(durationMinutes, "minute").toISOString(),
             durationMinutes,
+            hostDisplayName: user.name || "Verified Host",
+            hostRating: 0,
+            hostRatingCount: 0,
+            vehicleModel: selectedVehicle?.modelName,
+            vehicleColor: selectedVehicle?.color || undefined,
             notes: `Created from ride host trip module. Total price: ₹${totalPrice}.`,
             vehicleId: values.vehicleId,
             assignedDriverId: values.driverId,

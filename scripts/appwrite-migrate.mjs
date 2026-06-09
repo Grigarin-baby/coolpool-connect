@@ -269,6 +269,11 @@ async function run() {
   await ensureDatetimeAttribute(COLLECTIONS.trips, "departure_at", true);
   await ensureDatetimeAttribute(COLLECTIONS.trips, "arrival_at", false);
   await ensureIntegerAttribute(COLLECTIONS.trips, "duration_minutes", false, 0);
+  await ensureStringAttribute(COLLECTIONS.trips, "host_display_name", 120, false);
+  await ensureFloatAttribute(COLLECTIONS.trips, "host_rating", false, 0, 5);
+  await ensureIntegerAttribute(COLLECTIONS.trips, "host_rating_count", false, 0);
+  await ensureStringAttribute(COLLECTIONS.trips, "vehicle_model", 120, false);
+  await ensureStringAttribute(COLLECTIONS.trips, "vehicle_color", 40, false);
   await ensureStringAttribute(COLLECTIONS.trips, "status", 32, true);
   await ensureStringAttribute(COLLECTIONS.trips, "notes", 2000, false);
   await ensureStringAttribute(COLLECTIONS.trips, "vehicle_id", 64, false);

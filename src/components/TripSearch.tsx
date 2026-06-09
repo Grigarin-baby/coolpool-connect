@@ -59,10 +59,7 @@ import { Card } from "@/components/ui/card";
 import { useQuery } from "@tanstack/react-query";
 import {
   listTrips,
-  listDriverProfilesByUserIds,
-  listHostRatingSummaries,
   listTripSeatReservationsByTripIds,
-  listVehiclesByIds,
 } from "@/data/appwrite-repository";
 import { routeCitySegmentsMatch } from "@/lib/geo";
 import { formatCurrency } from "@/lib/pricing";
@@ -885,48 +882,7 @@ export function TripSearchResults({ variant }: { variant: "landing" | "page" }) 
   const { loading, searched, results } = useTripSearchContext();
   const resultsAnchorRef = useRef<HTMLDivElement>(null);
 
-  const hostIds = useMemo(
-    () => [...new Set(results.map((t) => t.hostId).filter(Boolean))],
-    [results],
-  );
   const tripIds = useMemo(() => results.map((trip) => trip.id), [results]);
-  const vehicleIds = useMemo(
-    () => [...new Set(results.map((trip) => trip.vehicleId).filter((id): id is string => Boolean(id)))],
-    [results],
-  );
-  const { data: hostProfiles } = useQuery({
-    queryKey: ["host-profiles", hostIds.join(",")],
-    queryFn: () => listDriverProfilesByUserIds(hostIds),
-    enabled: hostIds.length > 0,
-    staleTime: 1000 * 60 * 5,
-  });
-  const hostNameById = useMemo(() => {
-    const map: Record<string, string> = {};
-    for (const p of hostProfiles ?? []) {
-      if (p.fullName?.trim()) map[p.userId] = p.fullName.trim();
-    }
-    return map;
-  }, [hostProfiles]);
-  const { data: ratingSummaries } = useQuery({
-    queryKey: ["host-rating-summaries", hostIds.join(",")],
-    queryFn: () => listHostRatingSummaries(hostIds),
-    enabled: hostIds.length > 0,
-    staleTime: 1000 * 60 * 5,
-  });
-  const ratingByHostId = useMemo(
-    () => Object.fromEntries((ratingSummaries ?? []).map((summary) => [summary.userId, summary])),
-    [ratingSummaries],
-  );
-  const { data: vehicles } = useQuery({
-    queryKey: ["trip-vehicles", vehicleIds.join(",")],
-    queryFn: () => listVehiclesByIds(vehicleIds),
-    enabled: vehicleIds.length > 0,
-    staleTime: 1000 * 60 * 5,
-  });
-  const vehicleById = useMemo(
-    () => Object.fromEntries((vehicles ?? []).map((vehicle) => [vehicle.id, vehicle])),
-    [vehicles],
-  );
   const { data: seatReservations } = useQuery({
     queryKey: ["trip-seat-reservations", tripIds.join(",")],
     queryFn: () => listTripSeatReservationsByTripIds(tripIds),
@@ -1006,12 +962,10 @@ export function TripSearchResults({ variant }: { variant: "landing" | "page" }) 
 
           <div className="space-y-4">
             {results.map((trip) => {
-              const hostName = hostNameById[trip.hostId] || "Verified Host";
-              const vehicle = trip.vehicleId ? vehicleById[trip.vehicleId] : undefined;
-              const vehicleLabel = vehicle
-                ? [vehicle.modelName, vehicle.color].filter(Boolean).join(" · ")
+              const hostName = trip.hostDisplayName || "Verified Host";
+              const vehicleLabel = trip.vehicleModel
+                ? [trip.vehicleModel, trip.vehicleColor].filter(Boolean).join(" · ")
                 : "Vehicle details pending";
-              const rating = ratingByHostId[trip.hostId];
               const departure = dayjs(trip.departureAt);
               const fallbackDuration = Math.max(1, Math.round(trip.totalDistanceKm));
               const durationMinutes = trip.durationMinutes || fallbackDuration;
@@ -1045,10 +999,10 @@ export function TripSearchResults({ variant }: { variant: "landing" | "page" }) 
                         <p className="mt-1 text-xs sm:text-sm text-gray-500 truncate">{vehicleLabel}</p>
                       </div>
                       <div className="sm:text-center">
-                        {rating?.ratingCount > 0 ? (
+                        {(trip.hostRatingCount ?? 0) > 0 ? (
                           <div className="inline-flex items-center gap-1 text-sm font-bold text-gray-800">
                             <Star size={14} className="fill-amber-400 text-amber-400" />
-                            {rating.rating.toFixed(1)} · {rating.ratingCount}
+                            {(trip.hostRating ?? 0).toFixed(1)} · {trip.hostRatingCount}
                           </div>
                         ) : (
                           <span className="text-sm font-semibold text-gray-500">New host</span>
