@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import {
   LayoutDashboard,
@@ -92,6 +92,8 @@ import { SERVICE_CITY, BENGALURU_AIRPORTS, SOUTH_INDIA_CITY_SUGGESTIONS } from "
 import { SeatPicker, type SeatId } from "@/components/SeatPicker";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import { getUserDisplayName } from "@/lib/user-display";
+import { TripWizard } from "@/components/trip-wizard/TripWizard";
+import type { WizardResult } from "@/components/trip-wizard/types";
 
 import logo from "@/assets/logo.png";
 
@@ -263,6 +265,8 @@ function DriverDashboardPage() {
   >({});
   const [segmentPricePreview, setSegmentPricePreview] = useState<SegmentPricePreview[]>([]);
   const [pendingTripPayload, setPendingTripPayload] = useState<any | null>(null);
+  const [wizardOpen, setWizardOpen] = useState(false);
+  const [wizardResult, setWizardResult] = useState<WizardResult | null>(null);
   const [mapsReady, setMapsReady] = useState(false);
   const [mobilePreviewOpen, setMobilePreviewOpen] = useState(false);
   const [vehicleForm] = Form.useForm();
@@ -307,6 +311,72 @@ function DriverDashboardPage() {
       setVerifyingId(null);
     }
   };
+  const publishViaWizard = (result: WizardResult) => {
+    if (!user?.$id) {
+      message.error("You need to be signed in.");
+      return;
+    }
+    const totalPrice = result.pricePerSeat * result.totalSeats;
+    // Build trip_stops the way the legacy handler does: origin (pickup),
+    // intermediates (both), destination (drop). distanceFromOriginKm comes
+    // from the wizard's polyline projection.
+    const allStops = [
+      {
+        stopIndex: 0,
+        location: result.from.label,
+        lat: result.from.lat,
+        lng: result.from.lng,
+        stopType: "pickup" as const,
+        distanceFromOriginKm: 0,
+      },
+      ...result.stops.map((s, i) => ({
+        stopIndex: i + 1,
+        location: s.label,
+        lat: s.lat,
+        lng: s.lng,
+        stopType: "both" as const,
+        distanceFromOriginKm: Math.round(s.distanceFromOriginKm * 10) / 10,
+      })),
+      {
+        stopIndex: result.stops.length + 1,
+        location: result.to.label,
+        lat: result.to.lat,
+        lng: result.to.lng,
+        stopType: "drop" as const,
+        distanceFromOriginKm: Math.round(result.totalDistanceKm * 10) / 10,
+      },
+    ];
+    const payload = {
+      tripData: {
+        hostId: user.$id,
+        fromLocation: result.from.label,
+        fromLat: result.from.lat,
+        fromLng: result.from.lng,
+        toLocation: result.to.label,
+        toLat: result.to.lat,
+        toLng: result.to.lng,
+        polyline: result.polyline,
+        totalDistanceKm: Math.max(0.1, Math.round(result.totalDistanceKm * 10) / 10),
+        totalPrice,
+        pricePerKm: calcPricePerKm(totalPrice, result.totalDistanceKm),
+        totalSeats: result.totalSeats,
+        departureAt: result.departureAt,
+        notes: `Created via routing wizard. Total price: ₹${totalPrice}.`,
+        vehicleId: result.vehicleId,
+        assignedDriverId: result.driverId,
+        seatConfig: result.seatConfig,
+      },
+      stopsData: allStops,
+    };
+    setWizardResult(result);
+    performCreateTrip(payload);
+  };
+
+  const openWizard = () => {
+    setWizardResult(null);
+    setWizardOpen(true);
+  };
+
   const handleDeleteAccount = async () => {
     if (!user?.$id) return;
     setDeletingAccount(true);
@@ -447,6 +517,28 @@ function DriverDashboardPage() {
     queryFn: () => (user ? listTeamDrivers(user.$id) : Promise.resolve([])),
     enabled: !!user,
   });
+
+  // Driver options for the wizard: host (self) + any team drivers.
+  const wizardDriverOptions = useMemo(
+    () => [
+      ...(user
+        ? [
+            {
+              id: user.$id,
+              fullName: getUserDisplayName(user) || "You",
+              phone: (user as any).phone || undefined,
+              isYou: true,
+            },
+          ]
+        : []),
+      ...teamDrivers.map((d) => ({
+        id: d.userId || d.id,
+        fullName: d.fullName,
+        phone: d.phone,
+      })),
+    ],
+    [teamDrivers, user],
+  );
 
   const { data: bookings = [], isLoading: bookingsLoading } = useQuery({
     queryKey: ["host-bookings", user?.$id],
@@ -1631,10 +1723,7 @@ function DriverDashboardPage() {
                             type="primary"
                             size="large"
                             className="mt-6 bg-gradient-primary border-none rounded-3xl"
-                            onClick={() => {
-                              setPublishTripsModalOpen(true);
-                              setPublishModalView("form");
-                            }}
+                            onClick={openWizard}
                           >
                             Publish your first trip
                           </Button>
@@ -1888,14 +1977,7 @@ function DriverDashboardPage() {
                           size="large"
                           icon={<Plus size={18} />}
                           className="bg-gradient-primary border-none rounded-3xl"
-                          onClick={() => {
-                            setShowTripForm(true);
-                            setEditingTripId(null);
-                            setIsEditingTrip(false);
-                            form.resetFields();
-                            setSelectedFrom(null);
-                            setSelectedTo(null);
-                          }}
+                          onClick={openWizard}
                         >
                           Add New Trip
                         </Button>
@@ -2451,79 +2533,84 @@ function DriverDashboardPage() {
                             requiredMark={false}
                           >
                             <div className="space-y-5">
-                              {/* Row 1 – Route */}
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <Form.Item
-                                  label={<span className="font-semibold text-gray-700 text-sm">From City</span>}
-                                  name="fromLocation"
-                                  rules={[{ required: true, message: "Please enter origin" }]}
-                                  className="mb-0"
-                                >
-                                  <AutoComplete
-                                    options={fromOptions}
-                                    onSearch={(text) => {
-                                      setSelectedFrom(null);
-                                      void searchCities(text, "from");
-                                    }}
-                                    onSelect={(value) => onSelectCity(value, "from")}
+                              {/* Routing — replaces From/To/Departure/intermediate-stop inputs */}
+                              <div>
+                                {wizardResult ? (
+                                  <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+                                    <div className="flex items-center gap-3">
+                                      <div className="flex flex-col items-center self-stretch py-1">
+                                        <div className="h-2.5 w-2.5 rounded-full bg-primary" />
+                                        <div className="my-1 w-px flex-1 bg-gray-200" />
+                                        <div className="h-2.5 w-2.5 rounded-full border-2 border-gray-300" />
+                                      </div>
+                                      <div className="min-w-0 flex-1 space-y-1">
+                                        <p className="truncate text-base font-bold text-gray-900">
+                                          {wizardResult.from.label}
+                                        </p>
+                                        <p className="truncate text-base font-bold text-gray-500">
+                                          {wizardResult.to.label}
+                                        </p>
+                                      </div>
+                                    </div>
+                                    <div className="mt-3 grid grid-cols-3 gap-2 text-center text-xs">
+                                      <div>
+                                        <p className="font-bold text-gray-900">
+                                          {dayjs(wizardResult.departureAt).format("MMM D, h:mm A")}
+                                        </p>
+                                        <p className="text-gray-500">Departure</p>
+                                      </div>
+                                      <div>
+                                        <p className="font-bold text-gray-900">
+                                          {wizardResult.totalDistanceKm.toFixed(1)} km
+                                        </p>
+                                        <p className="text-gray-500">Distance</p>
+                                      </div>
+                                      <div>
+                                        <p className="font-bold text-gray-900">
+                                          {wizardResult.stops.length}
+                                        </p>
+                                        <p className="text-gray-500">Stops</p>
+                                      </div>
+                                    </div>
+                                    <div className="mt-4">
+                                      <Button
+                                        block
+                                        size="large"
+                                        onClick={() => setWizardOpen(true)}
+                                        style={{ borderRadius: 12 }}
+                                      >
+                                        Edit
+                                      </Button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={() => setWizardOpen(true)}
+                                    className="w-full rounded-2xl border-2 border-dashed border-primary/40 bg-primary/5 px-4 py-6 text-center transition-colors hover:border-primary/70 hover:bg-primary/10"
                                   >
-                                    <Input
-                                      placeholder="Departure city"
-                                      size="large"
-                                      style={{ borderRadius: '8px', height: '44px' }}
-                                      className="text-sm border border-gray-300 transition-all"
-                                    />
-                                  </AutoComplete>
+                                    <div className="mb-1 inline-flex items-center gap-2 text-sm font-extrabold uppercase tracking-widest text-primary">
+                                      <RouteIcon size={16} /> Plan your route
+                                    </div>
+                                    <p className="text-xs text-gray-600">
+                                      Pick start &amp; end, choose the route on the map, set the
+                                      time, and add boarding points.
+                                    </p>
+                                  </button>
+                                )}
+                                <Form.Item name="fromLocation" hidden rules={[{ required: true }]}>
+                                  <Input />
                                 </Form.Item>
-
-                                <Form.Item
-                                  label={<span className="font-semibold text-gray-700 text-sm">To City</span>}
-                                  name="toLocation"
-                                  rules={[{ required: true, message: "Please enter destination" }]}
-                                  className="mb-0"
-                                >
-                                  <AutoComplete
-                                    options={toOptions}
-                                    onSearch={(text) => {
-                                      setSelectedTo(null);
-                                      void searchCities(text, "to");
-                                    }}
-                                    onSelect={(value) => onSelectCity(value, "to")}
-                                  >
-                                    <Input
-                                      placeholder="Destination city"
-                                      size="large"
-                                      style={{ borderRadius: '8px', height: '44px' }}
-                                      className="text-sm border border-gray-300 transition-all"
-                                    />
-                                  </AutoComplete>
+                                <Form.Item name="toLocation" hidden rules={[{ required: true }]}>
+                                  <Input />
+                                </Form.Item>
+                                <Form.Item name="departureAt" hidden rules={[{ required: true }]}>
+                                  <DatePicker />
                                 </Form.Item>
                               </div>
 
-                              {renderIntermediateStops(true)}
-
-                              {/* Row 2 – Departure Time + Price Per Seat */}
+                              {/* Price Per Seat */}
                               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <Form.Item
-                                  label={<span className="font-semibold text-gray-700 text-sm">Departure Date & Time</span>}
-                                  name="departureAt"
-                                  rules={[{ required: true, message: "Please select time" }]}
-                                  className="mb-0"
-                                >
-                                  <DatePicker
-                                    showTime={{ format: "h:mm A", use12Hours: true, minuteStep: 15 }}
-                                    size="large"
-                                    style={{ borderRadius: '8px', height: '44px', width: '100%' }}
-                                    className="text-sm border border-gray-300"
-                                    format="YYYY-MM-DD h:mm A"
-                                    placement="bottomLeft"
-                                    popupClassName="trip-publish-datepicker"
-                                    getPopupContainer={() => document.body}
-                                    disabledDate={disabledTripDate}
-                                    disabledTime={disabledTripTime}
-                                  />
-                                </Form.Item>
-
                                 <Form.Item
                                   label={<span className="font-semibold text-gray-700 text-sm">Price Per Seat (₹)</span>}
                                   name="totalTripPrice"
@@ -4188,7 +4275,10 @@ function DriverDashboardPage() {
                   type="primary"
                   size="large"
                   className="bg-gradient-primary border-none rounded-3xl"
-                  onClick={() => setPublishModalView("form")}
+                  onClick={() => {
+                    setPublishTripsModalOpen(false);
+                    openWizard();
+                  }}
                 >
                   Publish Your First Trip
                 </Button>
@@ -4304,12 +4394,8 @@ function DriverDashboardPage() {
                   block
                   className="bg-gradient-primary border-none rounded-3xl mt-6"
                   onClick={() => {
-                    setEditingTripId(null);
-                    setIsEditingTrip(false);
-                    form.resetFields();
-                    setSelectedFrom(null);
-                    setSelectedTo(null);
-                    setPublishModalView("form");
+                    setPublishTripsModalOpen(false);
+                    openWizard();
                   }}
                 >
                   Publish New Trip
@@ -4335,88 +4421,86 @@ function DriverDashboardPage() {
               requiredMark={false}
             >
               <div className="space-y-6">
-                {/* Route Information */}
+                {/* Routing configuration — replaces the old From/To/Departure
+                    inputs with a wizard launcher. The form fields underneath
+                    are kept hidden so the rest of the publish pipeline (which
+                    reads fromLocation / toLocation / departureAt + the
+                    intermediate-stop state) keeps working unchanged. */}
                 <div>
                   <Title level={5} className="mb-3 flex items-center gap-2">
-                    <RouteIcon size={18} className="text-primary" /> Route
+                    <RouteIcon size={18} className="text-primary" /> Routing
                   </Title>
-                  <div className="bg-gray-50/50 p-4 rounded-xl border border-gray-100 space-y-3">
-                    <Form.Item
-                      label={
-                        <span className="font-semibold text-sm text-gray-700">From Location</span>
-                      }
-                      name="fromLocation"
-                      rules={[{ required: true, message: "Please enter origin" }]}
-                      className="mb-0"
-                    >
-                      <AutoComplete
-                        options={fromOptions}
-                        onSearch={(text) => {
-                          setSelectedFrom(null);
-                          void searchCities(text, "from");
-                        }}
-                        onSelect={(value) => onSelectCity(value, "from")}
-                      >
-                        <Input
-                          placeholder="Search city"
+                  {wizardResult ? (
+                    <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+                      <div className="flex items-center gap-3">
+                        <div className="flex flex-col items-center self-stretch py-1">
+                          <div className="h-2.5 w-2.5 rounded-full bg-primary" />
+                          <div className="my-1 w-px flex-1 bg-gray-200" />
+                          <div className="h-2.5 w-2.5 rounded-full border-2 border-gray-300" />
+                        </div>
+                        <div className="min-w-0 flex-1 space-y-1">
+                          <p className="truncate text-base font-bold text-gray-900">
+                            {wizardResult.from.label}
+                          </p>
+                          <p className="truncate text-base font-bold text-gray-500">
+                            {wizardResult.to.label}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="mt-3 grid grid-cols-3 gap-2 text-center text-xs">
+                        <div>
+                          <p className="font-bold text-gray-900">
+                            {dayjs(wizardResult.departureAt).format("MMM D, h:mm A")}
+                          </p>
+                          <p className="text-gray-500">Departure</p>
+                        </div>
+                        <div>
+                          <p className="font-bold text-gray-900">
+                            {wizardResult.totalDistanceKm.toFixed(1)} km
+                          </p>
+                          <p className="text-gray-500">Distance</p>
+                        </div>
+                        <div>
+                          <p className="font-bold text-gray-900">
+                            {wizardResult.stops.length}
+                          </p>
+                          <p className="text-gray-500">Stops</p>
+                        </div>
+                      </div>
+                      <div className="mt-4 flex gap-2">
+                        <Button
+                          block
                           size="large"
-                          style={{ borderRadius: '8px', height: '48px' }}
-                        />
-                      </AutoComplete>
-                    </Form.Item>
-
-                    <Form.Item
-                      label={
-                        <span className="font-semibold text-sm text-gray-700">To Location</span>
-                      }
-                      name="toLocation"
-                      rules={[{ required: true, message: "Please enter destination" }]}
-                      className="mb-0"
+                          onClick={() => setWizardOpen(true)}
+                          style={{ borderRadius: 12 }}
+                        >
+                          Edit
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setWizardOpen(true)}
+                      className="w-full rounded-2xl border-2 border-dashed border-primary/40 bg-primary/5 px-4 py-6 text-center transition-colors hover:border-primary/70 hover:bg-primary/10"
                     >
-                      <AutoComplete
-                        options={toOptions}
-                        onSearch={(text) => {
-                          setSelectedTo(null);
-                          void searchCities(text, "to");
-                        }}
-                        onSelect={(value) => onSelectCity(value, "to")}
-                      >
-                        <Input
-                          placeholder="Search city"
-                          size="large"
-                          style={{ borderRadius: '8px', height: '48px' }}
-                        />
-                      </AutoComplete>
-                    </Form.Item>
-
-                    {renderIntermediateStops()}
-                  </div>
-                </div>
-
-                {/* Schedule */}
-                <div>
-                  <Title level={5} className="mb-3 flex items-center gap-2">
-                    <Sparkles size={18} className="text-primary" /> Schedule
-                  </Title>
-                  <Form.Item
-                    label={
-                      <span className="font-semibold text-sm text-gray-700">Departure Time</span>
-                    }
-                    name="departureAt"
-                    rules={[{ required: true, message: "Please select time" }]}
-                    className="mb-0"
-                  >
-                    <DatePicker
-                      showTime={{ format: "h:mm A", use12Hours: true, minuteStep: 15 }}
-                      size="large"
-                      style={{ borderRadius: '8px', height: '48px', width: '100%' }}
-                      format="YYYY-MM-DD h:mm A"
-                      placement="bottomLeft"
-                      popupClassName="trip-publish-datepicker"
-                      getPopupContainer={() => document.body}
-                      disabledDate={disabledTripDate}
-                      disabledTime={disabledTripTime}
-                    />
+                      <div className="mb-1 inline-flex items-center gap-2 text-sm font-extrabold uppercase tracking-widest text-primary">
+                        <RouteIcon size={16} /> Plan your route
+                      </div>
+                      <p className="text-xs text-gray-600">
+                        Pick start &amp; end, choose the route on the map, set the
+                        time, and add boarding points.
+                      </p>
+                    </button>
+                  )}
+                  <Form.Item name="fromLocation" hidden rules={[{ required: true }]}>
+                    <Input />
+                  </Form.Item>
+                  <Form.Item name="toLocation" hidden rules={[{ required: true }]}>
+                    <Input />
+                  </Form.Item>
+                  <Form.Item name="departureAt" hidden rules={[{ required: true }]}>
+                    <DatePicker />
                   </Form.Item>
                 </div>
 
@@ -4570,6 +4654,23 @@ function DriverDashboardPage() {
           </div>
         )}
       </Modal>
+
+      <TripWizard
+        open={wizardOpen}
+        vehicles={vehicles}
+        drivers={wizardDriverOptions}
+        publishing={creating}
+        onClose={() => setWizardOpen(false)}
+        onComplete={publishViaWizard}
+        onAddVehicle={() => {
+          setWizardOpen(false);
+          setVehicleDrawerOpen(true);
+        }}
+        onAddDriver={() => {
+          setWizardOpen(false);
+          setDriverDrawerOpen(true);
+        }}
+      />
     </ConfigProvider>
   );
 }

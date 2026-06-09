@@ -77,7 +77,7 @@ function ContactPage() {
               <div>
                 <h3 className="font-bold text-slate-900 mb-1">Support Availability</h3>
                 <p className="text-sm text-muted-foreground">
-                  Our customer support team is available Monday to Saturday, 9:00 AM to 7:00 PM IST.
+                  Our customer support team is available Monday to Saturday, 10:00 AM to 7:00 PM IST.
                 </p>
               </div>
             </div>
