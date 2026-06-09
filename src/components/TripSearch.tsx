@@ -504,6 +504,27 @@ export function TripSearchForm({ variant, id }: { variant: "landing" | "page"; i
     return () => window.removeEventListener("coolpool:cityDetected", handleCityDetected);
   }, [form]);
 
+  useEffect(() => {
+    const handleSetSearch = (e: Event) => {
+      const detail = (e as CustomEvent<{ from: string; to: string; date?: Dayjs }>).detail;
+      if (!detail) return;
+      form.setFieldsValue({
+        from: detail.from,
+        to: detail.to,
+        date: detail.date ?? dayjs(),
+      });
+      form.submit();
+      requestAnimationFrame(() => {
+        document
+          .getElementById("trip-search-results")
+          ?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    };
+
+    window.addEventListener("coolpool:setSearch", handleSetSearch);
+    return () => window.removeEventListener("coolpool:setSearch", handleSetSearch);
+  }, [form]);
+
   const swapLocations = () => {
     const { from, to } = form.getFieldsValue(["from", "to"]);
     form.setFieldsValue({ from: to ?? "", to: from ?? "" });

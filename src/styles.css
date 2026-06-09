@@ -222,6 +222,15 @@
     background-clip: text;
     color: transparent;
   }
+  /* Soft glow that picks up both ends of the brand gradient.
+     text-shadow can't render on background-clipped text (color is
+     transparent), so drop-shadow filter is layered instead — the
+     pink stop sits closer/sharper, the purple stop spreads wider. */
+  .trending-to-text {
+    filter:
+      drop-shadow(0 2px 6px oklch(0.62 0.25 350 / 0.45))
+      drop-shadow(0 6px 18px oklch(0.55 0.25 290 / 0.35));
+  }
   .shadow-soft {
     box-shadow: var(--shadow-soft);
   }

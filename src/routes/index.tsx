@@ -283,7 +283,7 @@ function Home() {
                 size="xl"
                 className="rounded-3xl px-12 h-14 text-lg bg-card/50 backdrop-blur-sm hover:bg-card"
               >
-                <Link to="/host">Become a Host</Link>
+                <Link to="/host">Host a Ride</Link>
               </Button>
             </div>
           </div>

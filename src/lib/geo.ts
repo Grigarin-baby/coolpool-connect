@@ -95,6 +95,8 @@ const CITY_NAME_ALIASES: Record<string, readonly string[]> = {
   kozhikode: ["calicut"],
   kochi: ["ernakulam"],
   ernakulam: ["kochi"],
+  bangalore: ["bengaluru"],
+  bengaluru: ["bangalore"],
 };
 
 function expandCityAliases(segment: string): string[] {

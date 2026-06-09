@@ -66,6 +66,7 @@ import {
   createTeamDriver,
   updateTeamDriver,
   deleteTeamDriver,
+  deleteDriverAccount,
   updateBookingRating,
   updateTrip,
   deleteTrip,
@@ -268,6 +269,9 @@ function DriverDashboardPage() {
   const [publishModalView, setPublishModalView] = useState<"trips" | "form">("trips");
   const [showTripForm, setShowTripForm] = useState(false);
   const [tripPublishedSuccess, setTripPublishedSuccess] = useState(false);
+  const [deleteAccountModalOpen, setDeleteAccountModalOpen] = useState(false);
+  const [deletingAccount, setDeletingAccount] = useState(false);
+  const [accountDeletedSuccess, setAccountDeletedSuccess] = useState(false);
   const [otpInputs, setOtpInputs] = useState<Record<string, string>>({});
   const [verifyingId, setVerifyingId] = useState<string | null>(null);
 
@@ -289,6 +293,24 @@ function DriverDashboardPage() {
       setVerifyingId(null);
     }
   };
+  const handleDeleteAccount = async () => {
+    if (!user?.$id) return;
+    setDeletingAccount(true);
+    try {
+      await deleteDriverAccount(user.$id);
+      setDeleteAccountModalOpen(false);
+      setAccountDeletedSuccess(true);
+      // Show the success animation for ~2.2s, then sign out + bounce home.
+      setTimeout(async () => {
+        await signOut();
+        void navigate({ to: "/", replace: true });
+      }, 2200);
+    } catch (err) {
+      message.error(err instanceof Error ? err.message : "Failed to delete account.");
+      setDeletingAccount(false);
+    }
+  };
+
   const autocompleteServiceRef = useRef<PlacesAutocompleteServiceLike | null>(null);
   const geocoderRef = useRef<GeocoderLike | null>(null);
   const directionsServiceRef = useRef<DirectionsServiceLike | null>(null);
@@ -972,6 +994,82 @@ function DriverDashboardPage() {
             </div>
           </div>
         )}
+
+        {accountDeletedSuccess && (
+          <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-white/95 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="flex flex-col items-center px-6 text-center">
+              <div className="relative flex h-28 w-28 items-center justify-center">
+                <span className="absolute inset-0 rounded-full bg-red-500/20 animate-ping" />
+                <div className="relative flex h-24 w-24 items-center justify-center rounded-full bg-red-500 shadow-[0_10px_35px_rgba(239,68,68,0.45)] animate-in zoom-in-50 duration-300">
+                  <svg viewBox="0 0 52 52" className="h-12 w-12" aria-hidden>
+                    <path
+                      fill="none"
+                      stroke="white"
+                      strokeWidth="5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M16 16 L36 36 M36 16 L16 36"
+                      style={{
+                        strokeDasharray: 60,
+                        strokeDashoffset: 60,
+                        animation: "cp-cross-draw 0.4s ease-out 0.2s forwards",
+                      }}
+                    />
+                  </svg>
+                </div>
+              </div>
+              <p className="mt-6 text-2xl font-bold text-gray-900">Account deleted</p>
+              <p className="mt-1 text-sm text-gray-500">Signing you out…</p>
+              <style>{`@keyframes cp-cross-draw { to { stroke-dashoffset: 0; } }`}</style>
+            </div>
+          </div>
+        )}
+
+        <Modal
+          open={deleteAccountModalOpen}
+          onCancel={() => {
+            if (!deletingAccount) setDeleteAccountModalOpen(false);
+          }}
+          footer={null}
+          centered
+          closable={!deletingAccount}
+          maskClosable={!deletingAccount}
+          width={460}
+          styles={{ content: { borderRadius: "1.5rem", padding: 0, overflow: "hidden" } }}
+        >
+          <div className="px-7 pt-7 pb-6">
+            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-red-100">
+              <Trash2 className="text-red-600" size={26} />
+            </div>
+            <h3 className="mt-5 text-2xl font-bold text-gray-900">Delete your account?</h3>
+            <p className="mt-2 text-sm leading-relaxed text-gray-600">
+              This will permanently remove your driver profile, vehicles, and host role
+              from Coolpool. <strong>This action cannot be undone.</strong>
+            </p>
+            <div className="mt-6 flex gap-3">
+              <Button
+                block
+                size="large"
+                onClick={() => setDeleteAccountModalOpen(false)}
+                disabled={deletingAccount}
+                className="rounded-2xl"
+              >
+                No
+              </Button>
+              <Button
+                block
+                size="large"
+                danger
+                type="primary"
+                loading={deletingAccount}
+                onClick={() => void handleDeleteAccount()}
+                className="rounded-2xl"
+              >
+                Yes, delete
+              </Button>
+            </div>
+          </div>
+        </Modal>
         <Layout className="bg-transparent max-w-[1600px] mx-auto relative flex">
           <Sider
             breakpoint="lg"
@@ -1119,6 +1217,13 @@ function DriverDashboardPage() {
                         icon: <LogOut size={14} />,
                         danger: true,
                         onClick: () => void signOut(),
+                      },
+                      {
+                        key: "delete-account",
+                        label: "Delete Account",
+                        icon: <Trash2 size={14} />,
+                        danger: true,
+                        onClick: () => setDeleteAccountModalOpen(true),
                       },
                     ],
                   }}

@@ -11,7 +11,8 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "appwrite:migrate": "node --env-file=.env scripts/appwrite-migrate.mjs",
-    "appwrite:trips-public-read": "node --env-file=.env scripts/appwrite-trips-public-read.mjs"
+    "appwrite:trips-public-read": "node --env-file=.env scripts/appwrite-trips-public-read.mjs",
+    "admin:create": "node --env-file=.env scripts/create-admin.mjs"
   },
   "dependencies": {
     "@cloudflare/vite-plugin": "^1.25.5",

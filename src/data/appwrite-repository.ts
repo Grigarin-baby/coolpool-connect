@@ -673,6 +673,51 @@ export async function listUserRoles(userId: string): Promise<AppRole[]> {
     .filter((role): role is AppRole => ["admin", "driver", "user"].includes(role));
 }
 
+/** Wipes all driver-specific data for a user:
+ *  - removes the "driver" role row from user_roles
+ *  - deletes their driver profile from drivers (matched by user_id or owner_user_id)
+ *  - deletes any vehicles they own from vehicles
+ *  Leaves trips/bookings intact (passengers may have active reservations) and
+ *  does NOT delete the Appwrite account itself — the client SDK cannot delete
+ *  arbitrary users, so the caller should still signOut after this. */
+export async function deleteDriverAccount(userId: string): Promise<void> {
+  const c = ids();
+  // 1. driver role row(s)
+  const roleDocs = await databases.listDocuments(appwriteConfig.databaseId, c.userRoles, [
+    Query.equal("user_id", userId),
+    Query.equal("role", "driver"),
+    Query.limit(10),
+  ]);
+  await Promise.all(
+    roleDocs.documents.map((d) =>
+      databases.deleteDocument(appwriteConfig.databaseId, c.userRoles, d.$id),
+    ),
+  );
+
+  // 2. vehicles owned by this driver
+  const vehicleDocs = await databases.listDocuments(appwriteConfig.databaseId, c.vehicles, [
+    Query.equal("driver_user_id", userId),
+    Query.limit(100),
+  ]);
+  await Promise.all(
+    vehicleDocs.documents.map((d) =>
+      databases.deleteDocument(appwriteConfig.databaseId, c.vehicles, d.$id),
+    ),
+  );
+
+  // 3. driver profile (collection uses user_id for primary host accounts and
+  //    owner_user_id for team-member driver rows the host has added).
+  const profileDocs = await databases.listDocuments(appwriteConfig.databaseId, c.drivers, [
+    Query.or([Query.equal("user_id", userId), Query.equal("owner_user_id", userId)]),
+    Query.limit(50),
+  ]);
+  await Promise.all(
+    profileDocs.documents.map((d) =>
+      databases.deleteDocument(appwriteConfig.databaseId, c.drivers, d.$id),
+    ),
+  );
+}
+
 export async function assignRole(userId: string, role: AppRole): Promise<void> {
   const c = ids();
   const existing = await databases.listDocuments(appwriteConfig.databaseId, c.userRoles, [
