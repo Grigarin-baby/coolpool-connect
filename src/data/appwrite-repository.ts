@@ -9,7 +9,9 @@ import type {
   DriverProfile,
   DriverVehicle,
   HeroBanner,
+  MusicType,
   PricingRule,
+  RidePreferences,
   StopType,
   Trip,
   TripSeatReservation,
@@ -103,6 +105,10 @@ function toDriverProfile(doc: any): DriverProfile {
     phone: String(doc.phone || ""),
     licenseNumber: String(doc.license_number || ""),
     city: String(doc.city || ""),
+    smokingAllowed: Boolean(doc.smoking_allowed ?? false),
+    alcoholAllowed: Boolean(doc.alcohol_allowed ?? false),
+    musicAllowed: Boolean(doc.music_allowed ?? false),
+    musicType: doc.music_type ? String(doc.music_type) : null,
   };
 }
 
@@ -870,6 +876,65 @@ export async function listDriverProfilesByUserIds(
     Query.limit(100),
   ]);
   return result.documents.map(toDriverProfile);
+}
+
+/** Get ride preferences for a single host by their user ID. */
+export async function getHostPreferences(hostUserId: string): Promise<RidePreferences | null> {
+  const c = ids();
+  const result = await databases.listDocuments(appwriteConfig.databaseId, c.drivers, [
+    Query.equal("user_id", hostUserId),
+    Query.limit(1),
+  ]);
+  if (result.total === 0) return null;
+  const doc = result.documents[0];
+  return {
+    smokingAllowed: Boolean(doc.smoking_allowed ?? false),
+    alcoholAllowed: Boolean(doc.alcohol_allowed ?? false),
+    musicAllowed: Boolean(doc.music_allowed ?? false),
+    musicType: (doc.music_type as MusicType | null) ?? null,
+  };
+}
+
+/** Save ride preferences for a host (looked up by user ID). */
+export async function updateHostPreferences(
+  hostUserId: string,
+  prefs: RidePreferences,
+): Promise<void> {
+  const c = ids();
+  const result = await databases.listDocuments(appwriteConfig.databaseId, c.drivers, [
+    Query.equal("user_id", hostUserId),
+    Query.limit(1),
+  ]);
+  if (result.total === 0) throw new Error("Driver profile not found");
+  await databases.updateDocument(appwriteConfig.databaseId, c.drivers, result.documents[0].$id, {
+    smoking_allowed: prefs.smokingAllowed,
+    alcohol_allowed: prefs.alcoholAllowed,
+    music_allowed: prefs.musicAllowed,
+    music_type: prefs.musicAllowed ? (prefs.musicType ?? null) : null,
+  });
+}
+
+/** Batch-fetch ride preferences for multiple host user IDs (for trip result cards). */
+export async function getMultipleHostPreferences(
+  hostUserIds: string[],
+): Promise<Map<string, RidePreferences>> {
+  const unique = [...new Set(hostUserIds.filter(Boolean))];
+  if (unique.length === 0) return new Map();
+  const c = ids();
+  const result = await databases.listDocuments(appwriteConfig.databaseId, c.drivers, [
+    Query.equal("user_id", unique),
+    Query.limit(100),
+  ]);
+  const map = new Map<string, RidePreferences>();
+  for (const doc of result.documents) {
+    map.set(String(doc.user_id), {
+      smokingAllowed: Boolean(doc.smoking_allowed ?? false),
+      alcoholAllowed: Boolean(doc.alcohol_allowed ?? false),
+      musicAllowed: Boolean(doc.music_allowed ?? false),
+      musicType: (doc.music_type as MusicType | null) ?? null,
+    });
+  }
+  return map;
 }
 
 export async function listActiveTrips(limit = 200): Promise<Trip[]> {

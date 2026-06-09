@@ -337,6 +337,11 @@ async function run() {
   await ensureStringAttribute(COLLECTIONS.drivers, "phone", 40, true);
   await ensureStringAttribute(COLLECTIONS.drivers, "license_number", 80, true);
   await ensureStringAttribute(COLLECTIONS.drivers, "city", 120, true);
+  // ride preferences (optional, default false/null)
+  await ensureBooleanAttribute(COLLECTIONS.drivers, "smoking_allowed", false, false);
+  await ensureBooleanAttribute(COLLECTIONS.drivers, "alcohol_allowed", false, false);
+  await ensureBooleanAttribute(COLLECTIONS.drivers, "music_allowed", false, false);
+  await ensureStringAttribute(COLLECTIONS.drivers, "music_type", 40, false);
 
   // vehicles
   await ensureStringAttribute(COLLECTIONS.vehicles, "driver_user_id", 64, true);
