@@ -390,7 +390,7 @@ export function TripSearchForm({ variant, id }: { variant: "landing" | "page"; i
         try {
           const response = await fetch("https://ipapi.co/json/");
           const data = await response.json();
-          if (data && data.city) {
+          if (data && data.city && !form.getFieldValue("from")) {
             form.setFieldsValue({ from: data.city });
             import("sonner").then((m) => m.toast.success(`Detected via IP: ${data.city}`));
           }
@@ -445,7 +445,7 @@ export function TripSearchForm({ variant, id }: { variant: "landing" | "page"; i
                         `Service currently unavailable in ${state}. We are live in South India & Goa!`,
                       ),
                     );
-                  } else if (city) {
+                  } else if (city && !form.getFieldValue("from")) {
                     form.setFieldsValue({ from: city });
                     import("sonner").then((m) => m.toast.success(`Location detected: ${city}`));
                   }

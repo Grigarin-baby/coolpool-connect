@@ -26,11 +26,7 @@ function TermsPage() {
             <section>
               <h2 className="text-xl font-bold text-slate-900 mb-3">1. Platform Disclaimer</h2>
               <p>
-                Coolpool operates strictly as a ride-sharing platform and commute coordination
-                service.{" "}
-                <strong>We are NOT a taxi company, transport operator, or cab service.</strong> Our
-                platform facilitates the connection between travelers and commuters in South India
-                and Goa who wish to share a ride and split the associated costs.
+                Coolpool does not provide transportation services, employ drivers, or operate as a taxi or cab service. All ride arrangements and interactions are solely between the driver and passenger, who are fully responsible for their own actions, safety, and compliance with applicable laws. Coolpool shall not be held liable for any disputes, accidents, losses, damages, injuries, or incidents arising from the use of the platform. In the event of any dispute, emergency, or unlawful activity, users should immediately contact the nearest police station or relevant authorities. Coolpool's responsibility is limited solely to the operation of the platform and the collection of applicable platform fees.
               </p>
             </section>
 

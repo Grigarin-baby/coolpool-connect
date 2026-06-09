@@ -358,24 +358,27 @@ a.inline-flex.bg-gradient-primary:focus-visible {
   line-height: 1 !important;
 }
 
-/* Font sizes are now handled by Ant Design ConfigProvider token
-   which injects CSS vars the component itself reads — guaranteed to win.
-   We only need to ensure the container height and text colour here. */
-.trip-search-autocomplete .ant-select-selector {
-  height: auto !important;
-  display: flex !important;
+/* AntD v6 renamed the Select/AutoComplete internals. The current DOM is:
+     .ant-select                 <- root (this is where trip-search-autocomplete lives)
+       .ant-select-content       <- flex container; HOLDS the input as a child
+         .ant-select-content-value  <- static text span shown when not typing
+         input.ant-select-input  <- editable input, absolute-positioned over the value
+       .ant-select-placeholder   <- shown when no value
+   Do NOT set color or visibility on .ant-select-content itself — that
+   breaks the input (it lives inside) and overrides AntD's built-in
+   "transparent while typing" rule, which is what prevents the value from
+   appearing doubled in combobox mode. Only style the leaf text nodes. */
+.trip-search-autocomplete {
   align-items: center !important;
 }
 
-.trip-search-autocomplete .ant-select-selector,
-.trip-search-autocomplete .ant-select-selection-wrap,
-.trip-search-autocomplete .ant-select-selection-item,
-.trip-search-autocomplete .ant-select-selection-search-input {
+.trip-search-autocomplete .ant-select-input,
+.trip-search-autocomplete .ant-select-content-value {
   font-weight: 800 !important;
   color: oklch(0.15 0.02 260) !important;
 }
 
-.trip-search-autocomplete .ant-select-selection-placeholder {
+.trip-search-autocomplete .ant-select-placeholder {
   font-weight: 500 !important;
   color: oklch(0.72 0.01 260) !important;
 }

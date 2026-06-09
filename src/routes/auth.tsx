@@ -106,6 +106,7 @@ function AuthPage() {
     user,
     loading,
     roles,
+    signIn,
     signInWithPhonePassword,
     signUpWithPhonePassword,
     isAdmin,
@@ -116,7 +117,7 @@ function AuthPage() {
   const [showPhoneStep, setShowPhoneStep] = useState(false);
   const [otpMode, setOtpMode] = useState(false);
   const [phone, setPhone] = useState("");
-  const [tab, setTab] = useState<"login" | "signup">("login");
+  const [tab, setTab] = useState<"login" | "signup" | "admin">("login");
   const autoHostRef = useRef(false);
 
   const [siNumber, setSiNumber] = useState("");
@@ -125,6 +126,9 @@ function AuthPage() {
   const [name, setName] = useState("");
   const [suNumber, setSuNumber] = useState("");
   const [signUpPassword, setSignUpPassword] = useState("");
+
+  const [adminEmail, setAdminEmail] = useState("");
+  const [adminPassword, setAdminPassword] = useState("");
 
   useEffect(() => {
     if (loading || !user) return;
@@ -169,8 +173,8 @@ function AuthPage() {
 
   const toE164 = (num: string) => `+91${num.replace(/[^\d]/g, "")}`;
 
-  const handleSignIn = async (e: FormEvent) => {
-    e.preventDefault();
+  const handleSignIn = async (e?: FormEvent) => {
+    e?.preventDefault();
     if (siNumber.replace(/[^\d]/g, "").length < 6) {
       toast.error("Enter a valid phone number.");
       return;
@@ -185,6 +189,21 @@ function AuthPage() {
       setBusy(false);
     }
   };
+
+  // Auto-submit when the 4-digit PIN is fully entered (and phone is valid).
+  useEffect(() => {
+    if (
+      tab !== "login" ||
+      otpMode ||
+      busy ||
+      signInPassword.length !== 4 ||
+      siNumber.replace(/[^\d]/g, "").length < 10
+    ) {
+      return;
+    }
+    void handleSignIn();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [signInPassword]);
 
   const handleSignUp = async (e: FormEvent) => {
     e.preventDefault();
@@ -204,6 +223,23 @@ function AuthPage() {
       // useEffect picks it up and auto-onboards the host. No extra step.
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Unable to create account.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleAdminSignIn = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!adminEmail.trim() || !adminPassword) {
+      toast.error("Enter your email and password.");
+      return;
+    }
+    setBusy(true);
+    try {
+      await signIn(adminEmail.trim(), adminPassword);
+      toast.success("Logged in.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Unable to log in.");
     } finally {
       setBusy(false);
     }
@@ -316,17 +352,21 @@ function AuthPage() {
                 value={tab}
                 className="w-full"
                 onValueChange={(v) => {
-                  setTab(v as "login" | "signup");
+                  setTab(v as "login" | "signup" | "admin");
                   setOtpMode(false);
                 }}
               >
-                <TabsList className="relative grid w-full grid-cols-2 rounded-3xl h-11 p-1 bg-[#f4d8f9] border border-border/60 overflow-hidden">
+                <TabsList className="relative grid w-full grid-cols-3 rounded-3xl h-11 p-1 bg-[#f4d8f9] border border-border/60 overflow-hidden">
                   <span
                     aria-hidden
-                    className="absolute top-1 bottom-1 left-1 w-[calc(50%-0.25rem)] rounded-3xl bg-white shadow-soft transition-transform duration-300 ease-out"
+                    className="absolute top-1 bottom-1 left-1 w-[calc(33.333%-0.25rem)] rounded-3xl bg-white shadow-soft transition-transform duration-300 ease-out"
                     style={{
                       transform:
-                        tab === "signup" ? "translateX(100%)" : "translateX(0)",
+                        tab === "admin"
+                          ? "translateX(200%)"
+                          : tab === "signup"
+                            ? "translateX(100%)"
+                            : "translateX(0)",
                     }}
                   />
                   <TabsTrigger
@@ -340,6 +380,12 @@ function AuthPage() {
                     className="relative z-10 rounded-3xl text-sm font-semibold bg-transparent text-muted-foreground transition-colors duration-300 data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-foreground"
                   >
                     Sign up
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="admin"
+                    className="relative z-10 rounded-3xl text-sm font-semibold bg-transparent text-muted-foreground transition-colors duration-300 data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-foreground"
+                  >
+                    Admin
                   </TabsTrigger>
                 </TabsList>
 
@@ -453,6 +499,51 @@ function AuthPage() {
                       disabled={busy}
                     >
                       {busy ? <Loader2 className="h-5 w-5 animate-spin" /> : "Create Account"}
+                    </Button>
+                  </form>
+                </TabsContent>
+
+                <TabsContent value="admin" className="mt-0 outline-none">
+                  <form onSubmit={handleAdminSignIn} className="space-y-3">
+                    <div className="space-y-2">
+                      <Label htmlFor="admin-email" className="text-base font-medium">
+                        Email
+                      </Label>
+                      <Input
+                        id="admin-email"
+                        type="email"
+                        autoComplete="email"
+                        required
+                        value={adminEmail}
+                        placeholder="admin@coolpool.in"
+                        onChange={(e) => setAdminEmail(e.target.value)}
+                        className="h-12 rounded-3xl border-border/80 bg-background/80 form-control-lg placeholder:text-sm"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="admin-password" className="text-base font-medium">
+                        Password
+                      </Label>
+                      <Input
+                        id="admin-password"
+                        type="password"
+                        autoComplete="current-password"
+                        required
+                        value={adminPassword}
+                        placeholder="••••••••"
+                        onChange={(e) => setAdminPassword(e.target.value)}
+                        className="h-12 rounded-3xl border-border/80 bg-background/80 form-control-lg placeholder:text-sm"
+                      />
+                    </div>
+                    <Button
+                      type="submit"
+                      variant="hero"
+                      size="lg"
+                      style={{ color: "#fff" }}
+                      className="w-full rounded-3xl h-11 font-semibold shadow-glow mt-1"
+                      disabled={busy}
+                    >
+                      {busy ? <Loader2 className="h-5 w-5 animate-spin" /> : "Admin Login"}
                     </Button>
                   </form>
                 </TabsContent>

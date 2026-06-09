@@ -142,8 +142,8 @@ function MembersPage() {
 
   const toE164 = (num: string) => `+91${num.replace(/[^\d]/g, "")}`;
 
-  const handleSignIn = async (e: FormEvent) => {
-    e.preventDefault();
+  const handleSignIn = async (e?: FormEvent) => {
+    e?.preventDefault();
     if (siNumber.replace(/[^\d]/g, "").length < 6) {
       toast.error("Enter a valid phone number.");
       return;
@@ -158,6 +158,21 @@ function MembersPage() {
       setBusy(false);
     }
   };
+
+  // Auto-submit when the 4-digit PIN is fully entered (and phone is valid).
+  useEffect(() => {
+    if (
+      mode !== "signin" ||
+      otpMode ||
+      busy ||
+      signInPassword.length !== 4 ||
+      siNumber.replace(/[^\d]/g, "").length < 10
+    ) {
+      return;
+    }
+    void handleSignIn();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [signInPassword]);
 
   const handleSignUp = async (e: FormEvent) => {
     e.preventDefault();
