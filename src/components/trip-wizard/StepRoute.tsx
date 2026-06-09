@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AutoComplete, Spin } from "antd";
-import { ArrowDown, MapPin } from "lucide-react";
+import { ArrowDown, MapPin, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useWizardMaps } from "./useWizardMaps";
 import { RouteMap } from "./RouteMap";
@@ -53,8 +53,14 @@ export function StepRoute({
   const [fromOptions, setFromOptions] = useState<CityOption[]>([]);
   const [toOptions, setToOptions] = useState<CityOption[]>([]);
   const [fetchingRoutes, setFetchingRoutes] = useState(false);
+  const [fromSearching, setFromSearching] = useState(false);
+  const [toSearching, setToSearching] = useState(false);
 
   const directionsRef = useRef<any>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Clean up debounce on unmount
+  useEffect(() => () => { if (debounceRef.current) clearTimeout(debounceRef.current); }, []);
 
   // Initialize Directions service once maps is ready
   useEffect(() => {
@@ -65,50 +71,76 @@ export function StepRoute({
     }
   }, [ready]);
 
-  // Same predicate the home-page search uses, so the dropdown feels identical.
-  // Uses the NEW Places autocomplete API which works for new-customer accounts.
-  const searchCities = useCallback(async (query: string, target: "from" | "to") => {
+  // Debounced city search — 300 ms delay, two-tier API (new → legacy fallback).
+  const searchCities = useCallback((query: string, target: "from" | "to") => {
+    // Clear immediately on short input
     if (!query || query.trim().length < 2) {
-      if (target === "from") setFromOptions([]);
-      else setToOptions([]);
+      if (target === "from") { setFromOptions([]); setFromSearching(false); }
+      else { setToOptions([]); setToSearching(false); }
+      if (debounceRef.current) clearTimeout(debounceRef.current);
       return;
     }
-    const lower = query.toLowerCase();
-    const isAirport = AIRPORT_KEYWORDS.some((k) => lower.includes(k));
 
-    const suggestions = await fetchPlaceSuggestions(query);
-    const filtered = suggestions.filter((s) => {
-      const desc = s.description.toLowerCase();
-      return SOUTH_INDIA_STATES.some((st) => desc.includes(st)) || isAirport;
-    });
+    // Show loading indicator straight away so it feels responsive
+    if (target === "from") setFromSearching(true);
+    else setToSearching(true);
 
-    const options: CityOption[] = filtered.map((s) => ({
-      value: s.description,
-      label: s.description,
-      placeId: s.id,
-    }));
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(async () => {
+      const lower = query.toLowerCase();
+      const isAirport = AIRPORT_KEYWORDS.some((k) => lower.includes(k));
 
-    if (isAirport) {
-      const airportOptions: CityOption[] = BENGALURU_AIRPORTS.map((a) => ({
-        value: `${a.name}, ${SERVICE_CITY}`,
-        label: (
-          <div className="flex items-center gap-2">
-            <span>✈️</span>
-            <span className="font-medium text-gray-900">
-              {a.name} <span className="text-gray-400 font-normal">({a.code})</span>
-            </span>
-          </div>
-        ),
-        lat: a.lat,
-        lng: a.lng,
-      }));
-      [...airportOptions].reverse().forEach((ao) => {
-        if (!options.find((o) => o.value === ao.value)) options.unshift(ao);
+      const suggestions = await fetchPlaceSuggestions(query);
+
+      const filtered = suggestions.filter((s) => {
+        const desc = s.description.toLowerCase();
+        return SOUTH_INDIA_STATES.some((st) => desc.includes(st)) || isAirport;
       });
-    }
 
-    if (target === "from") setFromOptions(options);
-    else setToOptions(options);
+      let options: CityOption[] = filtered.map((s) => ({
+        value: s.description,
+        label: s.description,
+        placeId: s.id,
+      }));
+
+      // Prepend airport shortcuts when the query looks like an airport search
+      if (isAirport) {
+        const airportOptions: CityOption[] = BENGALURU_AIRPORTS.map((a) => ({
+          value: `${a.name}, ${SERVICE_CITY}`,
+          label: (
+            <div className="flex items-center gap-2">
+              <span>✈️</span>
+              <span className="font-medium text-gray-900">
+                {a.name} <span className="text-gray-400 font-normal">({a.code})</span>
+              </span>
+            </div>
+          ),
+          lat: a.lat,
+          lng: a.lng,
+        }));
+        [...airportOptions].reverse().forEach((ao) => {
+          if (!options.find((o) => o.value === ao.value)) options.unshift(ao);
+        });
+      }
+
+      // When suggestions came back but none are in South India → tell the user
+      if (options.length === 0 && suggestions.length > 0 && !isAirport) {
+        options = [
+          {
+            value: "__out_of_area__",
+            label: (
+              <span className="text-xs text-gray-400">
+                🚫 Out of service area — South India &amp; Goa only
+              </span>
+            ),
+            disabled: true,
+          } as any,
+        ];
+      }
+
+      if (target === "from") { setFromOptions(options); setFromSearching(false); }
+      else { setToOptions(options); setToSearching(false); }
+    }, 300);
   }, []);
 
   const resolveCoords = useCallback(
@@ -186,20 +218,30 @@ export function StepRoute({
           <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-primary/10 text-primary">
             <MapPin size={18} />
           </span>
-          <AutoComplete
-            value={fromText}
-            options={fromOptions}
-            onSearch={(v) => {
-              setFromText(v);
-              void searchCities(v, "from");
-            }}
-            onSelect={(v) => void handleSelect("from", v)}
-            onChange={(v) => setFromText(typeof v === "string" ? v : "")}
-            placeholder="Pickup city or area"
-            className="w-full"
-            variant="borderless"
-            classNames={{ popup: { root: "trip-search-ac-dropdown" } }}
-          />
+          <div className="relative flex-1">
+            <AutoComplete
+              value={fromText}
+              options={fromOptions}
+              onSearch={(v) => {
+                setFromText(v);
+                searchCities(v, "from");
+              }}
+              onSelect={(v) => {
+                if (v === "__out_of_area__") return;
+                void handleSelect("from", v);
+              }}
+              onChange={(v) => setFromText(typeof v === "string" ? v : "")}
+              placeholder="Pickup city or area"
+              className="w-full"
+              variant="borderless"
+              classNames={{ popup: { root: "trip-search-ac-dropdown" } }}
+            />
+            {fromSearching && (
+              <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-gray-400">
+                <Loader2 size={14} className="animate-spin" />
+              </span>
+            )}
+          </div>
         </div>
         <div className="ml-[1.125rem] my-1 flex items-center text-gray-300">
           <ArrowDown size={16} />
@@ -208,20 +250,30 @@ export function StepRoute({
           <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-pink-500/10 text-pink-600">
             <MapPin size={18} />
           </span>
-          <AutoComplete
-            value={toText}
-            options={toOptions}
-            onSearch={(v) => {
-              setToText(v);
-              void searchCities(v, "to");
-            }}
-            onSelect={(v) => void handleSelect("to", v)}
-            onChange={(v) => setToText(typeof v === "string" ? v : "")}
-            placeholder="Drop-off city or area"
-            className="w-full"
-            variant="borderless"
-            classNames={{ popup: { root: "trip-search-ac-dropdown" } }}
-          />
+          <div className="relative flex-1">
+            <AutoComplete
+              value={toText}
+              options={toOptions}
+              onSearch={(v) => {
+                setToText(v);
+                searchCities(v, "to");
+              }}
+              onSelect={(v) => {
+                if (v === "__out_of_area__") return;
+                void handleSelect("to", v);
+              }}
+              onChange={(v) => setToText(typeof v === "string" ? v : "")}
+              placeholder="Drop-off city or area"
+              className="w-full"
+              variant="borderless"
+              classNames={{ popup: { root: "trip-search-ac-dropdown" } }}
+            />
+            {toSearching && (
+              <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-gray-400">
+                <Loader2 size={14} className="animate-spin" />
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
