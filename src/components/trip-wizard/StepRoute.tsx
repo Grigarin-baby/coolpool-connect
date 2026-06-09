@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AutoComplete, Spin } from "antd";
-import { ArrowDown, MapPin, Loader2 } from "lucide-react";
+import { ArrowDown, MapPin, Loader2, Plus, X as XIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useWizardMaps } from "./useWizardMaps";
 import { RouteMap } from "./RouteMap";
@@ -13,9 +13,11 @@ interface StepRouteProps {
   to: PlacePoint | null;
   alternatives: RouteAlternative[];
   selectedAltId: number | null;
+  intermediatePoints: PlacePoint[];
   onFromChange: (p: PlacePoint | null) => void;
   onToChange: (p: PlacePoint | null) => void;
   onAlternativesChange: (alts: RouteAlternative[], selectedAltId: number | null) => void;
+  onIntermediatePointsChange: (points: PlacePoint[]) => void;
 }
 
 interface CityOption {
@@ -43,9 +45,11 @@ export function StepRoute({
   to,
   alternatives,
   selectedAltId,
+  intermediatePoints,
   onFromChange,
   onToChange,
   onAlternativesChange,
+  onIntermediatePointsChange,
 }: StepRouteProps) {
   const { ready, error } = useWizardMaps();
   const [fromText, setFromText] = useState(from?.label ?? "");
@@ -58,6 +62,14 @@ export function StepRoute({
 
   const directionsRef = useRef<any>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Hold latest onAlternativesChange in a ref so useEffect doesn't re-run on every render
+  const onAlternativesChangeRef = useRef(onAlternativesChange);
+  useEffect(() => { onAlternativesChangeRef.current = onAlternativesChange; });
+
+  // Intermediate stop inputs state
+  const [stopTexts, setStopTexts] = useState<string[]>(() => intermediatePoints.map((p) => p.label));
+  const [stopOptions, setStopOptions] = useState<CityOption[][]>(() => intermediatePoints.map(() => []));
+  const [stopSearching, setStopSearching] = useState<boolean[]>(() => intermediatePoints.map(() => false));
 
   // Clean up debounce on unmount
   useEffect(() => () => { if (debounceRef.current) clearTimeout(debounceRef.current); }, []);
@@ -159,6 +171,57 @@ export function StepRoute({
     [],
   );
 
+  // ── Intermediate stop helpers ────────────────────────────────────────────
+
+  const addStop = useCallback(() => {
+    setStopTexts((prev) => [...prev, ""]);
+    setStopOptions((prev) => [...prev, []]);
+    setStopSearching((prev) => [...prev, false]);
+    onIntermediatePointsChange([...intermediatePoints, { label: "", lat: 0, lng: 0 }]);
+  }, [intermediatePoints, onIntermediatePointsChange]);
+
+  const removeStop = useCallback((idx: number) => {
+    setStopTexts((prev) => prev.filter((_, i) => i !== idx));
+    setStopOptions((prev) => prev.filter((_, i) => i !== idx));
+    setStopSearching((prev) => prev.filter((_, i) => i !== idx));
+    onIntermediatePointsChange(intermediatePoints.filter((_, i) => i !== idx));
+  }, [intermediatePoints, onIntermediatePointsChange]);
+
+  const searchStop = useCallback((query: string, idx: number) => {
+    setStopTexts((prev) => { const n = [...prev]; n[idx] = query; return n; });
+    if (!query || query.trim().length < 2) {
+      setStopOptions((prev) => { const n = [...prev]; n[idx] = []; return n; });
+      return;
+    }
+    setStopSearching((prev) => { const n = [...prev]; n[idx] = true; return n; });
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(async () => {
+      const suggestions = await fetchPlaceSuggestions(query);
+      const lower = query.toLowerCase();
+      const isAirport = AIRPORT_KEYWORDS.some((k) => lower.includes(k));
+      const filtered = suggestions.filter((s) =>
+        SOUTH_INDIA_STATES.some((st) => s.description.toLowerCase().includes(st)) || isAirport,
+      );
+      const opts: CityOption[] = filtered.map((s) => ({ value: s.description, label: s.description, placeId: s.id }));
+      setStopOptions((prev) => { const n = [...prev]; n[idx] = opts; return n; });
+      setStopSearching((prev) => { const n = [...prev]; n[idx] = false; return n; });
+    }, 300);
+  }, []);
+
+  const selectStop = useCallback(async (value: string, idx: number) => {
+    const opts = stopOptions[idx] ?? [];
+    const hit = opts.find((o) => o.value === value);
+    if (!hit) return;
+    const point = await resolveCoords(hit);
+    if (!point) return;
+    setStopTexts((prev) => { const n = [...prev]; n[idx] = point.label; return n; });
+    const updated = [...intermediatePoints];
+    updated[idx] = point;
+    onIntermediatePointsChange(updated);
+  }, [stopOptions, intermediatePoints, onIntermediatePointsChange, resolveCoords]);
+
+  // ─────────────────────────────────────────────────────────────────────────
+
   const handleSelect = async (side: "from" | "to", value: string) => {
     const list = side === "from" ? fromOptions : toOptions;
     const hit = list.find((o) => o.value === value);
@@ -174,7 +237,8 @@ export function StepRoute({
     }
   };
 
-  // Whenever both endpoints are set, fetch route alternatives
+  // Whenever both endpoints are set, fetch route alternatives.
+  // Uses onAlternativesChangeRef so this effect never re-runs due to callback identity changes.
   useEffect(() => {
     if (!ready || !from || !to || !directionsRef.current) return;
     setFetchingRoutes(true);
@@ -188,7 +252,7 @@ export function StepRoute({
       (result: any, status: string) => {
         setFetchingRoutes(false);
         if (status !== "OK" || !result?.routes?.length) {
-          onAlternativesChange([], null);
+          onAlternativesChangeRef.current([], null);
           return;
         }
         const alts: RouteAlternative[] = result.routes.map((r: any, idx: number) => {
@@ -201,10 +265,10 @@ export function StepRoute({
             summary: r.summary || "",
           };
         });
-        onAlternativesChange(alts, alts[0]?.id ?? null);
+        onAlternativesChangeRef.current(alts, alts[0]?.id ?? null);
       },
     );
-  }, [ready, from, to, onAlternativesChange]);
+  }, [ready, from, to]); // ← no onAlternativesChange — ref handles it
 
   const sortedAlts = useMemo(
     () => [...alternatives].sort((a, b) => a.id - b.id),
@@ -214,6 +278,7 @@ export function StepRoute({
   return (
     <div className="flex flex-col gap-4 px-4 pb-6">
       <div className="relative space-y-2 rounded-3xl border border-gray-100 bg-white p-4 shadow-sm">
+        {/* Pickup */}
         <div className="flex items-center gap-3">
           <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-primary/10 text-primary">
             <MapPin size={18} />
@@ -222,14 +287,8 @@ export function StepRoute({
             <AutoComplete
               value={fromText}
               options={fromOptions}
-              onSearch={(v) => {
-                setFromText(v);
-                searchCities(v, "from");
-              }}
-              onSelect={(v) => {
-                if (v === "__out_of_area__") return;
-                void handleSelect("from", v);
-              }}
+              onSearch={(v) => { setFromText(v); searchCities(v, "from"); }}
+              onSelect={(v) => { if (v === "__out_of_area__") return; void handleSelect("from", v); }}
               onChange={(v) => setFromText(typeof v === "string" ? v : "")}
               placeholder="Pickup city or area"
               className="w-full"
@@ -243,9 +302,59 @@ export function StepRoute({
             )}
           </div>
         </div>
-        <div className="ml-[1.125rem] my-1 flex items-center text-gray-300">
+
+        {/* Intermediate stops */}
+        {stopTexts.map((txt, idx) => (
+          <div key={idx}>
+            <div className="ml-[1.125rem] my-1 flex items-center text-gray-300">
+              <ArrowDown size={14} />
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-amber-50 text-amber-500 border border-amber-200 text-xs font-bold">
+                {idx + 1}
+              </span>
+              <div className="relative flex-1">
+                <AutoComplete
+                  value={txt}
+                  options={stopOptions[idx] ?? []}
+                  onSearch={(v) => searchStop(v, idx)}
+                  onSelect={(v) => void selectStop(v, idx)}
+                  onChange={(v) => setStopTexts((prev) => { const n = [...prev]; n[idx] = typeof v === "string" ? v : ""; return n; })}
+                  placeholder={`Stop ${idx + 1} city or area`}
+                  className="w-full"
+                  variant="borderless"
+                  classNames={{ popup: { root: "trip-search-ac-dropdown" } }}
+                />
+                {stopSearching[idx] && (
+                  <span className="pointer-events-none absolute right-8 top-1/2 -translate-y-1/2 text-gray-400">
+                    <Loader2 size={13} className="animate-spin" />
+                  </span>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => removeStop(idx)}
+                className="shrink-0 grid h-7 w-7 place-items-center rounded-full text-gray-400 hover:bg-red-50 hover:text-red-500 transition-colors"
+              >
+                <XIcon size={14} />
+              </button>
+            </div>
+          </div>
+        ))}
+
+        {/* Divider + Add stop button */}
+        <div className="ml-[1.125rem] my-1 flex items-center gap-2 text-gray-300">
           <ArrowDown size={16} />
+          <button
+            type="button"
+            onClick={addStop}
+            className="ml-1 flex items-center gap-1 text-[11px] font-semibold text-primary hover:text-primary/70 transition-colors"
+          >
+            <Plus size={12} /> Add stop
+          </button>
         </div>
+
+        {/* Drop-off */}
         <div className="flex items-center gap-3">
           <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-pink-500/10 text-pink-600">
             <MapPin size={18} />
@@ -254,14 +363,8 @@ export function StepRoute({
             <AutoComplete
               value={toText}
               options={toOptions}
-              onSearch={(v) => {
-                setToText(v);
-                searchCities(v, "to");
-              }}
-              onSelect={(v) => {
-                if (v === "__out_of_area__") return;
-                void handleSelect("to", v);
-              }}
+              onSearch={(v) => { setToText(v); searchCities(v, "to"); }}
+              onSelect={(v) => { if (v === "__out_of_area__") return; void handleSelect("to", v); }}
               onChange={(v) => setToText(typeof v === "string" ? v : "")}
               placeholder="Drop-off city or area"
               className="w-full"
@@ -314,31 +417,34 @@ export function StepRoute({
           <p className="mb-2 text-xs font-bold uppercase tracking-widest text-gray-500">
             Choose a route
           </p>
-          <div className="flex gap-3 overflow-x-auto pb-1">
+          {/* Vertical stack — no overflow-x so all cards are fully clickable */}
+          <div className="flex flex-col gap-2">
             {sortedAlts.map((alt) => {
               const isSelected = alt.id === selectedAltId;
               return (
                 <button
                   type="button"
                   key={alt.id}
-                  onClick={() => onAlternativesChange(alternatives, alt.id)}
+                  onClick={() => onAlternativesChangeRef.current(alternatives, alt.id)}
                   className={cn(
-                    "min-w-[180px] shrink-0 rounded-2xl border p-3 text-left transition-all active:scale-[0.97]",
+                    "w-full rounded-2xl border p-3 text-left transition-all active:scale-[0.99]",
                     isSelected
-                      ? "border-primary bg-primary/5 shadow-[0_4px_20px_rgba(108,92,231,0.2)]"
+                      ? "border-primary bg-primary/5 shadow-[0_4px_20px_rgba(108,92,231,0.15)]"
                       : "border-gray-200 bg-white hover:border-primary/40",
                   )}
                 >
-                  <p className="text-sm font-bold text-gray-900">
-                    {alt.distanceKm.toFixed(0)} km · {Math.round(alt.durationMin)} min
-                  </p>
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-bold text-gray-900">
+                      {alt.distanceKm.toFixed(0)} km · {Math.round(alt.durationMin)} min
+                    </p>
+                    {isSelected && (
+                      <span className="text-[10px] font-extrabold uppercase tracking-widest text-primary">
+                        ✓ Selected
+                      </span>
+                    )}
+                  </div>
                   {alt.summary && (
-                    <p className="mt-0.5 truncate text-xs text-gray-500">via {alt.summary}</p>
-                  )}
-                  {isSelected && (
-                    <span className="mt-2 inline-flex items-center gap-1 text-[10px] font-extrabold uppercase tracking-widest text-primary">
-                      Selected
-                    </span>
+                    <p className="mt-0.5 text-xs text-gray-500">via {alt.summary}</p>
                   )}
                 </button>
               );

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import dayjs from "dayjs";
 import { ArrowLeft, X } from "lucide-react";
 import { Button as UiButton } from "@/components/ui/button";
@@ -11,7 +11,7 @@ import { StepSeats } from "./StepSeats";
 import { StepVehicle } from "./StepVehicle";
 import { StepDriver } from "./StepDriver";
 import { StepReview } from "./StepReview";
-import type { RouteAlternative, WizardData, WizardResult, WizardStop } from "./types";
+import type { PlacePoint, RouteAlternative, WizardData, WizardResult, WizardStop } from "./types";
 import { EMPTY_WIZARD_DATA } from "./types";
 import type { DriverVehicle } from "@/lib/domain";
 import type { SeatId } from "@/components/SeatPicker";
@@ -117,6 +117,26 @@ export function TripWizard({
 
   const selectedVehicle = vehicles.find((v) => v.id === data.vehicleId) ?? null;
   const selectedDriver = drivers.find((d) => d.id === data.driverId) ?? null;
+
+  // Stable callbacks — must not change on every render or StepRoute re-fetches routes endlessly
+  const handleFromChange = useCallback(
+    (from: WizardData["from"]) => setData((d) => ({ ...d, from })),
+    [],
+  );
+  const handleToChange = useCallback(
+    (to: WizardData["to"]) => setData((d) => ({ ...d, to })),
+    [],
+  );
+  const handleAlternativesChange = useCallback(
+    (alternatives: RouteAlternative[], selectedAltId: number | null) =>
+      setData((d) => ({ ...d, alternatives, selectedAltId })),
+    [],
+  );
+  const handleIntermediatePointsChange = useCallback(
+    (intermediatePoints: WizardData["intermediatePoints"]) =>
+      setData((d) => ({ ...d, intermediatePoints })),
+    [],
+  );
 
   const canContinue = (() => {
     switch (step) {
@@ -251,11 +271,11 @@ export function TripWizard({
             to={data.to}
             alternatives={data.alternatives}
             selectedAltId={data.selectedAltId}
-            onFromChange={(from) => setData((d) => ({ ...d, from }))}
-            onToChange={(to) => setData((d) => ({ ...d, to }))}
-            onAlternativesChange={(alternatives, selectedAltId) =>
-              setData((d) => ({ ...d, alternatives, selectedAltId }))
-            }
+            onFromChange={handleFromChange}
+            onToChange={handleToChange}
+            onAlternativesChange={handleAlternativesChange}
+            intermediatePoints={data.intermediatePoints}
+            onIntermediatePointsChange={handleIntermediatePointsChange}
           />
         )}
         {step === "stops" && data.from && data.to && selectedAlt && (

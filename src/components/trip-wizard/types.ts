@@ -40,6 +40,8 @@ export interface WizardData {
   selectedAltId: number | null;
   date: Dayjs | null;
   time: ClockTime | null;
+  /** Intermediate stops collected in StepRoute (plain coords, no distance yet). */
+  intermediatePoints: PlacePoint[];
   stops: WizardStop[];
   pricePerSeat: number | null;
   seatConfig: SeatId[];
@@ -71,6 +73,7 @@ export const EMPTY_WIZARD_DATA: WizardData = {
   selectedAltId: null,
   date: null,
   time: null,
+  intermediatePoints: [],
   stops: [],
   pricePerSeat: null,
   seatConfig: [],
