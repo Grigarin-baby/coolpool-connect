@@ -35,6 +35,8 @@ function toTrip(doc: any): Trip {
     pricePerKm: Number(doc.price_per_km || 0),
     totalSeats: Number(doc.total_seats || 1),
     departureAt: String(doc.departure_at || new Date().toISOString()),
+    arrivalAt: doc.arrival_at ? String(doc.arrival_at) : undefined,
+    durationMinutes: Number(doc.duration_minutes || 0) || undefined,
     status: String(doc.status || "scheduled") as TripStatus,
     notes: doc.notes ? String(doc.notes) : null,
     vehicleId: doc.vehicle_id ? String(doc.vehicle_id) : undefined,
@@ -136,6 +138,8 @@ export interface CreateTripInput {
   pricePerKm: number;
   totalSeats: number;
   departureAt: string;
+  arrivalAt?: string;
+  durationMinutes?: number;
   notes?: string | null;
   status?: TripStatus;
   vehicleId?: string;
@@ -245,6 +249,8 @@ export async function createTrip(input: CreateTripInput): Promise<Trip> {
       price_per_km: input.pricePerKm,
       total_seats: input.totalSeats,
       departure_at: input.departureAt,
+      arrival_at: input.arrivalAt ?? null,
+      duration_minutes: input.durationMinutes ?? 0,
       status: input.status ?? "scheduled",
       notes: input.notes ?? null,
       vehicle_id: input.vehicleId ?? null,
@@ -281,6 +287,8 @@ export async function updateTrip(tripId: string, input: Partial<CreateTripInput>
     price_per_km: input.pricePerKm,
     total_seats: input.totalSeats,
     departure_at: input.departureAt,
+    arrival_at: input.arrivalAt,
+    duration_minutes: input.durationMinutes,
     status: input.status,
     notes: input.notes,
     vehicle_id: input.vehicleId,
@@ -540,6 +548,19 @@ export async function listTripSeatReservations(tripId: string): Promise<TripSeat
   const result = await databases.listDocuments(appwriteConfig.databaseId, c.tripSeatReservations, [
     Query.equal("trip_id", tripId),
     Query.limit(100),
+  ]);
+  return result.documents.map(toTripSeatReservation);
+}
+
+export async function listTripSeatReservationsByTripIds(
+  tripIds: string[],
+): Promise<TripSeatReservation[]> {
+  const unique = [...new Set(tripIds.filter(Boolean))];
+  if (unique.length === 0) return [];
+  const c = ids();
+  const result = await databases.listDocuments(appwriteConfig.databaseId, c.tripSeatReservations, [
+    Query.equal("trip_id", unique),
+    Query.limit(500),
   ]);
   return result.documents.map(toTripSeatReservation);
 }
@@ -829,6 +850,38 @@ export async function listDriverProfilesByUserIds(
     Query.limit(100),
   ]);
   return result.documents.map(toDriverProfile);
+}
+
+export interface HostRatingSummary {
+  userId: string;
+  rating: number;
+  ratingCount: number;
+}
+
+export async function listHostRatingSummaries(userIds: string[]): Promise<HostRatingSummary[]> {
+  const unique = [...new Set(userIds.filter(Boolean))];
+  if (unique.length === 0) return [];
+  const c = ids();
+  const result = await databases.listDocuments(appwriteConfig.databaseId, c.profiles, [
+    Query.equal("user_id", unique),
+    Query.limit(100),
+  ]);
+  return result.documents.map((doc: any) => ({
+    userId: String(doc.user_id || ""),
+    rating: Number(doc.host_rating || 0),
+    ratingCount: Number(doc.host_rating_count || 0),
+  }));
+}
+
+export async function listVehiclesByIds(vehicleIds: string[]): Promise<DriverVehicle[]> {
+  const unique = [...new Set(vehicleIds.filter(Boolean))];
+  if (unique.length === 0) return [];
+  const c = ids();
+  const result = await databases.listDocuments(appwriteConfig.databaseId, c.vehicles, [
+    Query.equal("$id", unique),
+    Query.limit(100),
+  ]);
+  return result.documents.map(toDriverVehicle);
 }
 
 export async function listActiveTrips(limit = 200): Promise<Trip[]> {

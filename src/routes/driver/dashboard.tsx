@@ -146,6 +146,7 @@ interface DirectionsResult {
     overview_polyline: string;
     legs: {
       distance: { value: number; text: string };
+      duration: { value: number; text: string };
     }[];
   }[];
 }
@@ -708,6 +709,18 @@ function DriverDashboardPage() {
         });
 
         const totalDistanceKm = Math.max(0.1, Math.round(currentDist * 10) / 10);
+        const routeDurationSeconds = route.legs.reduce(
+          (total: number, leg: { duration?: { value?: number } }) =>
+            total + (leg.duration?.value ?? 0),
+          0,
+        );
+        const durationMinutes = Math.max(
+          1,
+          routeDurationSeconds > 0
+            ? Math.round(routeDurationSeconds / 60)
+            : Math.round(totalDistanceKm),
+        );
+        const departureAt = values.departureAt.toISOString();
         const seatPrice = Number(values.totalTripPrice);
         const totalSeats = Number(values.totalSeats);
         const totalPrice = seatPrice * totalSeats;
@@ -742,7 +755,9 @@ function DriverDashboardPage() {
             totalPrice,
             pricePerKm: calcPricePerKm(totalPrice, totalDistanceKm),
             totalSeats,
-            departureAt: values.departureAt.toISOString(),
+            departureAt,
+            arrivalAt: values.departureAt.add(durationMinutes, "minute").toISOString(),
+            durationMinutes,
             notes: `Created from ride host trip module. Total price: ₹${totalPrice}.`,
             vehicleId: values.vehicleId,
             assignedDriverId: values.driverId,

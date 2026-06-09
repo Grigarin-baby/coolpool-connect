@@ -37,6 +37,8 @@ export interface Trip {
   pricePerKm: number;
   totalSeats: number;
   departureAt: string;
+  arrivalAt?: string;
+  durationMinutes?: number;
   status: TripStatus;
   notes: string | null;
   vehicleId?: string;

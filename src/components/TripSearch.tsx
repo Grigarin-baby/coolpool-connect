@@ -49,7 +49,6 @@ import {
   ArrowUpDown,
   Star,
   ShieldCheck,
-  ChevronRight,
   Filter,
   Map as MapIcon,
   SearchX,
@@ -58,7 +57,13 @@ import dayjs, { Dayjs } from "dayjs";
 import { Button as UiButton } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useQuery } from "@tanstack/react-query";
-import { listTrips, listDriverProfilesByUserIds } from "@/data/appwrite-repository";
+import {
+  listTrips,
+  listDriverProfilesByUserIds,
+  listHostRatingSummaries,
+  listTripSeatReservationsByTripIds,
+  listVehiclesByIds,
+} from "@/data/appwrite-repository";
 import { routeCitySegmentsMatch } from "@/lib/geo";
 import { formatCurrency } from "@/lib/pricing";
 import { appwriteConfig } from "@/integrations/appwrite/client";
@@ -884,6 +889,11 @@ export function TripSearchResults({ variant }: { variant: "landing" | "page" }) 
     () => [...new Set(results.map((t) => t.hostId).filter(Boolean))],
     [results],
   );
+  const tripIds = useMemo(() => results.map((trip) => trip.id), [results]);
+  const vehicleIds = useMemo(
+    () => [...new Set(results.map((trip) => trip.vehicleId).filter((id): id is string => Boolean(id)))],
+    [results],
+  );
   const { data: hostProfiles } = useQuery({
     queryKey: ["host-profiles", hostIds.join(",")],
     queryFn: () => listDriverProfilesByUserIds(hostIds),
@@ -897,6 +907,39 @@ export function TripSearchResults({ variant }: { variant: "landing" | "page" }) 
     }
     return map;
   }, [hostProfiles]);
+  const { data: ratingSummaries } = useQuery({
+    queryKey: ["host-rating-summaries", hostIds.join(",")],
+    queryFn: () => listHostRatingSummaries(hostIds),
+    enabled: hostIds.length > 0,
+    staleTime: 1000 * 60 * 5,
+  });
+  const ratingByHostId = useMemo(
+    () => Object.fromEntries((ratingSummaries ?? []).map((summary) => [summary.userId, summary])),
+    [ratingSummaries],
+  );
+  const { data: vehicles } = useQuery({
+    queryKey: ["trip-vehicles", vehicleIds.join(",")],
+    queryFn: () => listVehiclesByIds(vehicleIds),
+    enabled: vehicleIds.length > 0,
+    staleTime: 1000 * 60 * 5,
+  });
+  const vehicleById = useMemo(
+    () => Object.fromEntries((vehicles ?? []).map((vehicle) => [vehicle.id, vehicle])),
+    [vehicles],
+  );
+  const { data: seatReservations } = useQuery({
+    queryKey: ["trip-seat-reservations", tripIds.join(",")],
+    queryFn: () => listTripSeatReservationsByTripIds(tripIds),
+    enabled: tripIds.length > 0,
+    staleTime: 1000 * 30,
+  });
+  const reservedSeatsByTripId = useMemo(() => {
+    const map: Record<string, Set<string>> = {};
+    for (const reservation of seatReservations ?? []) {
+      (map[reservation.tripId] ??= new Set()).add(reservation.seatCode);
+    }
+    return map;
+  }, [seatReservations]);
 
   useEffect(() => {
     if (!searched || loading) return;
@@ -963,8 +1006,26 @@ export function TripSearchResults({ variant }: { variant: "landing" | "page" }) 
 
           <div className="space-y-4">
             {results.map((trip) => {
-              const hostName = hostNameById[trip.hostId] || "Host";
-              const hostInitial = hostName.charAt(0).toUpperCase();
+              const hostName = hostNameById[trip.hostId] || "Verified Host";
+              const vehicle = trip.vehicleId ? vehicleById[trip.vehicleId] : undefined;
+              const vehicleLabel = vehicle
+                ? [vehicle.modelName, vehicle.color].filter(Boolean).join(" · ")
+                : "Vehicle details pending";
+              const rating = ratingByHostId[trip.hostId];
+              const departure = dayjs(trip.departureAt);
+              const fallbackDuration = Math.max(1, Math.round(trip.totalDistanceKm));
+              const durationMinutes = trip.durationMinutes || fallbackDuration;
+              const arrival = trip.arrivalAt
+                ? dayjs(trip.arrivalAt)
+                : departure.add(durationMinutes, "minute");
+              const durationLabel =
+                durationMinutes >= 60
+                  ? `${Math.floor(durationMinutes / 60)}h ${durationMinutes % 60}m`
+                  : `${durationMinutes}m`;
+              const seatsLeft = Math.max(
+                0,
+                trip.totalSeats - (reservedSeatsByTripId[trip.id]?.size ?? 0),
+              );
               return (
                 <Link
                   key={trip.id}
@@ -972,74 +1033,44 @@ export function TripSearchResults({ variant }: { variant: "landing" | "page" }) 
                   params={{ tripId: trip.id }}
                   className="block group"
                 >
-                  <Card className="rounded-2xl border border-gray-100 bg-white shadow-soft hover:shadow-elevated hover:border-primary/20 transition-all duration-300 p-4 sm:p-6">
-                    <div className="flex items-start justify-between gap-3 sm:gap-4">
-                      <div className="flex gap-3 sm:gap-4 min-w-0 flex-1">
-                        <div className="flex flex-col items-center pt-1 shrink-0">
-                          <span className="font-bold text-lg sm:text-2xl text-gray-900 leading-none">
-                            {dayjs(trip.departureAt).format("HH:mm")}
-                          </span>
-                          <div className="flex flex-col items-center gap-1 my-2 flex-1">
-                            <div className="h-2 w-2 rounded-full border-2 border-gray-900" />
-                            <div className="w-0.5 flex-1 min-h-[28px] bg-gray-300" />
-                            <div className="h-2 w-2 rounded-full border-2 border-gray-400" />
-                          </div>
-                        </div>
-                        <div className="flex flex-col justify-between gap-5 sm:gap-6 min-w-0 flex-1">
-                          <div className="min-w-0">
-                            <p className="font-bold text-base sm:text-xl text-gray-900 truncate">
-                              {primarySegment(trip.fromLocation)}
-                            </p>
-                            <p className="text-xs sm:text-sm text-gray-500 truncate">
-                              {trip.fromLocation}
-                            </p>
-                          </div>
-                          <div className="min-w-0">
-                            <p className="font-bold text-base sm:text-xl text-gray-700 truncate">
-                              {primarySegment(trip.toLocation)}
-                            </p>
-                            <p className="text-xs sm:text-sm text-gray-500 truncate">
-                              {trip.toLocation}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex flex-col items-end shrink-0">
-                        <div className="text-xl sm:text-3xl font-black text-gray-900 whitespace-nowrap">
-                          {formatCurrency(trip.totalPrice / trip.totalSeats)}
-                        </div>
-                        <span className="text-[10px] sm:text-xs text-gray-500 font-bold uppercase tracking-wider mt-1">
-                          per seat
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="h-px bg-gray-100 my-4" />
-
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className="relative shrink-0">
-                          <div className="h-9 w-9 sm:h-10 sm:w-10 rounded-full bg-gradient-to-br from-primary/15 to-primary/5 flex items-center justify-center text-primary font-bold text-sm uppercase">
-                            {hostInitial}
-                          </div>
-                          <div className="absolute -bottom-0.5 -right-0.5 bg-white rounded-full p-0.5 shadow-sm">
-                            <ShieldCheck size={12} className="text-blue-500 fill-blue-500/10" />
-                          </div>
-                        </div>
-                        <div className="min-w-0">
-                          <p className="font-bold text-sm sm:text-base text-gray-800 truncate">
+                  <Card className="rounded-2xl border border-gray-100 bg-white shadow-soft hover:shadow-elevated hover:border-primary/20 transition-all duration-300 p-4 sm:p-5">
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-4 sm:grid-cols-[minmax(0,1.45fr)_0.75fr_1.25fr_auto] sm:items-center">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <p className="font-bold text-sm sm:text-base text-gray-900 truncate">
                             {hostName}
                           </p>
-                          <div className="flex items-center gap-1 text-xs sm:text-sm text-gray-500 font-medium">
-                            <Star size={12} className="fill-amber-400 text-amber-400 shrink-0" />
-                            <span className="truncate">4.8 · {trip.totalSeats} seats left</span>
-                          </div>
+                          <ShieldCheck size={15} className="text-blue-500 shrink-0" />
                         </div>
+                        <p className="mt-1 text-xs sm:text-sm text-gray-500 truncate">{vehicleLabel}</p>
                       </div>
-                      <ChevronRight
-                        size={20}
-                        className="text-gray-300 group-hover:text-primary transition-colors shrink-0"
-                      />
+                      <div className="sm:text-center">
+                        {rating?.ratingCount > 0 ? (
+                          <div className="inline-flex items-center gap-1 text-sm font-bold text-gray-800">
+                            <Star size={14} className="fill-amber-400 text-amber-400" />
+                            {rating.rating.toFixed(1)} · {rating.ratingCount}
+                          </div>
+                        ) : (
+                          <span className="text-sm font-semibold text-gray-500">New host</span>
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-black text-base sm:text-lg text-gray-900 whitespace-nowrap">
+                          {departure.format("HH:mm")} <span className="text-primary">→</span>{" "}
+                          {arrival.format("HH:mm")}
+                        </p>
+                        <p className="mt-1 text-xs sm:text-sm font-medium text-gray-500 whitespace-nowrap">
+                          {durationLabel} · {seatsLeft} {seatsLeft === 1 ? "seat" : "seats"} left
+                        </p>
+                      </div>
+                      <div className="text-right self-end sm:self-center">
+                        <p className="text-xl sm:text-2xl font-black text-gray-900 whitespace-nowrap">
+                          {formatCurrency(trip.totalPrice / trip.totalSeats)}
+                        </p>
+                        <p className="mt-0.5 text-[10px] sm:text-xs font-bold uppercase tracking-wider text-gray-500">
+                          per seat
+                        </p>
+                      </div>
                     </div>
                   </Card>
                 </Link>
