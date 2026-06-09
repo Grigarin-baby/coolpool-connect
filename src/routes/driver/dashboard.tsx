@@ -299,6 +299,7 @@ function DriverDashboardPage() {
   const [deletingAccount, setDeletingAccount] = useState(false);
   const [accountDeletedSuccess, setAccountDeletedSuccess] = useState(false);
   const [prefsDrawerOpen, setPrefsDrawerOpen] = useState(false);
+  const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const [prefsLocal, setPrefsLocal] = useState<RidePreferences>({
     smokingAllowed: false,
     alcoholAllowed: false,
@@ -1568,6 +1569,7 @@ function DriverDashboardPage() {
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
+                                    setProfileDropdownOpen(false);
                                     setPrefsLocal(
                                       savedPrefs ?? {
                                         smokingAllowed: false,
@@ -1612,6 +1614,7 @@ function DriverDashboardPage() {
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
+                                    setProfileDropdownOpen(false);
                                     setPrefsLocal({
                                       smokingAllowed: false,
                                       alcoholAllowed: false,
@@ -1646,6 +1649,8 @@ function DriverDashboardPage() {
                       },
                     ],
                   }}
+                  open={profileDropdownOpen}
+                  onOpenChange={setProfileDropdownOpen}
                   trigger={["click"]}
                   placement="bottomRight"
                   overlayClassName="profile-dropdown"
@@ -1871,6 +1876,7 @@ function DriverDashboardPage() {
                     title="Ride Preferences"
                     placement="right"
                     width={360}
+                    mask={false}
                     open={prefsDrawerOpen}
                     onClose={() => setPrefsDrawerOpen(false)}
                     footer={
