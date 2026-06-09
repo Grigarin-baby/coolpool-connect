@@ -141,6 +141,59 @@ const TRIP_SEARCH_DATE_CHIP =
 const TRIP_SEARCH_ICON = "shrink-0 p-3 rounded-2xl bg-gray-100/80 text-gray-400";
 const TRIP_SEARCH_AC_POPUP = { popupClassName: "trip-search-ac-dropdown" };
 
+function UpcomingDateButtons({
+  selectedDate,
+  onSelect,
+}: {
+  selectedDate?: Dayjs;
+  onSelect: (date: Dayjs) => void;
+}) {
+  const upcomingDates = useMemo(
+    () => Array.from({ length: 7 }, (_, index) => dayjs().add(index + 2, "day")),
+    [],
+  );
+
+  return (
+    <div className="mt-3 grid grid-cols-7 gap-1.5 sm:gap-2">
+      {upcomingDates.map((date) => {
+        const selected = date.isSame(selectedDate, "day");
+        return (
+          <button
+            key={date.format("YYYY-MM-DD")}
+            type="button"
+            aria-label={`Select ${date.format("dddd, MMMM D")}`}
+            aria-pressed={selected}
+            onClick={() => onSelect(date)}
+            className={cn(
+              "min-w-0 h-12 sm:h-14 rounded-xl border text-center transition-all duration-200 active:scale-95",
+              selected
+                ? "bg-gradient-primary !text-white border-transparent shadow-glow-sm scale-[1.03]"
+                : "bg-white text-gray-600 border-gray-200 hover:border-primary/50 hover:text-primary",
+            )}
+          >
+            <span
+              className={cn(
+                "block text-[9px] sm:text-[10px] font-extrabold uppercase tracking-tight leading-none",
+                selected && "!text-white",
+              )}
+            >
+              {date.format("ddd")}
+            </span>
+            <span
+              className={cn(
+                "mt-1 block text-sm sm:text-base font-black leading-none",
+                selected && "!text-white",
+              )}
+            >
+              {date.format("D")}
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 export function TripSearchProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<TripRow[]>([]);
@@ -586,6 +639,10 @@ export function TripSearchForm({ variant, id }: { variant: "landing" | "page"; i
 
   const todaySelected = dayjs().isSame(selectedDate, "day");
   const tomorrowSelected = dayjs().add(1, "day").isSame(selectedDate, "day");
+  const selectDate = (date: Dayjs) => {
+    form.setFieldsValue({ date });
+    form.submit();
+  };
 
   const closeKeyboard = () => {
     if (document.activeElement instanceof HTMLInputElement) {
@@ -693,6 +750,7 @@ export function TripSearchForm({ variant, id }: { variant: "landing" | "page"; i
                     Tomorrow
                   </button>
                 </div>
+                <UpcomingDateButtons selectedDate={selectedDate} onSelect={selectDate} />
                 <Form.Item name="date" className="hidden">
                   <DatePicker />
                 </Form.Item>
@@ -798,6 +856,7 @@ export function TripSearchForm({ variant, id }: { variant: "landing" | "page"; i
                     Tomorrow
                   </button>
                 </div>
+                <UpcomingDateButtons selectedDate={selectedDate} onSelect={selectDate} />
                 <Form.Item name="date" className="hidden">
                   <DatePicker />
                 </Form.Item>

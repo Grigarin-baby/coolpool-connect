@@ -88,7 +88,7 @@ import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { appwriteConfig } from "@/integrations/appwrite/client";
-import { SERVICE_CITY, BENGALURU_AIRPORTS } from "@/lib/config";
+import { SERVICE_CITY, BENGALURU_AIRPORTS, SOUTH_INDIA_CITY_SUGGESTIONS } from "@/lib/config";
 import { SeatPicker, type SeatId } from "@/components/SeatPicker";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import { getUserDisplayName } from "@/lib/user-display";
@@ -111,6 +111,7 @@ interface CityOption {
 interface TripFormValues {
   fromLocation: string;
   toLocation: string;
+  intermediateStops?: string[];
   departureAt: dayjs.Dayjs;
   totalSeats: number;
   totalTripPrice: number;
@@ -154,6 +155,13 @@ interface DirectionsServiceLike {
     request: DirectionsRequest,
     callback: (result: DirectionsResult | null, status: string) => void,
   ) => void;
+}
+
+interface SegmentPricePreview {
+  from: string;
+  to: string;
+  distanceKm: number;
+  pricePerSeat: number;
 }
 
 interface PlacesAutocompleteServiceLike {
@@ -249,6 +257,12 @@ function DriverDashboardPage() {
   const [toOptions, setToOptions] = useState<CityOption[]>([]);
   const [selectedFrom, setSelectedFrom] = useState<CityOption | null>(null);
   const [selectedTo, setSelectedTo] = useState<CityOption | null>(null);
+  const [intermediateOptions, setIntermediateOptions] = useState<Record<number, CityOption[]>>({});
+  const [selectedIntermediateStops, setSelectedIntermediateStops] = useState<
+    Record<number, CityOption>
+  >({});
+  const [segmentPricePreview, setSegmentPricePreview] = useState<SegmentPricePreview[]>([]);
+  const [pendingTripPayload, setPendingTripPayload] = useState<any | null>(null);
   const [mapsReady, setMapsReady] = useState(false);
   const [mobilePreviewOpen, setMobilePreviewOpen] = useState(false);
   const [vehicleForm] = Form.useForm();
@@ -533,6 +547,10 @@ function DriverDashboardPage() {
       setIsEditingTrip(false);
       setSelectedFrom(null);
       setSelectedTo(null);
+      setSelectedIntermediateStops({});
+      setIntermediateOptions({});
+      setSegmentPricePreview([]);
+      setPendingTripPayload(null);
       void queryClient.invalidateQueries({ queryKey: ["host-trips"] });
       // Close the form but stay in the current module (don't redirect to dashboard).
       setShowTripForm(false);
@@ -599,6 +617,10 @@ function DriverDashboardPage() {
 
   const onFinish = async (values: TripFormValues) => {
     if (!user) return;
+    if (pendingTripPayload) {
+      performCreateTrip(pendingTripPayload);
+      return;
+    }
     const normalizedFrom = values.fromLocation.trim();
     const normalizedTo = values.toLocation.trim();
 
@@ -639,11 +661,24 @@ function DriverDashboardPage() {
 
     const finalFrom = await getCoords(resolvedFrom);
     const finalTo = await getCoords(resolvedTo);
-    const allStops = [finalFrom, finalTo];
+    const intermediateValues = (values.intermediateStops ?? [])
+      .map((value) => value?.trim())
+      .filter((value): value is string => Boolean(value));
+    const finalIntermediateStops = await Promise.all(
+      intermediateValues.map((value, index) => {
+        const selected = selectedIntermediateStops[index];
+        return getCoords(
+          selected && selected.value === value
+            ? selected
+            : { label: value, value, lat: 0, lng: 0 },
+        );
+      }),
+    );
+    const allStops = [finalFrom, ...finalIntermediateStops, finalTo];
 
-    if (finalFrom.lat === 0 || finalTo.lat === 0) {
+    if (allStops.some((stop) => stop.lat === 0 && stop.lng === 0)) {
       message.error(
-        "Could not determine coordinates for origin or destination. Please select from the dropdown.",
+        "Could not determine coordinates for one or more stops. Please select every location from the dropdown.",
       );
       return;
     }
@@ -676,6 +711,22 @@ function DriverDashboardPage() {
         const seatPrice = Number(values.totalTripPrice);
         const totalSeats = Number(values.totalSeats);
         const totalPrice = seatPrice * totalSeats;
+        setSegmentPricePreview(
+          stopsData.flatMap((fromStop, fromIndex) =>
+            stopsData.slice(fromIndex + 1).map((toStop) => {
+              const distanceKm = Math.max(
+                0,
+                Math.round((toStop.distanceFromOriginKm - fromStop.distanceFromOriginKm) * 10) / 10,
+              );
+              return {
+                from: fromStop.location,
+                to: toStop.location,
+                distanceKm,
+                pricePerSeat: Math.round((distanceKm / totalDistanceKm) * seatPrice),
+              };
+            }),
+          ),
+        );
 
         const payload = {
           tripData: {
@@ -708,14 +759,18 @@ function DriverDashboardPage() {
           });
         }
 
-        performCreateTrip(payload);
+        setPendingTripPayload(payload);
+        message.success("Route and segment prices calculated. Review them, then publish.");
     };
 
     try {
       const routeRequest = {
         origin: { lat: finalFrom.lat, lng: finalFrom.lng },
         destination: { lat: finalTo.lat, lng: finalTo.lng },
-        waypoints: [],
+        waypoints: finalIntermediateStops.map((stop) => ({
+          location: { lat: stop.lat, lng: stop.lng },
+          stopover: true,
+        })),
         travelMode: "DRIVING" as any,
       };
       const maybePromise: any = (dirService as any).route(routeRequest);
@@ -742,7 +797,34 @@ function DriverDashboardPage() {
     }
   };
 
-  const searchCities = async (query: string, target: "from" | "to") => {
+  const setCityOptions = (target: "from" | "to" | number, options: CityOption[]) => {
+    if (target === "from") setFromOptions(options);
+    else if (target === "to") setToOptions(options);
+    else setIntermediateOptions((current) => ({ ...current, [target]: options }));
+  };
+
+  const getLocalCityOptions = (query: string): CityOption[] => {
+    const needle = query.trim().toLowerCase();
+    if (needle.length < 2) return [];
+    return SOUTH_INDIA_CITY_SUGGESTIONS.filter(
+      (city) =>
+        city.name.toLowerCase().includes(needle) || city.state.toLowerCase().includes(needle),
+    )
+      .slice(0, 8)
+      .map((city) => ({
+        value: `${city.name}, ${city.state}`,
+        label: (
+          <div className="flex items-center justify-between gap-3">
+            <span className="font-medium">{city.name}</span>
+            <span className="text-xs text-gray-400">{city.state}</span>
+          </div>
+        ),
+        lat: city.lat,
+        lng: city.lng,
+      }));
+  };
+
+  const searchCities = async (query: string, target: "from" | "to" | number) => {
     if (target === "from") {
       console.log("[fromLocation] searchCities called", {
         query,
@@ -752,10 +834,12 @@ function DriverDashboardPage() {
       });
     }
     if (!query || query.trim().length < 2) {
-      if (target === "from") setFromOptions([]);
-      else if (target === "to") setToOptions([]);
+      setCityOptions(target, []);
       return;
     }
+    const localOptions = getLocalCityOptions(query);
+    setCityOptions(target, localOptions);
+
     const service = autocompleteServiceRef.current;
     if (!service) return;
 
@@ -787,8 +871,6 @@ function DriverDashboardPage() {
         }
 
         if ((status !== "OK" || !predictions) && !isAirportQuery) {
-          if (target === "from") setFromOptions([]);
-          else if (target === "to") setToOptions([]);
           return;
         }
 
@@ -800,11 +882,11 @@ function DriverDashboardPage() {
         });
 
         if (filteredPredictions.length === 0 && safePredictions.length > 0 && !isAirportQuery) {
+          if (localOptions.length > 0) return;
           const options = [
             { value: "", label: "ðŸš« Out of Service Area (South India & Goa only)", disabled: true },
           ];
-          if (target === "from") setFromOptions(options as any);
-          else if (target === "to") setToOptions(options as any);
+          setCityOptions(target, options as any);
           return;
         }
         let options: any[] = filteredPredictions.map((prediction) => ({
@@ -838,16 +920,19 @@ function DriverDashboardPage() {
           });
         }
 
-        if (target === "from") setFromOptions(options as any);
-        else if (target === "to") setToOptions(options as any);
+        const mergedOptions = [...localOptions, ...options].filter(
+          (option, index, all) => all.findIndex((candidate) => candidate.value === option.value) === index,
+        );
+        setCityOptions(target, mergedOptions as any);
       },
     );
   };
 
-  const onSelectCity = (value: string, target: "from" | "to") => {
+  const onSelectCity = (value: string, target: "from" | "to" | number) => {
     let sourceOptions: CityOption[] = [];
     if (target === "from") sourceOptions = fromOptions;
     else if (target === "to") sourceOptions = toOptions;
+    else sourceOptions = intermediateOptions[target] ?? [];
 
     const selected = sourceOptions.find((option) => option.value === value);
     if (!selected) return;
@@ -856,6 +941,7 @@ function DriverDashboardPage() {
     if (!geocoder || !selected.placeId) {
       if (target === "from") setSelectedFrom(selected);
       else if (target === "to") setSelectedTo(selected);
+      else setSelectedIntermediateStops((current) => ({ ...current, [target]: selected }));
       return;
     }
 
@@ -871,8 +957,123 @@ function DriverDashboardPage() {
       };
       if (target === "from") setSelectedFrom(withCoords);
       else if (target === "to") setSelectedTo(withCoords);
+      else setSelectedIntermediateStops((current) => ({ ...current, [target]: withCoords }));
     });
   };
+
+  const removeIntermediateStop = (remove: (index: number) => void, index: number) => {
+    remove(index);
+    setSelectedIntermediateStops((current) =>
+      Object.fromEntries(
+        Object.entries(current)
+          .filter(([key]) => Number(key) !== index)
+          .map(([key, value]) => [Number(key) > index ? Number(key) - 1 : Number(key), value]),
+      ),
+    );
+    setIntermediateOptions((current) =>
+      Object.fromEntries(
+        Object.entries(current)
+          .filter(([key]) => Number(key) !== index)
+          .map(([key, value]) => [Number(key) > index ? Number(key) - 1 : Number(key), value]),
+      ),
+    );
+    setSegmentPricePreview([]);
+  };
+
+  const renderIntermediateStops = (compact = false) => (
+    <Form.List name="intermediateStops">
+      {(fields, { add, remove }) => (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <Text strong className="text-sm text-gray-700">
+                Intermediate Stops
+              </Text>
+              <Text type="secondary" className="block text-xs">
+                Start typing for city suggestions. Travelers can book any forward segment.
+              </Text>
+            </div>
+            <Button
+              type="dashed"
+              icon={<Plus size={15} />}
+              disabled={fields.length >= 8}
+              onClick={() => add()}
+            >
+              Add stop
+            </Button>
+          </div>
+          {fields.map((field, index) => (
+            <div key={field.key} className="flex items-start gap-2">
+              <div className="mt-3 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
+                {index + 1}
+              </div>
+              <Form.Item
+                {...field}
+                className="mb-0 flex-1"
+                rules={[{ required: true, message: "Select or remove this stop" }]}
+              >
+                <AutoComplete
+                  options={intermediateOptions[index] ?? []}
+                  onSearch={(text) => {
+                    setSelectedIntermediateStops((current) => {
+                      const next = { ...current };
+                      delete next[index];
+                      return next;
+                    });
+                    void searchCities(text, index);
+                  }}
+                  onSelect={(value) => onSelectCity(value, index)}
+                >
+                  <Input
+                    placeholder={`Stop ${index + 1}`}
+                    size="large"
+                    style={{ borderRadius: "8px", height: compact ? "44px" : "48px" }}
+                  />
+                </AutoComplete>
+              </Form.Item>
+              <Button
+                danger
+                type="text"
+                aria-label={`Remove stop ${index + 1}`}
+                icon={<Trash2 size={17} />}
+                className="mt-1"
+                onClick={() => removeIntermediateStop(remove, index)}
+              />
+            </div>
+          ))}
+        </div>
+      )}
+    </Form.List>
+  );
+
+  const renderSegmentPricePreview = () =>
+    segmentPricePreview.length > 0 ? (
+      <div className="rounded-xl border border-primary/15 bg-primary/5 p-4">
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <Text strong>Automatic segment prices</Text>
+          <Tag color="purple">{segmentPricePreview.length} bookable segments</Tag>
+        </div>
+        <div className="max-h-64 space-y-2 overflow-y-auto pr-1">
+          {segmentPricePreview.map((segment) => (
+            <div
+              key={`${segment.from}-${segment.to}`}
+              className="flex items-center justify-between gap-3 rounded-lg bg-white/80 px-3 py-2 text-sm"
+            >
+              <span className="min-w-0 truncate">
+                {segment.from} <ArrowRight className="mx-1 inline h-3.5 w-3.5" /> {segment.to}
+              </span>
+              <span className="shrink-0 font-bold text-emerald-700">
+                ₹{segment.pricePerSeat} · {segment.distanceKm} km
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+    ) : (
+      <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 px-4 py-3 text-sm text-gray-500">
+        Add route details and click “Calculate Route & Prices” to review every segment.
+      </div>
+    );
 
   if (loading) {
     return (
@@ -1478,6 +1679,9 @@ function DriverDashboardPage() {
                                               (s) => s.stopType === "pickup",
                                             );
                                             const toStop = stops.find((s) => s.stopType === "drop");
+                                            const intermediateStops = stops.filter(
+                                              (s) => s.stopType === "both",
+                                            );
 
                                             if (fromStop)
                                               setSelectedFrom({
@@ -1493,6 +1697,19 @@ function DriverDashboardPage() {
                                                 lat: toStop.lat,
                                                 lng: toStop.lng,
                                               });
+                                            setSelectedIntermediateStops(
+                                              Object.fromEntries(
+                                                intermediateStops.map((stop, index) => [
+                                                  index,
+                                                  {
+                                                    label: stop.location,
+                                                    value: stop.location,
+                                                    lat: stop.lat,
+                                                    lng: stop.lng,
+                                                  },
+                                                ]),
+                                              ),
+                                            );
 
                                             form.setFieldsValue({
                                               fromLocation: item.fromLocation,
@@ -1504,6 +1721,9 @@ function DriverDashboardPage() {
                                               ),
                                               vehicleId: item.vehicleId,
                                               driverId: item.assignedDriverId,
+                                              intermediateStops: intermediateStops.map(
+                                                (stop) => stop.location,
+                                              ),
                                             });
 
                                             setShowTripForm(true);
@@ -1789,6 +2009,9 @@ function DriverDashboardPage() {
                                         const toStop = stops.find(
                                           (s) => s.stopType === "drop",
                                         );
+                                        const intermediateStops = stops.filter(
+                                          (s) => s.stopType === "both",
+                                        );
 
                                         if (fromStop)
                                           setSelectedFrom({
@@ -1804,6 +2027,19 @@ function DriverDashboardPage() {
                                             lat: toStop.lat,
                                             lng: toStop.lng,
                                           });
+                                        setSelectedIntermediateStops(
+                                          Object.fromEntries(
+                                            intermediateStops.map((stop, index) => [
+                                              index,
+                                              {
+                                                label: stop.location,
+                                                value: stop.location,
+                                                lat: stop.lat,
+                                                lng: stop.lng,
+                                              },
+                                            ]),
+                                          ),
+                                        );
 
                                         form.setFieldsValue({
                                           fromLocation: trip.fromLocation,
@@ -1817,6 +2053,9 @@ function DriverDashboardPage() {
                                           vehicleId: trip.vehicleId,
                                           driverId: trip.assignedDriverId,
                                           seatConfig: (trip as any).seatConfig ?? [],
+                                          intermediateStops: intermediateStops.map(
+                                            (stop) => stop.location,
+                                          ),
                                         });
 
                                         setShowTripForm(true);
@@ -2043,6 +2282,9 @@ function DriverDashboardPage() {
                                         const toStop = stops.find(
                                           (s) => s.stopType === "drop",
                                         );
+                                        const intermediateStops = stops.filter(
+                                          (s) => s.stopType === "both",
+                                        );
 
                                         if (fromStop)
                                           setSelectedFrom({
@@ -2058,6 +2300,19 @@ function DriverDashboardPage() {
                                             lat: toStop.lat,
                                             lng: toStop.lng,
                                           });
+                                        setSelectedIntermediateStops(
+                                          Object.fromEntries(
+                                            intermediateStops.map((stop, index) => [
+                                              index,
+                                              {
+                                                label: stop.location,
+                                                value: stop.location,
+                                                lat: stop.lat,
+                                                lng: stop.lng,
+                                              },
+                                            ]),
+                                          ),
+                                        );
 
                                         form.setFieldsValue({
                                           fromLocation: trip.fromLocation,
@@ -2070,6 +2325,9 @@ function DriverDashboardPage() {
                                           ),
                                           vehicleId: trip.vehicleId,
                                           driverId: trip.assignedDriverId,
+                                          intermediateStops: intermediateStops.map(
+                                            (stop) => stop.location,
+                                          ),
                                           seatConfig: (trip as any).seatConfig ?? [],
                                         });
 
@@ -2181,6 +2439,10 @@ function DriverDashboardPage() {
                             form={form}
                             layout="vertical"
                             onFinish={onFinish}
+                            onValuesChange={() => {
+                              setPendingTripPayload(null);
+                              setSegmentPricePreview([]);
+                            }}
                             initialValues={{
                               totalSeats: 3,
                               seatConfig: ["R1-C0", "R1-C1", "R1-C2"] as SeatId[],
@@ -2199,7 +2461,6 @@ function DriverDashboardPage() {
                                 >
                                   <AutoComplete
                                     options={fromOptions}
-                                    disabled={!mapsReady}
                                     onSearch={(text) => {
                                       setSelectedFrom(null);
                                       void searchCities(text, "from");
@@ -2223,7 +2484,6 @@ function DriverDashboardPage() {
                                 >
                                   <AutoComplete
                                     options={toOptions}
-                                    disabled={!mapsReady}
                                     onSearch={(text) => {
                                       setSelectedTo(null);
                                       void searchCities(text, "to");
@@ -2239,6 +2499,8 @@ function DriverDashboardPage() {
                                   </AutoComplete>
                                 </Form.Item>
                               </div>
+
+                              {renderIntermediateStops(true)}
 
                               {/* Row 2 – Departure Time + Price Per Seat */}
                               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -2372,6 +2634,8 @@ function DriverDashboardPage() {
                                   <InputNumber />
                                 </Form.Item>
                               </div>
+
+                              {renderSegmentPricePreview()}
                             </div>
 
                             <div className="mt-6 flex flex-col sm:flex-row items-center gap-3 pt-5 border-t border-gray-200">
@@ -2399,7 +2663,11 @@ function DriverDashboardPage() {
                                 className="h-14 px-12 w-full sm:w-auto bg-gradient-primary border-none font-bold shadow-lg hover:shadow-xl transition-all hover:scale-[1.01]"
                                 style={{ borderRadius: '8px' }}
                               >
-                                {isEditingTrip ? "Update Trip" : "Publish Journey"}
+                                {pendingTripPayload
+                                  ? isEditingTrip
+                                    ? "Confirm Update"
+                                    : "Confirm & Publish"
+                                  : "Calculate Route & Prices"}
                               </Button>
                             </div>
 
@@ -4055,6 +4323,10 @@ function DriverDashboardPage() {
               form={form}
               layout="vertical"
               onFinish={onFinish}
+              onValuesChange={() => {
+                setPendingTripPayload(null);
+                setSegmentPricePreview([]);
+              }}
               initialValues={{
                 totalSeats: 3,
                 seatConfig: ["R1-C0", "R1-C1", "R1-C2"] as SeatId[],
@@ -4079,7 +4351,6 @@ function DriverDashboardPage() {
                     >
                       <AutoComplete
                         options={fromOptions}
-                        disabled={!mapsReady}
                         onSearch={(text) => {
                           setSelectedFrom(null);
                           void searchCities(text, "from");
@@ -4104,7 +4375,6 @@ function DriverDashboardPage() {
                     >
                       <AutoComplete
                         options={toOptions}
-                        disabled={!mapsReady}
                         onSearch={(text) => {
                           setSelectedTo(null);
                           void searchCities(text, "to");
@@ -4118,6 +4388,8 @@ function DriverDashboardPage() {
                         />
                       </AutoComplete>
                     </Form.Item>
+
+                    {renderIntermediateStops()}
                   </div>
                 </div>
 
@@ -4147,6 +4419,8 @@ function DriverDashboardPage() {
                     />
                   </Form.Item>
                 </div>
+
+                {renderSegmentPricePreview()}
 
                 {/* Vehicle & Driver */}
                 <div>
@@ -4238,7 +4512,11 @@ function DriverDashboardPage() {
                     Pricing
                   </Title>
                   <Form.Item
-                    label={<span className="font-semibold text-sm text-gray-700">Total Price</span>}
+                    label={
+                      <span className="font-semibold text-sm text-gray-700">
+                        Full Trip Price Per Seat
+                      </span>
+                    }
                     name="totalTripPrice"
                     rules={[{ required: true, message: "Enter price" }]}
                   >
@@ -4280,7 +4558,11 @@ function DriverDashboardPage() {
                     size="large"
                     className="flex-1 bg-gradient-primary border-none rounded-lg font-semibold"
                   >
-                    {isEditingTrip ? "Update Trip" : "Publish Trip"}
+                    {pendingTripPayload
+                      ? isEditingTrip
+                        ? "Confirm Update"
+                        : "Confirm & Publish"
+                      : "Calculate Route & Prices"}
                   </Button>
                 </div>
               </div>
