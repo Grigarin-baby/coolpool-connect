@@ -35,6 +35,13 @@ function toTrip(doc: any): Trip {
     pricePerKm: Number(doc.price_per_km || 0),
     totalSeats: Number(doc.total_seats || 1),
     departureAt: String(doc.departure_at || new Date().toISOString()),
+    arrivalAt: doc.arrival_at ? String(doc.arrival_at) : undefined,
+    durationMinutes: Number(doc.duration_minutes || 0) || undefined,
+    hostDisplayName: doc.host_display_name ? String(doc.host_display_name) : undefined,
+    hostRating: Number(doc.host_rating || 0),
+    hostRatingCount: Number(doc.host_rating_count || 0),
+    vehicleModel: doc.vehicle_model ? String(doc.vehicle_model) : undefined,
+    vehicleColor: doc.vehicle_color ? String(doc.vehicle_color) : undefined,
     status: String(doc.status || "scheduled") as TripStatus,
     notes: doc.notes ? String(doc.notes) : null,
     vehicleId: doc.vehicle_id ? String(doc.vehicle_id) : undefined,
@@ -136,6 +143,13 @@ export interface CreateTripInput {
   pricePerKm: number;
   totalSeats: number;
   departureAt: string;
+  arrivalAt?: string;
+  durationMinutes?: number;
+  hostDisplayName?: string;
+  hostRating?: number;
+  hostRatingCount?: number;
+  vehicleModel?: string;
+  vehicleColor?: string;
   notes?: string | null;
   status?: TripStatus;
   vehicleId?: string;
@@ -245,6 +259,13 @@ export async function createTrip(input: CreateTripInput): Promise<Trip> {
       price_per_km: input.pricePerKm,
       total_seats: input.totalSeats,
       departure_at: input.departureAt,
+      arrival_at: input.arrivalAt ?? null,
+      duration_minutes: input.durationMinutes ?? 0,
+      host_display_name: input.hostDisplayName ?? null,
+      host_rating: input.hostRating ?? 0,
+      host_rating_count: input.hostRatingCount ?? 0,
+      vehicle_model: input.vehicleModel ?? null,
+      vehicle_color: input.vehicleColor ?? null,
       status: input.status ?? "scheduled",
       notes: input.notes ?? null,
       vehicle_id: input.vehicleId ?? null,
@@ -281,6 +302,13 @@ export async function updateTrip(tripId: string, input: Partial<CreateTripInput>
     price_per_km: input.pricePerKm,
     total_seats: input.totalSeats,
     departure_at: input.departureAt,
+    arrival_at: input.arrivalAt,
+    duration_minutes: input.durationMinutes,
+    host_display_name: input.hostDisplayName,
+    host_rating: input.hostRating,
+    host_rating_count: input.hostRatingCount,
+    vehicle_model: input.vehicleModel,
+    vehicle_color: input.vehicleColor,
     status: input.status,
     notes: input.notes,
     vehicle_id: input.vehicleId,
@@ -540,6 +568,19 @@ export async function listTripSeatReservations(tripId: string): Promise<TripSeat
   const result = await databases.listDocuments(appwriteConfig.databaseId, c.tripSeatReservations, [
     Query.equal("trip_id", tripId),
     Query.limit(100),
+  ]);
+  return result.documents.map(toTripSeatReservation);
+}
+
+export async function listTripSeatReservationsByTripIds(
+  tripIds: string[],
+): Promise<TripSeatReservation[]> {
+  const unique = [...new Set(tripIds.filter(Boolean))];
+  if (unique.length === 0) return [];
+  const c = ids();
+  const result = await databases.listDocuments(appwriteConfig.databaseId, c.tripSeatReservations, [
+    Query.equal("trip_id", unique),
+    Query.limit(500),
   ]);
   return result.documents.map(toTripSeatReservation);
 }
