@@ -22,6 +22,10 @@ import {
   Star,
   UserCheck,
   ArrowRight,
+  Cigarette,
+  Wine,
+  Music2,
+  VolumeX,
 } from "lucide-react";
 import {
   Layout,
@@ -77,8 +81,11 @@ import {
   assignRole,
   listHostBookings,
   verifyBookingOtp,
+  getHostPreferences,
+  updateHostPreferences,
   type CreateTeamDriverInput,
 } from "@/data/appwrite-repository";
+import type { RidePreferences } from "@/lib/domain";
 import { storage } from "@/integrations/appwrite/client";
 import { ID } from "appwrite";
 import type { Trip, TripStop, DriverProfile, Booking } from "@/lib/domain";
@@ -291,6 +298,13 @@ function DriverDashboardPage() {
   const [deleteAccountModalOpen, setDeleteAccountModalOpen] = useState(false);
   const [deletingAccount, setDeletingAccount] = useState(false);
   const [accountDeletedSuccess, setAccountDeletedSuccess] = useState(false);
+  const [prefsDrawerOpen, setPrefsDrawerOpen] = useState(false);
+  const [prefsLocal, setPrefsLocal] = useState<RidePreferences>({
+    smokingAllowed: false,
+    alcoholAllowed: false,
+    musicAllowed: false,
+    musicType: null,
+  });
   const [otpInputs, setOtpInputs] = useState<Record<string, string>>({});
   const [verifyingId, setVerifyingId] = useState<string | null>(null);
 
@@ -448,6 +462,28 @@ function DriverDashboardPage() {
     queryKey: ["host-trips", user?.$id],
     queryFn: () => (user ? listHostTrips(user.$id) : Promise.resolve([])),
     enabled: !!user,
+  });
+
+  // Ride preferences
+  const { data: savedPrefs } = useQuery({
+    queryKey: ["host-preferences", user?.$id],
+    queryFn: () => (user ? getHostPreferences(user.$id) : Promise.resolve(null)),
+    enabled: !!user,
+  });
+
+  const { mutate: savePrefs, isPending: savingPrefs } = useMutation({
+    mutationFn: (prefs: RidePreferences) => {
+      if (!user) throw new Error("Not logged in");
+      return updateHostPreferences(user.$id, prefs);
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["host-preferences", user?.$id] });
+      setPrefsDrawerOpen(false);
+      void import("sonner").then((m) => m.toast.success("Ride preferences saved!"));
+    },
+    onError: () => {
+      void import("sonner").then((m) => m.toast.error("Failed to save preferences."));
+    },
   });
 
   // Fleet: all vehicles for this user
@@ -1707,6 +1743,165 @@ function DriverDashboardPage() {
                       </div>
                     </Card>
                   </div>
+
+                  {/* ── Ride Preferences card ── */}
+                  {(() => {
+                    const prefs = savedPrefs;
+                    const hasPrefs = prefs && (prefs.smokingAllowed || prefs.alcoholAllowed || prefs.musicAllowed);
+                    return (
+                      <Card className="rounded-2xl border border-white/60 shadow-soft backdrop-blur-md overflow-hidden">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="p-2 bg-purple-100 rounded-2xl text-purple-600">
+                              <Music2 size={18} />
+                            </div>
+                            <div>
+                              <Text strong className="text-gray-800">Ride Preferences</Text>
+                              <div className="text-xs text-gray-400 mt-0.5">Shown on your trip cards</div>
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => {
+                              setPrefsLocal(savedPrefs ?? { smokingAllowed: false, alcoholAllowed: false, musicAllowed: false, musicType: null });
+                              setPrefsDrawerOpen(true);
+                            }}
+                            className="flex items-center gap-1.5 text-xs font-semibold text-primary hover:text-primary/80 transition-colors px-3 py-1.5 rounded-xl hover:bg-purple-50"
+                          >
+                            <Pencil size={13} /> Edit
+                          </button>
+                        </div>
+                        {hasPrefs ? (
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {prefs.smokingAllowed && (
+                              <span className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+                                <Cigarette size={12} /> Smoking OK
+                              </span>
+                            )}
+                            {prefs.alcoholAllowed && (
+                              <span className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-rose-50 text-rose-600 border border-rose-200">
+                                <Wine size={12} /> Alcohol OK
+                              </span>
+                            )}
+                            {prefs.musicAllowed && (
+                              <span className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-green-50 text-green-700 border border-green-200">
+                                <Music2 size={12} /> Music{prefs.musicType && prefs.musicType !== "any" ? ` · ${prefs.musicType.charAt(0).toUpperCase() + prefs.musicType.slice(1)}` : ""}
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="mt-3 text-xs text-gray-400">
+                            No preferences set — tap Edit to configure.
+                          </div>
+                        )}
+                      </Card>
+                    );
+                  })()}
+
+                  {/* ── Ride Preferences Drawer ── */}
+                  <Drawer
+                    title="Ride Preferences"
+                    placement="right"
+                    width={360}
+                    open={prefsDrawerOpen}
+                    onClose={() => setPrefsDrawerOpen(false)}
+                    footer={
+                      <Button
+                        type="primary"
+                        block
+                        size="large"
+                        loading={savingPrefs}
+                        className="bg-gradient-primary border-none rounded-2xl font-bold"
+                        onClick={() => savePrefs(prefsLocal)}
+                      >
+                        Save Preferences
+                      </Button>
+                    }
+                  >
+                    <div className="space-y-6">
+                      {/* Smoking */}
+                      <div className="flex items-center justify-between p-4 rounded-2xl bg-gray-50 border border-gray-100">
+                        <div className="flex items-center gap-3">
+                          <div className={`p-2 rounded-xl ${prefsLocal.smokingAllowed ? "bg-amber-100 text-amber-600" : "bg-gray-100 text-gray-400"}`}>
+                            <Cigarette size={20} />
+                          </div>
+                          <div>
+                            <div className="font-semibold text-gray-800 text-sm">Smoking</div>
+                            <div className="text-xs text-gray-400 mt-0.5">
+                              {prefsLocal.smokingAllowed ? "Allowed in vehicle" : "Not allowed"}
+                            </div>
+                          </div>
+                        </div>
+                        <Switch
+                          checked={prefsLocal.smokingAllowed}
+                          onChange={(v) => setPrefsLocal((p) => ({ ...p, smokingAllowed: v }))}
+                        />
+                      </div>
+
+                      {/* Alcohol */}
+                      <div className="flex items-center justify-between p-4 rounded-2xl bg-gray-50 border border-gray-100">
+                        <div className="flex items-center gap-3">
+                          <div className={`p-2 rounded-xl ${prefsLocal.alcoholAllowed ? "bg-rose-100 text-rose-500" : "bg-gray-100 text-gray-400"}`}>
+                            <Wine size={20} />
+                          </div>
+                          <div>
+                            <div className="font-semibold text-gray-800 text-sm">Alcohol</div>
+                            <div className="text-xs text-gray-400 mt-0.5">
+                              {prefsLocal.alcoholAllowed ? "Allowed in vehicle" : "Not allowed"}
+                            </div>
+                          </div>
+                        </div>
+                        <Switch
+                          checked={prefsLocal.alcoholAllowed}
+                          onChange={(v) => setPrefsLocal((p) => ({ ...p, alcoholAllowed: v }))}
+                        />
+                      </div>
+
+                      {/* Music */}
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between p-4 rounded-2xl bg-gray-50 border border-gray-100">
+                          <div className="flex items-center gap-3">
+                            <div className={`p-2 rounded-xl ${prefsLocal.musicAllowed ? "bg-green-100 text-green-600" : "bg-gray-100 text-gray-400"}`}>
+                              {prefsLocal.musicAllowed ? <Music2 size={20} /> : <VolumeX size={20} />}
+                            </div>
+                            <div>
+                              <div className="font-semibold text-gray-800 text-sm">Music</div>
+                              <div className="text-xs text-gray-400 mt-0.5">
+                                {prefsLocal.musicAllowed ? "Playing during ride" : "Quiet ride"}
+                              </div>
+                            </div>
+                          </div>
+                          <Switch
+                            checked={prefsLocal.musicAllowed}
+                            onChange={(v) => setPrefsLocal((p) => ({ ...p, musicAllowed: v, musicType: v ? (p.musicType ?? "any") : null }))}
+                          />
+                        </div>
+
+                        {/* Music genre selector — slides in */}
+                        {prefsLocal.musicAllowed && (
+                          <div className="grid grid-cols-2 gap-2 px-1">
+                            {(["any", "bollywood", "regional", "pop", "classical", "electronic", "devotional"] as const).map((genre) => (
+                              <button
+                                key={genre}
+                                type="button"
+                                onClick={() => setPrefsLocal((p) => ({ ...p, musicType: genre }))}
+                                className={`py-2 px-3 rounded-xl text-sm font-medium border transition-all ${
+                                  prefsLocal.musicType === genre
+                                    ? "bg-green-600 text-white border-transparent"
+                                    : "bg-white text-gray-600 border-gray-200 hover:border-green-400"
+                                }`}
+                              >
+                                {genre === "any" ? "Any genre" : genre.charAt(0).toUpperCase() + genre.slice(1)}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="text-xs text-gray-400 text-center pt-2">
+                        These preferences appear on your trip cards to help travelers decide.
+                      </div>
+                    </div>
+                  </Drawer>
 
                   <div className="grid gap-8 lg:grid-cols-3">
                     <div className="lg:col-span-2 space-y-6">

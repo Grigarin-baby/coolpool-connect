@@ -52,6 +52,10 @@ import {
   Filter,
   Map as MapIcon,
   SearchX,
+  Cigarette,
+  Wine,
+  Music2,
+  VolumeX,
 } from "lucide-react";
 import dayjs, { Dayjs } from "dayjs";
 import { Button as UiButton } from "@/components/ui/button";
@@ -60,7 +64,9 @@ import { useQuery } from "@tanstack/react-query";
 import {
   listTrips,
   listTripSeatReservationsByTripIds,
+  getMultipleHostPreferences,
 } from "@/data/appwrite-repository";
+import type { RidePreferences } from "@/lib/domain";
 import { routeCitySegmentsMatch } from "@/lib/geo";
 import { formatCurrency } from "@/lib/pricing";
 import { appwriteConfig } from "@/integrations/appwrite/client";
@@ -889,6 +895,18 @@ export function TripSearchResults({ variant }: { variant: "landing" | "page" }) 
     enabled: tripIds.length > 0,
     staleTime: 1000 * 30,
   });
+
+  // Batch-fetch host ride preferences for all trips in results
+  const hostIds = useMemo(
+    () => [...new Set(results.map((t) => t.hostId).filter(Boolean))],
+    [results],
+  );
+  const { data: hostPrefsMap } = useQuery({
+    queryKey: ["host-preferences-batch", hostIds.join(",")],
+    queryFn: () => getMultipleHostPreferences(hostIds),
+    enabled: hostIds.length > 0,
+    staleTime: 1000 * 60 * 5,
+  });
   const reservedSeatsByTripId = useMemo(() => {
     const map: Record<string, Set<string>> = {};
     for (const reservation of seatReservations ?? []) {
@@ -980,6 +998,8 @@ export function TripSearchResults({ variant }: { variant: "landing" | "page" }) 
                 0,
                 trip.totalSeats - (reservedSeatsByTripId[trip.id]?.size ?? 0),
               );
+              const prefs: RidePreferences | undefined = hostPrefsMap?.get(trip.hostId);
+              const hasPrefs = prefs && (prefs.smokingAllowed || prefs.alcoholAllowed || prefs.musicAllowed !== undefined);
               return (
                 <Link
                   key={trip.id}
@@ -1043,6 +1063,44 @@ export function TripSearchResults({ variant }: { variant: "landing" | "page" }) 
                       </div>
 
                     </div>
+
+                    {/* Ride preference icon strip — shown when host has configured prefs */}
+                    {hasPrefs && (
+                      <div className="mt-2 pt-2 border-t border-gray-100 flex items-center gap-2.5 flex-wrap">
+                        {prefs.smokingAllowed ? (
+                          <span className="inline-flex items-center gap-1 text-[11px] font-medium text-amber-600">
+                            <Cigarette size={12} /> Smoking OK
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-[11px] font-medium text-gray-400">
+                            <Cigarette size={12} className="opacity-40" /> No smoking
+                          </span>
+                        )}
+                        <span className="text-gray-200">·</span>
+                        {prefs.alcoholAllowed ? (
+                          <span className="inline-flex items-center gap-1 text-[11px] font-medium text-rose-500">
+                            <Wine size={12} /> Alcohol OK
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-[11px] font-medium text-gray-400">
+                            <Wine size={12} className="opacity-40" /> No alcohol
+                          </span>
+                        )}
+                        <span className="text-gray-200">·</span>
+                        {prefs.musicAllowed ? (
+                          <span className="inline-flex items-center gap-1 text-[11px] font-medium text-green-600">
+                            <Music2 size={12} />
+                            {prefs.musicType && prefs.musicType !== "any"
+                              ? `${prefs.musicType.charAt(0).toUpperCase()}${prefs.musicType.slice(1)}`
+                              : "Music"}
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-[11px] font-medium text-gray-400">
+                            <VolumeX size={12} /> Quiet ride
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </Card>
                 </Link>
               );

@@ -69,6 +69,22 @@ export interface Booking {
   verified?: boolean;
 }
 
+export type MusicType =
+  | "any"
+  | "bollywood"
+  | "regional"
+  | "pop"
+  | "classical"
+  | "electronic"
+  | "devotional";
+
+export interface RidePreferences {
+  smokingAllowed: boolean;
+  alcoholAllowed: boolean;
+  musicAllowed: boolean;
+  musicType: MusicType | null;
+}
+
 export interface DriverProfile {
   id: string;
   userId: string;
@@ -78,6 +94,11 @@ export interface DriverProfile {
   licenseNumber: string;
   city: string;
   ownerUserId?: string;
+  /** Ride comfort preferences set by the host */
+  smokingAllowed?: boolean;
+  alcoholAllowed?: boolean;
+  musicAllowed?: boolean;
+  musicType?: string | null;
 }
 
 /** One claimed seat on a trip — stored without traveler PII for public seat maps */
