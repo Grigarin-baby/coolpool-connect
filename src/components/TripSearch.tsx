@@ -950,9 +950,9 @@ export function TripSearchResults({ variant }: { variant: "landing" | "page" }) 
       )}
 
       {!loading && results.length > 0 && (
-        <div className="space-y-6 w-full max-w-2xl mx-auto min-w-0 pb-20">
-          <div className="flex items-center justify-between gap-4 px-2">
-            <h3 className="text-xl sm:text-2xl font-bold tracking-tight text-gray-900">
+        <div className="space-y-4 w-full max-w-xl mx-auto min-w-0 pb-20">
+          <div className="flex items-center justify-between gap-4 px-1">
+            <h3 className="text-lg sm:text-xl font-bold tracking-tight text-gray-900">
               {dayjs(results[0].departureAt).format("dddd, MMM DD")}
             </h3>
             <UiButton variant="ghost" size="sm" className="rounded-2xl text-primary font-bold">
@@ -960,7 +960,7 @@ export function TripSearchResults({ variant }: { variant: "landing" | "page" }) 
             </UiButton>
           </div>
 
-          <div className="space-y-4">
+          <div className="space-y-2.5">
             {results.map((trip) => {
               const hostName = trip.hostDisplayName || "Verified Host";
               const vehicleLabel = trip.vehicleModel
@@ -987,44 +987,61 @@ export function TripSearchResults({ variant }: { variant: "landing" | "page" }) 
                   params={{ tripId: trip.id }}
                   className="block group"
                 >
-                  <Card className="rounded-2xl border border-gray-100 bg-white shadow-soft hover:shadow-elevated hover:border-primary/20 transition-all duration-300 p-4 sm:p-5">
-                    <div className="grid grid-cols-2 gap-x-4 gap-y-4 sm:grid-cols-[minmax(0,1.45fr)_0.75fr_1.25fr_auto] sm:items-center">
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-1.5">
-                          <p className="font-bold text-sm sm:text-base text-gray-900 truncate">
+                  {/* Card: mobile ~2-row grid, desktop single horizontal row */}
+                  <Card className="rounded-2xl border border-gray-100 bg-white shadow-sm hover:shadow-md hover:border-primary transition-all duration-200 p-3 sm:p-4">
+                    {/*
+                      DOM order: Host · Price · Rating · Time
+                      Mobile  (grid-cols-2): Host=r1c1 Price=r1c2 Rating=r2c1 Time=r2c2
+                      Desktop (grid-cols-4): order classes restore Host|Rating|Time|Price
+                    */}
+                    <div className="grid grid-cols-2 gap-x-3 gap-y-2 sm:grid-cols-[minmax(0,1.5fr)_0.7fr_1.2fr_auto] sm:items-center sm:gap-x-4 sm:gap-y-0">
+
+                      {/* ① Host + Vehicle — mobile r1c1, desktop col1 */}
+                      <div className="min-w-0 order-1 sm:order-1">
+                        <div className="flex items-center gap-1">
+                          <p className="font-bold text-sm text-gray-900 truncate leading-tight">
                             {hostName}
                           </p>
-                          <ShieldCheck size={15} className="text-blue-500 shrink-0" />
+                          <ShieldCheck size={13} className="text-blue-500 shrink-0 hidden sm:block" />
                         </div>
-                        <p className="mt-1 text-xs sm:text-sm text-gray-500 truncate">{vehicleLabel}</p>
+                        <p className="mt-0.5 text-xs text-gray-500 truncate leading-tight">{vehicleLabel}</p>
                       </div>
-                      <div className="sm:text-center">
-                        {(trip.hostRatingCount ?? 0) > 0 ? (
-                          <div className="inline-flex items-center gap-1 text-sm font-bold text-gray-800">
-                            <Star size={14} className="fill-amber-400 text-amber-400" />
-                            {(trip.hostRating ?? 0).toFixed(1)} · {trip.hostRatingCount}
-                          </div>
-                        ) : (
-                          <span className="text-sm font-semibold text-gray-500">New host</span>
-                        )}
-                      </div>
-                      <div className="min-w-0">
-                        <p className="font-black text-base sm:text-lg text-gray-900 whitespace-nowrap">
-                          {departure.format("HH:mm")} <span className="text-primary">→</span>{" "}
-                          {arrival.format("HH:mm")}
-                        </p>
-                        <p className="mt-1 text-xs sm:text-sm font-medium text-gray-500 whitespace-nowrap">
-                          {durationLabel} · {seatsLeft} {seatsLeft === 1 ? "seat" : "seats"} left
-                        </p>
-                      </div>
-                      <div className="text-right self-end sm:self-center">
-                        <p className="text-xl sm:text-2xl font-black text-gray-900 whitespace-nowrap">
+
+                      {/* ② Price — mobile r1c2 (right), desktop col4 */}
+                      <div className="text-right order-2 sm:order-4 self-start sm:self-center">
+                        <p className="text-lg sm:text-xl font-black text-gray-900 whitespace-nowrap leading-tight">
                           {formatCurrency(trip.totalPrice / trip.totalSeats)}
                         </p>
-                        <p className="mt-0.5 text-[10px] sm:text-xs font-bold uppercase tracking-wider text-gray-500">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 leading-tight">
                           per seat
                         </p>
                       </div>
+
+                      {/* ③ Rating — mobile r2c1, desktop col2 */}
+                      <div className="order-3 sm:order-2 sm:text-center">
+                        {(trip.hostRatingCount ?? 0) > 0 ? (
+                          <div className="inline-flex items-center gap-0.5 text-sm font-bold text-gray-800">
+                            <Star size={13} className="fill-amber-400 text-amber-400" />
+                            {(trip.hostRating ?? 0).toFixed(1)}
+                            <span className="text-gray-400 font-normal"> · {trip.hostRatingCount}</span>
+                          </div>
+                        ) : (
+                          <span className="text-xs font-semibold text-gray-400">New host</span>
+                        )}
+                      </div>
+
+                      {/* ④ Time + Duration — mobile r2c2 (right), desktop col3 */}
+                      <div className="min-w-0 order-4 sm:order-3 text-right sm:text-left">
+                        <p className="font-black text-sm sm:text-base text-gray-900 whitespace-nowrap leading-tight">
+                          {departure.format("HH:mm")}
+                          <span className="text-primary mx-1">→</span>
+                          {arrival.format("HH:mm")}
+                        </p>
+                        <p className="text-[11px] sm:text-xs font-medium text-gray-400 whitespace-nowrap leading-tight">
+                          {durationLabel} · {seatsLeft} {seatsLeft === 1 ? "seat" : "seats"} left
+                        </p>
+                      </div>
+
                     </div>
                   </Card>
                 </Link>
