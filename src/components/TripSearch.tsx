@@ -1005,9 +1005,10 @@ export function TripSearchResults({ variant }: { variant: "landing" | "page" }) 
               <p className="text-sm font-semibold text-gray-500">Be the first!</p>
               <UiButton
                 onClick={handleHostARide}
-                className="rounded-full h-12 px-8 bg-gradient-primary text-white font-bold shadow-glow border-none hover:scale-105 active:scale-95 transition-all flex items-center gap-2"
+                style={{ color: "white" }}
+                className="rounded-full h-12 px-8 bg-gradient-primary !text-white [&_svg]:!text-white font-bold shadow-glow border-none hover:scale-105 active:scale-95 transition-all flex items-center gap-2"
               >
-                <PlusCircle className="h-4 w-4" /> Host a Ride
+                <PlusCircle className="h-4 w-4 text-white" color="white" /> Host a Ride
               </UiButton>
             </div>
           </div>
