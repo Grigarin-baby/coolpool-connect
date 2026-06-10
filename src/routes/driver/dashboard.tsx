@@ -1759,21 +1759,20 @@ function DriverDashboardPage() {
                       </div>
                     </Card>
                   )}
-                  <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-                    <div className="flex flex-col gap-1.5">
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="flex flex-col gap-1">
                       <Title level={2} style={{ margin: 0 }}>
                         Hi, {getUserDisplayName(user).split(" ")[0]}!
                       </Title>
-                      <Text type="secondary" className="text-base">
+                      <Text type="secondary" className="text-sm">
                         Here's what's happening with your trips today.
                       </Text>
                     </div>
                     <Button
                       type="primary"
-                      size="large"
-                      icon={<PlusCircle size={22} />}
-                      style={{ height: 56, paddingInline: 36, fontSize: 18, fontWeight: 800, borderRadius: 18, letterSpacing: 0.3 }}
-                      className="bg-gradient-primary border-none shadow-glow flex items-center gap-2 hover:scale-105 active:scale-95 transition-transform"
+                      icon={<PlusCircle size={18} />}
+                      style={{ height: 48, paddingInline: 20, fontSize: 15, fontWeight: 700, borderRadius: 14, whiteSpace: 'nowrap', flexShrink: 0 }}
+                      className="bg-gradient-primary border-none shadow-glow hover:scale-105 active:scale-95 transition-transform"
                       onClick={() => {
                         setEditingTripId(null);
                         setIsEditingTrip(false);
