@@ -1811,32 +1811,29 @@ function DriverDashboardPage() {
                     </div>
 
                     {bioEditing ? (
-                      <div className="mt-3 space-y-3">
+                      <div className="mt-3 space-y-2">
                         <Input.TextArea
                           value={bioText}
                           onChange={(e) => setBioText(e.target.value)}
                           placeholder="Tell travelers about yourself — experience, routes you love, driving style…"
                           maxLength={200}
                           autoSize={{ minRows: 3, maxRows: 5 }}
-                          className="rounded-xl text-sm w-full"
+                          className="rounded-xl text-sm w-full block"
                           autoFocus
                         />
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs text-gray-400">{bioText.length} / 200</span>
-                          <div className="flex gap-2">
-                            <Button size="small" onClick={() => setBioEditing(false)} className="rounded-xl">
-                              Cancel
-                            </Button>
-                            <Button
-                              size="small"
-                              type="primary"
-                              loading={savingBio}
-                              className="rounded-xl bg-gradient-primary border-none"
-                              onClick={() => saveBio(bioText)}
-                            >
-                              Save
-                            </Button>
-                          </div>
+                        <p className="text-xs text-gray-400 text-right">{bioText.length} / 200</p>
+                        <div className="flex gap-2 justify-end">
+                          <Button onClick={() => setBioEditing(false)} className="rounded-xl flex-1">
+                            Cancel
+                          </Button>
+                          <Button
+                            type="primary"
+                            loading={savingBio}
+                            className="rounded-xl flex-1 bg-gradient-primary border-none"
+                            onClick={() => saveBio(bioText)}
+                          >
+                            Save
+                          </Button>
                         </div>
                       </div>
                     ) : (
