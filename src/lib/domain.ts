@@ -94,6 +94,8 @@ export interface DriverProfile {
   licenseNumber: string;
   city: string;
   ownerUserId?: string;
+  /** Short host bio shown on trip cards */
+  bio?: string | null;
   /** Ride comfort preferences set by the host */
   smokingAllowed?: boolean;
   alcoholAllowed?: boolean;

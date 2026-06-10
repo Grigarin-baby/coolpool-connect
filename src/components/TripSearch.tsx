@@ -65,6 +65,7 @@ import {
   listTrips,
   listTripSeatReservationsByTripIds,
   getMultipleHostPreferences,
+  listDriverProfilesByUserIds,
 } from "@/data/appwrite-repository";
 import type { RidePreferences } from "@/lib/domain";
 import { routeCitySegmentsMatch } from "@/lib/geo";
@@ -912,6 +913,21 @@ export function TripSearchResults({ variant }: { variant: "landing" | "page" }) 
     enabled: hostIds.length > 0,
     staleTime: 1000 * 60 * 5,
   });
+
+  // Batch-fetch host bios
+  const { data: hostProfiles } = useQuery({
+    queryKey: ["host-profiles-batch", hostIds.join(",")],
+    queryFn: () => listDriverProfilesByUserIds(hostIds),
+    enabled: hostIds.length > 0,
+    staleTime: 1000 * 60 * 5,
+  });
+  const hostBioMap = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const p of hostProfiles ?? []) {
+      if (p.bio) map.set(p.userId, p.bio);
+    }
+    return map;
+  }, [hostProfiles]);
   const reservedSeatsByTripId = useMemo(() => {
     const map: Record<string, Set<string>> = {};
     for (const reservation of seatReservations ?? []) {
@@ -1005,6 +1021,7 @@ export function TripSearchResults({ variant }: { variant: "landing" | "page" }) 
               );
               const prefs: RidePreferences | undefined = hostPrefsMap?.get(trip.hostId);
               const hasPrefs = prefs && (prefs.smokingAllowed || prefs.alcoholAllowed || prefs.musicAllowed !== undefined);
+              const hostBio = hostBioMap.get(trip.hostId);
               return (
                 <Link
                   key={trip.id}
@@ -1030,6 +1047,11 @@ export function TripSearchResults({ variant }: { variant: "landing" | "page" }) 
                           <ShieldCheck size={13} className="text-blue-500 shrink-0 hidden sm:block" />
                         </div>
                         <p className="mt-0.5 text-xs text-gray-500 truncate leading-tight">{vehicleLabel}</p>
+                        {hostBio && (
+                          <p className="mt-0.5 text-[11px] text-gray-400 italic truncate leading-tight hidden sm:block">
+                            "{hostBio}"
+                          </p>
+                        )}
                       </div>
 
                       {/* ② Price — mobile r1c2 (right), desktop col4 */}

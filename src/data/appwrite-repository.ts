@@ -105,6 +105,7 @@ function toDriverProfile(doc: any): DriverProfile {
     phone: String(doc.phone || ""),
     licenseNumber: String(doc.license_number || ""),
     city: String(doc.city || ""),
+    bio: doc.bio ? String(doc.bio) : null,
     smokingAllowed: Boolean(doc.smoking_allowed ?? false),
     alcoholAllowed: Boolean(doc.alcohol_allowed ?? false),
     musicAllowed: Boolean(doc.music_allowed ?? false),
@@ -911,6 +912,19 @@ export async function updateHostPreferences(
     alcohol_allowed: prefs.alcoholAllowed,
     music_allowed: prefs.musicAllowed,
     music_type: prefs.musicAllowed ? (prefs.musicType ?? null) : null,
+  });
+}
+
+/** Update just the bio for a host (lightweight patch, no other fields touched). */
+export async function updateDriverBio(hostUserId: string, bio: string): Promise<void> {
+  const c = ids();
+  const result = await databases.listDocuments(appwriteConfig.databaseId, c.drivers, [
+    Query.equal("user_id", hostUserId),
+    Query.limit(1),
+  ]);
+  if (result.total === 0) throw new Error("Driver profile not found");
+  await databases.updateDocument(appwriteConfig.databaseId, c.drivers, result.documents[0].$id, {
+    bio: bio.trim() || null,
   });
 }
 

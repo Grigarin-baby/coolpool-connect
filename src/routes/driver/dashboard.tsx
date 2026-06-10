@@ -26,6 +26,7 @@ import {
   Wine,
   Music2,
   VolumeX,
+  TriangleAlert,
 } from "lucide-react";
 import {
   Layout,
@@ -83,6 +84,7 @@ import {
   verifyBookingOtp,
   getHostPreferences,
   updateHostPreferences,
+  updateDriverBio,
   type CreateTeamDriverInput,
 } from "@/data/appwrite-repository";
 import type { RidePreferences } from "@/lib/domain";
@@ -333,6 +335,8 @@ function DriverDashboardPage() {
   const [accountDeletedSuccess, setAccountDeletedSuccess] = useState(false);
   const [prefsDrawerOpen, setPrefsDrawerOpen] = useState(false);
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
+  const [bioEditing, setBioEditing] = useState(false);
+  const [bioText, setBioText] = useState("");
   const [prefsLocal, setPrefsLocal] = useState<RidePreferences>({
     smokingAllowed: false,
     alcoholAllowed: false,
@@ -505,6 +509,31 @@ function DriverDashboardPage() {
     queryKey: ["host-preferences", user?.$id],
     queryFn: () => (user ? getHostPreferences(user.$id) : Promise.resolve(null)),
     enabled: !!user,
+  });
+
+  // Bio — fetched from the driver profile
+  const { data: driverProfile } = useQuery({
+    queryKey: ["driver-profile", user?.$id],
+    queryFn: async () => {
+      if (!user) return null;
+      const { listDriverProfilesByUserIds } = await import("@/data/appwrite-repository");
+      const profiles = await listDriverProfilesByUserIds([user.$id]);
+      return profiles[0] ?? null;
+    },
+    enabled: !!user,
+  });
+
+  const { mutate: saveBio, isPending: savingBio } = useMutation({
+    mutationFn: (bio: string) => {
+      if (!user) throw new Error("Not logged in");
+      return updateDriverBio(user.$id, bio);
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["driver-profile", user?.$id] });
+      setBioEditing(false);
+      void import("sonner").then((m) => m.toast.success("Bio saved!"));
+    },
+    onError: () => void import("sonner").then((m) => m.toast.error("Failed to save bio.")),
   });
 
   const { mutate: savePrefs, isPending: savingPrefs } = useMutation({
@@ -1742,8 +1771,10 @@ function DriverDashboardPage() {
                         </div>
                         <Button
                           type="primary"
+                          danger
                           size="large"
-                          className="bg-amber-600 hover:bg-amber-700 border-none rounded-2xl h-12 px-8 font-bold shadow-soft"
+                          icon={<TriangleAlert size={20} />}
+                          style={{ height: 56, paddingInline: 40, fontSize: 17, borderRadius: 16, fontWeight: 700 }}
                           onClick={() => setActiveModule("onboarding")}
                         >
                           Get Verified
@@ -1763,8 +1794,9 @@ function DriverDashboardPage() {
                     <Button
                       type="primary"
                       size="large"
-                      icon={<PlusCircle size={18} />}
-                      className="bg-gradient-primary border-none flex items-center gap-2"
+                      icon={<PlusCircle size={22} />}
+                      style={{ height: 56, paddingInline: 36, fontSize: 18, fontWeight: 800, borderRadius: 18, letterSpacing: 0.3 }}
+                      className="bg-gradient-primary border-none shadow-glow flex items-center gap-2 hover:scale-105 active:scale-95 transition-transform"
                       onClick={() => {
                         setEditingTripId(null);
                         setIsEditingTrip(false);
@@ -1775,9 +1807,76 @@ function DriverDashboardPage() {
                         setActiveModule("trips");
                       }}
                     >
-                      New Trip
+                      Host a Ride
                     </Button>
                   </div>
+
+                  {/* ── Host Bio card ── */}
+                  <Card className="rounded-2xl border border-white/60 shadow-soft backdrop-blur-md overflow-hidden">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="p-2 bg-blue-100 rounded-2xl text-blue-600 shrink-0">
+                          <User size={18} />
+                        </div>
+                        <Text strong className="text-gray-800">About you</Text>
+                      </div>
+                      {!bioEditing && (
+                        <button
+                          onClick={() => {
+                            setBioText(driverProfile?.bio ?? "");
+                            setBioEditing(true);
+                          }}
+                          className="flex items-center gap-1 text-[11px] font-semibold text-primary hover:text-primary/70 transition-colors shrink-0"
+                        >
+                          <Pencil size={11} /> {driverProfile?.bio ? "Edit" : "Add bio"}
+                        </button>
+                      )}
+                    </div>
+
+                    {bioEditing ? (
+                      <div className="mt-3 space-y-2">
+                        <Input.TextArea
+                          value={bioText}
+                          onChange={(e) => setBioText(e.target.value)}
+                          placeholder="Tell travelers about yourself — experience, routes you love, driving style…"
+                          maxLength={200}
+                          showCount
+                          autoSize={{ minRows: 2, maxRows: 4 }}
+                          className="rounded-xl text-sm"
+                          autoFocus
+                        />
+                        <div className="flex gap-2 justify-end">
+                          <Button size="small" onClick={() => setBioEditing(false)} className="rounded-xl">
+                            Cancel
+                          </Button>
+                          <Button
+                            size="small"
+                            type="primary"
+                            loading={savingBio}
+                            className="rounded-xl bg-gradient-primary border-none"
+                            onClick={() => saveBio(bioText)}
+                          >
+                            Save
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="mt-2 ml-[3.25rem]">
+                        {driverProfile?.bio ? (
+                          <p className="text-sm text-gray-600 italic leading-relaxed">
+                            "{driverProfile.bio}"
+                          </p>
+                        ) : (
+                          <button
+                            onClick={() => { setBioText(""); setBioEditing(true); }}
+                            className="text-xs text-gray-400 hover:text-primary transition-colors"
+                          >
+                            + Tell travelers about yourself…
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </Card>
 
                   <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                     {/* Total Rides */}
@@ -2181,7 +2280,7 @@ function DriverDashboardPage() {
                             <PlusCircle size={22} />
                           </div>
                           <Text strong className="text-sm">
-                            New Trip
+                            Host a Ride
                           </Text>
                         </Card>
                         <Card
