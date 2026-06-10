@@ -1746,7 +1746,7 @@ function DriverDashboardPage() {
                           className="bg-amber-600 hover:bg-amber-700 border-none rounded-2xl h-12 px-8 font-bold shadow-soft"
                           onClick={() => setActiveModule("onboarding")}
                         >
-                          Start Onboarding
+                          Get Verified
                         </Button>
                       </div>
                     </Card>
