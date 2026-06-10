@@ -1704,30 +1704,7 @@ function DriverDashboardPage() {
                   placement="bottomRight"
                   overlayClassName="profile-dropdown"
                 >
-                  <div className="group flex items-center h-12 gap-3 bg-white/40 hover:bg-white/60 pl-4 pr-1.5 border border-white/20 shadow-sm backdrop-blur-xl transition-all duration-300 cursor-pointer">
-                    <div className="hidden md:flex flex-col items-end justify-center h-full gap-0.5">
-                      <div className="flex items-center gap-1">
-                        <Text
-                          strong
-                          className="text-[14px] text-gray-800 leading-none max-w-[140px] truncate"
-                        >
-                          {getUserDisplayName(user)}
-                        </Text>
-                        <CheckCircle
-                          size={13}
-                          className={
-                            isVerifiedHost
-                              ? "text-blue-500 fill-blue-500/10"
-                              : "text-amber-500 fill-amber-500/10"
-                          }
-                        />
-                      </div>
-                      <Text
-                        className={`text-[9px] font-bold uppercase tracking-[0.05em] leading-none ${isVerifiedHost ? "text-gray-500" : "text-amber-600"}`}
-                      >
-                        {isVerifiedHost ? "Verified Host" : "Incomplete Profile"}
-                      </Text>
-                    </div>
+                  <div className="group flex items-center cursor-pointer">
                     <Badge
                       dot
                       status={isVerifiedHost ? "processing" : "warning"}
