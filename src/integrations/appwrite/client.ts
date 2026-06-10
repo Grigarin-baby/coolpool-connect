@@ -1,4 +1,4 @@
-import { Account, Client, Databases, Storage } from "appwrite";
+import { Account, Avatars, Client, Databases, Storage } from "appwrite";
 
 function getClientConfig() {
   const endpoint =
@@ -34,4 +34,12 @@ const client = new Client().setEndpoint(config.endpoint).setProject(config.proje
 export const account = new Account(client);
 export const databases = new Databases(client);
 export const storage = new Storage(client);
+export const avatars = new Avatars(client);
 export const appwriteConfig = config;
+
+/** Returns the URL for a user's initials avatar (Appwrite built-in).
+ *  Falls back to undefined if name is empty. */
+export function getUserAvatarUrl(name: string, size = 64): string | undefined {
+  if (!name?.trim()) return undefined;
+  return avatars.getInitials(name, size, size).toString();
+}

@@ -94,7 +94,7 @@ import { calcPricePerKm } from "@/lib/pricing";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { appwriteConfig } from "@/integrations/appwrite/client";
+import { appwriteConfig, getUserAvatarUrl } from "@/integrations/appwrite/client";
 import { SERVICE_CITY, BENGALURU_AIRPORTS, SOUTH_INDIA_CITY_SUGGESTIONS } from "@/lib/config";
 import { SeatPicker, type SeatId } from "@/components/SeatPicker";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
@@ -1531,9 +1531,11 @@ function DriverDashboardPage() {
                             <div className="flex items-center gap-3 mb-3">
                               <Avatar
                                 size={48}
+                                src={getUserAvatarUrl(getUserDisplayName(user), 96)}
                                 className="bg-gradient-primary text-primary-foreground font-bold text-lg border border-white/60"
                               >
-                                {user?.email?.[0]?.toUpperCase() || "U"}
+                                {!getUserAvatarUrl(getUserDisplayName(user)) &&
+                                  (getUserDisplayName(user)?.[0]?.toUpperCase() || "U")}
                               </Avatar>
                               <div className="flex-1 min-w-0">
                                 <div className="font-semibold text-gray-900 truncate">
@@ -1669,10 +1671,13 @@ function DriverDashboardPage() {
                       color={isVerifiedHost ? "#6b46c1" : "#f59e0b"}
                     >
                       <Avatar
-                        icon={<User size={18} />}
+                        src={getUserAvatarUrl(getUserDisplayName(user), 68)}
                         className="bg-gradient-primary shadow-sm border border-white/40 group-hover:border-white/80 transition-all"
                         size={34}
-                      />
+                      >
+                        {!getUserAvatarUrl(getUserDisplayName(user)) &&
+                          (getUserDisplayName(user)?.[0]?.toUpperCase() || <User size={16} />)}
+                      </Avatar>
                     </Badge>
                   </div>
                 </Dropdown>
