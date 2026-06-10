@@ -1744,64 +1744,75 @@ function DriverDashboardPage() {
                     </Button>
                   </div>
 
-                  <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                    <Card className="rounded-2xl border border-white/60 shadow-soft hover:shadow-card transition-all duration-300 backdrop-blur-md group overflow-hidden relative">
-                      <div className="absolute -right-6 -top-6 w-24 h-24 bg-purple-500/10 rounded-full blur-xl group-hover:bg-purple-500/20 transition-all"></div>
-                      <div className="flex items-center gap-3 mb-2">
-                        <div className="p-2 bg-purple-100 rounded-3xl text-purple-600">
-                          <RouteIcon size={20} />
+                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    {/* Total Rides */}
+                    <Card className="rounded-2xl border border-white/60 shadow-soft hover:shadow-card transition-all duration-300 backdrop-blur-md group overflow-hidden relative py-5 px-5">
+                      <div className="absolute -right-6 -top-6 w-24 h-24 bg-purple-500/10 rounded-full blur-xl group-hover:bg-purple-500/20 transition-all" />
+                      <div className="flex items-center justify-between gap-4">
+                        {/* Left */}
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="p-2.5 bg-purple-100 rounded-2xl text-purple-600 shrink-0">
+                            <RouteIcon size={20} />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-sm font-semibold text-gray-500 leading-tight">Total Rides</p>
+                            <Tag color="purple" className="rounded-full px-2.5 border-none font-medium text-xs mt-1.5">
+                              +12% this month
+                            </Tag>
+                          </div>
                         </div>
-                        <Text type="secondary" className="font-medium text-gray-500">
-                          Total Rides
-                        </Text>
-                      </div>
-                      <Title level={2} style={{ margin: "12px 0 8px 0" }} className="text-gray-800">
-                        {tripsLoading ? <Spin size="small" /> : trips.length}
-                      </Title>
-                      <div className="flex items-center gap-2">
-                        <Tag color="purple" className="rounded-full px-3 border-none font-medium">
-                          +12% this month
-                        </Tag>
+                        {/* Right — number */}
+                        <div className="text-right shrink-0">
+                          <p className="text-3xl font-black text-gray-900 leading-none">
+                            {tripsLoading ? <Spin size="small" /> : trips.length}
+                          </p>
+                        </div>
                       </div>
                     </Card>
 
-                    <Card className="rounded-2xl border border-white/60 shadow-soft hover:shadow-card transition-all duration-300 backdrop-blur-md group overflow-hidden relative">
-                      <div className="absolute -right-6 -bottom-6 w-24 h-24 bg-emerald-500/10 rounded-full blur-xl group-hover:bg-emerald-500/20 transition-all"></div>
-                      <div className="flex items-center gap-3 mb-2">
-                        <div className="p-2 bg-emerald-100 rounded-3xl text-emerald-600">
-                          <span className="font-bold text-lg">₹</span>
+                    {/* Total Earnings */}
+                    <Card className="rounded-2xl border border-white/60 shadow-soft hover:shadow-card transition-all duration-300 backdrop-blur-md group overflow-hidden relative py-5 px-5">
+                      <div className="absolute -right-6 -bottom-6 w-24 h-24 bg-emerald-500/10 rounded-full blur-xl group-hover:bg-emerald-500/20 transition-all" />
+                      <div className="flex items-center justify-between gap-4">
+                        {/* Left */}
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="p-2.5 bg-emerald-100 rounded-2xl text-emerald-600 shrink-0 flex items-center justify-center w-10 h-10">
+                            <span className="font-black text-lg leading-none">₹</span>
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-sm font-semibold text-gray-500 leading-tight">Total Earnings</p>
+                            <p className="text-xs text-gray-400 mt-1">Settlement pending</p>
+                          </div>
                         </div>
-                        <Text type="secondary" className="font-medium text-gray-500">
-                          Total Earnings
-                        </Text>
+                        {/* Right — number */}
+                        <div className="text-right shrink-0">
+                          <p className="text-3xl font-black text-gray-900 leading-none">₹0</p>
+                        </div>
                       </div>
-                      <Title level={2} style={{ margin: "12px 0 8px 0" }} className="text-gray-800">
-                        ₹0
-                      </Title>
-                      <Text type="secondary" className="text-sm">
-                        Settlement pending
-                      </Text>
                     </Card>
 
-                    <Card className="rounded-2xl border border-white/60 shadow-soft hover:shadow-card transition-all duration-300 backdrop-blur-md group overflow-hidden relative">
-                      <div className="absolute -left-6 -top-6 w-24 h-24 bg-yellow-500/10 rounded-full blur-xl group-hover:bg-yellow-500/20 transition-all"></div>
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-3">
-                          <div className="p-2 bg-yellow-100 rounded-3xl text-yellow-600">
+                    {/* Performance */}
+                    <Card className="rounded-2xl border border-white/60 shadow-soft hover:shadow-card transition-all duration-300 backdrop-blur-md group overflow-hidden relative py-5 px-5">
+                      <div className="absolute -left-6 -top-6 w-24 h-24 bg-yellow-500/10 rounded-full blur-xl group-hover:bg-yellow-500/20 transition-all" />
+                      <div className="flex items-center justify-between gap-4">
+                        {/* Left */}
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="p-2.5 bg-yellow-100 rounded-2xl text-yellow-600 shrink-0">
                             <Sparkles size={20} />
                           </div>
-                          <Text type="secondary" className="font-medium text-gray-500">
-                            Performance
-                          </Text>
+                          <div className="min-w-0">
+                            <p className="text-sm font-semibold text-gray-500 leading-tight">Performance</p>
+                            <div className="flex gap-1 mt-1.5">
+                              {[...Array(5)].map((_, i) => (
+                                <Star key={i} size={13} className="fill-yellow-400 text-yellow-400" />
+                              ))}
+                            </div>
+                          </div>
                         </div>
-                        <Title level={2} style={{ margin: 0 }} className="text-gray-800">
-                          5.0
-                        </Title>
-                      </div>
-                      <div className="mt-4 flex gap-1.5 text-yellow-500 bg-yellow-50/50 p-2 rounded-3xl inline-flex border border-yellow-100">
-                        {[...Array(5)].map((_, i) => (
-                          <Sparkles key={i} size={16} className="fill-yellow-500" />
-                        ))}
+                        {/* Right — number */}
+                        <div className="text-right shrink-0">
+                          <p className="text-3xl font-black text-gray-900 leading-none">5.0</p>
+                        </div>
                       </div>
                     </Card>
                   </div>
