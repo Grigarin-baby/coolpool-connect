@@ -8,7 +8,8 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
+import { useAuth } from "@/hooks/useAuth";
 import {
   AutoComplete,
   ConfigProvider,
@@ -56,6 +57,7 @@ import {
   Wine,
   Music2,
   VolumeX,
+  PlusCircle,
 } from "lucide-react";
 import dayjs, { Dayjs } from "dayjs";
 import { Button as UiButton } from "@/components/ui/button";
@@ -892,7 +894,22 @@ export function TripSearchForm({ variant, id }: { variant: "landing" | "page"; i
 
 export function TripSearchResults({ variant }: { variant: "landing" | "page" }) {
   const { loading, searched, results } = useTripSearchContext();
+  const { user, isDriver } = useAuth();
+  const navigate = useNavigate();
   const resultsAnchorRef = useRef<HTMLDivElement>(null);
+
+  const handleHostARide = () => {
+    if (!user) {
+      // Not logged in → go to auth (host sign up) page
+      void navigate({ to: "/auth" });
+    } else if (isDriver) {
+      // Already a host → go straight to publish trip
+      void navigate({ to: "/driver/dashboard", search: { module: "trips" } as any });
+    } else {
+      // Logged in as traveler → go to become-a-host landing page
+      void navigate({ to: "/host" });
+    }
+  };
 
   const tripIds = useMemo(() => results.map((trip) => trip.id), [results]);
   const { data: seatReservations } = useQuery({
@@ -984,6 +1001,15 @@ export function TripSearchResults({ variant }: { variant: "landing" | "page" }) 
             <p className="text-destructive/80 text-base max-w-md leading-relaxed">
               No trips match this route yet. Try nearby cities or check back soon.
             </p>
+            <div className="mt-2 flex flex-col items-center gap-3">
+              <p className="text-sm font-semibold text-gray-500">Be the first!</p>
+              <UiButton
+                onClick={handleHostARide}
+                className="rounded-full h-12 px-8 bg-gradient-primary text-white font-bold shadow-glow border-none hover:scale-105 active:scale-95 transition-all flex items-center gap-2"
+              >
+                <PlusCircle className="h-4 w-4" /> Host a Ride
+              </UiButton>
+            </div>
           </div>
         </Card>
       )}
