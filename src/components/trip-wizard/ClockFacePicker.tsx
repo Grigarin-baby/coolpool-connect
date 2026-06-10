@@ -151,36 +151,57 @@ export function ClockFacePicker({ value, onChange, size = 280, className }: Cloc
 
   return (
     <div className={cn("flex flex-col items-center gap-5", className)}>
-      {/* Read-out */}
-      <div className="flex items-center gap-1 text-5xl font-black tabular-nums tracking-tight">
-        <button
-          type="button"
-          onClick={() => setMode("hour")}
-          className={cn(
-            "rounded-xl px-3 py-1 transition-colors",
-            mode === "hour"
-              ? "bg-primary/10 text-primary"
-              : "text-gray-700 hover:text-gray-900",
-          )}
-          aria-label={`Edit hour (currently ${draft.hour12})`}
-        >
-          {String(draft.hour12).padStart(2, "0")}
-        </button>
-        <span className="text-gray-300">:</span>
-        <button
-          type="button"
-          onClick={() => setMode("minute")}
-          className={cn(
-            "rounded-xl px-3 py-1 transition-colors",
-            mode === "minute"
-              ? "bg-primary/10 text-primary"
-              : "text-gray-700 hover:text-gray-900",
-          )}
-          aria-label={`Edit minute (currently ${draft.minute})`}
-        >
-          {String(draft.minute).padStart(2, "0")}
-        </button>
-        <span className="ml-2 text-xl text-gray-500">{draft.period}</span>
+      {/* Read-out + inline AM/PM toggle */}
+      <div className="flex items-center gap-2">
+        {/* Time digits */}
+        <div className="flex items-center gap-1 text-5xl font-black tabular-nums tracking-tight">
+          <button
+            type="button"
+            onClick={() => setMode("hour")}
+            className={cn(
+              "rounded-xl px-3 py-1 transition-colors",
+              mode === "hour"
+                ? "bg-primary/10 text-primary"
+                : "text-gray-700 hover:text-gray-900",
+            )}
+            aria-label={`Edit hour (currently ${draft.hour12})`}
+          >
+            {String(draft.hour12).padStart(2, "0")}
+          </button>
+          <span className="text-gray-300">:</span>
+          <button
+            type="button"
+            onClick={() => setMode("minute")}
+            className={cn(
+              "rounded-xl px-3 py-1 transition-colors",
+              mode === "minute"
+                ? "bg-primary/10 text-primary"
+                : "text-gray-700 hover:text-gray-900",
+            )}
+            aria-label={`Edit minute (currently ${draft.minute})`}
+          >
+            {String(draft.minute).padStart(2, "0")}
+          </button>
+        </div>
+
+        {/* AM / PM toggle — always visible next to the time */}
+        <div className="flex flex-col gap-1 ml-1">
+          {(["AM", "PM"] as const).map((p) => (
+            <button
+              key={p}
+              type="button"
+              onClick={() => setPeriod(p)}
+              className={cn(
+                "w-12 rounded-lg text-sm font-bold py-1 transition-all",
+                draft.period === p
+                  ? "bg-gradient-primary !text-white shadow-sm"
+                  : "bg-gray-100 text-gray-400 hover:text-gray-700",
+              )}
+            >
+              {p}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Face */}
@@ -219,9 +240,10 @@ export function ClockFacePicker({ value, onChange, size = 280, className }: Cloc
 
         {/* Numbers */}
         {numbers.map((n) => {
-          const p = position(n.angle, NUMBER_RADIUS);
           const isSelected =
             mode === "hour" ? n.value === draft.hour12 : n.value === draft.minute;
+          // Selected number sits on the dot (HAND_RADIUS); others stay on the ring
+          const p = position(n.angle, isSelected ? HAND_RADIUS : NUMBER_RADIUS);
           return (
             <text
               key={n.value}
@@ -241,24 +263,6 @@ export function ClockFacePicker({ value, onChange, size = 280, className }: Cloc
         })}
       </svg>
 
-      {/* AM / PM toggle */}
-      <div className="inline-flex rounded-full border border-gray-200 bg-white p-1">
-        {(["AM", "PM"] as const).map((p) => (
-          <button
-            key={p}
-            type="button"
-            onClick={() => setPeriod(p)}
-            className={cn(
-              "rounded-full px-7 py-2 text-sm font-bold transition-colors",
-              draft.period === p
-                ? "bg-gradient-primary !text-white shadow-glow-sm"
-                : "text-gray-600 hover:text-gray-900",
-            )}
-          >
-            {p}
-          </button>
-        ))}
-      </div>
     </div>
   );
 }

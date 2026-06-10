@@ -6,18 +6,18 @@ import { useWizardMaps } from "./useWizardMaps";
 import { RouteMap } from "./RouteMap";
 import { BENGALURU_AIRPORTS, SERVICE_CITY } from "@/lib/config";
 import { fetchPlaceSuggestions, resolvePlace } from "./placesAutocomplete";
-import type { PlacePoint, RouteAlternative } from "./types";
+import type { IntermediatePoint, PlacePoint, RouteAlternative } from "./types";
 
 interface StepRouteProps {
   from: PlacePoint | null;
   to: PlacePoint | null;
   alternatives: RouteAlternative[];
   selectedAltId: number | null;
-  intermediatePoints: PlacePoint[];
+  intermediatePoints: IntermediatePoint[];
   onFromChange: (p: PlacePoint | null) => void;
   onToChange: (p: PlacePoint | null) => void;
   onAlternativesChange: (alts: RouteAlternative[], selectedAltId: number | null) => void;
-  onIntermediatePointsChange: (points: PlacePoint[]) => void;
+  onIntermediatePointsChange: (points: IntermediatePoint[]) => void;
 }
 
 interface CityOption {
@@ -177,7 +177,7 @@ export function StepRoute({
     setStopTexts((prev) => [...prev, ""]);
     setStopOptions((prev) => [...prev, []]);
     setStopSearching((prev) => [...prev, false]);
-    onIntermediatePointsChange([...intermediatePoints, { label: "", lat: 0, lng: 0 }]);
+    onIntermediatePointsChange([...intermediatePoints, { label: "", lat: 0, lng: 0, stopType: "both" }]);
   }, [intermediatePoints, onIntermediatePointsChange]);
 
   const removeStop = useCallback((idx: number) => {
@@ -216,7 +216,7 @@ export function StepRoute({
     if (!point) return;
     setStopTexts((prev) => { const n = [...prev]; n[idx] = point.label; return n; });
     const updated = [...intermediatePoints];
-    updated[idx] = point;
+    updated[idx] = { ...point, stopType: intermediatePoints[idx]?.stopType ?? "both" };
     onIntermediatePointsChange(updated);
   }, [stopOptions, intermediatePoints, onIntermediatePointsChange, resolveCoords]);
 
@@ -237,17 +237,31 @@ export function StepRoute({
     }
   };
 
-  // Whenever both endpoints are set, fetch route alternatives.
+  // Stable key that changes only when resolved waypoint coords change
+  const waypointKey = useMemo(
+    () => intermediatePoints
+      .filter((p) => p.lat !== 0 && p.lng !== 0)
+      .map((p) => `${p.lat},${p.lng}`)
+      .join("|"),
+    [intermediatePoints],
+  );
+
+  // Whenever endpoints or intermediate points change, fetch route alternatives.
   // Uses onAlternativesChangeRef so this effect never re-runs due to callback identity changes.
   useEffect(() => {
     if (!ready || !from || !to || !directionsRef.current) return;
     setFetchingRoutes(true);
+    const waypoints = intermediatePoints
+      .filter((p) => p.lat !== 0 && p.lng !== 0)
+      .map((p) => ({ location: { lat: p.lat, lng: p.lng }, stopover: true }));
     directionsRef.current.route(
       {
         origin: { lat: from.lat, lng: from.lng },
         destination: { lat: to.lat, lng: to.lng },
+        waypoints,
         travelMode: (window as any).google.maps.TravelMode.DRIVING,
-        provideRouteAlternatives: true,
+        // Google doesn't return alternatives when waypoints are present
+        provideRouteAlternatives: waypoints.length === 0,
       },
       (result: any, status: string) => {
         setFetchingRoutes(false);
@@ -256,19 +270,22 @@ export function StepRoute({
           return;
         }
         const alts: RouteAlternative[] = result.routes.map((r: any, idx: number) => {
-          const leg = r.legs[0];
+          const totalDistM = r.legs.reduce((s: number, l: any) => s + (l.distance?.value ?? 0), 0);
+          const totalDurS = r.legs.reduce((s: number, l: any) => s + (l.duration?.value ?? 0), 0);
           return {
             id: idx,
             polyline: r.overview_polyline,
-            distanceKm: (leg?.distance?.value ?? 0) / 1000,
-            durationMin: Math.round((leg?.duration?.value ?? 0) / 60),
+            distanceKm: totalDistM / 1000,
+            durationMin: Math.round(totalDurS / 60),
             summary: r.summary || "",
           };
         });
         onAlternativesChangeRef.current(alts, alts[0]?.id ?? null);
       },
     );
-  }, [ready, from, to]); // ← no onAlternativesChange — ref handles it
+  // waypointKey is the stable dep for intermediate points; ref handles the callback
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready, from, to, waypointKey]);
 
   const sortedAlts = useMemo(
     () => [...alternatives].sort((a, b) => a.id - b.id),
@@ -304,54 +321,67 @@ export function StepRoute({
         </div>
 
         {/* Intermediate stops */}
-        {stopTexts.map((txt, idx) => (
-          <div key={idx}>
-            <div className="ml-[1.125rem] my-1 flex items-center text-gray-300">
-              <ArrowDown size={14} />
-            </div>
-            <div className="flex items-center gap-3">
-              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-amber-50 text-amber-500 border border-amber-200 text-xs font-bold">
-                {idx + 1}
-              </span>
-              <div className="relative flex-1">
-                <AutoComplete
-                  value={txt}
-                  options={stopOptions[idx] ?? []}
-                  onSearch={(v) => searchStop(v, idx)}
-                  onSelect={(v) => void selectStop(v, idx)}
-                  onChange={(v) => setStopTexts((prev) => { const n = [...prev]; n[idx] = typeof v === "string" ? v : ""; return n; })}
-                  placeholder={`Stop ${idx + 1} city or area`}
-                  className="w-full"
-                  variant="borderless"
-                  classNames={{ popup: { root: "trip-search-ac-dropdown" } }}
-                />
-                {stopSearching[idx] && (
-                  <span className="pointer-events-none absolute right-8 top-1/2 -translate-y-1/2 text-gray-400">
-                    <Loader2 size={13} className="animate-spin" />
-                  </span>
-                )}
+        {stopTexts.map((txt, idx) => {
+          return (
+            <div key={idx}>
+              <div className="ml-[1.125rem] my-1 flex items-center text-gray-300">
+                <ArrowDown size={14} />
               </div>
-              <button
-                type="button"
-                onClick={() => removeStop(idx)}
-                className="shrink-0 grid h-7 w-7 place-items-center rounded-full text-gray-400 hover:bg-red-50 hover:text-red-500 transition-colors"
-              >
-                <XIcon size={14} />
-              </button>
+              <div className="flex items-center gap-3">
+                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-amber-50 text-amber-500 border border-amber-200 text-xs font-bold">
+                  {idx + 1}
+                </span>
+                <div className="relative flex-1">
+                  <AutoComplete
+                    value={txt}
+                    options={stopOptions[idx] ?? []}
+                    onSearch={(v) => searchStop(v, idx)}
+                    onSelect={(v) => void selectStop(v, idx)}
+                    onChange={(v) => setStopTexts((prev) => { const n = [...prev]; n[idx] = typeof v === "string" ? v : ""; return n; })}
+                    placeholder={`Stop ${idx + 1} city or area`}
+                    className="w-full"
+                    variant="borderless"
+                    classNames={{ popup: { root: "trip-search-ac-dropdown" } }}
+                  />
+                  {stopSearching[idx] && (
+                    <span className="pointer-events-none absolute right-8 top-1/2 -translate-y-1/2 text-gray-400">
+                      <Loader2 size={13} className="animate-spin" />
+                    </span>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => removeStop(idx)}
+                  className="shrink-0 grid h-7 w-7 place-items-center rounded-full text-gray-400 hover:bg-red-50 hover:text-red-500 transition-colors"
+                >
+                  <XIcon size={14} />
+                </button>
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
 
-        {/* Divider + Add stop button */}
-        <div className="ml-[1.125rem] my-1 flex items-center gap-2 text-gray-300">
+
+        {/* Arrow connector */}
+        <div className="ml-[1.125rem] my-1 text-gray-300">
           <ArrowDown size={16} />
-          <button
-            type="button"
-            onClick={addStop}
-            className="ml-1 flex items-center gap-1 text-[11px] font-semibold text-primary hover:text-primary/70 transition-colors"
-          >
-            <Plus size={12} /> Add stop
-          </button>
+        </div>
+
+        {/* Add stop button — full width, visible */}
+        <button
+          type="button"
+          onClick={addStop}
+          className="w-full flex items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-primary/30 bg-primary/5 py-3 text-sm font-bold text-primary hover:border-primary/60 hover:bg-primary/10 active:scale-[0.98] transition-all duration-150"
+        >
+          <span className="grid h-6 w-6 place-items-center rounded-full bg-primary text-white">
+            <Plus size={14} />
+          </span>
+          Add intermediate stop
+        </button>
+
+        {/* Arrow connector to drop-off */}
+        <div className="ml-[1.125rem] my-1 text-gray-300">
+          <ArrowDown size={16} />
         </div>
 
         {/* Drop-off */}
@@ -396,6 +426,7 @@ export function StepRoute({
             <RouteMap
               from={from}
               to={to}
+              intermediatePoints={intermediatePoints.filter((p) => p.lat !== 0 && p.lng !== 0)}
               alternatives={alternatives}
               selectedAltId={selectedAltId}
               onSelectAlternative={(id) => onAlternativesChange(alternatives, id)}

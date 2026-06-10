@@ -11,63 +11,110 @@ interface StepDateTimeProps {
 }
 
 export function StepDateTime({ date, time, onDateChange, onTimeChange }: StepDateTimeProps) {
-  const dates = useMemo(
-    () => Array.from({ length: 7 }, (_, i) => dayjs().startOf("day").add(i, "day")),
-    [],
+  const today = useMemo(() => dayjs().startOf("day"), []);
+  const tomorrow = useMemo(() => today.add(1, "day"), [today]);
+  // 7 upcoming days starting from day-after-tomorrow
+  const upcomingDates = useMemo(
+    () => Array.from({ length: 7 }, (_, i) => today.add(i + 2, "day")),
+    [today],
   );
 
-  // Apply Today as the default when the parent hasn't picked anything yet.
+  // Default to today if nothing selected yet
   useEffect(() => {
-    if (!date) onDateChange(dates[0]);
-  }, [date, dates, onDateChange]);
+    if (!date) onDateChange(today);
+  }, [date, today, onDateChange]);
 
-  const selected = date ?? dates[0];
+  // Keep the visible clock default and wizard state in sync. For today, start
+  // at the next future 5-minute slot so Continue is immediately available.
+  useEffect(() => {
+    if (time) return;
+    const next = dayjs().add(5, "minute");
+    const roundedMinute = Math.ceil(next.minute() / 5) * 5;
+    const defaultTime = next.minute(0).second(0).millisecond(0).add(roundedMinute, "minute");
+    if (!defaultTime.isSame(today, "day")) onDateChange(defaultTime.startOf("day"));
+    const hour24 = defaultTime.hour();
+    const hour12 = hour24 % 12 || 12;
+    onTimeChange({
+      hour12,
+      hour24,
+      minute: defaultTime.minute(),
+      period: hour24 >= 12 ? "PM" : "AM",
+    });
+  }, [time, today, onDateChange, onTimeChange]);
+
+  const selected = date ?? today;
+  const todaySelected = selected.isSame(today, "day");
+  const tomorrowSelected = selected.isSame(tomorrow, "day");
 
   return (
     <div className="flex flex-col gap-6 px-4 pb-6">
-      {/* Date chips */}
+      {/* ── Date section ── */}
       <div>
-        <p className="mb-2 text-xs font-bold uppercase tracking-widest text-gray-500">When</p>
-        <div className="grid grid-cols-4 gap-2 sm:grid-cols-7">
-          {dates.map((d, idx) => {
+        <p className="mb-3 text-xs font-bold uppercase tracking-widest text-gray-500">
+          When are you leaving?
+        </p>
+
+        {/* Today / Tomorrow big buttons */}
+        <div className="flex gap-3">
+          <button
+            type="button"
+            onClick={() => onDateChange(today)}
+            className={cn(
+              "w-full h-16 rounded-2xl text-xl font-black tracking-wide transition-all duration-200 border-2 flex items-center justify-center active:scale-95",
+              todaySelected
+                ? "bg-gradient-primary !text-white border-transparent shadow-glow-sm"
+                : "bg-white text-gray-700 border-gray-200 hover:border-primary/50 hover:text-primary",
+            )}
+          >
+            Today
+          </button>
+          <button
+            type="button"
+            onClick={() => onDateChange(tomorrow)}
+            className={cn(
+              "w-full h-16 rounded-2xl text-xl font-black tracking-wide transition-all duration-200 border-2 flex items-center justify-center active:scale-95",
+              tomorrowSelected
+                ? "bg-gradient-primary !text-white border-transparent shadow-glow-sm"
+                : "bg-white text-gray-700 border-gray-200 hover:border-primary/50 hover:text-primary",
+            )}
+          >
+            Tomorrow
+          </button>
+        </div>
+
+        {/* Next 7 days chips */}
+        <div className="mt-3 grid grid-cols-7 gap-1.5">
+          {upcomingDates.map((d) => {
             const isSelected = d.isSame(selected, "day");
-            const topLabel = idx === 0 ? "Today" : idx === 1 ? "Tomorrow" : d.format("ddd");
             return (
               <button
                 key={d.format("YYYY-MM-DD")}
                 type="button"
-                onClick={() => onDateChange(d)}
+                aria-label={d.format("dddd, MMMM D")}
                 aria-pressed={isSelected}
+                onClick={() => onDateChange(d)}
                 className={cn(
-                  "flex flex-col items-center justify-center rounded-2xl border py-2.5 transition-all duration-200 active:scale-95",
+                  "h-12 rounded-xl border text-center transition-all duration-200 active:scale-95",
                   isSelected
-                    ? "bg-gradient-primary !text-white border-transparent shadow-glow-sm scale-[1.02]"
-                    : "bg-white text-gray-700 border-gray-200 hover:border-primary/40 hover:text-primary",
+                    ? "bg-gradient-primary !text-white border-transparent shadow-glow-sm scale-[1.03]"
+                    : "bg-white text-gray-600 border-gray-200 hover:border-primary/50 hover:text-primary",
                 )}
               >
                 <span
                   className={cn(
-                    "text-[10px] font-extrabold uppercase tracking-tight leading-none",
-                    isSelected && "!text-white",
+                    "block text-[9px] font-extrabold uppercase tracking-tight leading-none",
+                    isSelected ? "!text-white" : "text-gray-500",
                   )}
                 >
-                  {topLabel}
+                  {d.format("ddd")}
                 </span>
                 <span
                   className={cn(
-                    "mt-1 text-lg font-black leading-none tabular-nums",
+                    "mt-1 block text-sm font-black leading-none",
                     isSelected && "!text-white",
                   )}
                 >
                   {d.format("D")}
-                </span>
-                <span
-                  className={cn(
-                    "mt-0.5 text-[10px] font-semibold uppercase tracking-tight leading-none text-gray-400",
-                    isSelected && "!text-white/80",
-                  )}
-                >
-                  {d.format("MMM")}
                 </span>
               </button>
             );
@@ -75,7 +122,7 @@ export function StepDateTime({ date, time, onDateChange, onTimeChange }: StepDat
         </div>
       </div>
 
-      {/* Time clock */}
+      {/* ── Time clock ── */}
       <div>
         <p className="mb-3 text-xs font-bold uppercase tracking-widest text-gray-500">
           Departure time

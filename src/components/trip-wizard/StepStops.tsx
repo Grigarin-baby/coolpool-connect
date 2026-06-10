@@ -6,6 +6,7 @@ import { closestPolylineIndex, decodePolyline, distanceAlongPolylineKm } from "@
 import { StopsMap } from "./StopsMap";
 import { fetchPlaceSuggestions, resolvePlace } from "./placesAutocomplete";
 import type { PlacePoint, RouteAlternative, WizardStop } from "./types";
+import { STOP_TYPE_LABELS } from "./types";
 
 interface StepStopsProps {
   from: PlacePoint;
@@ -42,12 +43,17 @@ export function StepStops({ from, to, alternative, stops, onStopsChange }: StepS
       const km = projectOntoRoute(lat, lng);
       const next = reorderByDistance([
         ...stops,
-        { label, lat, lng, distanceFromOriginKm: km },
+        { label, lat, lng, distanceFromOriginKm: km, stopType: "both" as const },
       ]);
       onStopsChange(next);
     },
     [onStopsChange, projectOntoRoute, stops],
   );
+
+  const setStopType = (index: number, stopType: WizardStop["stopType"]) => {
+    const next = stops.map((s, i) => (i === index ? { ...s, stopType } : s));
+    onStopsChange(next);
+  };
 
   const removeStop = (index: number) => {
     const next = stops.filter((_, i) => i !== index);
@@ -159,29 +165,49 @@ export function StepStops({ from, to, alternative, stops, onStopsChange }: StepS
             {stops.map((s, i) => (
               <li
                 key={`${s.lat}-${s.lng}-${i}`}
-                className="flex items-center gap-3 rounded-2xl border border-gray-100 bg-white p-3 shadow-sm"
+                className="rounded-2xl border border-gray-100 bg-white p-3 shadow-sm"
               >
-                <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-primary text-sm font-bold text-white">
-                  {i + 1}
-                </span>
-                <div className="flex-1 min-w-0">
-                  <input
-                    value={s.label}
-                    onChange={(e) => renameStop(i, e.target.value)}
-                    className="w-full truncate bg-transparent text-sm font-semibold text-gray-900 outline-none focus:underline"
-                  />
-                  <p className="text-xs text-gray-500">
-                    {s.distanceFromOriginKm.toFixed(1)} km from start
-                  </p>
+                <div className="flex items-center gap-3">
+                  <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-primary text-sm font-bold text-white">
+                    {i + 1}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <input
+                      value={s.label}
+                      onChange={(e) => renameStop(i, e.target.value)}
+                      className="w-full truncate bg-transparent text-sm font-semibold text-gray-900 outline-none focus:underline"
+                    />
+                    <p className="text-xs text-gray-500">
+                      {s.distanceFromOriginKm.toFixed(1)} km from start
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => removeStop(i)}
+                    aria-label={`Remove stop ${i + 1}`}
+                    className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-rose-500 hover:bg-rose-50"
+                  >
+                    <Trash2 size={16} />
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => removeStop(i)}
-                  aria-label={`Remove stop ${i + 1}`}
-                  className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-rose-500 hover:bg-rose-50"
-                >
-                  <Trash2 size={16} />
-                </button>
+                {/* Stop type selector */}
+                <div className="mt-2 ml-11 flex gap-1 flex-wrap">
+                  {(["pickup", "both", "drop"] as const).map((type) => (
+                    <button
+                      key={type}
+                      type="button"
+                      onClick={() => setStopType(i, type)}
+                      className={cn(
+                        "rounded-full px-2.5 py-0.5 text-[10px] font-semibold border transition-colors",
+                        (s.stopType ?? "both") === type
+                          ? "bg-primary text-white border-primary"
+                          : "bg-white text-gray-500 border-gray-200 hover:border-primary/40",
+                      )}
+                    >
+                      {STOP_TYPE_LABELS[type]}
+                    </button>
+                  ))}
+                </div>
               </li>
             ))}
           </ul>

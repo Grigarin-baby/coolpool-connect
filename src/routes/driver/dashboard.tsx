@@ -334,6 +334,8 @@ function DriverDashboardPage() {
   const [deletingAccount, setDeletingAccount] = useState(false);
   const [accountDeletedSuccess, setAccountDeletedSuccess] = useState(false);
   const [prefsDrawerOpen, setPrefsDrawerOpen] = useState(false);
+  const [historyDetailTripId, setHistoryDetailTripId] = useState<string | null>(null);
+  const [historyDetailPassenger, setHistoryDetailPassenger] = useState<Booking | null>(null);
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const [bioEditing, setBioEditing] = useState(false);
   const [bioText, setBioText] = useState("");
@@ -389,7 +391,7 @@ function DriverDashboardPage() {
         location: s.label,
         lat: s.lat,
         lng: s.lng,
-        stopType: "both" as const,
+        stopType: s.stopType,
         distanceFromOriginKm: Math.round(s.distanceFromOriginKm * 10) / 10,
       })),
       {
@@ -648,6 +650,13 @@ function DriverDashboardPage() {
     enabled: !!user,
   });
 
+  // Stops for the history detail drawer
+  const { data: historyDetailStops = [], isLoading: historyStopsLoading } = useQuery({
+    queryKey: ["history-trip-stops", historyDetailTripId],
+    queryFn: () => listTripStops(historyDetailTripId!),
+    enabled: !!historyDetailTripId,
+  });
+
   const { mutate: saveDriver, isPending: savingDriver } = useMutation({
     mutationFn: (vals: Omit<CreateTeamDriverInput, "ownerUserId">) =>
       user
@@ -687,13 +696,30 @@ function DriverDashboardPage() {
 
   // Derived history stats from real trips
   const completedTrips = trips.filter((t) => t.status === "completed");
-  const lifetimeEarnings = completedTrips.reduce((sum, t) => sum + (t.totalPrice ?? 0), 0);
+  // lifetimeEarnings computed after receivedByTrip is built (below)
+  // Past trips: departure already happened, or trip was cancelled (regardless of date)
+  const pastTrips = trips.filter(
+    (t) => !dayjs(t.departureAt).isAfter(dayjs()) || t.status === "cancelled",
+  );
   const filteredHistory =
     historyFilter === "all"
-      ? trips
-      : trips.filter((t) =>
+      ? pastTrips
+      : pastTrips.filter((t) =>
         historyFilter === "completed" ? t.status === "completed" : t.status === "cancelled",
       );
+
+  // Actual received revenue per trip = sum of segmentPrice × seatsBooked
+  // for all non-cancelled bookings on that trip.
+  const receivedByTrip = new Map<string, number>();
+  bookings.forEach((b) => {
+    if (b.status === "cancelled") return;
+    const prev = receivedByTrip.get(b.tripId) ?? 0;
+    receivedByTrip.set(b.tripId, prev + b.segmentPrice * b.seatsBooked);
+  });
+  const lifetimeEarnings = completedTrips.reduce(
+    (sum, t) => sum + (receivedByTrip.get(t.id) ?? 0),
+    0,
+  );
 
   const upcomingTrips = trips.filter((t) => dayjs(t.departureAt).isAfter(dayjs()));
 
@@ -733,8 +759,12 @@ function DriverDashboardPage() {
       if (editingTripId) {
         message.success("Trip updated.");
       } else {
+        setWizardOpen(false);   // close wizard so the overlay is visible
         setTripPublishedSuccess(true);
-        window.setTimeout(() => setTripPublishedSuccess(false), 2400);
+        window.setTimeout(() => {
+          setTripPublishedSuccess(false);
+          setActiveModule("trips");
+        }, 2400);
       }
       form.resetFields();
       setEditingTripId(null);
@@ -1404,7 +1434,7 @@ function DriverDashboardPage() {
                 Trip published successfully
               </p>
               <p className="mt-1 text-sm text-gray-500">
-                Your ride is now live for travelers.
+                Your ride is live. Taking you to your trips…
               </p>
               <style>{`@keyframes cp-check-draw { to { stroke-dashoffset: 0; } }`}</style>
             </div>
@@ -1528,7 +1558,7 @@ function DriverDashboardPage() {
                   {
                     key: "trips",
                     icon: <PlusCircle size={18} />,
-                    label: "Publish Trip",
+                    label: "My Trips",
                   },
                   {
                     key: "history",
@@ -1570,7 +1600,7 @@ function DriverDashboardPage() {
                   {activeModule === "dashboard"
                     ? "Dashboard Overview"
                     : activeModule === "trips"
-                      ? "Publish Trip"
+                      ? "Upcoming Trips"
                       : activeModule === "history"
                         ? "Ride History"
                         : activeModule === "drivers"
@@ -2296,10 +2326,10 @@ function DriverDashboardPage() {
                       <div className="flex items-center justify-between">
                         <div className="flex flex-col gap-1">
                           <Title level={2} style={{ margin: 0 }}>
-                            My Trips
+                            Upcoming Trips
                           </Title>
                           <Text type="secondary" className="text-lg">
-                            View and manage all your published trips.
+                            View and manage your scheduled upcoming trips.
                           </Text>
                         </div>
                         <Button
@@ -2577,7 +2607,7 @@ function DriverDashboardPage() {
                               <div className="py-8 text-center">
                                 <RouteIcon size={32} className="text-gray-300 mx-auto mb-3" />
                                 <Text type="secondary" className="block">
-                                  No trips published yet
+                                  No upcoming trips
                                 </Text>
                               </div>
                             ),
@@ -3249,7 +3279,7 @@ function DriverDashboardPage() {
                       Ride History
                     </Title>
                     <Text type="secondary" className="text-lg">
-                      Review your past trips and earnings ledger.
+                      Review completed and cancelled trips from the past.
                     </Text>
                   </div>
 
@@ -3290,8 +3320,9 @@ function DriverDashboardPage() {
                   </div>
 
                   <Card className="rounded-2xl border border-white/60 shadow-card bg-white/80 backdrop-blur-md overflow-hidden">
-                    <div className="p-6 border-b border-gray-100 flex items-center justify-between">
-                      <Title level={4} style={{ margin: 0 }}>
+                    {/* Header — stacks on mobile, row on sm+ */}
+                    <div className="px-5 pt-5 pb-4 border-b border-gray-100 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <Title level={5} style={{ margin: 0 }}>
                         Transaction Ledger
                       </Title>
                       <div className="flex gap-2">
@@ -3299,7 +3330,7 @@ function DriverDashboardPage() {
                           <Tag
                             key={f}
                             color={historyFilter === f ? "purple" : undefined}
-                            className={`px-4 py-1 rounded-full cursor-pointer text-sm m-0 capitalize ${historyFilter === f ? "border-primary" : "bg-white border-gray-200 text-gray-500"} ${f === "cancelled" ? "hidden sm:inline-flex" : ""}`}
+                            className={`px-3 py-1 rounded-full cursor-pointer text-xs font-semibold m-0 capitalize transition-all ${historyFilter === f ? "border-primary" : "bg-white border-gray-200 text-gray-500 hover:border-primary/40"}`}
                             onClick={() => setHistoryFilter(f)}
                           >
                             {f.charAt(0).toUpperCase() + f.slice(1)}
@@ -3312,51 +3343,42 @@ function DriverDashboardPage() {
                       className="p-0"
                       itemLayout="horizontal"
                       loading={tripsLoading}
-                      locale={{ emptyText: "No trips found" }}
+                      locale={{ emptyText: "No past trips found" }}
                       dataSource={filteredHistory}
                       renderItem={(trip) => (
-                        <List.Item className="p-6 hover:bg-gray-50 transition-colors cursor-pointer group border-b border-gray-50">
-                          <div className="w-full flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                            <div className="flex items-center gap-4">
-                              <div
-                                className={`h-12 w-12 rounded-3xl flex items-center justify-center ${trip.status === "completed" ? "bg-emerald-100 text-emerald-600" : trip.status === "cancelled" ? "bg-red-100 text-red-600" : "bg-blue-100 text-blue-600"}`}
-                              >
-                                {trip.status === "completed" ? (
-                                  <CheckCircle size={20} />
-                                ) : trip.status === "cancelled" ? (
-                                  <XCircle size={20} />
-                                ) : (
-                                  <RouteIcon size={20} />
-                                )}
+                        <List.Item
+                          className="px-5 py-4 hover:bg-gray-50 transition-colors border-b border-gray-50 last:border-0 cursor-pointer"
+                          onClick={() => { setHistoryDetailTripId(trip.id); setHistoryDetailPassenger(null); }}
+                        >
+                          <div className="w-full flex items-center justify-between gap-3">
+                            {/* Left: icon + route + date */}
+                            <div className="flex items-center gap-3 min-w-0">
+                              <div className={`h-10 w-10 shrink-0 rounded-2xl flex items-center justify-center ${
+                                trip.status === "completed" ? "bg-emerald-100 text-emerald-600"
+                                : trip.status === "cancelled" ? "bg-red-100 text-red-600"
+                                : "bg-blue-100 text-blue-600"
+                              }`}>
+                                {trip.status === "completed" ? <CheckCircle size={18} />
+                                  : trip.status === "cancelled" ? <XCircle size={18} />
+                                  : <RouteIcon size={18} />}
                               </div>
-                              <div>
-                                <Text strong className="text-base text-gray-800 block mb-1">
-                                  {trip.fromLocation} → {trip.toLocation}
-                                </Text>
-                                <Text
-                                  type="secondary"
-                                  className="text-xs uppercase tracking-wider font-semibold"
-                                >
-                                  {dayjs(trip.departureAt).format("MMM D, YYYY • h:mm A")}
-                                </Text>
+                              <div className="min-w-0">
+                                <p className="text-sm font-bold text-gray-800 truncate">
+                                  {trip.fromLocation.split(",")[0]} → {trip.toLocation.split(",")[0]}
+                                </p>
+                                <p className="text-xs text-gray-400 mt-0.5">
+                                  {dayjs(trip.departureAt).format("MMM D, YYYY · h:mm A")}
+                                </p>
                               </div>
                             </div>
-                            <div className="flex items-center justify-between sm:flex-col sm:items-end gap-1">
-                              <Text
-                                strong
-                                className={`text-lg ${trip.status === "completed" ? "text-emerald-600" : "text-gray-400"}`}
-                              >
-                                ₹{(trip.totalPrice ?? 0).toLocaleString("en-IN")}
-                              </Text>
+                            {/* Right: price + status */}
+                            <div className="flex flex-col items-end shrink-0 gap-1">
+                              <span className={`text-sm font-black tabular-nums ${trip.status === "completed" ? "text-emerald-600" : "text-gray-400"}`}>
+                                ₹{(receivedByTrip.get(trip.id) ?? 0).toLocaleString("en-IN")}
+                              </span>
                               <Tag
-                                color={
-                                  trip.status === "completed"
-                                    ? "success"
-                                    : trip.status === "cancelled"
-                                      ? "error"
-                                      : "processing"
-                                }
-                                className="m-0 rounded-full border-none px-2 uppercase text-[10px] tracking-wider font-bold"
+                                color={trip.status === "completed" ? "success" : trip.status === "cancelled" ? "error" : "processing"}
+                                className="m-0 rounded-full border-none px-2 uppercase text-[9px] tracking-wider font-bold"
                               >
                                 {trip.status}
                               </Tag>
@@ -3368,6 +3390,251 @@ function DriverDashboardPage() {
                   </Card>
                 </div>
               )}
+
+              {/* ── History Trip Detail Drawer ── */}
+              {(() => {
+                const detailTrip = historyDetailTripId
+                  ? filteredHistory.find((t) => t.id === historyDetailTripId) ?? pastTrips.find((t) => t.id === historyDetailTripId)
+                  : null;
+                const tripBookings = historyDetailTripId
+                  ? bookings.filter((b) => b.tripId === historyDetailTripId)
+                  : [];
+                const received = tripBookings
+                  .filter((b) => b.status !== "cancelled")
+                  .reduce((s, b) => s + b.segmentPrice * b.seatsBooked, 0);
+                const seatsBooked = tripBookings
+                  .filter((b) => b.status !== "cancelled")
+                  .reduce((s, b) => s + b.seatsBooked, 0);
+
+                return (
+                  <Drawer
+                    open={!!historyDetailTripId}
+                    onClose={() => { setHistoryDetailTripId(null); setHistoryDetailPassenger(null); }}
+                    placement="bottom"
+                    height="85vh"
+                    styles={{ body: { padding: 0, overflowY: "auto" }, header: { display: "none" } }}
+                    className="rounded-t-3xl overflow-hidden"
+                  >
+                    {detailTrip && !historyDetailPassenger && (
+                      <div className="flex flex-col h-full" style={{ fontFamily: APP_FONT_FAMILY }}>
+                        {/* Header */}
+                        <div className="flex items-center justify-between px-5 pt-5 pb-4 border-b border-gray-100">
+                          <div className="min-w-0">
+                            <p className="text-base font-black text-gray-900 truncate">
+                              {detailTrip.fromLocation.split(",")[0]} → {detailTrip.toLocation.split(",")[0]}
+                            </p>
+                            <p className="text-xs text-gray-400 mt-0.5">
+                              {dayjs(detailTrip.departureAt).format("ddd, MMM D · h:mm A")}
+                              {detailTrip.totalDistanceKm ? ` · ${detailTrip.totalDistanceKm} km` : ""}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <Tag
+                              color={detailTrip.status === "completed" ? "success" : detailTrip.status === "cancelled" ? "error" : "processing"}
+                              className="m-0 rounded-full border-none capitalize text-xs font-bold px-3"
+                            >
+                              {detailTrip.status}
+                            </Tag>
+                            <button
+                              onClick={() => { setHistoryDetailTripId(null); setHistoryDetailPassenger(null); }}
+                              className="grid h-8 w-8 place-items-center rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200"
+                            >
+                              <XCircle size={16} />
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="flex-1 overflow-y-auto">
+                          {/* Route stops */}
+                          {historyStopsLoading ? (
+                            <div className="flex justify-center py-6"><Spin /></div>
+                          ) : historyDetailStops.length > 0 && (
+                            <div className="px-5 py-4 border-b border-gray-100">
+                              <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-3">Route</p>
+                              <div className="space-y-0">
+                                {historyDetailStops
+                                  .slice()
+                                  .sort((a, b) => a.stopIndex - b.stopIndex)
+                                  .map((stop, i, arr) => (
+                                    <div key={stop.id} className="flex items-start gap-3">
+                                      <div className="flex flex-col items-center">
+                                        <div className={`h-2.5 w-2.5 rounded-full mt-1.5 shrink-0 ${i === 0 ? "bg-emerald-500" : i === arr.length - 1 ? "bg-rose-500" : "bg-amber-400"}`} />
+                                        {i < arr.length - 1 && <div className="w-px flex-1 min-h-[1.5rem] bg-gray-200 my-1" />}
+                                      </div>
+                                      <div className="pb-2 min-w-0">
+                                        <p className="text-sm font-semibold text-gray-800 leading-tight">{stop.location}</p>
+                                        {stop.distanceFromOriginKm > 0 && (
+                                          <p className="text-xs text-gray-400">{stop.distanceFromOriginKm} km from start</p>
+                                        )}
+                                      </div>
+                                    </div>
+                                  ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Passengers */}
+                          <div className="px-5 py-4">
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-3">
+                              Passengers ({tripBookings.length})
+                            </p>
+                            {tripBookings.length === 0 ? (
+                              <p className="text-sm text-gray-400">No bookings for this trip.</p>
+                            ) : (
+                              <div className="space-y-2">
+                                {tripBookings.map((b) => {
+                                  const nameParts = (b.passengerName || "").split("|").map((s) => s.trim());
+                                  const primaryName = nameParts[0]?.replace(/^Seat\s+[^:]+:\s*/i, "") || "Passenger";
+                                  return (
+                                    <button
+                                      key={b.id}
+                                      type="button"
+                                      onClick={() => setHistoryDetailPassenger(b)}
+                                      className="w-full flex items-center justify-between gap-3 rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 hover:bg-primary/5 hover:border-primary/20 transition-colors text-left"
+                                    >
+                                      <div className="flex items-center gap-3 min-w-0">
+                                        <div className="h-9 w-9 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-sm shrink-0">
+                                          {primaryName.charAt(0).toUpperCase()}
+                                        </div>
+                                        <div className="min-w-0">
+                                          <p className="text-sm font-bold text-gray-800 truncate">{primaryName}{nameParts.length > 1 ? ` +${nameParts.length - 1}` : ""}</p>
+                                          <p className="text-xs text-gray-400">{b.seatsBooked} seat{b.seatsBooked > 1 ? "s" : ""} · ₹{b.segmentPrice}</p>
+                                        </div>
+                                      </div>
+                                      <div className="flex items-center gap-2 shrink-0">
+                                        <Tag
+                                          color={b.status === "confirmed" || b.status === "completed" ? "success" : b.status === "cancelled" ? "error" : "processing"}
+                                          className="m-0 rounded-full border-none capitalize text-[10px] font-bold px-2"
+                                        >
+                                          {b.status}
+                                        </Tag>
+                                        <ArrowRight size={14} className="text-gray-300" />
+                                      </div>
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Revenue footer */}
+                        <div className="border-t border-gray-100 px-5 py-4 flex items-center justify-between bg-white">
+                          <div>
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Total received</p>
+                            <p className="text-xl font-black text-emerald-600">₹{received.toLocaleString("en-IN")}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Seats filled</p>
+                            <p className="text-xl font-black text-gray-700">{seatsBooked} / {detailTrip.totalSeats ?? "–"}</p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Passenger detail view */}
+                    {historyDetailPassenger && (() => {
+                      const b = historyDetailPassenger;
+                      const nameParts = (b.passengerName || "").split("|").map((s) => s.trim());
+                      const phoneParts = (b.passengerPhone || "").split("|").map((s) => s.trim());
+                      const passengers = nameParts.map((raw, i) => {
+                        const m = raw.match(/^Seat\s+([^:]+):\s*(.*)$/i);
+                        return { seat: m ? m[1] : String(i + 1), name: m ? m[2] : raw, phone: phoneParts[i] || phoneParts[0] || "" };
+                      });
+                      const fromStop = historyDetailStops.find((s) => s.stopIndex === b.fromStopIndex);
+                      const toStop = historyDetailStops.find((s) => s.stopIndex === b.toStopIndex);
+                      return (
+                        <div className="flex flex-col h-full" style={{ fontFamily: APP_FONT_FAMILY }}>
+                          {/* Header */}
+                          <div className="flex items-center gap-3 px-5 pt-5 pb-4 border-b border-gray-100">
+                            <button
+                              onClick={() => setHistoryDetailPassenger(null)}
+                              className="grid h-8 w-8 place-items-center rounded-full bg-gray-100 text-gray-600"
+                            >
+                              <ArrowRight size={16} className="rotate-180" />
+                            </button>
+                            <p className="text-base font-black text-gray-900 flex-1">Passenger Details</p>
+                            <button
+                              onClick={() => { setHistoryDetailTripId(null); setHistoryDetailPassenger(null); }}
+                              className="grid h-8 w-8 place-items-center rounded-full bg-gray-100 text-gray-500"
+                            >
+                              <XCircle size={16} />
+                            </button>
+                          </div>
+
+                          <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
+                            {/* Passengers list */}
+                            <div>
+                              <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-3">Passengers ({passengers.length})</p>
+                              <div className="space-y-2">
+                                {passengers.map((p, i) => (
+                                  <div key={i} className="flex items-center justify-between gap-3 rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3">
+                                    <div className="flex items-center gap-3 min-w-0">
+                                      <div className="h-9 w-9 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-sm shrink-0">
+                                        {p.name.charAt(0).toUpperCase()}
+                                      </div>
+                                      <div className="min-w-0">
+                                        <p className="text-sm font-bold text-gray-800 truncate">{p.name}</p>
+                                        <p className="text-xs text-gray-400">{p.phone}</p>
+                                      </div>
+                                    </div>
+                                    <span className="text-xs font-bold text-primary bg-primary/10 rounded-full px-2 py-0.5 shrink-0">Seat {p.seat}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+
+                            {/* Segment */}
+                            <div className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-4 space-y-3">
+                              <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Booking details</p>
+                              {fromStop && toStop && (
+                                <div className="flex items-center gap-2 text-sm font-bold text-gray-800">
+                                  <span>{fromStop.location.split(",")[0]}</span>
+                                  <ArrowRight size={14} className="text-gray-300 shrink-0" />
+                                  <span>{toStop.location.split(",")[0]}</span>
+                                </div>
+                              )}
+                              <div className="grid grid-cols-2 gap-3 text-sm">
+                                <div>
+                                  <p className="text-xs text-gray-400">Seats</p>
+                                  <p className="font-bold text-gray-800">{b.seatsBooked}</p>
+                                </div>
+                                <div>
+                                  <p className="text-xs text-gray-400">Amount paid</p>
+                                  <p className="font-bold text-emerald-600">₹{b.segmentPrice * b.seatsBooked}</p>
+                                </div>
+                                <div>
+                                  <p className="text-xs text-gray-400">Status</p>
+                                  <Tag color={b.status === "confirmed" || b.status === "completed" ? "success" : b.status === "cancelled" ? "error" : "processing"} className="m-0 rounded-full border-none capitalize text-[10px] font-bold px-2">
+                                    {b.status}
+                                  </Tag>
+                                </div>
+                                <div>
+                                  <p className="text-xs text-gray-400">Booked on</p>
+                                  <p className="font-bold text-gray-800 text-xs">{dayjs(b.createdAt).format("MMM D · h:mm A")}</p>
+                                </div>
+                              </div>
+                              {b.otp && (
+                                <div className="border-t border-gray-100 pt-3">
+                                  <p className="text-xs text-gray-400 mb-1">Boarding OTP</p>
+                                  <div className="flex items-center gap-3">
+                                    <span className="font-mono text-2xl font-black tracking-[0.4rem] text-gray-900">{b.otp}</span>
+                                    {b.verified && (
+                                      <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-600 bg-emerald-50 rounded-full px-2 py-0.5">
+                                        <CheckCircle size={10} /> Verified
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </Drawer>
+                );
+              })()}
 
               {/* — DRIVERS MODULE — */}
               {activeModule === "drivers" && (
@@ -4241,9 +4508,9 @@ function DriverDashboardPage() {
               <div
                 className={`p-1.5 rounded-full ${activeModule === "trips" ? "bg-primary/10" : ""}`}
               >
-                <PlusCircle size={22} />
+                <RouteIcon size={22} />
               </div>
-              <span className="text-[10px] font-semibold -mt-1">New Trip</span>
+              <span className="text-[10px] font-semibold -mt-1">Trips</span>
             </button>
 
             <button

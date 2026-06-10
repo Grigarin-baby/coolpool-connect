@@ -9,6 +9,11 @@ export interface PlacePoint {
   lng: number;
 }
 
+/** An intermediate stop with a traveler-facing role. */
+export interface IntermediatePoint extends PlacePoint {
+  stopType: "pickup" | "drop" | "both";
+}
+
 /** One alternative returned by the Directions API. */
 export interface RouteAlternative {
   /** Stable id within the current Directions result set (the array index). */
@@ -30,6 +35,7 @@ export interface WizardStop {
   lng: number;
   /** km along the chosen polyline from origin to this stop. */
   distanceFromOriginKm: number;
+  stopType: "pickup" | "drop" | "both";
 }
 
 /** Mutable wizard state held by the shell while the user moves through steps. */
@@ -41,12 +47,14 @@ export interface WizardData {
   date: Dayjs | null;
   time: ClockTime | null;
   /** Intermediate stops collected in StepRoute (plain coords, no distance yet). */
-  intermediatePoints: PlacePoint[];
+  intermediatePoints: IntermediatePoint[];
   stops: WizardStop[];
   pricePerSeat: number | null;
   seatConfig: SeatId[];
   vehicleId: string | null;
   driverId: string | null;
+  /** Editable per-segment prices. Key = "fromStopIdx-toStopIdx" in the ordered allStops array. */
+  segmentPrices: Record<string, number>;
 }
 
 /** What the wizard hands back to the calling form on completion. */
@@ -64,7 +72,15 @@ export interface WizardResult {
   totalSeats: number;
   vehicleId: string;
   driverId: string;
+  /** Final per-segment prices after user review. Key = "fromStopIdx-toStopIdx". */
+  segmentPrices: Record<string, number>;
 }
+
+export const STOP_TYPE_LABELS: Record<IntermediatePoint["stopType"], string> = {
+  pickup: "Pick-up only",
+  drop: "Drop-off only",
+  both: "Pick-up & Drop-off",
+};
 
 export const EMPTY_WIZARD_DATA: WizardData = {
   from: null,
@@ -79,4 +95,5 @@ export const EMPTY_WIZARD_DATA: WizardData = {
   seatConfig: [],
   vehicleId: null,
   driverId: null,
+  segmentPrices: {},
 };

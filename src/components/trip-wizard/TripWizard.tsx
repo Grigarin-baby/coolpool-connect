@@ -5,14 +5,14 @@ import { Button as UiButton } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { StepRoute } from "./StepRoute";
 import { StepDateTime } from "./StepDateTime";
-import { StepStops } from "./StepStops";
-import { StepAmount } from "./StepAmount";
 import { StepSeats } from "./StepSeats";
 import { StepVehicle } from "./StepVehicle";
 import { StepDriver } from "./StepDriver";
 import { StepReview } from "./StepReview";
-import type { PlacePoint, RouteAlternative, WizardData, WizardResult, WizardStop } from "./types";
+import type { IntermediatePoint, RouteAlternative, WizardData, WizardResult, WizardStop } from "./types";
 import { EMPTY_WIZARD_DATA } from "./types";
+import { APP_FONT_FAMILY } from "@/lib/fonts";
+import { closestPolylineIndex, decodePolyline, distanceAlongPolylineKm } from "@/lib/geo";
 import type { DriverVehicle } from "@/lib/domain";
 import type { SeatId } from "@/components/SeatPicker";
 
@@ -37,9 +37,7 @@ interface TripWizardProps {
 
 type StepKey =
   | "route"
-  | "stops"
   | "when"
-  | "amount"
   | "seats"
   | "vehicle"
   | "driver"
@@ -47,9 +45,7 @@ type StepKey =
 
 const STEP_ORDER: StepKey[] = [
   "route",
-  "stops",
   "when",
-  "amount",
   "seats",
   "vehicle",
   "driver",
@@ -58,10 +54,8 @@ const STEP_ORDER: StepKey[] = [
 
 const STEP_TITLES: Record<StepKey, string> = {
   route: "Where are you going?",
-  stops: "Boarding points",
   when: "When are you leaving?",
-  amount: "How much per seat?",
-  seats: "Pick the seats",
+  seats: "Seats & pricing",
   vehicle: "Which vehicle?",
   driver: "Who's driving?",
   review: "Review & publish",
@@ -118,6 +112,26 @@ export function TripWizard({
   const selectedVehicle = vehicles.find((v) => v.id === data.vehicleId) ?? null;
   const selectedDriver = drivers.find((d) => d.id === data.driverId) ?? null;
 
+  // Pre-compute stops with distanceFromOriginKm — shared by StepReview and finish()
+  const computedStops = useMemo((): WizardStop[] => {
+    if (!selectedAlt) return [];
+    const decodedPath = decodePolyline(selectedAlt.polyline);
+    return data.intermediatePoints
+      .filter((p) => p.lat !== 0 && p.lng !== 0)
+      .map((p) => {
+        const idx = closestPolylineIndex({ lat: p.lat, lng: p.lng }, decodedPath);
+        const km = distanceAlongPolylineKm(decodedPath, idx);
+        return {
+          label: p.label,
+          lat: p.lat,
+          lng: p.lng,
+          distanceFromOriginKm: Math.round(km * 10) / 10,
+          stopType: p.stopType,
+        };
+      })
+      .sort((a, b) => a.distanceFromOriginKm - b.distanceFromOriginKm);
+  }, [data.intermediatePoints, selectedAlt]);
+
   // Stable callbacks — must not change on every render or StepRoute re-fetches routes endlessly
   const handleFromChange = useCallback(
     (from: WizardData["from"]) => setData((d) => ({ ...d, from })),
@@ -133,23 +147,28 @@ export function TripWizard({
     [],
   );
   const handleIntermediatePointsChange = useCallback(
-    (intermediatePoints: WizardData["intermediatePoints"]) =>
+    (intermediatePoints: IntermediatePoint[]) =>
       setData((d) => ({ ...d, intermediatePoints })),
     [],
   );
+
+  const selectedDeparture = useMemo(() => {
+    if (!data.date || !data.time) return null;
+    return data.date
+      .hour(data.time.hour24)
+      .minute(data.time.minute)
+      .second(0)
+      .millisecond(0);
+  }, [data.date, data.time]);
 
   const canContinue = (() => {
     switch (step) {
       case "route":
         return !!data.from && !!data.to && !!selectedAlt;
-      case "stops":
-        return true; // empty is valid
       case "when":
-        return !!data.date && !!data.time;
-      case "amount":
-        return typeof data.pricePerSeat === "number" && data.pricePerSeat > 0;
+        return !!selectedDeparture && selectedDeparture.isAfter(dayjs());
       case "seats":
-        return data.seatConfig.length > 0;
+        return data.seatConfig.length > 0 && typeof data.pricePerSeat === "number" && data.pricePerSeat > 0;
       case "vehicle":
         return !!selectedVehicle;
       case "driver":
@@ -160,6 +179,7 @@ export function TripWizard({
           data.to &&
           data.date &&
           data.time &&
+          selectedDeparture?.isAfter(dayjs()) &&
           selectedAlt &&
           data.pricePerSeat &&
           data.seatConfig.length > 0 &&
@@ -206,12 +226,13 @@ export function TripWizard({
       polyline: selectedAlt.polyline,
       totalDistanceKm: selectedAlt.distanceKm,
       durationMin: selectedAlt.durationMin,
-      stops: data.stops,
+      stops: computedStops,
       pricePerSeat: data.pricePerSeat,
       seatConfig: data.seatConfig,
       totalSeats: data.seatConfig.length,
       vehicleId: selectedVehicle.id,
       driverId: selectedDriver.id,
+      segmentPrices: data.segmentPrices,
     };
     onComplete(result);
   };
@@ -278,34 +299,20 @@ export function TripWizard({
             onIntermediatePointsChange={handleIntermediatePointsChange}
           />
         )}
-        {step === "stops" && data.from && data.to && selectedAlt && (
-          <StepStops
-            from={data.from}
-            to={data.to}
-            alternative={selectedAlt}
-            stops={data.stops}
-            onStopsChange={(stops: WizardStop[]) => setData((d) => ({ ...d, stops }))}
-          />
-        )}
         {step === "when" && (
           <StepDateTime
-            date={data.date ?? dayjs().startOf("day")}
+            date={data.date}
             time={data.time}
             onDateChange={(date) => setData((d) => ({ ...d, date }))}
             onTimeChange={(time) => setData((d) => ({ ...d, time }))}
           />
         )}
-        {step === "amount" && (
-          <StepAmount
-            pricePerSeat={data.pricePerSeat}
-            seatConfig={data.seatConfig}
-            onChange={(val) => setData((d) => ({ ...d, pricePerSeat: val }))}
-          />
-        )}
         {step === "seats" && (
           <StepSeats
             seatConfig={data.seatConfig}
-            onChange={(seatConfig: SeatId[]) => setData((d) => ({ ...d, seatConfig }))}
+            pricePerSeat={data.pricePerSeat}
+            onSeatsChange={(seatConfig: SeatId[]) => setData((d) => ({ ...d, seatConfig }))}
+            onPriceChange={(pricePerSeat) => setData((d) => ({ ...d, pricePerSeat }))}
           />
         )}
         {step === "vehicle" && (
@@ -337,13 +344,15 @@ export function TripWizard({
               from={data.from}
               to={data.to}
               alternative={selectedAlt}
-              stops={data.stops}
+              stops={computedStops}
               date={data.date}
               time={data.time}
               pricePerSeat={data.pricePerSeat}
               seatConfig={data.seatConfig}
               vehicle={selectedVehicle}
               driver={selectedDriver}
+              segmentPrices={data.segmentPrices}
+              onSegmentPricesChange={(segmentPrices) => setData((d) => ({ ...d, segmentPrices }))}
             />
           )}
       </div>
@@ -354,7 +363,7 @@ export function TripWizard({
           type="button"
           variant="hero"
           size="lg"
-          className="w-full rounded-2xl h-14 text-base font-bold"
+          className="w-full rounded-2xl h-16 !text-white text-xl font-extrabold tracking-[0.18em]"
           onClick={goNext}
           disabled={!canContinue || publishing}
         >
@@ -372,6 +381,7 @@ export function TripWizard({
     return (
       <div
         className="fixed inset-0 z-[1100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
+        style={{ fontFamily: APP_FONT_FAMILY }}
         onClick={(e) => {
           if (e.target === e.currentTarget) onClose();
         }}
@@ -384,7 +394,7 @@ export function TripWizard({
   }
 
   return (
-    <div className="fixed inset-0 z-[1100] bg-white">
+    <div className="fixed inset-0 z-[1100] bg-white" style={{ fontFamily: APP_FONT_FAMILY }}>
       <div className="h-full">{body}</div>
     </div>
   );

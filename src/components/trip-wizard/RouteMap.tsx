@@ -7,6 +7,7 @@ interface RouteMapProps {
   alternatives: RouteAlternative[];
   selectedAltId: number | null;
   onSelectAlternative: (id: number) => void;
+  intermediatePoints?: PlacePoint[];
   className?: string;
 }
 
@@ -19,6 +20,7 @@ export function RouteMap({
   alternatives,
   selectedAltId,
   onSelectAlternative,
+  intermediatePoints = [],
   className,
 }: RouteMapProps) {
   const mapDivRef = useRef<HTMLDivElement>(null);
@@ -61,6 +63,29 @@ export function RouteMap({
       markersRef.current.push(m);
       bounds.extend({ lat: from.lat, lng: from.lng });
     }
+
+    // Intermediate stop markers — amber circle with number
+    intermediatePoints.forEach((pt, i) => {
+      if (!pt.lat || !pt.lng) return;
+      const m = new google.maps.Marker({
+        position: { lat: pt.lat, lng: pt.lng },
+        map,
+        label: { text: String(i + 1), color: "white", fontWeight: "700", fontSize: "12px" },
+        icon: {
+          path: google.maps.SymbolPath.CIRCLE,
+          scale: 14,
+          fillColor: "#f59e0b",
+          fillOpacity: 1,
+          strokeColor: "#ffffff",
+          strokeWeight: 2,
+        },
+        title: pt.label,
+        zIndex: 5,
+      });
+      markersRef.current.push(m);
+      bounds.extend({ lat: pt.lat, lng: pt.lng });
+    });
+
     if (to) {
       const m = new google.maps.Marker({
         position: { lat: to.lat, lng: to.lng },
@@ -92,7 +117,7 @@ export function RouteMap({
     if (!bounds.isEmpty()) {
       map.fitBounds(bounds, 48);
     }
-  }, [from, to, alternatives, selectedAltId, onSelectAlternative]);
+  }, [from, to, intermediatePoints, alternatives, selectedAltId, onSelectAlternative]);
 
   return <div ref={mapDivRef} className={className ?? "h-64 w-full rounded-2xl"} />;
 }
