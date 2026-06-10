@@ -1750,7 +1750,7 @@ function DriverDashboardPage() {
 
             <Content className="p-5 sm:p-8 md:p-12 max-w-7xl mx-auto w-full pb-28 lg:pb-12">
               {activeModule === "dashboard" && (
-                <div className="space-y-5 animate-in fade-in slide-in-from-bottom-4 duration-700">
+                <div className="flex flex-col gap-4 animate-in fade-in slide-in-from-bottom-4 duration-700">
                   {!isVerifiedHost && (
                     <Card className="rounded-3xl border-none bg-gradient-to-r from-amber-50 to-orange-50 p-6 shadow-soft relative overflow-hidden">
                       <div className="absolute -right-6 -top-6 text-amber-100 opacity-50 rotate-12">
@@ -1782,7 +1782,7 @@ function DriverDashboardPage() {
                       </div>
                     </Card>
                   )}
-                  <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 pt-2">
+                  <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
                     <div className="flex flex-col gap-1.5">
                       <Title level={2} style={{ margin: 0 }}>
                         Hi, {getUserDisplayName(user).split(" ")[0]}!
@@ -1878,7 +1878,7 @@ function DriverDashboardPage() {
                     )}
                   </Card>
 
-                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 pt-1">
+                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                     {/* Total Rides */}
                     <Card className="rounded-2xl border border-white/60 shadow-soft hover:shadow-card transition-all duration-300 backdrop-blur-md group overflow-hidden relative py-5 px-5">
                       <div className="absolute -right-6 -top-6 w-24 h-24 bg-purple-500/10 rounded-full blur-xl group-hover:bg-purple-500/20 transition-all" />
