@@ -243,6 +243,39 @@ function disabledTripTime(current: dayjs.Dayjs | null) {
   };
 }
 
+function getRatingColorClasses(rating: number) {
+  if (rating >= 4) {
+    return {
+      accent: "bg-green-500/10 group-hover:bg-green-500/20",
+      icon: "bg-green-100 text-green-600",
+      score: "text-green-600",
+      star: "fill-green-500 text-green-500",
+    };
+  }
+  if (rating >= 2.5) {
+    return {
+      accent: "bg-yellow-500/10 group-hover:bg-yellow-500/20",
+      icon: "bg-yellow-100 text-yellow-600",
+      score: "text-yellow-600",
+      star: "fill-yellow-400 text-yellow-400",
+    };
+  }
+  if (rating >= 1.5) {
+    return {
+      accent: "bg-orange-500/10 group-hover:bg-orange-500/20",
+      icon: "bg-orange-100 text-orange-600",
+      score: "text-orange-600",
+      star: "fill-orange-500 text-orange-500",
+    };
+  }
+  return {
+    accent: "bg-red-500/10 group-hover:bg-red-500/20",
+    icon: "bg-red-100 text-red-600",
+    score: "text-red-600",
+    star: "fill-red-500 text-red-500",
+  };
+}
+
 export const Route = createFileRoute("/driver/dashboard")({
   validateSearch: (search: Record<string, unknown>): { module: DashboardModule } => ({
     module: normalizeModule(search.module),
@@ -308,6 +341,8 @@ function DriverDashboardPage() {
   });
   const [otpInputs, setOtpInputs] = useState<Record<string, string>>({});
   const [verifyingId, setVerifyingId] = useState<string | null>(null);
+  const performanceRating = 5;
+  const performanceRatingColors = getRatingColorClasses(performanceRating);
 
   const handleVerifyOtp = async (bookingId: string) => {
     const code = (otpInputs[bookingId] || "").trim();
@@ -1793,25 +1828,27 @@ function DriverDashboardPage() {
 
                     {/* Performance */}
                     <Card className="rounded-2xl border border-white/60 shadow-soft hover:shadow-card transition-all duration-300 backdrop-blur-md group overflow-hidden relative py-5 px-5">
-                      <div className="absolute -left-6 -top-6 w-24 h-24 bg-yellow-500/10 rounded-full blur-xl group-hover:bg-yellow-500/20 transition-all" />
+                      <div className={`absolute -left-6 -top-6 w-24 h-24 rounded-full blur-xl transition-all ${performanceRatingColors.accent}`} />
                       <div className="flex items-center justify-between gap-4">
                         {/* Left */}
                         <div className="flex items-center gap-3 min-w-0">
-                          <div className="p-2.5 bg-yellow-100 rounded-2xl text-yellow-600 shrink-0">
+                          <div className={`p-2.5 rounded-2xl shrink-0 ${performanceRatingColors.icon}`}>
                             <Sparkles size={20} />
                           </div>
                           <div className="min-w-0">
                             <p className="text-sm font-semibold text-gray-500 leading-tight">Performance</p>
                             <div className="flex gap-1 mt-1.5">
                               {[...Array(5)].map((_, i) => (
-                                <Star key={i} size={13} className="fill-yellow-400 text-yellow-400" />
+                                <Star key={i} size={13} className={performanceRatingColors.star} />
                               ))}
                             </div>
                           </div>
                         </div>
                         {/* Right — number */}
                         <div className="text-right shrink-0">
-                          <p className="text-3xl font-black text-gray-900 leading-none">5.0</p>
+                          <p className={`text-3xl font-black leading-none ${performanceRatingColors.score}`}>
+                            {performanceRating.toFixed(1)}
+                          </p>
                         </div>
                       </div>
                     </Card>
