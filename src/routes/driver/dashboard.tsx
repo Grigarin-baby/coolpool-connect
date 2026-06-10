@@ -2551,41 +2551,6 @@ function DriverDashboardPage() {
                                       Cancel
                                     </Button>
                                   </Popconfirm>
-                                  <Popconfirm
-                                    title="Delete Trip"
-                                    description="Are you sure you want to delete this trip? This action cannot be undone."
-                                    onConfirm={async () => {
-                                      try {
-                                        await deleteTrip(trip.id);
-                                        message.success(
-                                          "Trip deleted successfully",
-                                        );
-                                        queryClient.invalidateQueries({
-                                          queryKey: ["host-trips"],
-                                        });
-                                      } catch (err) {
-                                        console.error(
-                                          "[DeleteTrip] Error:",
-                                          err,
-                                        );
-                                        message.error(
-                                          "Failed to delete trip",
-                                        );
-                                      }
-                                    }}
-                                    okText="Yes, Delete"
-                                    cancelText="Keep Trip"
-                                    okButtonProps={{ danger: true }}
-                                  >
-                                    <Button
-                                      type="link"
-                                      size="small"
-                                      danger
-                                      className="p-0"
-                                    >
-                                      Delete
-                                    </Button>
-                                  </Popconfirm>
                                 </Space>
                               ),
                             },
@@ -2821,40 +2786,6 @@ function DriverDashboardPage() {
                                       className="rounded-xl"
                                     >
                                       Cancel
-                                    </Button>
-                                  </Popconfirm>
-                                  <Popconfirm
-                                    title="Delete Trip"
-                                    description="Are you sure you want to delete this trip?"
-                                    onConfirm={async () => {
-                                      try {
-                                        await deleteTrip(trip.id);
-                                        message.success(
-                                          "Trip deleted successfully",
-                                        );
-                                        queryClient.invalidateQueries({
-                                          queryKey: ["host-trips"],
-                                        });
-                                      } catch (err) {
-                                        console.error(
-                                          "[DeleteTrip] Error:",
-                                          err,
-                                        );
-                                        message.error(
-                                          "Failed to delete trip",
-                                        );
-                                      }
-                                    }}
-                                    okText="Yes"
-                                    cancelText="No"
-                                    okButtonProps={{ danger: true }}
-                                  >
-                                    <Button
-                                      size="small"
-                                      danger
-                                      className="rounded-xl"
-                                    >
-                                      Delete
                                     </Button>
                                   </Popconfirm>
                                 </div>
