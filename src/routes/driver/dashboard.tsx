@@ -1586,9 +1586,9 @@ function DriverDashboardPage() {
                                 </button>
                               </div>
                               {savedPrefs &&
-                              (savedPrefs.smokingAllowed ||
-                                savedPrefs.alcoholAllowed ||
-                                savedPrefs.musicAllowed) ? (
+                                (savedPrefs.smokingAllowed ||
+                                  savedPrefs.alcoholAllowed ||
+                                  savedPrefs.musicAllowed) && (
                                 <div className="flex flex-wrap gap-1.5">
                                   {savedPrefs.smokingAllowed && (
                                     <span className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full bg-amber-50 text-amber-600 border border-amber-200">
@@ -1610,23 +1610,6 @@ function DriverDashboardPage() {
                                     </span>
                                   )}
                                 </div>
-                              ) : (
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setProfileDropdownOpen(false);
-                                    setPrefsLocal({
-                                      smokingAllowed: false,
-                                      alcoholAllowed: false,
-                                      musicAllowed: false,
-                                      musicType: null,
-                                    });
-                                    setPrefsDrawerOpen(true);
-                                  }}
-                                  className="text-[11px] text-gray-400 hover:text-primary transition-colors flex items-center gap-1"
-                                >
-                                  <Pencil size={10} /> Tap to configure
-                                </button>
                               )}
                             </div>
                           </div>
