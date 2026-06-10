@@ -1719,7 +1719,7 @@ function DriverDashboardPage() {
                   <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
                     <div className="flex flex-col gap-1">
                       <Title level={2} style={{ margin: 0 }}>
-                        Welcome back, {getUserDisplayName(user).split(" ")[0]}!
+                        Hi, {getUserDisplayName(user).split(" ")[0]}!
                       </Title>
                       <Text type="secondary" className="text-lg">
                         Here's what's happening with your trips today.
