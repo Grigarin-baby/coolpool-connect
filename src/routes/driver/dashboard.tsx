@@ -1748,9 +1748,9 @@ function DriverDashboardPage() {
               </div>
             </Header>
 
-            <Content className="p-4 sm:p-6 md:p-10 max-w-7xl mx-auto w-full pb-24 lg:pb-10">
+            <Content className="p-5 sm:p-8 md:p-12 max-w-7xl mx-auto w-full pb-28 lg:pb-12">
               {activeModule === "dashboard" && (
-                <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
+                <div className="space-y-5 animate-in fade-in slide-in-from-bottom-4 duration-700">
                   {!isVerifiedHost && (
                     <Card className="rounded-3xl border-none bg-gradient-to-r from-amber-50 to-orange-50 p-6 shadow-soft relative overflow-hidden">
                       <div className="absolute -right-6 -top-6 text-amber-100 opacity-50 rotate-12">
@@ -1782,12 +1782,12 @@ function DriverDashboardPage() {
                       </div>
                     </Card>
                   )}
-                  <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-                    <div className="flex flex-col gap-1">
+                  <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 pt-2">
+                    <div className="flex flex-col gap-1.5">
                       <Title level={2} style={{ margin: 0 }}>
                         Hi, {getUserDisplayName(user).split(" ")[0]}!
                       </Title>
-                      <Text type="secondary" className="text-lg">
+                      <Text type="secondary" className="text-base">
                         Here's what's happening with your trips today.
                       </Text>
                     </div>
@@ -1812,7 +1812,7 @@ function DriverDashboardPage() {
                   </div>
 
                   {/* ── Host Bio card ── */}
-                  <Card className="rounded-2xl border border-white/60 shadow-soft backdrop-blur-md overflow-hidden">
+                  <Card className="rounded-2xl border border-white/60 shadow-soft backdrop-blur-md overflow-hidden" styles={{ body: { padding: '20px 24px' } }}>
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex items-center gap-3 min-w-0">
                         <div className="p-2 bg-blue-100 rounded-2xl text-blue-600 shrink-0">
@@ -1878,7 +1878,7 @@ function DriverDashboardPage() {
                     )}
                   </Card>
 
-                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 pt-1">
                     {/* Total Rides */}
                     <Card className="rounded-2xl border border-white/60 shadow-soft hover:shadow-card transition-all duration-300 backdrop-blur-md group overflow-hidden relative py-5 px-5">
                       <div className="absolute -right-6 -top-6 w-24 h-24 bg-purple-500/10 rounded-full blur-xl group-hover:bg-purple-500/20 transition-all" />
