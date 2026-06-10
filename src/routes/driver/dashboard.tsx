@@ -1817,59 +1817,6 @@ function DriverDashboardPage() {
                     </Card>
                   </div>
 
-                  {/* ── Ride Preferences card ── */}
-                  {(() => {
-                    const prefs = savedPrefs;
-                    const hasPrefs = prefs && (prefs.smokingAllowed || prefs.alcoholAllowed || prefs.musicAllowed);
-                    return (
-                      <Card className="rounded-2xl border border-white/60 shadow-soft backdrop-blur-md overflow-hidden">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <div className="p-2 bg-purple-100 rounded-2xl text-purple-600">
-                              <Music2 size={18} />
-                            </div>
-                            <div>
-                              <Text strong className="text-gray-800">Ride Preferences</Text>
-                              <div className="text-xs text-gray-400 mt-0.5">Shown on your trip cards</div>
-                            </div>
-                          </div>
-                          <button
-                            onClick={() => {
-                              setPrefsLocal(savedPrefs ?? { smokingAllowed: false, alcoholAllowed: false, musicAllowed: false, musicType: null });
-                              setPrefsDrawerOpen(true);
-                            }}
-                            className="flex items-center gap-1.5 text-xs font-semibold text-primary hover:text-primary/80 transition-colors px-3 py-1.5 rounded-xl hover:bg-purple-50"
-                          >
-                            <Pencil size={13} /> Edit
-                          </button>
-                        </div>
-                        {hasPrefs ? (
-                          <div className="mt-3 flex flex-wrap gap-2">
-                            {prefs.smokingAllowed && (
-                              <span className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
-                                <Cigarette size={12} /> Smoking OK
-                              </span>
-                            )}
-                            {prefs.alcoholAllowed && (
-                              <span className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-rose-50 text-rose-600 border border-rose-200">
-                                <Wine size={12} /> Alcohol OK
-                              </span>
-                            )}
-                            {prefs.musicAllowed && (
-                              <span className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-green-50 text-green-700 border border-green-200">
-                                <Music2 size={12} /> Music{prefs.musicType && prefs.musicType !== "any" ? ` · ${prefs.musicType.charAt(0).toUpperCase() + prefs.musicType.slice(1)}` : ""}
-                              </span>
-                            )}
-                          </div>
-                        ) : (
-                          <div className="mt-3 text-xs text-gray-400">
-                            No preferences set — tap Edit to configure.
-                          </div>
-                        )}
-                      </Card>
-                    );
-                  })()}
-
                   {/* ── Ride Preferences Drawer ── */}
                   <Drawer
                     title="Ride Preferences"
