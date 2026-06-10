@@ -2227,24 +2227,6 @@ function DriverDashboardPage() {
                         </Card>
                       </div>
 
-                      <Card className="rounded-2xl border-none bg-gradient-primary text-white p-6 shadow-glow relative overflow-hidden mt-8 hover:scale-[1.02] transition-transform duration-300 cursor-pointer">
-                        <Sparkles
-                          size={80}
-                          className="absolute -right-6 -bottom-6 opacity-20 rotate-12"
-                        />
-                        <Title level={4} style={{ color: "white", margin: 0 }}>
-                          Pro Ride Host Tips
-                        </Title>
-                        <p className="mt-2 text-white/80 text-sm">
-                          Consistent high ratings lead to better visibility and more ride requests.
-                        </p>
-                        <Button
-                          ghost
-                          className="mt-4 border-white/40 text-white rounded-3xl hover:bg-white/10"
-                        >
-                          Learn more
-                        </Button>
-                      </Card>
                     </div>
                   </div>
                 </div>
