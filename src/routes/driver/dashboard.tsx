@@ -1771,7 +1771,7 @@ function DriverDashboardPage() {
                     <Button
                       type="primary"
                       icon={<PlusCircle size={18} />}
-                      style={{ height: 48, paddingInline: 20, fontSize: 15, fontWeight: 700, borderRadius: 14, whiteSpace: 'nowrap', flexShrink: 0 }}
+                      style={{ height: 56, paddingInline: 28, fontSize: 16, fontWeight: 800, borderRadius: 16, whiteSpace: 'nowrap', flexShrink: 0 }}
                       className="bg-gradient-primary border-none shadow-glow hover:scale-105 active:scale-95 transition-transform"
                       onClick={() => {
                         setEditingTripId(null);
