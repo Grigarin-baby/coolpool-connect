@@ -10,7 +10,8 @@
       "Bash(xxd)",
       "Bash(python -c \"from docx import Document; d=Document\\('Smart Route Segment Pricing Plan.docx'\\); [print\\(p.text\\) for p in d.paragraphs]\")",
       "Bash(pip install *)",
-      "Bash(findstr *)"
+      "Bash(findstr *)",
+      "Bash(git fetch *)"
     ]
   }
 }
