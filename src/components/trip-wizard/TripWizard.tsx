@@ -13,7 +13,8 @@ import type { IntermediatePoint, RouteAlternative, WizardData, WizardResult, Wiz
 import { EMPTY_WIZARD_DATA } from "./types";
 import { APP_FONT_FAMILY } from "@/lib/fonts";
 import { closestPolylineIndex, decodePolyline, distanceAlongPolylineKm } from "@/lib/geo";
-import type { DriverVehicle } from "@/lib/domain";
+import type { DriverVehicle, Trip } from "@/lib/domain";
+import { describeConflict, getResourceConflict } from "@/lib/trip-conflicts";
 import type { SeatId } from "@/components/SeatPicker";
 
 interface DriverOption {
@@ -28,6 +29,10 @@ interface TripWizardProps {
   initial?: Partial<WizardData>;
   vehicles: DriverVehicle[];
   drivers: DriverOption[];
+  /** Host's existing trips, used to detect driver/vehicle scheduling conflicts. */
+  trips?: Trip[];
+  /** When editing an existing trip, exclude it from conflict checks. */
+  editingTripId?: string | null;
   publishing?: boolean;
   onClose: () => void;
   onComplete: (result: WizardResult) => void;
@@ -80,6 +85,8 @@ export function TripWizard({
   initial,
   vehicles,
   drivers,
+  trips = [],
+  editingTripId,
   publishing,
   onClose,
   onComplete,
@@ -112,19 +119,91 @@ export function TripWizard({
   const selectedVehicle = vehicles.find((v) => v.id === data.vehicleId) ?? null;
   const selectedDriver = drivers.find((d) => d.id === data.driverId) ?? null;
 
-  // Default to the first vehicle/driver so the host doesn't have to pick when
-  // they only have one of each (the common case).
+  const selectedDeparture = useMemo(() => {
+    if (!data.date || !data.time) return null;
+    return data.date
+      .hour(data.time.hour24)
+      .minute(data.time.minute)
+      .second(0)
+      .millisecond(0);
+  }, [data.date, data.time]);
+
+  // The candidate trip's [departure, arrival) window, used to detect driver/
+  // vehicle scheduling conflicts. Only available once the route (for duration)
+  // and departure time have been chosen.
+  const candidateWindow = useMemo(() => {
+    if (!selectedDeparture || !selectedAlt) return null;
+    return {
+      start: selectedDeparture,
+      end: selectedDeparture.add(selectedAlt.durationMin, "minute"),
+    };
+  }, [selectedDeparture, selectedAlt]);
+
+  const vehicleConflicts = useMemo(() => {
+    const map: Record<string, string> = {};
+    if (!candidateWindow) return map;
+    for (const v of vehicles) {
+      const conflict = getResourceConflict(
+        trips,
+        "vehicleId",
+        v.id,
+        candidateWindow.start,
+        candidateWindow.end,
+        editingTripId,
+      );
+      if (conflict) map[v.id] = describeConflict(conflict);
+    }
+    return map;
+  }, [candidateWindow, vehicles, trips, editingTripId]);
+
+  const driverConflicts = useMemo(() => {
+    const map: Record<string, string> = {};
+    if (!candidateWindow) return map;
+    for (const d of drivers) {
+      const conflict = getResourceConflict(
+        trips,
+        "assignedDriverId",
+        d.id,
+        candidateWindow.start,
+        candidateWindow.end,
+        editingTripId,
+      );
+      if (conflict) map[d.id] = describeConflict(conflict);
+    }
+    return map;
+  }, [candidateWindow, drivers, trips, editingTripId]);
+
+  // Default to the first available vehicle/driver so the host doesn't have to
+  // pick when they only have one of each (the common case). Skip ones that
+  // are already busy during this trip's time window.
   useEffect(() => {
     if (!data.vehicleId && vehicles.length > 0) {
-      setData((d) => ({ ...d, vehicleId: vehicles[0].id }));
+      const firstFree = vehicles.find((v) => !vehicleConflicts[v.id]) ?? vehicles[0];
+      setData((d) => ({ ...d, vehicleId: firstFree.id }));
     }
-  }, [data.vehicleId, vehicles]);
+  }, [data.vehicleId, vehicles, vehicleConflicts]);
 
   useEffect(() => {
     if (!data.driverId && drivers.length > 0) {
-      setData((d) => ({ ...d, driverId: drivers[0].id }));
+      const firstFree = drivers.find((d2) => !driverConflicts[d2.id]) ?? drivers[0];
+      setData((d) => ({ ...d, driverId: firstFree.id }));
     }
-  }, [data.driverId, drivers]);
+  }, [data.driverId, drivers, driverConflicts]);
+
+  // If the chosen departure time/route shifts and the currently-selected
+  // vehicle/driver becomes busy, clear the selection so the host must
+  // re-pick (canContinue will block until they do).
+  useEffect(() => {
+    if (data.vehicleId && vehicleConflicts[data.vehicleId]) {
+      setData((d) => ({ ...d, vehicleId: null }));
+    }
+  }, [data.vehicleId, vehicleConflicts]);
+
+  useEffect(() => {
+    if (data.driverId && driverConflicts[data.driverId]) {
+      setData((d) => ({ ...d, driverId: null }));
+    }
+  }, [data.driverId, driverConflicts]);
 
   // Pre-compute stops with distanceFromOriginKm — shared by StepReview and finish()
   const computedStops = useMemo((): WizardStop[] => {
@@ -166,15 +245,6 @@ export function TripWizard({
     [],
   );
 
-  const selectedDeparture = useMemo(() => {
-    if (!data.date || !data.time) return null;
-    return data.date
-      .hour(data.time.hour24)
-      .minute(data.time.minute)
-      .second(0)
-      .millisecond(0);
-  }, [data.date, data.time]);
-
   const canContinue = (() => {
     switch (step) {
       case "route":
@@ -184,9 +254,9 @@ export function TripWizard({
       case "seats":
         return data.seatConfig.length > 0 && typeof data.pricePerSeat === "number" && data.pricePerSeat > 0;
       case "vehicle":
-        return !!selectedVehicle;
+        return !!selectedVehicle && !vehicleConflicts[selectedVehicle.id];
       case "driver":
-        return !!selectedDriver;
+        return !!selectedDriver && !driverConflicts[selectedDriver.id];
       case "review":
         return !!(
           data.from &&
@@ -198,7 +268,9 @@ export function TripWizard({
           data.pricePerSeat &&
           data.seatConfig.length > 0 &&
           selectedVehicle &&
-          selectedDriver
+          !vehicleConflicts[selectedVehicle.id] &&
+          selectedDriver &&
+          !driverConflicts[selectedDriver.id]
         );
     }
   })();
@@ -225,7 +297,9 @@ export function TripWizard({
       !selectedAlt ||
       !data.pricePerSeat ||
       !selectedVehicle ||
-      !selectedDriver
+      !selectedDriver ||
+      vehicleConflicts[selectedVehicle.id] ||
+      driverConflicts[selectedDriver.id]
     )
       return;
     const departure = data.date
@@ -335,6 +409,7 @@ export function TripWizard({
             selectedVehicleId={data.vehicleId}
             onChange={(vehicleId) => setData((d) => ({ ...d, vehicleId }))}
             onAddNew={onAddVehicle}
+            conflicts={vehicleConflicts}
           />
         )}
         {step === "driver" && (
@@ -343,6 +418,7 @@ export function TripWizard({
             selectedDriverId={data.driverId}
             onChange={(driverId) => setData((d) => ({ ...d, driverId }))}
             onAddNew={onAddDriver}
+            conflicts={driverConflicts}
           />
         )}
         {step === "review" &&

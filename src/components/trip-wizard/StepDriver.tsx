@@ -1,4 +1,4 @@
-import { Check, Plus, UserRound } from "lucide-react";
+import { Check, Clock, Plus, UserRound } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface DriverOption {
@@ -13,6 +13,8 @@ interface StepDriverProps {
   selectedDriverId: string | null;
   onChange: (id: string) => void;
   onAddNew: () => void;
+  /** Map of driverId -> human-readable reason they can't be assigned to this trip's time slot. */
+  conflicts?: Record<string, string>;
 }
 
 export function StepDriver({
@@ -20,6 +22,7 @@ export function StepDriver({
   selectedDriverId,
   onChange,
   onAddNew,
+  conflicts = {},
 }: StepDriverProps) {
   return (
     <div className="flex flex-col gap-4 px-4 pb-6 pt-2">
@@ -36,22 +39,26 @@ export function StepDriver({
         {drivers.map((d) => {
           const isSelected = d.id === selectedDriverId;
           const initial = (d.fullName || "?").trim().charAt(0).toUpperCase();
+          const conflict = conflicts[d.id];
           return (
             <button
               key={d.id}
               type="button"
-              onClick={() => onChange(d.id)}
+              onClick={() => !conflict && onChange(d.id)}
+              disabled={!!conflict}
               className={cn(
                 "flex w-full items-center gap-4 rounded-3xl border-2 bg-white p-4 text-left transition-all active:scale-[0.98]",
-                isSelected
-                  ? "border-primary shadow-[0_4px_20px_rgba(108,92,231,0.18)]"
-                  : "border-gray-100 shadow-sm hover:border-primary/40",
+                conflict
+                  ? "cursor-not-allowed border-gray-100 opacity-50"
+                  : isSelected
+                    ? "border-primary shadow-[0_4px_20px_rgba(108,92,231,0.18)]"
+                    : "border-gray-100 shadow-sm hover:border-primary/40",
               )}
             >
               <span
                 className={cn(
                   "grid h-12 w-12 shrink-0 place-items-center rounded-2xl text-lg font-black",
-                  isSelected ? "bg-primary text-white" : "bg-gray-100 text-gray-500",
+                  isSelected && !conflict ? "bg-primary text-white" : "bg-gray-100 text-gray-500",
                 )}
               >
                 {initial || <UserRound size={20} />}
@@ -65,11 +72,17 @@ export function StepDriver({
                     </span>
                   )}
                 </p>
-                {d.phone && (
-                  <p className="truncate text-xs text-gray-500">{d.phone}</p>
+                {conflict ? (
+                  <p className="mt-1 flex items-center gap-1 truncate text-xs font-bold text-destructive">
+                    <Clock size={12} /> {conflict}
+                  </p>
+                ) : (
+                  d.phone && (
+                    <p className="truncate text-xs text-gray-500">{d.phone}</p>
+                  )
                 )}
               </div>
-              {isSelected && (
+              {isSelected && !conflict && (
                 <span className="grid h-7 w-7 place-items-center rounded-full bg-primary text-white">
                   <Check size={16} strokeWidth={3} />
                 </span>

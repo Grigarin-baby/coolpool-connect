@@ -1,4 +1,4 @@
-import { Car, Check, Plus } from "lucide-react";
+import { Car, Check, Clock, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { DriverVehicle } from "@/lib/domain";
 
@@ -7,6 +7,8 @@ interface StepVehicleProps {
   selectedVehicleId: string | null;
   onChange: (id: string) => void;
   onAddNew: () => void;
+  /** Map of vehicleId -> human-readable reason it can't be used for this trip's time slot. */
+  conflicts?: Record<string, string>;
 }
 
 export function StepVehicle({
@@ -14,6 +16,7 @@ export function StepVehicle({
   selectedVehicleId,
   onChange,
   onAddNew,
+  conflicts = {},
 }: StepVehicleProps) {
   return (
     <div className="flex flex-col gap-4 px-4 pb-6 pt-2">
@@ -34,22 +37,26 @@ export function StepVehicle({
         <div className="space-y-2.5">
           {vehicles.map((v) => {
             const isSelected = v.id === selectedVehicleId;
+            const conflict = conflicts[v.id];
             return (
               <button
                 key={v.id}
                 type="button"
-                onClick={() => onChange(v.id)}
+                onClick={() => !conflict && onChange(v.id)}
+                disabled={!!conflict}
                 className={cn(
                   "flex w-full items-center gap-4 rounded-3xl border-2 bg-white p-4 text-left transition-all active:scale-[0.98]",
-                  isSelected
-                    ? "border-primary shadow-[0_4px_20px_rgba(108,92,231,0.18)]"
-                    : "border-gray-100 shadow-sm hover:border-primary/40",
+                  conflict
+                    ? "cursor-not-allowed border-gray-100 opacity-50"
+                    : isSelected
+                      ? "border-primary shadow-[0_4px_20px_rgba(108,92,231,0.18)]"
+                      : "border-gray-100 shadow-sm hover:border-primary/40",
                 )}
               >
                 <span
                   className={cn(
                     "grid h-12 w-12 shrink-0 place-items-center rounded-2xl",
-                    isSelected ? "bg-primary text-white" : "bg-gray-100 text-gray-500",
+                    isSelected && !conflict ? "bg-primary text-white" : "bg-gray-100 text-gray-500",
                   )}
                 >
                   <Car size={22} />
@@ -61,8 +68,13 @@ export function StepVehicle({
                   <p className="truncate text-xs font-semibold uppercase tracking-widest text-gray-500">
                     {v.plateNumber} · {v.seatCapacity} seats
                   </p>
+                  {conflict && (
+                    <p className="mt-1 flex items-center gap-1 truncate text-xs font-bold text-destructive">
+                      <Clock size={12} /> {conflict}
+                    </p>
+                  )}
                 </div>
-                {isSelected && (
+                {isSelected && !conflict && (
                   <span className="grid h-7 w-7 place-items-center rounded-full bg-primary text-white">
                     <Check size={16} strokeWidth={3} />
                   </span>

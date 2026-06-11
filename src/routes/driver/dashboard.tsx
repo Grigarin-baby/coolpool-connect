@@ -501,6 +501,8 @@ function DriverDashboardPage() {
         pricePerKm: calcPricePerKm(totalPrice, result.totalDistanceKm),
         totalSeats: result.totalSeats,
         departureAt: result.departureAt,
+        arrivalAt: dayjs(result.departureAt).add(result.durationMin, "minute").toISOString(),
+        durationMinutes: result.durationMin,
         notes: `Created via routing wizard. Total price: ₹${totalPrice}.`,
         vehicleId: result.vehicleId,
         assignedDriverId: result.driverId,
@@ -5279,6 +5281,8 @@ function DriverDashboardPage() {
         open={wizardOpen}
         vehicles={vehicles}
         drivers={wizardDriverOptions}
+        trips={trips}
+        editingTripId={editingTripId}
         publishing={creating}
         onClose={() => setWizardOpen(false)}
         onComplete={publishViaWizard}
