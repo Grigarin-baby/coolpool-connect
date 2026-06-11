@@ -70,6 +70,7 @@ import type { RidePreferences, TripStop } from "@/lib/domain";
 import { routeCitySegmentsMatch, stripCountrySuffix } from "@/lib/geo";
 import { formatCurrency } from "@/lib/pricing";
 import { getSegmentPrice } from "@/lib/segment-pricing";
+import { estimateSegmentTimes, type SegmentTimes } from "@/lib/segment-times";
 import { appwriteConfig } from "@/integrations/appwrite/client";
 import { cn } from "@/lib/utils";
 import { SERVICE_CITY, BENGALURU_AIRPORTS } from "@/lib/config";
@@ -105,6 +106,7 @@ export interface MatchedSegment {
   fromLabel: string;
   toLabel: string;
   price: number;
+  times: SegmentTimes;
 }
 
 type SearchResult = TripRow & { matchedSegment: MatchedSegment };
@@ -457,6 +459,12 @@ export function TripSearchProvider({ children }: { children: ReactNode }) {
               fromLabel: segment.fromStop.location,
               toLabel: segment.toStop.location,
               price: getSegmentPrice(
+                trip,
+                fullRoute,
+                segment.fromStop.stopIndex,
+                segment.toStop.stopIndex,
+              ),
+              times: estimateSegmentTimes(
                 trip,
                 fullRoute,
                 segment.fromStop.stopIndex,
@@ -1139,12 +1147,13 @@ export function TripSearchResults({ variant }: { variant: "landing" | "page" }) 
               const vehicleLabel = trip.vehicleModel
                 ? [trip.vehicleModel, trip.vehicleColor].filter(Boolean).join(" · ")
                 : "Vehicle details pending";
-              const departure = dayjs(trip.departureAt);
-              const fallbackDuration = Math.max(1, Math.round(trip.totalDistanceKm));
-              const durationMinutes = trip.durationMinutes || fallbackDuration;
-              const arrival = trip.arrivalAt
-                ? dayjs(trip.arrivalAt)
-                : departure.add(durationMinutes, "minute");
+              // Show the passenger's own boarding/arrival times for partial
+              // segments, not the full trip's endpoints.
+              const segmentTimes = trip.matchedSegment.times;
+              const departure = dayjs(segmentTimes.departureAt);
+              const arrival = dayjs(segmentTimes.arrivalAt);
+              const durationMinutes = Math.max(1, segmentTimes.durationMinutes);
+              const timesEstimated = segmentTimes.isEstimated;
               const durationLabel =
                 durationMinutes >= 60
                   ? `${Math.floor(durationMinutes / 60)}h ${durationMinutes % 60}m`
@@ -1235,12 +1244,14 @@ export function TripSearchResults({ variant }: { variant: "landing" | "page" }) 
                       {/* ④ Time + Duration — mobile r2c2 (right), desktop col3 */}
                       <div className="min-w-0 order-4 sm:order-3 text-right sm:text-left">
                         <p className="font-black text-sm sm:text-base text-gray-900 whitespace-nowrap leading-tight">
+                          {timesEstimated && <span className="text-gray-400 font-semibold">~</span>}
                           {departure.format("HH:mm")}
                           <span className="text-primary mx-1">→</span>
                           {arrival.format("HH:mm")}
                         </p>
                         <p className="text-[11px] sm:text-xs font-medium text-gray-400 whitespace-nowrap leading-tight">
                           {durationLabel} · {seatsLeft} {seatsLeft === 1 ? "seat" : "seats"} left
+                          {timesEstimated && " · est."}
                         </p>
                       </div>
 

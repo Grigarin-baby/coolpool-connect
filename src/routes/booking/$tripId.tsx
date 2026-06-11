@@ -24,6 +24,7 @@ import {
 import { account } from "@/integrations/appwrite/client";
 import { formatCurrency } from "@/lib/pricing";
 import { getSegmentPrice } from "@/lib/segment-pricing";
+import { estimateSegmentTimes } from "@/lib/segment-times";
 import { buildSeatLayout } from "@/lib/seatLayout";
 import { toast } from "sonner";
 import { RideRouteMap } from "@/components/RideRouteMap";
@@ -208,6 +209,19 @@ function BookingTripPage() {
 
   const pricePerSeat = segment.price;
 
+  // Boarding/arrival times for the passenger's own segment — estimated by
+  // distance along the route when boarding at a mid-route stop.
+  const segmentTimes = useMemo(() => {
+    const trip = tripQuery.data;
+    if (!trip) return null;
+    return estimateSegmentTimes(
+      trip,
+      sortedStops,
+      segment.fromStopIndex,
+      segment.toStopIndex,
+    );
+  }, [tripQuery.data, sortedStops, segment.fromStopIndex, segment.toStopIndex]);
+
   const bookingMutation = useMutation({
     mutationFn: async () => {
       if (!user || !tripQuery.data) throw new Error("Not signed in.");
@@ -380,7 +394,25 @@ function BookingTripPage() {
                 <span className="font-semibold truncate">{segment.toLabel}</span>
               </div>
               <p className="text-xs sm:text-sm text-muted-foreground mt-1">
-                {new Date(trip.departureAt).toLocaleString()}
+                {segmentTimes ? (
+                  <>
+                    Boarding {segmentTimes.isEstimated ? "~" : ""}
+                    {new Date(segmentTimes.departureAt).toLocaleString([], {
+                      dateStyle: "medium",
+                      timeStyle: "short",
+                    })}
+                    {" · arrives "}
+                    {segmentTimes.isEstimated ? "~" : ""}
+                    {new Date(segmentTimes.arrivalAt).toLocaleTimeString([], {
+                      timeStyle: "short",
+                    })}
+                    {segmentTimes.isEstimated && (
+                      <span className="text-muted-foreground/70"> (estimated)</span>
+                    )}
+                  </>
+                ) : (
+                  new Date(trip.departureAt).toLocaleString()
+                )}
               </p>
             </div>
             <div className="flex flex-col items-end gap-1.5">
