@@ -2,6 +2,7 @@ export type AppRole = "admin" | "driver" | "user";
 export type StopType = "pickup" | "drop" | "both";
 export type TripStatus = "scheduled" | "in_progress" | "completed" | "cancelled";
 export type BookingStatus = "pending" | "confirmed" | "cancelled" | "completed";
+export type VerificationStatus = "pending" | "approved" | "rejected";
 
 export interface PricingRule {
   id: string;
@@ -106,6 +107,8 @@ export interface DriverProfile {
   alcoholAllowed?: boolean;
   musicAllowed?: boolean;
   musicType?: string | null;
+  verificationStatus?: VerificationStatus;
+  verificationNote?: string | null;
 }
 
 /** One claimed seat on a trip — stored without traveler PII for public seat maps */
@@ -126,6 +129,8 @@ export interface DriverVehicle {
   registrationDoc: string | null;
   insuranceDoc: string | null;
   carImages?: string[];
+  verificationStatus?: VerificationStatus;
+  verificationNote?: string | null;
 }
 
 export interface HeroBanner {

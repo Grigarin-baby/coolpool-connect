@@ -7,31 +7,34 @@ import {
   Menu,
   Typography,
   Card,
-  List,
-  Tag,
   Avatar,
-  Spin,
   Button,
   Badge,
-  Space,
   Dropdown,
 } from "antd";
 import {
-  Shield,
   Users,
   Route as RouteIcon,
   LogOut,
   LayoutDashboard,
   Settings,
   User,
-  MoreVertical,
   Activity,
-  CheckCircle,
   Image as ImageIcon,
+  Car,
+  Ticket,
+  IndianRupee,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
-import { listActiveTrips, listDriverProfiles } from "@/data/appwrite-repository";
+import { listActiveTrips } from "@/data/appwrite-repository";
 import { BannersManager } from "@/components/admin/BannersManager";
+import { OverviewPanel } from "@/components/admin/OverviewPanel";
+import { UsersPanel } from "@/components/admin/UsersPanel";
+import { DriversPanel } from "@/components/admin/DriversPanel";
+import { VehiclesPanel } from "@/components/admin/VehiclesPanel";
+import { TripsPanel } from "@/components/admin/TripsPanel";
+import { BookingsPanel } from "@/components/admin/BookingsPanel";
+import { PricingPanel } from "@/components/admin/PricingPanel";
 import { UserProfileModal } from "@/components/UserProfileModal";
 import { getUserDisplayName } from "@/lib/user-display";
 import logo from "@/assets/logo.png";
@@ -39,6 +42,17 @@ import { APP_FONT_FAMILY } from "@/lib/fonts";
 
 const { Header, Sider, Content } = Layout;
 const { Title, Text } = Typography;
+
+const MODULE_TITLES: Record<string, string> = {
+  overview: "Dashboard Overview",
+  users: "User Management",
+  drivers: "Driver Directory",
+  vehicles: "Vehicle Manager",
+  trips: "Trip Manager",
+  bookings: "Booking Manager",
+  pricing: "Pricing Rules",
+  banners: "Banners Manager",
+};
 
 export const Route = createFileRoute("/admin/dashboard")({
   head: () => ({
@@ -54,12 +68,6 @@ function AdminDashboardPage() {
   const { isAdmin, signOut, user, roles } = useAuth();
   const [activeModule, setActiveModule] = useState("overview");
   const [profileModalOpen, setProfileModalOpen] = useState(false);
-
-  const { data: drivers = [], isLoading: driversLoading } = useQuery({
-    queryKey: ["admin-drivers"],
-    queryFn: listDriverProfiles,
-    enabled: isAdmin,
-  });
 
   const { data: trips = [], isLoading: tripsLoading } = useQuery({
     queryKey: ["admin-active-trips"],
@@ -135,14 +143,34 @@ function AdminDashboardPage() {
                 label: "Overview",
               },
               {
+                key: "users",
+                icon: <Users size={18} />,
+                label: "User Management",
+              },
+              {
                 key: "drivers",
                 icon: <Users size={18} />,
                 label: "Driver Directory",
               },
               {
+                key: "vehicles",
+                icon: <Car size={18} />,
+                label: "Vehicle Manager",
+              },
+              {
                 key: "trips",
                 icon: <RouteIcon size={18} />,
                 label: "Trip Manager",
+              },
+              {
+                key: "bookings",
+                icon: <Ticket size={18} />,
+                label: "Booking Manager",
+              },
+              {
+                key: "pricing",
+                icon: <IndianRupee size={18} />,
+                label: "Pricing Rules",
               },
               {
                 key: "banners",
@@ -177,13 +205,7 @@ function AdminDashboardPage() {
           <Header className="px-6 flex items-center justify-between border-b border-border/60 backdrop-blur-md sticky top-0 z-10 h-20 bg-background/60">
             <div>
               <Title level={4} style={{ margin: 0 }} className="hidden sm:block">
-                {activeModule === "overview"
-                  ? "Dashboard Overview"
-                  : activeModule === "drivers"
-                    ? "Driver Directory"
-                    : activeModule === "banners"
-                      ? "Banners Manager"
-                      : "Trip Manager"}
+                {MODULE_TITLES[activeModule] ?? "Dashboard"}
               </Title>
               <div className="sm:hidden">
                 <img src={logo} alt="Coolpool Logo" className="h-16 w-auto object-contain" />
@@ -232,271 +254,13 @@ function AdminDashboardPage() {
           </Header>
 
           <Content className="p-6 md:p-10 max-w-7xl mx-auto w-full">
-            {activeModule === "overview" && (
-              <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
-                <div className="flex flex-col gap-1">
-                  <Title level={2} style={{ margin: 0 }}>
-                    Administrator Control
-                  </Title>
-                  <Text type="secondary" className="text-lg">
-                    Monitoring the pulse of Coolpool's intercity ride-sharing network.
-                  </Text>
-                </div>
-
-                <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-                  <Card className="rounded-3xl border-none shadow-soft hover:shadow-card transition-base bg-white/80 backdrop-blur-sm group">
-                    <Text type="secondary" className="group-hover:text-primary transition-colors">
-                      Total Drivers
-                    </Text>
-                    <Title level={2} style={{ margin: "8px 0" }}>
-                      {driversLoading ? <Spin size="small" /> : drivers.length}
-                    </Title>
-                    <Tag color="purple" className="rounded-3xl px-3 border-none">
-                      Active network
-                    </Tag>
-                  </Card>
-                  <Card className="rounded-3xl border-none shadow-soft hover:shadow-card transition-base bg-white/80 backdrop-blur-sm group">
-                    <Text type="secondary" className="group-hover:text-primary transition-colors">
-                      Active Routes
-                    </Text>
-                    <Title level={2} style={{ margin: "8px 0" }}>
-                      {tripsLoading ? <Spin size="small" /> : trips.length}
-                    </Title>
-                    <Tag color="blue" className="rounded-3xl px-3 border-none">
-                      In progress
-                    </Tag>
-                  </Card>
-                  <Card className="rounded-3xl border-none shadow-soft hover:shadow-card transition-base bg-white/80 backdrop-blur-sm group">
-                    <Text type="secondary" className="group-hover:text-primary transition-colors">
-                      Network Health
-                    </Text>
-                    <Title level={2} style={{ margin: "8px 0" }}>
-                      100%
-                    </Title>
-                    <Tag color="success" className="rounded-3xl px-3 border-none">
-                      All systems operational
-                    </Tag>
-                  </Card>
-                  <Card className="rounded-3xl border-none shadow-soft hover:shadow-card transition-base bg-white/80 backdrop-blur-sm group">
-                    <Text type="secondary" className="group-hover:text-primary transition-colors">
-                      Security Alerts
-                    </Text>
-                    <Title level={2} style={{ margin: "8px 0" }}>
-                      0
-                    </Title>
-                    <Tag color="default" className="rounded-3xl px-3 border-none">
-                      Secure
-                    </Tag>
-                  </Card>
-                </div>
-
-                <div className="grid gap-8 lg:grid-cols-2">
-                  <Card className="rounded-3xl border-none shadow-soft bg-white/80 backdrop-blur-sm p-2 overflow-hidden">
-                    <div className="p-4 border-b border-border/60 flex items-center justify-between">
-                      <Title level={5} style={{ margin: 0 }}>
-                        Recent Driver Registrations
-                      </Title>
-                      <Button type="link" onClick={() => setActiveModule("drivers")}>
-                        Manage All
-                      </Button>
-                    </div>
-                    <List
-                      className="px-4"
-                      itemLayout="horizontal"
-                      loading={driversLoading}
-                      dataSource={drivers.slice(0, 4)}
-                      renderItem={(driver) => (
-                        <List.Item>
-                          <List.Item.Meta
-                            avatar={
-                              <Avatar className="bg-gradient-primary">
-                                {driver.fullName.charAt(0)}
-                              </Avatar>
-                            }
-                            title={<Text strong>{driver.fullName}</Text>}
-                            description={`${driver.city} · ${driver.email}`}
-                          />
-                          <CheckCircle size={16} className="text-success" />
-                        </List.Item>
-                      )}
-                    />
-                  </Card>
-
-                  <Card className="rounded-3xl border-none shadow-soft bg-white/80 backdrop-blur-sm p-2 overflow-hidden">
-                    <div className="p-4 border-b border-border/60 flex items-center justify-between">
-                      <Title level={5} style={{ margin: 0 }}>
-                        Live Traffic Stream
-                      </Title>
-                      <Button type="link" onClick={() => setActiveModule("trips")}>
-                        View Live Map
-                      </Button>
-                    </div>
-                    <List
-                      className="px-4"
-                      itemLayout="horizontal"
-                      loading={tripsLoading}
-                      dataSource={trips.slice(0, 4)}
-                      renderItem={(trip) => (
-                        <List.Item>
-                          <List.Item.Meta
-                            avatar={
-                              <div className="h-10 w-10 rounded-3xl bg-secondary flex items-center justify-center">
-                                <Activity size={18} className="text-primary" />
-                              </div>
-                            }
-                            title={
-                              <Text strong>
-                                {trip.fromLocation} → {trip.toLocation}
-                              </Text>
-                            }
-                            description={`Seats: ${trip.totalSeats} · ₹${trip.totalPrice}`}
-                          />
-                          <Tag color="processing" bordered={false}>
-                            Live
-                          </Tag>
-                        </List.Item>
-                      )}
-                    />
-                  </Card>
-                </div>
-              </div>
-            )}
-
-            {activeModule === "drivers" && (
-              <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
-                <div className="flex flex-col gap-1">
-                  <Title level={2} style={{ margin: 0 }}>
-                    Driver Directory
-                  </Title>
-                  <Text type="secondary">
-                    Review and manage verified driver profiles across the network.
-                  </Text>
-                </div>
-
-                <Card className="rounded-3xl border-none shadow-card bg-white/90 backdrop-blur-md p-2 overflow-hidden">
-                  <List
-                    className="px-6"
-                    loading={driversLoading}
-                    itemLayout="vertical"
-                    dataSource={drivers}
-                    locale={{ emptyText: "No drivers registered yet." }}
-                    renderItem={(driver) => (
-                      <List.Item
-                        actions={[
-                          <Button key="edit" type="text" size="small">
-                            View Profile
-                          </Button>,
-                          <Button key="verify" type="text" size="small" className="text-primary">
-                            Recertify
-                          </Button>,
-                          <Button key="more" type="text" icon={<MoreVertical size={14} />} />,
-                        ]}
-                      >
-                        <List.Item.Meta
-                          avatar={
-                            <Avatar size={48} className="bg-gradient-primary">
-                              {driver.fullName.charAt(0)}
-                            </Avatar>
-                          }
-                          title={
-                            <Title level={5} style={{ margin: 0 }}>
-                              {driver.fullName}
-                            </Title>
-                          }
-                          description={
-                            <Space split={<Text type="secondary">·</Text>}>
-                              <Text type="secondary">{driver.email}</Text>
-                              <Text type="secondary">{driver.phone}</Text>
-                              <Text type="secondary">License: {driver.licenseNumber}</Text>
-                            </Space>
-                          }
-                        />
-                        <div className="mt-2">
-                          <Tag color="purple" bordered={false} className="px-3 rounded-3xl">
-                            {driver.city}
-                          </Tag>
-                          <Tag color="success" bordered={false} className="px-3 rounded-3xl">
-                            Verified Account
-                          </Tag>
-                        </div>
-                      </List.Item>
-                    )}
-                  />
-                </Card>
-              </div>
-            )}
-
-            {activeModule === "trips" && (
-              <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
-                <div className="flex flex-col gap-1">
-                  <Title level={2} style={{ margin: 0 }}>
-                    Trip Manager
-                  </Title>
-                  <Text type="secondary">
-                    Live monitoring of all scheduled and active intercity routes.
-                  </Text>
-                </div>
-
-                <Card className="rounded-3xl border-none shadow-card bg-white/90 backdrop-blur-md p-2 overflow-hidden">
-                  <List
-                    className="px-6"
-                    loading={tripsLoading}
-                    dataSource={trips}
-                    locale={{ emptyText: "No active trips found." }}
-                    renderItem={(trip) => (
-                      <List.Item
-                        actions={[
-                          <Button key="track" type="text" size="small">
-                            Track Route
-                          </Button>,
-                          <Button key="details" type="text" size="small">
-                            View Bookings
-                          </Button>,
-                          <Dropdown
-                            key="more"
-                            menu={{ items: [{ key: "suspend", label: "Suspend", danger: true }] }}
-                          >
-                            <Button type="text" icon={<MoreVertical size={14} />} />
-                          </Dropdown>,
-                        ]}
-                      >
-                        <List.Item.Meta
-                          avatar={
-                            <div className="h-12 w-12 rounded-3xl bg-secondary flex items-center justify-center text-primary">
-                              <RouteIcon size={24} />
-                            </div>
-                          }
-                          title={
-                            <Title level={5} style={{ margin: 0 }}>
-                              {trip.fromLocation} → {trip.toLocation}
-                            </Title>
-                          }
-                          description={
-                            <Space split={<Text type="secondary">·</Text>}>
-                              <Text type="secondary">
-                                Departure: {new Date(trip.departureAt).toLocaleString()}
-                              </Text>
-                              <Text type="secondary">{trip.totalSeats} seats</Text>
-                              <Text strong className="text-primary">
-                                ₹{trip.totalPrice}
-                              </Text>
-                            </Space>
-                          }
-                        />
-                        <Tag
-                          color={trip.status === "in_progress" ? "processing" : "blue"}
-                          bordered={false}
-                          className="capitalize px-3 rounded-3xl"
-                        >
-                          {trip.status?.replace("_", " ")}
-                        </Tag>
-                      </List.Item>
-                    )}
-                  />
-                </Card>
-              </div>
-            )}
-
+            {activeModule === "overview" && <OverviewPanel onNavigate={setActiveModule} />}
+            {activeModule === "users" && <UsersPanel />}
+            {activeModule === "drivers" && <DriversPanel />}
+            {activeModule === "vehicles" && <VehiclesPanel />}
+            {activeModule === "trips" && <TripsPanel />}
+            {activeModule === "bookings" && <BookingsPanel />}
+            {activeModule === "pricing" && <PricingPanel />}
             {activeModule === "banners" && <BannersManager />}
           </Content>
         </Layout>

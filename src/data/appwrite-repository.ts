@@ -17,6 +17,7 @@ import type {
   TripSeatReservation,
   TripStatus,
   TripStop,
+  VerificationStatus,
 } from "@/lib/domain";
 
 type Doc = Models.Document;
@@ -114,6 +115,8 @@ function toDriverProfile(doc: any): DriverProfile {
     alcoholAllowed: Boolean(doc.alcohol_allowed ?? false),
     musicAllowed: Boolean(doc.music_allowed ?? false),
     musicType: doc.music_type ? String(doc.music_type) : null,
+    verificationStatus: (doc.verification_status as VerificationStatus | undefined) ?? "approved",
+    verificationNote: doc.verification_note ? String(doc.verification_note) : null,
   };
 }
 
@@ -137,6 +140,8 @@ function toDriverVehicle(doc: any): DriverVehicle {
     registrationDoc: doc.registration_doc ? String(doc.registration_doc) : null,
     insuranceDoc: doc.insurance_doc ? String(doc.insurance_doc) : null,
     carImages: doc.car_images && Array.isArray(doc.car_images) ? doc.car_images.map(String) : [],
+    verificationStatus: (doc.verification_status as VerificationStatus | undefined) ?? "approved",
+    verificationNote: doc.verification_note ? String(doc.verification_note) : null,
   };
 }
 
@@ -1163,4 +1168,111 @@ export async function uploadBannerImage(file: File): Promise<string> {
 export function getBannerImageUrl(imageId: string): string {
   const { endpoint, projectId, bannersBucketId } = appwriteConfig;
   return `${endpoint}/storage/buckets/${bannersBucketId}/files/${imageId}/view?project=${projectId}`;
+}
+
+// ---------------------------------------------------------------------------
+// Admin dashboard
+// ---------------------------------------------------------------------------
+
+/** All trips regardless of status, newest departure first — for admin Trip Manager. */
+export async function listAllTrips(limit = 200): Promise<Trip[]> {
+  const c = ids();
+  const result = await databases.listDocuments(appwriteConfig.databaseId, c.trips, [
+    Query.orderDesc("departure_at"),
+    Query.limit(limit),
+  ]);
+  return result.documents.map(toTrip);
+}
+
+/** All bookings across the platform, newest first — for admin Booking Manager. */
+export async function listAllBookings(limit = 200): Promise<Booking[]> {
+  const c = ids();
+  const result = await databases.listDocuments(appwriteConfig.databaseId, c.bookings, [
+    Query.orderDesc("$createdAt"),
+    Query.limit(limit),
+  ]);
+  return result.documents.map(toBooking);
+}
+
+export async function updateBookingStatus(
+  bookingId: string,
+  status: BookingStatus,
+): Promise<Booking> {
+  const c = ids();
+  const doc = await databases.updateDocument(appwriteConfig.databaseId, c.bookings, bookingId, {
+    status,
+  });
+  return toBooking(doc);
+}
+
+/** All vehicles across all drivers — for admin Vehicle Manager. */
+export async function listAllVehicles(): Promise<DriverVehicle[]> {
+  const c = ids();
+  const result = await databases.listDocuments(appwriteConfig.databaseId, c.vehicles, [
+    Query.orderDesc("$createdAt"),
+    Query.limit(200),
+  ]);
+  return result.documents.map(toDriverVehicle);
+}
+
+export async function updateVehicleVerification(
+  vehicleId: string,
+  status: VerificationStatus,
+  note?: string | null,
+): Promise<DriverVehicle> {
+  const c = ids();
+  const doc = await databases.updateDocument(appwriteConfig.databaseId, c.vehicles, vehicleId, {
+    verification_status: status,
+    verification_note: note ?? null,
+  });
+  return toDriverVehicle(doc);
+}
+
+export async function updateDriverVerification(
+  driverId: string,
+  status: VerificationStatus,
+  note?: string | null,
+): Promise<DriverProfile> {
+  const c = ids();
+  const doc = await databases.updateDocument(appwriteConfig.databaseId, c.drivers, driverId, {
+    verification_status: status,
+    verification_note: note ?? null,
+  });
+  return toDriverProfile(doc);
+}
+
+export interface UpdatePricingRuleInput {
+  minPricePerKm: number;
+  maxPricePerKm: number;
+  routeMatchToleranceKm: number;
+}
+
+/** Update the single pricing rule doc, creating it if it doesn't exist yet. */
+export async function updatePricingRule(input: UpdatePricingRuleInput): Promise<PricingRule> {
+  const c = ids();
+  const payload = {
+    min_price_per_km: input.minPricePerKm,
+    max_price_per_km: input.maxPricePerKm,
+    route_match_tolerance_km: input.routeMatchToleranceKm,
+    updated_at: new Date().toISOString(),
+  };
+  const existing = await databases.listDocuments(appwriteConfig.databaseId, c.pricingRules, [
+    Query.limit(1),
+  ]);
+  if (existing.total > 0) {
+    const doc = await databases.updateDocument(
+      appwriteConfig.databaseId,
+      c.pricingRules,
+      existing.documents[0].$id,
+      payload,
+    );
+    return toPricingRule(doc);
+  }
+  const doc = await databases.createDocument(
+    appwriteConfig.databaseId,
+    c.pricingRules,
+    ID.unique(),
+    payload,
+  );
+  return toPricingRule(doc);
 }
