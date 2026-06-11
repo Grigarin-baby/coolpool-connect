@@ -51,7 +51,6 @@ import {
   Star,
   ShieldCheck,
   Filter,
-  Map as MapIcon,
   SearchX,
   Cigarette,
   Wine,
@@ -1294,13 +1293,6 @@ export function TripSearchResults({ variant }: { variant: "landing" | "page" }) 
             })}
           </div>
 
-          {/* Floating Map Button */}
-          <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-40">
-            <UiButton className="rounded-full h-12 px-6 bg-primary text-white font-bold shadow-glow border-none flex items-center gap-2 hover:scale-105 active:scale-95 transition-all">
-              <MapIcon size={18} />
-              Show rides on map
-            </UiButton>
-          </div>
         </div>
       )}
     </div>
