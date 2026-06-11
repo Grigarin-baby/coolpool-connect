@@ -478,7 +478,18 @@ export function TripSearchProvider({ children }: { children: ReactNode }) {
         const geocoder = new (window as any).google.maps.Geocoder();
         const validateLocation = async (address: string) => {
           return new Promise<boolean>((resolve) => {
+            let settled = false;
+            const settle = (value: boolean) => {
+              if (settled) return;
+              settled = true;
+              resolve(value);
+            };
+            // Geocoder callback can hang indefinitely if the Maps API key is
+            // invalid/expired or the request is blocked, so fall back after a
+            // short timeout instead of leaving the search stuck on "Searching…".
+            const timeoutId = setTimeout(() => settle(true), 5000);
             geocoder.geocode({ address }, (results: any, status: any) => {
+              clearTimeout(timeoutId);
               if (status === "OK" && results && results[0]) {
                 let state = "";
                 for (const component of results[0].address_components) {
@@ -486,9 +497,9 @@ export function TripSearchProvider({ children }: { children: ReactNode }) {
                     state = component.long_name.toLowerCase();
                   }
                 }
-                resolve(SOUTH_INDIA_STATES.some((s) => state.includes(s)));
+                settle(SOUTH_INDIA_STATES.some((s) => state.includes(s)));
               } else {
-                resolve(true); // Default pass if geocoding fails
+                settle(true); // Default pass if geocoding fails
               }
             });
           });
