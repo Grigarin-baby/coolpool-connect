@@ -11,6 +11,7 @@ import {
   Settings,
   MoreVertical,
   Car,
+  Camera,
   CheckCircle,
   CheckCircle2,
   XCircle,
@@ -93,6 +94,7 @@ import {
   getHostPreferences,
   updateHostPreferences,
   updateDriverBio,
+  updateDriverPhoto,
   type CreateTeamDriverInput,
 } from "@/data/appwrite-repository";
 import { PayoutsPanel } from "@/components/driver/PayoutsPanel";
@@ -470,6 +472,7 @@ function DriverDashboardPage() {
       return;
     }
     const totalPrice = result.pricePerSeat * result.totalSeats;
+    const wizardVehicle = vehicles.find((vehicle) => vehicle.id === result.vehicleId);
     // Build trip_stops the way the legacy handler does: origin (pickup),
     // intermediates (both), destination (drop). distanceFromOriginKm comes
     // from the wizard's polyline projection.
@@ -519,6 +522,11 @@ function DriverDashboardPage() {
         departureAt: result.departureAt,
         arrivalAt: dayjs(result.departureAt).add(result.durationMin, "minute").toISOString(),
         durationMinutes: result.durationMin,
+        hostDisplayName: user.name || "Verified Host",
+        hostRating: 0,
+        hostRatingCount: 0,
+        vehicleModel: wizardVehicle?.modelName,
+        vehicleColor: wizardVehicle?.color || undefined,
         notes: `Created via routing wizard. Total price: ₹${totalPrice}.`,
         vehicleId: result.vehicleId,
         assignedDriverId: result.driverId,
@@ -662,6 +670,30 @@ function DriverDashboardPage() {
       void import("sonner").then((m) => m.toast.success("Bio saved!"));
     },
     onError: () => void import("sonner").then((m) => m.toast.error("Failed to save bio.")),
+  });
+
+  // Profile photo — uploaded to storage, URL saved on the driver profile.
+  const photoInputRef = useRef<HTMLInputElement | null>(null);
+  const { mutate: savePhoto, isPending: savingPhoto } = useMutation({
+    mutationFn: async (file: File) => {
+      if (!user) throw new Error("Not logged in");
+      if (!file.type.startsWith("image/")) throw new Error("Please choose an image file.");
+      if (file.size > 5 * 1024 * 1024) throw new Error("Photo must be under 5 MB.");
+      const uploaded = await storage.createFile(
+        appwriteConfig.driverDocsBucketId,
+        ID.unique(),
+        file,
+      );
+      const url = `${appwriteConfig.endpoint}/storage/buckets/${appwriteConfig.driverDocsBucketId}/files/${uploaded.$id}/view?project=${appwriteConfig.projectId}`;
+      await updateDriverPhoto(user.$id, url);
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["driver-profile", user?.$id] });
+      message.success("Profile photo updated.");
+    },
+    onError: (err) => {
+      message.error(err instanceof Error ? err.message : "Failed to upload photo.");
+    },
   });
 
   const { mutate: savePrefs, isPending: savingPrefs } = useMutation({
@@ -1895,14 +1927,49 @@ function DriverDashboardPage() {
                           <div className="px-1 py-3" style={{ minWidth: 240 }}>
                             {/* User info */}
                             <div className="flex items-center gap-3 mb-3">
-                              <Avatar
-                                size={48}
-                                src={getUserAvatarUrl(getUserDisplayName(user), 96)}
-                                className="bg-gradient-primary text-primary-foreground font-bold text-lg border border-white/60"
-                              >
-                                {!getUserAvatarUrl(getUserDisplayName(user)) &&
-                                  (getUserDisplayName(user)?.[0]?.toUpperCase() || "U")}
-                              </Avatar>
+                              <div className="relative">
+                                <Avatar
+                                  size={48}
+                                  src={
+                                    driverProfile?.photoUrl ||
+                                    getUserAvatarUrl(getUserDisplayName(user), 96)
+                                  }
+                                  className="bg-gradient-primary text-primary-foreground font-bold text-lg border border-white/60"
+                                >
+                                  {!driverProfile?.photoUrl &&
+                                    !getUserAvatarUrl(getUserDisplayName(user)) &&
+                                    (getUserDisplayName(user)?.[0]?.toUpperCase() || "U")}
+                                </Avatar>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    photoInputRef.current?.click();
+                                  }}
+                                  disabled={savingPhoto}
+                                  aria-label={
+                                    driverProfile?.photoUrl ? "Change photo" : "Add photo"
+                                  }
+                                  className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-white shadow ring-2 ring-white"
+                                >
+                                  {savingPhoto ? (
+                                    <Spin size="small" />
+                                  ) : (
+                                    <Camera size={11} />
+                                  )}
+                                </button>
+                                <input
+                                  ref={photoInputRef}
+                                  type="file"
+                                  accept="image/*"
+                                  className="hidden"
+                                  onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (file) savePhoto(file);
+                                    e.target.value = "";
+                                  }}
+                                />
+                              </div>
                               <div className="flex-1 min-w-0">
                                 <div className="font-semibold text-gray-900 truncate">
                                   {getUserDisplayName(user)}
@@ -1990,11 +2057,14 @@ function DriverDashboardPage() {
                       color={isVerifiedHost ? "#6b46c1" : "#f59e0b"}
                     >
                       <Avatar
-                        src={getUserAvatarUrl(getUserDisplayName(user), 68)}
+                        src={
+                          driverProfile?.photoUrl || getUserAvatarUrl(getUserDisplayName(user), 68)
+                        }
                         className="bg-gradient-primary shadow-sm border border-white/40 group-hover:border-white/80 transition-all"
                         size={34}
                       >
-                        {!getUserAvatarUrl(getUserDisplayName(user)) &&
+                        {!driverProfile?.photoUrl &&
+                          !getUserAvatarUrl(getUserDisplayName(user)) &&
                           (getUserDisplayName(user)?.[0]?.toUpperCase() || <User size={16} />)}
                       </Avatar>
                     </Badge>

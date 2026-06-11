@@ -58,15 +58,17 @@ import dayjs, { Dayjs } from "dayjs";
 import { Button as UiButton } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { RidePrefChips } from "@/components/RidePrefChips";
+import { HostAvatar } from "@/components/HostAvatar";
 import { useQuery } from "@tanstack/react-query";
 import {
   listTrips,
   listTripStopsByTripIds,
   listTripSeatReservationsByTripIds,
   getMultipleHostPreferences,
+  getVehiclesByDriverUserIds,
   listDriverProfilesByUserIds,
 } from "@/data/appwrite-repository";
-import type { RidePreferences, TripStop } from "@/lib/domain";
+import type { DriverProfile, RidePreferences, TripStop } from "@/lib/domain";
 import { routeCitySegmentsMatch, stripCountrySuffix } from "@/lib/geo";
 import { formatCurrency } from "@/lib/pricing";
 import { getSegmentPrice } from "@/lib/segment-pricing";
@@ -1060,6 +1062,20 @@ export function TripSearchResults({ variant }: { variant: "landing" | "page" }) 
     }
     return map;
   }, [hostProfiles]);
+  // Full profile lookup — used to fill in host name/photo when older trips
+  // were published without them.
+  const hostProfileMap = useMemo(() => {
+    const map = new Map<string, DriverProfile>();
+    for (const p of hostProfiles ?? []) map.set(p.userId, p);
+    return map;
+  }, [hostProfiles]);
+  // Vehicle fallback for trips published without vehicle details.
+  const { data: hostVehiclesMap } = useQuery({
+    queryKey: ["host-vehicles-batch", hostIds.join(",")],
+    queryFn: () => getVehiclesByDriverUserIds(hostIds),
+    enabled: hostIds.length > 0,
+    staleTime: 1000 * 60 * 5,
+  });
   const reservedSeatsByTripId = useMemo(() => {
     const map: Record<string, Set<string>> = {};
     for (const reservation of seatReservations ?? []) {
@@ -1143,9 +1159,15 @@ export function TripSearchResults({ variant }: { variant: "landing" | "page" }) 
 
           <div className="space-y-2.5">
             {results.map((trip) => {
-              const hostName = trip.hostDisplayName || "Verified Host";
-              const vehicleLabel = trip.vehicleModel
-                ? [trip.vehicleModel, trip.vehicleColor].filter(Boolean).join(" · ")
+              // Fall back to the host's profile and fleet for trips that were
+              // published without a display name or vehicle attached.
+              const hostProfile = hostProfileMap.get(trip.hostId);
+              const hostVehicle = hostVehiclesMap?.get(trip.hostId);
+              const hostName = trip.hostDisplayName || hostProfile?.fullName || "Verified Host";
+              const vehicleModel = trip.vehicleModel || hostVehicle?.modelName;
+              const vehicleColor = trip.vehicleColor || hostVehicle?.color;
+              const vehicleLabel = vehicleModel
+                ? [vehicleModel, vehicleColor].filter(Boolean).join(" · ")
                 : "Vehicle details pending";
               // Show the passenger's own boarding/arrival times for partial
               // segments, not the full trip's endpoints.
@@ -1203,19 +1225,22 @@ export function TripSearchResults({ variant }: { variant: "landing" | "page" }) 
                     <div className="grid grid-cols-2 gap-x-3 gap-y-2 sm:grid-cols-[minmax(0,1.5fr)_0.7fr_1.2fr_auto] sm:items-center sm:gap-x-4 sm:gap-y-0">
 
                       {/* ① Host + Vehicle — mobile r1c1, desktop col1 */}
-                      <div className="min-w-0 order-1 sm:order-1">
-                        <div className="flex items-center gap-1">
-                          <p className="font-bold text-sm text-gray-900 truncate leading-tight">
-                            {hostName}
-                          </p>
-                          <ShieldCheck size={13} className="text-blue-500 shrink-0 hidden sm:block" />
+                      <div className="min-w-0 order-1 sm:order-1 flex items-center gap-2.5">
+                        <HostAvatar name={hostName} photoUrl={hostProfile?.photoUrl} size={36} />
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1">
+                            <p className="font-bold text-sm text-gray-900 truncate leading-tight">
+                              {hostName}
+                            </p>
+                            <ShieldCheck size={13} className="text-blue-500 shrink-0 hidden sm:block" />
+                          </div>
+                          <p className="mt-0.5 text-xs text-gray-500 truncate leading-tight">{vehicleLabel}</p>
+                          {hostBio && (
+                            <p className="mt-0.5 text-[11px] text-gray-400 italic truncate leading-tight hidden sm:block">
+                              "{hostBio}"
+                            </p>
+                          )}
                         </div>
-                        <p className="mt-0.5 text-xs text-gray-500 truncate leading-tight">{vehicleLabel}</p>
-                        {hostBio && (
-                          <p className="mt-0.5 text-[11px] text-gray-400 italic truncate leading-tight hidden sm:block">
-                            "{hostBio}"
-                          </p>
-                        )}
                       </div>
 
                       {/* ② Price — mobile r1c2 (right), desktop col4 */}

@@ -17,6 +17,7 @@ import {
   getTripById,
   getHostPreferences,
   getVehicleByDriverUserId,
+  listDriverProfilesByUserIds,
   listTripSeatReservations,
   listTripStops,
   listTravelerBookings,
@@ -29,6 +30,7 @@ import { buildSeatLayout } from "@/lib/seatLayout";
 import { toast } from "sonner";
 import { RideRouteMap } from "@/components/RideRouteMap";
 import { RidePrefChips } from "@/components/RidePrefChips";
+import { HostAvatar } from "@/components/HostAvatar";
 
 interface BookingSearch {
   fromStopIndex?: number;
@@ -96,6 +98,16 @@ function BookingTripPage() {
     queryKey: ["vehicle-by-host", tripQuery.data?.hostId],
     queryFn: () =>
       tripQuery.data ? getVehicleByDriverUserId(tripQuery.data.hostId) : Promise.resolve(null),
+    enabled: !!tripQuery.data,
+  });
+
+  const hostProfileQuery = useQuery({
+    queryKey: ["host-profile", tripQuery.data?.hostId],
+    queryFn: async () => {
+      if (!tripQuery.data) return null;
+      const profiles = await listDriverProfilesByUserIds([tripQuery.data.hostId]);
+      return profiles[0] ?? null;
+    },
     enabled: !!tripQuery.data,
   });
 
@@ -424,6 +436,21 @@ function BookingTripPage() {
               </span>
             </div>
           </div>
+          {(trip.hostDisplayName || hostProfileQuery.data) && (
+            <div className="mt-3 pt-3 border-t border-border/60 flex items-center gap-2.5">
+              <HostAvatar
+                name={trip.hostDisplayName || hostProfileQuery.data?.fullName}
+                photoUrl={hostProfileQuery.data?.photoUrl}
+                size={40}
+              />
+              <div className="min-w-0">
+                <p className="text-sm font-bold truncate">
+                  {trip.hostDisplayName || hostProfileQuery.data?.fullName || "Verified Host"}
+                </p>
+                <p className="text-xs text-muted-foreground">Your host</p>
+              </div>
+            </div>
+          )}
           {hostPrefsQuery.data && (
             <div className="mt-3 pt-3 border-t border-border/60">
               <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">
