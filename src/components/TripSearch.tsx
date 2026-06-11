@@ -51,7 +51,6 @@ import {
   Star,
   ShieldCheck,
   Filter,
-  SearchX,
   PlusCircle,
 } from "lucide-react";
 import dayjs, { Dayjs } from "dayjs";
@@ -1121,26 +1120,32 @@ export function TripSearchResults({ variant }: { variant: "landing" | "page" }) 
       )}
 
       {!loading && searched && results.length === 0 && (
-        <Card className="rounded-3xl border border-dashed border-destructive/40 bg-destructive/5 p-8 md:p-12 text-center">
-          <div className="flex flex-col items-center gap-4">
-            <div className="h-16 w-16 rounded-full bg-destructive/10 text-destructive flex items-center justify-center">
-              <SearchX className="h-8 w-8" />
-            </div>
-            <h3 className="text-xl sm:text-2xl font-bold text-destructive">
-              No trips found on this route
-            </h3>
-            <p className="text-destructive/80 text-base max-w-md leading-relaxed">
-              No trips match this route yet. Try nearby cities or check back soon.
-            </p>
-            <div className="mt-2 flex flex-col items-center gap-3">
-              <p className="text-sm font-semibold text-gray-500">Be the first!</p>
-              <UiButton
-                onClick={handleHostARide}
-                style={{ color: "white" }}
-                className="rounded-full h-12 px-8 bg-gradient-primary !text-white [&_svg]:!text-white font-bold shadow-glow border-none hover:scale-105 active:scale-95 transition-all flex items-center gap-2"
-              >
-                <PlusCircle className="h-4 w-4 text-white" color="white" /> Host a Ride
-              </UiButton>
+        <Card className="rounded-3xl border border-dashed border-destructive/40 bg-destructive/5 px-6 pb-8 pt-6 md:px-10 md:pb-12 text-center overflow-hidden">
+          <div className="flex flex-col items-center">
+            {/* Sad kitten peeking over the message panel */}
+            <img
+              src="/sad-cat.png"
+              alt="Sad kitten — no rides found"
+              className="w-36 sm:w-44 -mb-10 relative z-10 pointer-events-none select-none"
+              loading="lazy"
+            />
+            <div className="w-full max-w-md rounded-3xl bg-white shadow-soft px-6 pt-12 pb-8 flex flex-col items-center gap-3">
+              <h3 className="text-xl sm:text-2xl font-bold text-destructive">
+                No trips found on this route
+              </h3>
+              <p className="text-gray-500 text-base leading-relaxed">
+                No trips match this route yet. Try nearby cities or check back soon.
+              </p>
+              <div className="mt-2 flex flex-col items-center gap-3">
+                <p className="text-sm font-semibold text-gray-500">Be the first!</p>
+                <UiButton
+                  onClick={handleHostARide}
+                  style={{ color: "white" }}
+                  className="rounded-full h-12 px-8 bg-gradient-primary !text-white [&_svg]:!text-white font-bold shadow-glow border-none hover:scale-105 active:scale-95 transition-all flex items-center gap-2"
+                >
+                  <PlusCircle className="h-4 w-4 text-white" color="white" /> Host a Ride
+                </UiButton>
+              </div>
             </div>
           </div>
         </Card>
