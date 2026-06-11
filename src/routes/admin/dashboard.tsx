@@ -24,6 +24,7 @@ import {
   Car,
   Ticket,
   IndianRupee,
+  Wallet,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { listActiveTrips } from "@/data/appwrite-repository";
@@ -35,6 +36,7 @@ import { VehiclesPanel } from "@/components/admin/VehiclesPanel";
 import { TripsPanel } from "@/components/admin/TripsPanel";
 import { BookingsPanel } from "@/components/admin/BookingsPanel";
 import { PricingPanel } from "@/components/admin/PricingPanel";
+import { PayoutsPanel } from "@/components/admin/PayoutsPanel";
 import { UserProfileModal } from "@/components/UserProfileModal";
 import { getUserDisplayName } from "@/lib/user-display";
 import logo from "@/assets/logo.png";
@@ -51,6 +53,7 @@ const MODULE_TITLES: Record<string, string> = {
   trips: "Trip Manager",
   bookings: "Booking Manager",
   pricing: "Pricing Rules",
+  payouts: "Payouts",
   banners: "Banners Manager",
 };
 
@@ -173,6 +176,11 @@ function AdminDashboardPage() {
                 label: "Pricing Rules",
               },
               {
+                key: "payouts",
+                icon: <Wallet size={18} />,
+                label: "Payouts",
+              },
+              {
                 key: "banners",
                 icon: <ImageIcon size={18} />,
                 label: "Banners Manager",
@@ -261,6 +269,7 @@ function AdminDashboardPage() {
             {activeModule === "trips" && <TripsPanel />}
             {activeModule === "bookings" && <BookingsPanel />}
             {activeModule === "pricing" && <PricingPanel />}
+            {activeModule === "payouts" && <PayoutsPanel />}
             {activeModule === "banners" && <BannersManager />}
           </Content>
         </Layout>

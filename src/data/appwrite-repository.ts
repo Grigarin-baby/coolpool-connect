@@ -4,12 +4,15 @@ import { getCollectionIds } from "@/integrations/appwrite/schema";
 import { routeCitySegmentsMatch } from "@/lib/geo";
 import type {
   AppRole,
+  BankAccount,
   Booking,
   BookingStatus,
   DriverProfile,
   DriverVehicle,
   HeroBanner,
   MusicType,
+  PayoutRequest,
+  PayoutStatus,
   PricingRule,
   RidePreferences,
   StopType,
@@ -142,6 +145,34 @@ function toDriverVehicle(doc: any): DriverVehicle {
     carImages: doc.car_images && Array.isArray(doc.car_images) ? doc.car_images.map(String) : [],
     verificationStatus: (doc.verification_status as VerificationStatus | undefined) ?? "approved",
     verificationNote: doc.verification_note ? String(doc.verification_note) : null,
+  };
+}
+
+function toBankAccount(doc: any): BankAccount {
+  return {
+    id: doc.$id,
+    driverUserId: String(doc.driver_user_id || ""),
+    accountHolderName: String(doc.account_holder_name || ""),
+    accountNumber: String(doc.account_number || ""),
+    ifscCode: String(doc.ifsc_code || ""),
+    upiId: doc.upi_id ? String(doc.upi_id) : null,
+  };
+}
+
+function toPayoutRequest(doc: any): PayoutRequest {
+  return {
+    id: doc.$id,
+    driverUserId: String(doc.driver_user_id || ""),
+    amount: Number(doc.amount || 0),
+    status: String(doc.status || "pending") as PayoutStatus,
+    requestedAt: String(doc.requested_at || doc.$createdAt),
+    processedAt: doc.processed_at ? String(doc.processed_at) : null,
+    paymentReference: doc.payment_reference ? String(doc.payment_reference) : null,
+    adminNote: doc.admin_note ? String(doc.admin_note) : null,
+    accountHolderName: String(doc.account_holder_name || ""),
+    accountNumber: String(doc.account_number || ""),
+    ifscCode: String(doc.ifsc_code || ""),
+    upiId: doc.upi_id ? String(doc.upi_id) : null,
   };
 }
 
@@ -1275,4 +1306,121 @@ export async function updatePricingRule(input: UpdatePricingRuleInput): Promise<
     payload,
   );
   return toPricingRule(doc);
+}
+
+// ---------------------------------------------------------------------------
+// Payouts
+// ---------------------------------------------------------------------------
+
+export interface UpsertBankAccountInput {
+  driverUserId: string;
+  accountHolderName: string;
+  accountNumber: string;
+  ifscCode: string;
+  upiId?: string | null;
+}
+
+/** A driver/host's saved payout bank account, or null if not set up yet. */
+export async function getBankAccount(driverUserId: string): Promise<BankAccount | null> {
+  const c = ids();
+  const result = await databases.listDocuments(appwriteConfig.databaseId, c.bankAccounts, [
+    Query.equal("driver_user_id", driverUserId),
+    Query.limit(1),
+  ]);
+  return result.documents[0] ? toBankAccount(result.documents[0]) : null;
+}
+
+export async function upsertBankAccount(input: UpsertBankAccountInput): Promise<BankAccount> {
+  const c = ids();
+  const payload = {
+    driver_user_id: input.driverUserId,
+    account_holder_name: input.accountHolderName,
+    account_number: input.accountNumber,
+    ifsc_code: input.ifscCode,
+    upi_id: input.upiId ?? null,
+  };
+  const existing = await databases.listDocuments(appwriteConfig.databaseId, c.bankAccounts, [
+    Query.equal("driver_user_id", input.driverUserId),
+    Query.limit(1),
+  ]);
+  if (existing.total > 0) {
+    const doc = await databases.updateDocument(
+      appwriteConfig.databaseId,
+      c.bankAccounts,
+      existing.documents[0].$id,
+      payload,
+    );
+    return toBankAccount(doc);
+  }
+  const doc = await databases.createDocument(
+    appwriteConfig.databaseId,
+    c.bankAccounts,
+    ID.unique(),
+    payload,
+  );
+  return toBankAccount(doc);
+}
+
+/** A driver/host's own payout request history, newest first. */
+export async function listPayoutRequestsByDriver(driverUserId: string): Promise<PayoutRequest[]> {
+  const c = ids();
+  const result = await databases.listDocuments(appwriteConfig.databaseId, c.payoutRequests, [
+    Query.equal("driver_user_id", driverUserId),
+    Query.orderDesc("requested_at"),
+    Query.limit(100),
+  ]);
+  return result.documents.map(toPayoutRequest);
+}
+
+export interface CreatePayoutRequestInput {
+  driverUserId: string;
+  amount: number;
+  bankAccount: BankAccount;
+}
+
+/** Create a payout request, snapshotting the bank account details at request time. */
+export async function createPayoutRequest(input: CreatePayoutRequestInput): Promise<PayoutRequest> {
+  const c = ids();
+  const doc = await databases.createDocument(appwriteConfig.databaseId, c.payoutRequests, ID.unique(), {
+    driver_user_id: input.driverUserId,
+    amount: input.amount,
+    status: "pending",
+    requested_at: new Date().toISOString(),
+    account_holder_name: input.bankAccount.accountHolderName,
+    account_number: input.bankAccount.accountNumber,
+    ifsc_code: input.bankAccount.ifscCode,
+    upi_id: input.bankAccount.upiId ?? null,
+  });
+  return toPayoutRequest(doc);
+}
+
+/** All payout requests across drivers, newest first — for the admin Payouts panel. */
+export async function listAllPayoutRequests(limit = 200): Promise<PayoutRequest[]> {
+  const c = ids();
+  const result = await databases.listDocuments(appwriteConfig.databaseId, c.payoutRequests, [
+    Query.orderDesc("requested_at"),
+    Query.limit(limit),
+  ]);
+  return result.documents.map(toPayoutRequest);
+}
+
+export interface UpdatePayoutRequestInput {
+  status: PayoutStatus;
+  paymentReference?: string | null;
+  adminNote?: string | null;
+}
+
+export async function updatePayoutRequestStatus(
+  requestId: string,
+  input: UpdatePayoutRequestInput,
+): Promise<PayoutRequest> {
+  const c = ids();
+  const doc = await databases.updateDocument(appwriteConfig.databaseId, c.payoutRequests, requestId, {
+    status: input.status,
+    payment_reference: input.paymentReference ?? null,
+    admin_note: input.adminNote ?? null,
+    processed_at:
+      input.status === "paid" || input.status === "rejected" ? new Date().toISOString() : null,
+  });
+  return toPayoutRequest(doc);
 }

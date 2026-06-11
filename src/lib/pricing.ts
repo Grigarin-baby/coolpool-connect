@@ -9,6 +9,9 @@
  * but DO NOT change segment_price on existing bookings.
  */
 
+/** Flat platform fee deducted from the host's earnings per booking. */
+export const PLATFORM_FEE_PER_BOOKING = 10;
+
 export function calcPricePerKm(totalPrice: number, totalDistanceKm: number): number {
   if (totalDistanceKm <= 0) return 0;
   return totalPrice / totalDistanceKm;

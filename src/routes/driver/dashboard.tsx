@@ -31,6 +31,7 @@ import {
   PlayCircle,
   FlagTriangleRight,
   RadioTower,
+  Wallet,
 } from "lucide-react";
 import {
   Layout,
@@ -92,6 +93,7 @@ import {
   updateDriverBio,
   type CreateTeamDriverInput,
 } from "@/data/appwrite-repository";
+import { PayoutsPanel } from "@/components/driver/PayoutsPanel";
 import type { RidePreferences } from "@/lib/domain";
 import { storage } from "@/integrations/appwrite/client";
 import { ID } from "appwrite";
@@ -216,6 +218,7 @@ const DASHBOARD_MODULES = [
   "settings",
   "customers",
   "onboarding",
+  "payouts",
 ] as const;
 type DashboardModule = (typeof DASHBOARD_MODULES)[number];
 
@@ -1716,6 +1719,11 @@ function DriverDashboardPage() {
                     label: "Drivers",
                   },
                   {
+                    key: "payouts",
+                    icon: <Wallet size={18} />,
+                    label: "Payouts",
+                  },
+                  {
                     key: "settings",
                     icon: <Settings size={18} />,
                     label: "Vehicle Fleet",
@@ -1747,7 +1755,9 @@ function DriverDashboardPage() {
                           ? "Drivers"
                           : activeModule === "onboarding"
                             ? "Complete Onboarding"
-                            : "Vehicle Fleet"}
+                            : activeModule === "payouts"
+                              ? "Payouts"
+                              : "Vehicle Fleet"}
                 </Title>
                 <div className="sm:hidden">
                   <button
@@ -3761,6 +3771,9 @@ function DriverDashboardPage() {
                   </Drawer>
                 </div>
               )}
+
+              {/* — PAYOUTS MODULE — */}
+              {activeModule === "payouts" && <PayoutsPanel />}
 
               {/* — VEHICLE FLEET MODULE — */}
               {activeModule === "settings" && (

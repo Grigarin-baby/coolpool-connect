@@ -9,6 +9,8 @@ export interface AppwriteCollectionIds {
   drivers: string;
   vehicles: string;
   heroBanners: string;
+  bankAccounts: string;
+  payoutRequests: string;
 }
 
 export interface AppwriteBucketIds {
@@ -69,6 +71,16 @@ export function getCollectionIds(): AppwriteCollectionIds {
       import.meta.env.VITE_APPWRITE_COLLECTION_HERO_BANNERS ||
         process.env.APPWRITE_COLLECTION_HERO_BANNERS,
       "VITE_APPWRITE_COLLECTION_HERO_BANNERS / APPWRITE_COLLECTION_HERO_BANNERS",
+    ),
+    bankAccounts: requireCollectionId(
+      import.meta.env.VITE_APPWRITE_COLLECTION_BANK_ACCOUNTS ||
+        process.env.APPWRITE_COLLECTION_BANK_ACCOUNTS,
+      "VITE_APPWRITE_COLLECTION_BANK_ACCOUNTS / APPWRITE_COLLECTION_BANK_ACCOUNTS",
+    ),
+    payoutRequests: requireCollectionId(
+      import.meta.env.VITE_APPWRITE_COLLECTION_PAYOUT_REQUESTS ||
+        process.env.APPWRITE_COLLECTION_PAYOUT_REQUESTS,
+      "VITE_APPWRITE_COLLECTION_PAYOUT_REQUESTS / APPWRITE_COLLECTION_PAYOUT_REQUESTS",
     ),
   };
 }

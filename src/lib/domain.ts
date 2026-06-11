@@ -3,6 +3,7 @@ export type StopType = "pickup" | "drop" | "both";
 export type TripStatus = "scheduled" | "in_progress" | "completed" | "cancelled";
 export type BookingStatus = "pending" | "confirmed" | "cancelled" | "completed";
 export type VerificationStatus = "pending" | "approved" | "rejected";
+export type PayoutStatus = "pending" | "processing" | "paid" | "rejected";
 
 export interface PricingRule {
   id: string;
@@ -131,6 +132,30 @@ export interface DriverVehicle {
   carImages?: string[];
   verificationStatus?: VerificationStatus;
   verificationNote?: string | null;
+}
+
+export interface BankAccount {
+  id: string;
+  driverUserId: string;
+  accountHolderName: string;
+  accountNumber: string;
+  ifscCode: string;
+  upiId?: string | null;
+}
+
+export interface PayoutRequest {
+  id: string;
+  driverUserId: string;
+  amount: number;
+  status: PayoutStatus;
+  requestedAt: string;
+  processedAt?: string | null;
+  paymentReference?: string | null;
+  adminNote?: string | null;
+  accountHolderName: string;
+  accountNumber: string;
+  ifscCode: string;
+  upiId?: string | null;
 }
 
 export interface HeroBanner {
