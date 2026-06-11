@@ -17,15 +17,33 @@ import {
   getTripById,
   getVehicleByDriverUserId,
   listTripSeatReservations,
+  listTripStops,
   listTravelerBookings,
 } from "@/data/appwrite-repository";
 import { account } from "@/integrations/appwrite/client";
 import { formatCurrency } from "@/lib/pricing";
+import { getSegmentPrice } from "@/lib/segment-pricing";
 import { buildSeatLayout } from "@/lib/seatLayout";
 import { toast } from "sonner";
 import { RideRouteMap } from "@/components/RideRouteMap";
 
+interface BookingSearch {
+  fromStopIndex?: number;
+  toStopIndex?: number;
+  fromLabel?: string;
+  toLabel?: string;
+  segmentPrice?: number;
+}
+
 export const Route = createFileRoute("/booking/$tripId")({
+  validateSearch: (search: Record<string, unknown>): BookingSearch => ({
+    fromStopIndex:
+      typeof search.fromStopIndex === "number" ? search.fromStopIndex : undefined,
+    toStopIndex: typeof search.toStopIndex === "number" ? search.toStopIndex : undefined,
+    fromLabel: typeof search.fromLabel === "string" ? search.fromLabel : undefined,
+    toLabel: typeof search.toLabel === "string" ? search.toLabel : undefined,
+    segmentPrice: typeof search.segmentPrice === "number" ? search.segmentPrice : undefined,
+  }),
   head: () => ({
     meta: [
       { title: "Book seats — Coolpool" },
@@ -37,6 +55,7 @@ export const Route = createFileRoute("/booking/$tripId")({
 
 function BookingTripPage() {
   const { tripId } = Route.useParams();
+  const segmentSearch = Route.useSearch();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { user, loading: authLoading } = useAuth();
@@ -82,6 +101,12 @@ function BookingTripPage() {
     queryFn: () => listTripSeatReservations(tripId),
     enabled: !!tripId,
     refetchInterval: 30_000,
+  });
+
+  const stopsQuery = useQuery({
+    queryKey: ["trip-stops", tripId],
+    queryFn: () => listTripStops(tripId),
+    enabled: !!tripId,
   });
 
   const pastBookingsQuery = useQuery({
@@ -149,10 +174,30 @@ function BookingTripPage() {
     return Math.max(0, trip.totalSeats - sold);
   }, [tripQuery.data, reservationsQuery.data]);
 
-  const pricePerSeat =
-    tripQuery.data && tripQuery.data.totalSeats > 0
-      ? tripQuery.data.totalPrice / tripQuery.data.totalSeats
-      : 0;
+  const sortedStops = useMemo(
+    () => [...(stopsQuery.data ?? [])].sort((a, b) => a.stopIndex - b.stopIndex),
+    [stopsQuery.data],
+  );
+
+  const segment = useMemo(() => {
+    const trip = tripQuery.data;
+    const firstStop = sortedStops[0];
+    const lastStop = sortedStops[sortedStops.length - 1];
+    const fromStopIndex = segmentSearch.fromStopIndex ?? firstStop?.stopIndex ?? 0;
+    const toStopIndex = segmentSearch.toStopIndex ?? lastStop?.stopIndex ?? 0;
+    const fromLabel = segmentSearch.fromLabel ?? trip?.fromLocation ?? "";
+    const toLabel = segmentSearch.toLabel ?? trip?.toLocation ?? "";
+    const price =
+      segmentSearch.segmentPrice ??
+      (trip && sortedStops.length >= 2
+        ? getSegmentPrice(trip, sortedStops, fromStopIndex, toStopIndex)
+        : trip && trip.totalSeats > 0
+          ? trip.totalPrice / trip.totalSeats
+          : 0);
+    return { fromStopIndex, toStopIndex, fromLabel, toLabel, price };
+  }, [tripQuery.data, sortedStops, segmentSearch]);
+
+  const pricePerSeat = segment.price;
 
   const bookingMutation = useMutation({
     mutationFn: async () => {
@@ -190,8 +235,8 @@ function BookingTripPage() {
         tripId: tripQuery.data.id,
         travelerId: user.$id,
         hostId: tripQuery.data.hostId,
-        fromStopIndex: 0,
-        toStopIndex: 0,
+        fromStopIndex: segment.fromStopIndex,
+        toStopIndex: segment.toStopIndex,
         seatsBooked: codes.length,
         segmentPrice: Math.round(pricePerSeat * codes.length * 100) / 100,
         passengerName: joinedName,
@@ -321,9 +366,9 @@ function BookingTripPage() {
             <div className="min-w-0">
               <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Book your seat</h1>
               <div className="mt-2 flex items-center gap-2 text-sm sm:text-base">
-                <span className="font-semibold truncate">{trip.fromLocation}</span>
+                <span className="font-semibold truncate">{segment.fromLabel}</span>
                 <span className="text-muted-foreground">→</span>
-                <span className="font-semibold truncate">{trip.toLocation}</span>
+                <span className="font-semibold truncate">{segment.toLabel}</span>
               </div>
               <p className="text-xs sm:text-sm text-muted-foreground mt-1">
                 {new Date(trip.departureAt).toLocaleString()}

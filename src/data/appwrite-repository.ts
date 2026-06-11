@@ -66,6 +66,7 @@ function toTripStop(doc: any): TripStop {
     lng: Number(doc.lng || 0),
     stopType: String(doc.stop_type || "pickup") as StopType,
     distanceFromOriginKm: Number(doc.distance_from_origin_km || 0),
+    priceFromOrigin: Number(doc.price_from_origin || 0),
   };
 }
 
@@ -175,6 +176,7 @@ export interface CreateTripStopInput {
   lng: number;
   stopType: StopType;
   distanceFromOriginKm: number;
+  priceFromOrigin: number;
 }
 
 export interface CreateBookingInput {
@@ -377,6 +379,7 @@ export async function createTripStop(input: CreateTripStopInput): Promise<TripSt
       lng: input.lng,
       stop_type: input.stopType,
       distance_from_origin_km: input.distanceFromOriginKm,
+      price_from_origin: input.priceFromOrigin,
     },
     [
       Permission.read(Role.any()),

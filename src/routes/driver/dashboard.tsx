@@ -468,6 +468,7 @@ function DriverDashboardPage() {
         lng: result.from.lng,
         stopType: "pickup" as const,
         distanceFromOriginKm: 0,
+        priceFromOrigin: 0,
       },
       ...result.stops.map((s, i) => ({
         stopIndex: i + 1,
@@ -476,6 +477,7 @@ function DriverDashboardPage() {
         lng: s.lng,
         stopType: s.stopType,
         distanceFromOriginKm: Math.round(s.distanceFromOriginKm * 10) / 10,
+        priceFromOrigin: result.segmentPrices[`0-${i + 1}`] ?? 0,
       })),
       {
         stopIndex: result.stops.length + 1,
@@ -484,6 +486,7 @@ function DriverDashboardPage() {
         lng: result.to.lng,
         stopType: "drop" as const,
         distanceFromOriginKm: Math.round(result.totalDistanceKm * 10) / 10,
+        priceFromOrigin: result.segmentPrices[`0-${result.stops.length + 1}`] ?? result.pricePerSeat,
       },
     ];
     const payload = {
@@ -1116,7 +1119,13 @@ function DriverDashboardPage() {
             assignedDriverId: values.driverId,
             seatConfig: values.seatConfig,
           },
-          stopsData,
+          stopsData: stopsData.map((stop, i) => ({
+            ...stop,
+            priceFromOrigin:
+              i === stopsData.length - 1
+                ? seatPrice
+                : Math.round((stop.distanceFromOriginKm / totalDistanceKm) * seatPrice),
+          })),
         };
 
         if (import.meta.env.DEV) {

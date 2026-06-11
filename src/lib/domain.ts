@@ -20,6 +20,8 @@ export interface TripStop {
   lng: number;
   stopType: StopType;
   distanceFromOriginKm: number;
+  /** Cumulative price (per seat) from the trip's origin to this stop. 0 for the origin stop. */
+  priceFromOrigin: number;
 }
 
 export interface Trip {

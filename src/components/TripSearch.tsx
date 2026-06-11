@@ -73,6 +73,7 @@ import {
 import type { RidePreferences, TripStop } from "@/lib/domain";
 import { routeCitySegmentsMatch } from "@/lib/geo";
 import { formatCurrency } from "@/lib/pricing";
+import { getSegmentPrice } from "@/lib/segment-pricing";
 import { appwriteConfig } from "@/integrations/appwrite/client";
 import { cn } from "@/lib/utils";
 import { SERVICE_CITY, BENGALURU_AIRPORTS } from "@/lib/config";
@@ -100,10 +101,22 @@ interface GoogleMapsWindow {
 
 type TripRow = Awaited<ReturnType<typeof listTrips>>[number];
 
+/** Which two stops along a trip's route a passenger searched between, and the
+ *  per-seat price for that segment (vs. the trip's full-route price). */
+export interface MatchedSegment {
+  fromStopIndex: number;
+  toStopIndex: number;
+  fromLabel: string;
+  toLabel: string;
+  price: number;
+}
+
+type SearchResult = TripRow & { matchedSegment: MatchedSegment };
+
 interface TripSearchContextValue {
   loading: boolean;
   searched: boolean;
-  results: TripRow[];
+  results: SearchResult[];
   fromOptions: { value: string; label: string }[];
   toOptions: { value: string; label: string }[];
   searchPlaces: (query: string, target: "from" | "to") => void;
@@ -136,22 +149,50 @@ function matchesLocation(tripLocation: string, searchLocation: string) {
 }
 
 /** A trip's full ordered route — origin, intermediate stops, and destination —
- *  any of which can serve as a pickup or drop-off point for a passenger. */
-type RouteStop = Pick<TripStop, "stopIndex" | "location" | "stopType">;
-
-function fallbackRoute(trip: TripRow): RouteStop[] {
+ *  any of which can serve as a pickup or drop-off point for a passenger. Used
+ *  when a trip has no saved stops, so it behaves like a simple A→B route. */
+function fallbackStops(trip: TripRow): TripStop[] {
+  const pricePerSeat = trip.totalSeats > 0 ? trip.totalPrice / trip.totalSeats : trip.totalPrice;
   return [
-    { stopIndex: 0, location: trip.fromLocation, stopType: "pickup" },
-    { stopIndex: 1, location: trip.toLocation, stopType: "drop" },
+    {
+      id: "",
+      tripId: trip.id,
+      stopIndex: 0,
+      location: trip.fromLocation,
+      lat: trip.fromLat,
+      lng: trip.fromLng,
+      stopType: "pickup",
+      distanceFromOriginKm: 0,
+      priceFromOrigin: 0,
+    },
+    {
+      id: "",
+      tripId: trip.id,
+      stopIndex: 1,
+      location: trip.toLocation,
+      lat: trip.toLat,
+      lng: trip.toLng,
+      stopType: "drop",
+      distanceFromOriginKm: trip.totalDistanceKm,
+      priceFromOrigin: pricePerSeat,
+    },
   ];
 }
 
-/** True if some stop matching `fromNeedle` precedes some later stop matching
- *  `toNeedle` along the route — covers both the trip's main endpoints and any
- *  intermediate stops, so passengers can search by a stop along the way. */
-function tripRouteMatches(route: RouteStop[], fromNeedle: string, toNeedle: string) {
-  if (!fromNeedle && !toNeedle) return true;
+/** Finds the pickup/drop-off stop pair matching `fromNeedle`/`toNeedle` along
+ *  the route — covers both the trip's main endpoints and any intermediate
+ *  stops, so passengers can search by a stop along the way. If both needles
+ *  are empty, matches the full route (origin to destination). */
+function findMatchedSegment(
+  route: TripStop[],
+  fromNeedle: string,
+  toNeedle: string,
+): { fromStop: TripStop; toStop: TripStop } | null {
   const sorted = [...route].sort((a, b) => a.stopIndex - b.stopIndex);
+  if (sorted.length < 2) return null;
+  if (!fromNeedle && !toNeedle) {
+    return { fromStop: sorted[0], toStop: sorted[sorted.length - 1] };
+  }
   for (let i = 0; i < sorted.length; i++) {
     const pickup = sorted[i];
     if (pickup.stopType === "drop") continue;
@@ -160,10 +201,10 @@ function tripRouteMatches(route: RouteStop[], fromNeedle: string, toNeedle: stri
       const drop = sorted[j];
       if (drop.stopType === "pickup") continue;
       if (toNeedle && !matchesLocation(drop.location, toNeedle)) continue;
-      return true;
+      return { fromStop: pickup, toStop: drop };
     }
   }
-  return false;
+  return null;
 }
 
 const SOUTH_INDIA_STATES = [
@@ -239,7 +280,7 @@ function UpcomingDateButtons({
 
 export function TripSearchProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(false);
-  const [results, setResults] = useState<TripRow[]>([]);
+  const [results, setResults] = useState<SearchResult[]>([]);
   const [searched, setSearched] = useState(false);
   const [fromOptions, setFromOptions] = useState<{ value: string; label: string }[]>([]);
   const [toOptions, setToOptions] = useState<{ value: string; label: string }[]>([]);
@@ -389,7 +430,7 @@ export function TripSearchProvider({ children }: { children: ReactNode }) {
     try {
       const allTrips = await listTrips(200);
 
-      const stopsByTrip = new Map<string, RouteStop[]>();
+      const stopsByTrip = new Map<string, TripStop[]>();
       try {
         const allStops = await listTripStopsByTripIds(allTrips.map((t) => t.id));
         for (const stop of allStops) {
@@ -403,21 +444,31 @@ export function TripSearchProvider({ children }: { children: ReactNode }) {
       const filtered = allTrips
         .filter((trip) => trip.status === "scheduled" || trip.status === "in_progress")
         .filter((trip) => {
-          const route = stopsByTrip.get(trip.id);
-          const routeOk = tripRouteMatches(
-            route && route.length >= 2 ? route : fallbackRoute(trip),
-            fromNeedle,
-            toNeedle,
-          );
-
-          let dateOk = true;
-          if (searchDate) {
-            const tripDate = dayjs(trip.departureAt);
-            dateOk = tripDate.isSame(searchDate, "day");
-          }
-
-          return routeOk && dateOk;
+          if (!searchDate) return true;
+          return dayjs(trip.departureAt).isSame(searchDate, "day");
         })
+        .map((trip): SearchResult | null => {
+          const route = stopsByTrip.get(trip.id);
+          const fullRoute = route && route.length >= 2 ? route : fallbackStops(trip);
+          const segment = findMatchedSegment(fullRoute, fromNeedle, toNeedle);
+          if (!segment) return null;
+          return {
+            ...trip,
+            matchedSegment: {
+              fromStopIndex: segment.fromStop.stopIndex,
+              toStopIndex: segment.toStop.stopIndex,
+              fromLabel: segment.fromStop.location,
+              toLabel: segment.toStop.location,
+              price: getSegmentPrice(
+                trip,
+                fullRoute,
+                segment.fromStop.stopIndex,
+                segment.toStop.stopIndex,
+              ),
+            },
+          };
+        })
+        .filter((trip): trip is SearchResult => trip !== null)
         .sort((a, b) => new Date(a.departureAt).getTime() - new Date(b.departureAt).getTime());
 
       setResults(filtered);
@@ -1097,15 +1148,37 @@ export function TripSearchResults({ variant }: { variant: "landing" | "page" }) 
               const prefs: RidePreferences | undefined = hostPrefsMap?.get(trip.hostId);
               const hasPrefs = prefs && (prefs.smokingAllowed || prefs.alcoholAllowed || prefs.musicAllowed !== undefined);
               const hostBio = hostBioMap.get(trip.hostId);
+              const segment = trip.matchedSegment;
+              const isFullRoute =
+                segment.fromStopIndex === 0 &&
+                matchesLocation(trip.fromLocation, segment.fromLabel) &&
+                matchesLocation(trip.toLocation, segment.toLabel);
               return (
                 <Link
                   key={trip.id}
                   to="/booking/$tripId"
                   params={{ tripId: trip.id }}
+                  search={{
+                    fromStopIndex: segment.fromStopIndex,
+                    toStopIndex: segment.toStopIndex,
+                    fromLabel: segment.fromLabel,
+                    toLabel: segment.toLabel,
+                    segmentPrice: segment.price,
+                  }}
                   className="block group"
                 >
                   {/* Card: mobile ~2-row grid, desktop single horizontal row */}
                   <Card className="rounded-2xl border border-gray-100 bg-white shadow-sm hover:shadow-md hover:border-primary transition-all duration-200 p-3 sm:p-4">
+                    {!isFullRoute && (
+                      <div className="mb-2 flex items-center gap-1.5 text-[11px] font-bold text-primary">
+                        <span className="truncate">{segment.fromLabel.split(",")[0]}</span>
+                        <ArrowRight size={11} className="shrink-0" />
+                        <span className="truncate">{segment.toLabel.split(",")[0]}</span>
+                        <span className="ml-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] uppercase tracking-wider">
+                          Segment
+                        </span>
+                      </div>
+                    )}
                     {/*
                       DOM order: Host · Price · Rating · Time
                       Mobile  (grid-cols-2): Host=r1c1 Price=r1c2 Rating=r2c1 Time=r2c2
@@ -1132,7 +1205,7 @@ export function TripSearchResults({ variant }: { variant: "landing" | "page" }) 
                       {/* ② Price — mobile r1c2 (right), desktop col4 */}
                       <div className="text-right order-2 sm:order-4 self-start sm:self-center">
                         <p className="text-lg sm:text-xl font-black text-gray-900 whitespace-nowrap leading-tight">
-                          {formatCurrency(trip.totalPrice / trip.totalSeats)}
+                          {formatCurrency(segment.price)}
                         </p>
                         <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 leading-tight">
                           per seat
