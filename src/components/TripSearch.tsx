@@ -443,6 +443,7 @@ export function TripSearchProvider({ children }: { children: ReactNode }) {
 
       const filtered = allTrips
         .filter((trip) => trip.status === "scheduled" || trip.status === "in_progress")
+        .filter((trip) => trip.status === "in_progress" || dayjs(trip.departureAt).isAfter(dayjs()))
         .filter((trip) => {
           if (!searchDate) return true;
           return dayjs(trip.departureAt).isSame(searchDate, "day");
