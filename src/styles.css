@@ -392,6 +392,24 @@ a.inline-flex.bg-gradient-primary:focus-visible {
   font-size: 16px !important;
 }
 
+/* The big "price per seat" number input is intentionally huge — override
+   the 16px pin above for it specifically (still >= 16px, so no iOS zoom). */
+.trip-wizard input.trip-wizard-price-input {
+  font-size: clamp(4.5rem, 21vw, 6.5rem) !important;
+}
+
+/* Long place names (e.g. "Kempegowda International Airport Bengaluru (BLR),
+   Karnataka, India") were overflowing their flex container and pushing the
+   whole step into horizontal scroll. Truncate with an ellipsis instead —
+   the full text is still visible while the field is focused/edited. */
+.trip-wizard .ant-select {
+  min-width: 0;
+  width: 100%;
+}
+.trip-wizard input {
+  text-overflow: ellipsis;
+}
+
 .trip-search-autocomplete .ant-select-input,
 .trip-search-autocomplete .ant-select-content-value {
   font-weight: 800 !important;

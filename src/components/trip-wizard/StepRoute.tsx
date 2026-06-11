@@ -300,7 +300,7 @@ export function StepRoute({
           <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-primary/10 text-primary">
             <MapPin size={18} />
           </span>
-          <div className="relative flex-1">
+          <div className="relative flex-1 min-w-0">
             <AutoComplete
               value={fromText}
               options={fromOptions}
@@ -331,7 +331,7 @@ export function StepRoute({
                 <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-amber-50 text-amber-500 border border-amber-200 text-xs font-bold">
                   {idx + 1}
                 </span>
-                <div className="relative flex-1">
+                <div className="relative flex-1 min-w-0">
                   <AutoComplete
                     value={txt}
                     options={stopOptions[idx] ?? []}
@@ -389,7 +389,7 @@ export function StepRoute({
           <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-pink-500/10 text-pink-600">
             <MapPin size={18} />
           </span>
-          <div className="relative flex-1">
+          <div className="relative flex-1 min-w-0">
             <AutoComplete
               value={toText}
               options={toOptions}

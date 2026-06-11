@@ -62,7 +62,7 @@ export function StepSeats({
             }}
             placeholder="0"
             style={{ fontSize: "clamp(4.5rem, 21vw, 6.5rem)", lineHeight: 1 }}
-            className="flex-1 font-black text-gray-900 bg-transparent outline-none tabular-nums placeholder:text-gray-200 min-w-0"
+            className="trip-wizard-price-input flex-1 font-black text-gray-900 bg-transparent outline-none tabular-nums placeholder:text-gray-200 min-w-0"
           />
         </div>
       </div>
