@@ -1169,16 +1169,16 @@ export function TripSearchResults({ variant }: { variant: "landing" | "page" }) 
                 >
                   {/* Card: mobile ~2-row grid, desktop single horizontal row */}
                   <Card className="rounded-2xl border border-gray-100 bg-white shadow-sm hover:shadow-md hover:border-primary transition-all duration-200 p-3 sm:p-4">
-                    {!isFullRoute && (
-                      <div className="mb-2 flex items-center gap-1.5 text-[11px] font-bold text-primary">
-                        <span className="truncate">{segment.fromLabel.split(",")[0]}</span>
-                        <ArrowRight size={11} className="shrink-0" />
-                        <span className="truncate">{segment.toLabel.split(",")[0]}</span>
+                    <div className="mb-2 flex items-center gap-1.5 text-[11px] font-bold text-primary">
+                      <span className="truncate">{segment.fromLabel.split(",")[0]}</span>
+                      <ArrowRight size={11} className="shrink-0" />
+                      <span className="truncate">{segment.toLabel.split(",")[0]}</span>
+                      {!isFullRoute && (
                         <span className="ml-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] uppercase tracking-wider">
                           Segment
                         </span>
-                      </div>
-                    )}
+                      )}
+                    </div>
                     {/*
                       DOM order: Host · Price · Rating · Time
                       Mobile  (grid-cols-2): Host=r1c1 Price=r1c2 Rating=r2c1 Time=r2c2
