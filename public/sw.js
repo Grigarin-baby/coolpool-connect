@@ -11,6 +11,12 @@ self.addEventListener("activate", (event) => {
   event.waitUntil(self.clients.claim());
 });
 
+// Network-passthrough fetch handler — required by some browsers for the
+// "Add to Home Screen" / install prompt to be offered.
+self.addEventListener("fetch", (event) => {
+  event.respondWith(fetch(event.request));
+});
+
 self.addEventListener("push", (event) => {
   let data = {};
   try {

@@ -17,6 +17,7 @@ import {
   Banknote,
   Users2,
   Plus,
+  Bell,
   Trash2,
   Pencil,
   Star,
@@ -112,7 +113,12 @@ import { getUserDisplayName } from "@/lib/user-display";
 import { TripWizard } from "@/components/trip-wizard/TripWizard";
 import type { WizardResult } from "@/components/trip-wizard/types";
 import { NotificationPermissionPrompt } from "@/components/NotificationPermissionPrompt";
-import { showAppNotification } from "@/lib/notifications";
+import {
+  getNotificationPermission,
+  isNotificationSupported,
+  requestNotificationPermission,
+  showAppNotification,
+} from "@/lib/notifications";
 
 import logo from "@/assets/logo.png";
 
@@ -521,9 +527,34 @@ function DriverDashboardPage() {
     performCreateTrip(payload);
   };
 
+  // Hosting requires notifications (so we can remind the host to start the
+  // trip on time). Browsers that can't do web push at all (e.g. iPhone Safari
+  // before the site is added to the Home Screen) are let through with the
+  // softer in-page prompt instead of being locked out.
+  const [notifGateOpen, setNotifGateOpen] = useState(false);
+  const [notifGateRequesting, setNotifGateRequesting] = useState(false);
+
   const openWizard = () => {
+    if (isNotificationSupported() && getNotificationPermission() !== "granted") {
+      setNotifGateOpen(true);
+      return;
+    }
     setWizardResult(null);
     setWizardOpen(true);
+  };
+
+  const handleNotifGateEnable = async () => {
+    setNotifGateRequesting(true);
+    try {
+      const result = await requestNotificationPermission();
+      if (result === "granted") {
+        setNotifGateOpen(false);
+        setWizardResult(null);
+        setWizardOpen(true);
+      }
+    } finally {
+      setNotifGateRequesting(false);
+    }
   };
 
   const handleDeleteAccount = async () => {
@@ -856,6 +887,38 @@ function DriverDashboardPage() {
   const sortedTrips = [...upcomingTrips].sort(
     (a, b) => new Date(a.departureAt).getTime() - new Date(b.departureAt).getTime(),
   );
+
+  // Remind the host to start each scheduled trip: once at 15 minutes before
+  // departure, and once more if departure passes while the trip is still not
+  // started. localStorage keeps each reminder to a single notification.
+  useEffect(() => {
+    for (const trip of upcomingTrips) {
+      if (trip.status !== "scheduled") continue;
+      const departure = dayjs(trip.departureAt);
+      const route = `${trip.fromLocation} → ${trip.toLocation}`;
+      if (now.isAfter(departure)) {
+        const key = `coolpool-reminded-timeup-${trip.id}`;
+        if (!localStorage.getItem(key)) {
+          localStorage.setItem(key, "1");
+          void showAppNotification("Time is up — start your trip!", {
+            body: `${route} was due at ${departure.format("h:mm A")}. Passengers are waiting.`,
+            url: "/driver/dashboard",
+            tag: `trip-timeup-${trip.id}`,
+          });
+        }
+      } else if (now.isAfter(departure.subtract(15, "minute"))) {
+        const key = `coolpool-reminded-15m-${trip.id}`;
+        if (!localStorage.getItem(key)) {
+          localStorage.setItem(key, "1");
+          void showAppNotification("Start your trip now", {
+            body: `${route} departs at ${departure.format("h:mm A")} — get ready and start the trip.`,
+            url: "/driver/dashboard",
+            tag: `trip-reminder-${trip.id}`,
+          });
+        }
+      }
+    }
+  }, [now, upcomingTrips]);
 
   const isVerifiedHost = vehicles.length > 0;
 
@@ -1608,6 +1671,55 @@ function DriverDashboardPage() {
         )}
 
         <Modal
+          open={notifGateOpen}
+          onCancel={() => setNotifGateOpen(false)}
+          footer={null}
+          centered
+          width={460}
+          styles={{ content: { borderRadius: "1.5rem", padding: 0, overflow: "hidden" } }}
+        >
+          <div className="px-7 pt-7 pb-6">
+            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-purple-100">
+              <Bell className="text-purple-600" size={26} />
+            </div>
+            <h3 className="mt-5 text-2xl font-bold text-gray-900">
+              Enable notifications to host rides
+            </h3>
+            {getNotificationPermission() === "denied" ? (
+              <>
+                <p className="mt-2 text-sm leading-relaxed text-gray-600">
+                  Hosts must receive trip reminders — we notify you 15 minutes before departure so
+                  your passengers are never left waiting.
+                </p>
+                <p className="mt-3 text-sm leading-relaxed text-gray-600">
+                  Notifications are currently <strong>blocked</strong> for coolpool.in in your
+                  browser. To enable them, open your browser&apos;s site settings for coolpool.in,
+                  set Notifications to <strong>Allow</strong>, then come back and tap Host a Ride
+                  again.
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="mt-2 text-sm leading-relaxed text-gray-600">
+                  Hosts must receive trip reminders — we notify you 15 minutes before departure so
+                  your passengers are never left waiting. Please allow notifications to continue.
+                </p>
+                <Button
+                  type="primary"
+                  size="large"
+                  block
+                  loading={notifGateRequesting}
+                  onClick={() => void handleNotifGateEnable()}
+                  className="mt-6 bg-gradient-primary border-none rounded-3xl h-12 font-bold"
+                >
+                  Enable Notifications
+                </Button>
+              </>
+            )}
+          </div>
+        </Modal>
+
+        <Modal
           open={deleteAccountModalOpen}
           onCancel={() => {
             if (!deletingAccount) setDeleteAccountModalOpen(false);
@@ -2268,8 +2380,17 @@ function DriverDashboardPage() {
                                   color="purple"
                                   className="rounded-full border-none px-3 py-1 font-semibold text-xs m-0"
                                 >
-                                  {dayjs(item.departureAt).format("MMM D, YYYY â€¢ h:mm A")}
+                                  {dayjs(item.departureAt).format("MMM D, YYYY • h:mm A")}
                                 </Tag>
+                                {item.status === "scheduled" &&
+                                  now.isAfter(dayjs(item.departureAt)) && (
+                                    <Tag
+                                      color="error"
+                                      className="rounded-full px-3 py-1 font-semibold text-xs m-0 ml-2"
+                                    >
+                                      TIME IS UP — START NOW
+                                    </Tag>
+                                  )}
                                 <div className="flex items-center gap-2">
                                   <Text strong className="text-lg text-emerald-600">
                                     ₹{item.totalPrice}
@@ -2740,20 +2861,27 @@ function DriverDashboardPage() {
                                 {/* Status & Seats */}
                                 <div className="flex items-center justify-between">
                                   <div className="flex items-center gap-2">
-                                    <Tag
-                                      color={
-                                        trip.status === "in_progress"
-                                          ? "processing"
-                                          : trip.status === "completed"
-                                            ? "success"
-                                            : trip.status === "cancelled"
-                                              ? "error"
-                                              : "blue"
-                                      }
-                                      className="rounded-full m-0"
-                                    >
-                                      {trip.status?.toUpperCase().replace("_", " ")}
-                                    </Tag>
+                                    {trip.status === "scheduled" &&
+                                    now.isAfter(dayjs(trip.departureAt)) ? (
+                                      <Tag color="error" className="rounded-full m-0 font-semibold">
+                                        TIME IS UP — START NOW
+                                      </Tag>
+                                    ) : (
+                                      <Tag
+                                        color={
+                                          trip.status === "in_progress"
+                                            ? "processing"
+                                            : trip.status === "completed"
+                                              ? "success"
+                                              : trip.status === "cancelled"
+                                                ? "error"
+                                                : "blue"
+                                        }
+                                        className="rounded-full m-0"
+                                      >
+                                        {trip.status?.toUpperCase().replace("_", " ")}
+                                      </Tag>
+                                    )}
                                     <Text type="secondary" className="text-xs">
                                       {trip.totalSeats} seats
                                     </Text>
