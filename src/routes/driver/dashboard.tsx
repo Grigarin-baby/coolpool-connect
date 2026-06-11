@@ -1928,18 +1928,10 @@ function DriverDashboardPage() {
                     </div>
                     <Button
                       type="primary"
-                      icon={<PlusCircle size={24} color="white" />}
-                      style={{ height: 64, fontSize: 18, fontWeight: 800, borderRadius: 32, whiteSpace: "nowrap", flexShrink: 0, color: "white" }}
-                      className="bg-gradient-primary border-none !text-white [&_svg]:!text-white shadow-glow hover:scale-105 active:scale-95 transition-transform px-6 sm:px-10"
-                      onClick={() => {
-                        setEditingTripId(null);
-                        setIsEditingTrip(false);
-                        form.resetFields();
-                        setSelectedFrom(null);
-                        setSelectedTo(null);
-                        setShowTripForm(false);
-                        setActiveModule("trips");
-                      }}
+                      icon={<PlusCircle size={28} color="white" />}
+                      style={{ height: 72, minWidth: 190, fontSize: 20, fontWeight: 800, borderRadius: 36, whiteSpace: "nowrap", flexShrink: 0, color: "white" }}
+                      className="bg-gradient-primary border-none !text-white [&_svg]:!text-white shadow-glow hover:scale-105 active:scale-95 transition-transform !px-8 sm:!px-12"
+                      onClick={openWizard}
                     >
                       Host a Ride
                     </Button>
@@ -2220,7 +2212,7 @@ function DriverDashboardPage() {
                           <div className="w-20 h-20 bg-purple-100 rounded-full flex items-center justify-center mb-4">
                             <RouteIcon size={32} className="text-purple-500" />
                           </div>
-                          <Title level={4}>No trips published yet</Title>
+                          <Title level={4}>No upcoming trips</Title>
                           <Text type="secondary" className="max-w-md mt-2">
                             Your published trips will appear here. Start sharing your empty seats to
                             earn money on your journeys.
@@ -2231,7 +2223,7 @@ function DriverDashboardPage() {
                             className="mt-6 bg-gradient-primary border-none rounded-3xl"
                             onClick={openWizard}
                           >
-                            Publish your first trip
+                            Host a Ride
                           </Button>
                         </div>
                       ) : (
@@ -4486,10 +4478,10 @@ function DriverDashboardPage() {
               open={!!managingTripId}
               closable={false}
               className="bg-gray-50"
-              styles={{ body: { padding: 0 } }}
+              styles={{ body: { padding: 0, overflowY: "auto" } }}
             >
               {managingTrip && (
-                <div className="h-full flex flex-col">
+                <div className="min-h-full">
                   <div className="bg-gradient-primary p-6 text-white relative">
                     <Button
                       type="text"
@@ -4619,7 +4611,7 @@ function DriverDashboardPage() {
                     </div>
                   </Modal>
 
-                  <div className="flex-1 overflow-y-auto p-6">
+                  <div className="p-6">
                     <Title level={4} className="mb-6 font-bold text-gray-800">
                       Passenger Roster
                     </Title>
