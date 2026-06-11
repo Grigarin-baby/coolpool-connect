@@ -21,7 +21,7 @@ jobs:
       - name: Add Server to Known Hosts
         run: |
           mkdir -p ~/.ssh
-          ssh-keyscan -4 -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
+          ssh-keyscan -4 -T 30 -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts || true
 
       - name: Deploy on Server
         uses: appleboy/ssh-action@v1.0.3
