@@ -401,6 +401,7 @@ export function TripSearchProvider({ children }: { children: ReactNode }) {
       }
 
       const filtered = allTrips
+        .filter((trip) => trip.status === "scheduled" || trip.status === "in_progress")
         .filter((trip) => {
           const route = stopsByTrip.get(trip.id);
           const routeOk = tripRouteMatches(
