@@ -1357,6 +1357,11 @@ export async function upsertBankAccount(input: UpsertBankAccountInput): Promise<
     c.bankAccounts,
     ID.unique(),
     payload,
+    [
+      Permission.read(Role.user(input.driverUserId)),
+      Permission.update(Role.user(input.driverUserId)),
+      Permission.delete(Role.user(input.driverUserId)),
+    ],
   );
   return toBankAccount(doc);
 }
@@ -1381,16 +1386,22 @@ export interface CreatePayoutRequestInput {
 /** Create a payout request, snapshotting the bank account details at request time. */
 export async function createPayoutRequest(input: CreatePayoutRequestInput): Promise<PayoutRequest> {
   const c = ids();
-  const doc = await databases.createDocument(appwriteConfig.databaseId, c.payoutRequests, ID.unique(), {
-    driver_user_id: input.driverUserId,
-    amount: input.amount,
-    status: "pending",
-    requested_at: new Date().toISOString(),
-    account_holder_name: input.bankAccount.accountHolderName,
-    account_number: input.bankAccount.accountNumber,
-    ifsc_code: input.bankAccount.ifscCode,
-    upi_id: input.bankAccount.upiId ?? null,
-  });
+  const doc = await databases.createDocument(
+    appwriteConfig.databaseId,
+    c.payoutRequests,
+    ID.unique(),
+    {
+      driver_user_id: input.driverUserId,
+      amount: input.amount,
+      status: "pending",
+      requested_at: new Date().toISOString(),
+      account_holder_name: input.bankAccount.accountHolderName,
+      account_number: input.bankAccount.accountNumber,
+      ifsc_code: input.bankAccount.ifscCode,
+      upi_id: input.bankAccount.upiId ?? null,
+    },
+    [Permission.read(Role.user(input.driverUserId))],
+  );
   return toPayoutRequest(doc);
 }
 
