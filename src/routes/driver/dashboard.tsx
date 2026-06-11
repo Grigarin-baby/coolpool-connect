@@ -848,12 +848,34 @@ function DriverDashboardPage() {
   });
 
   const { mutate: saveDriver, isPending: savingDriver } = useMutation({
-    mutationFn: (vals: Omit<CreateTeamDriverInput, "ownerUserId">) =>
-      user
-        ? editingDriverId
-          ? updateTeamDriver(editingDriverId, vals)
-          : createTeamDriver({ ownerUserId: user.$id, ...vals })
-        : Promise.reject(new Error("Not logged in")),
+    mutationFn: async (vals: Omit<CreateTeamDriverInput, "ownerUserId">) => {
+      if (!user) throw new Error("Not logged in");
+
+      // Block duplicate drivers: same phone or license as an existing team
+      // driver (or the host themselves). Normalized so spaces, case, or a
+      // +91 prefix can't sneak a duplicate through.
+      const normPhone = (v?: string | null) => (v ?? "").replace(/\D/g, "").slice(-10);
+      const normLicense = (v?: string | null) =>
+        (v ?? "").replace(/[^a-z0-9]/gi, "").toUpperCase();
+      const newPhone = normPhone(vals.phone);
+      const newLicense = normLicense(vals.licenseNumber);
+      const existing = [
+        ...teamDrivers.filter((d) => d.id !== editingDriverId),
+        ...(driverProfile ? [driverProfile] : []),
+      ];
+      for (const d of existing) {
+        if (newPhone && normPhone(d.phone) === newPhone) {
+          throw new Error(`A driver with this phone number already exists (${d.fullName}).`);
+        }
+        if (newLicense && normLicense(d.licenseNumber) === newLicense) {
+          throw new Error(`A driver with this license number already exists (${d.fullName}).`);
+        }
+      }
+
+      return editingDriverId
+        ? updateTeamDriver(editingDriverId, vals)
+        : createTeamDriver({ ownerUserId: user.$id, ...vals });
+    },
     onSuccess: () => {
       message.success(editingDriverId ? "Driver updated!" : "Driver added!");
       void queryClient.invalidateQueries({ queryKey: ["team-drivers"] });
@@ -861,7 +883,8 @@ function DriverDashboardPage() {
       driverForm.resetFields();
       setEditingDriverId(null);
     },
-    onError: () => message.error("Failed to save driver."),
+    onError: (err) =>
+      message.error(err instanceof Error ? err.message : "Failed to save driver."),
   });
 
   const { mutate: removeDriver } = useMutation({
@@ -3890,81 +3913,6 @@ function DriverDashboardPage() {
                     </div>
                   )}
 
-                  {/* Add/Edit Driver Drawer */}
-                  <Drawer
-                    title={editingDriverId ? "Edit Driver" : "Add Driver"}
-                    placement="right"
-                    width={420}
-                    open={driverDrawerOpen}
-                    onClose={() => {
-                      setDriverDrawerOpen(false);
-                      driverForm.resetFields();
-                      setEditingDriverId(null);
-                    }}
-                    footer={
-                      <Button
-                        type="primary"
-                        loading={savingDriver}
-                        block
-                        size="large"
-                        className="bg-gradient-primary border-none rounded-3xl font-bold h-12"
-                        onClick={() => driverForm.submit()}
-                      >
-                        {editingDriverId ? "Save Changes" : "Add Driver"}
-                      </Button>
-                    }
-                  >
-                    <Form
-                      form={driverForm}
-                      layout="vertical"
-                      onFinish={(vals) =>
-                        saveDriver(vals as Omit<CreateTeamDriverInput, "ownerUserId">)
-                      }
-                    >
-                      {[
-                        {
-                          name: "fullName",
-                          label: "Full Name",
-                          rules: [{ required: true, message: "Required" }],
-                        },
-                        {
-                          name: "email",
-                          label: "Email",
-                          rules: [
-                            {
-                              required: true,
-                              type: "email" as const,
-                              message: "Valid email required",
-                            },
-                          ],
-                        },
-                        {
-                          name: "phone",
-                          label: "Phone",
-                          rules: [{ required: true, message: "Required" }],
-                        },
-                        {
-                          name: "licenseNumber",
-                          label: "License Number",
-                          rules: [{ required: true, message: "Required" }],
-                        },
-                        {
-                          name: "city",
-                          label: "City",
-                          rules: [{ required: true, message: "Required" }],
-                        },
-                      ].map((f) => (
-                        <Form.Item
-                          key={f.name}
-                          name={f.name}
-                          label={<span className="font-semibold text-gray-700">{f.label}</span>}
-                          rules={f.rules}
-                        >
-                          <Input size="large" className="rounded-3xl h-12" />
-                        </Form.Item>
-                      ))}
-                    </Form>
-                  </Drawer>
                 </div>
               )}
 
@@ -5000,11 +4948,87 @@ function DriverDashboardPage() {
             </Drawer>
           );
         })()}
+      {/* Add/Edit Driver Drawer — rendered globally (zIndex above the trip
+          wizard) so it can open on top without closing the wizard */}
+      <Drawer
+        title={editingDriverId ? "Edit Driver" : "Add Driver"}
+        placement="right"
+        width={420}
+        zIndex={1200}
+        open={driverDrawerOpen}
+        onClose={() => {
+          setDriverDrawerOpen(false);
+          driverForm.resetFields();
+          setEditingDriverId(null);
+        }}
+        footer={
+          <Button
+            type="primary"
+            loading={savingDriver}
+            block
+            size="large"
+            className="bg-gradient-primary border-none rounded-3xl font-bold h-12"
+            onClick={() => driverForm.submit()}
+          >
+            {editingDriverId ? "Save Changes" : "Add Driver"}
+          </Button>
+        }
+      >
+        <Form
+          form={driverForm}
+          layout="vertical"
+          onFinish={(vals) => saveDriver(vals as Omit<CreateTeamDriverInput, "ownerUserId">)}
+        >
+          {[
+            {
+              name: "fullName",
+              label: "Full Name",
+              rules: [{ required: true, message: "Required" }],
+            },
+            {
+              name: "email",
+              label: "Email",
+              rules: [
+                {
+                  required: true,
+                  type: "email" as const,
+                  message: "Valid email required",
+                },
+              ],
+            },
+            {
+              name: "phone",
+              label: "Phone",
+              rules: [{ required: true, message: "Required" }],
+            },
+            {
+              name: "licenseNumber",
+              label: "License Number",
+              rules: [{ required: true, message: "Required" }],
+            },
+            {
+              name: "city",
+              label: "City",
+              rules: [{ required: true, message: "Required" }],
+            },
+          ].map((f) => (
+            <Form.Item
+              key={f.name}
+              name={f.name}
+              label={<span className="font-semibold text-gray-700">{f.label}</span>}
+              rules={f.rules}
+            >
+              <Input size="large" className="rounded-3xl h-12" />
+            </Form.Item>
+          ))}
+        </Form>
+      </Drawer>
       {/* Add/Edit Vehicle Drawer */}
       <Drawer
         title={editingVehicleId ? "Edit Vehicle" : "Add Vehicle"}
         placement="right"
         width={420}
+        zIndex={1200}
         open={vehicleDrawerOpen}
         onClose={() => {
           setVehicleDrawerOpen(false);
@@ -5506,11 +5530,14 @@ function DriverDashboardPage() {
         onClose={() => setWizardOpen(false)}
         onComplete={publishViaWizard}
         onAddVehicle={() => {
-          setWizardOpen(false);
+          // Drawer opens above the wizard (zIndex) so trip data is preserved.
+          setEditingVehicleId(null);
+          vehicleForm.resetFields();
           setVehicleDrawerOpen(true);
         }}
         onAddDriver={() => {
-          setWizardOpen(false);
+          setEditingDriverId(null);
+          driverForm.resetFields();
           setDriverDrawerOpen(true);
         }}
       />
