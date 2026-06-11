@@ -356,9 +356,17 @@ function DriverDashboardPage() {
   const [verifyingId, setVerifyingId] = useState<string | null>(null);
   const [liveTripId, setLiveTripId] = useState<string | null>(null);
   const [tripActionLoading, setTripActionLoading] = useState<string | null>(null);
+  const [now, setNow] = useState(() => dayjs());
   const locationWatchIdRef = useRef<number | null>(null);
   const performanceRating = 5;
   const performanceRatingColors = getRatingColorClasses(performanceRating);
+
+  // Tick the clock every 30s so the "Start Trip" button can appear automatically
+  // once the trip's departure window opens, without requiring a page refresh.
+  useEffect(() => {
+    const interval = setInterval(() => setNow(dayjs()), 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Stop sharing location whenever the dashboard unmounts (e.g. driver navigates away).
   useEffect(() => {
@@ -1917,7 +1925,7 @@ function DriverDashboardPage() {
                       </div>
                     </Card>
                   )}
-                  <div className="flex items-center justify-between gap-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div className="flex flex-col gap-1">
                       <h1 className="m-0 text-2xl sm:text-3xl font-bold tracking-tight text-gray-900">
                         Hi, {getUserDisplayName(user).split(" ")[0]}!
@@ -1929,8 +1937,8 @@ function DriverDashboardPage() {
                     <Button
                       type="primary"
                       icon={<PlusCircle size={28} color="white" />}
-                      style={{ height: 72, minWidth: 190, fontSize: 20, fontWeight: 800, borderRadius: 36, whiteSpace: "nowrap", flexShrink: 0, color: "white" }}
-                      className="bg-gradient-primary border-none !text-white [&_svg]:!text-white shadow-glow hover:scale-105 active:scale-95 transition-transform !px-8 sm:!px-12"
+                      style={{ height: 72, minWidth: 190, fontSize: 20, fontWeight: 800, borderRadius: 36, whiteSpace: "nowrap", color: "white" }}
+                      className="w-full sm:w-auto sm:flex-shrink-0 bg-gradient-primary border-none !text-white [&_svg]:!text-white shadow-glow hover:scale-105 active:scale-95 transition-transform !px-8 sm:!px-12"
                       onClick={openWizard}
                     >
                       Host a Ride
@@ -4524,17 +4532,23 @@ function DriverDashboardPage() {
                           <Navigation size={14} /> View full route
                         </button>
 
-                        {managingTrip.status === "scheduled" && (
-                          <button
-                            type="button"
-                            onClick={() => handleStartTrip(managingTrip.id)}
-                            disabled={tripActionLoading === managingTrip.id}
-                            className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500 hover:bg-emerald-400 transition-colors px-3 py-1.5 text-xs font-bold !text-white disabled:opacity-60"
-                          >
-                            <PlayCircle size={14} />
-                            {tripActionLoading === managingTrip.id ? "Starting…" : "Start Trip"}
-                          </button>
-                        )}
+                        {managingTrip.status === "scheduled" &&
+                          (now.isAfter(dayjs(managingTrip.departureAt).subtract(15, "minute")) ? (
+                            <button
+                              type="button"
+                              onClick={() => handleStartTrip(managingTrip.id)}
+                              disabled={tripActionLoading === managingTrip.id}
+                              className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500 hover:bg-emerald-400 transition-colors px-3 py-1.5 text-xs font-bold !text-white disabled:opacity-60"
+                            >
+                              <PlayCircle size={14} />
+                              {tripActionLoading === managingTrip.id ? "Starting…" : "Start Trip"}
+                            </button>
+                          ) : (
+                            <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-xs font-bold !text-white/60">
+                              <PlayCircle size={14} />
+                              Starts at {dayjs(managingTrip.departureAt).format("h:mm A")}
+                            </span>
+                          ))}
 
                         {managingTrip.status === "in_progress" && (
                           <>
