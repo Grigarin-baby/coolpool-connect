@@ -90,6 +90,7 @@ export interface RidePreferences {
   alcoholAllowed: boolean;
   musicAllowed: boolean;
   musicType: MusicType | null;
+  petsAllowed: boolean;
 }
 
 export interface DriverProfile {
@@ -108,6 +109,7 @@ export interface DriverProfile {
   alcoholAllowed?: boolean;
   musicAllowed?: boolean;
   musicType?: string | null;
+  petsAllowed?: boolean;
   verificationStatus?: VerificationStatus;
   verificationNote?: string | null;
 }

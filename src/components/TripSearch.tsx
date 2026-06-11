@@ -52,15 +52,12 @@ import {
   ShieldCheck,
   Filter,
   SearchX,
-  Cigarette,
-  Wine,
-  Music2,
-  VolumeX,
   PlusCircle,
 } from "lucide-react";
 import dayjs, { Dayjs } from "dayjs";
 import { Button as UiButton } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { RidePrefChips } from "@/components/RidePrefChips";
 import { useQuery } from "@tanstack/react-query";
 import {
   listTrips,
@@ -1157,7 +1154,6 @@ export function TripSearchResults({ variant }: { variant: "landing" | "page" }) 
                 trip.totalSeats - (reservedSeatsByTripId[trip.id]?.size ?? 0),
               );
               const prefs: RidePreferences | undefined = hostPrefsMap?.get(trip.hostId);
-              const hasPrefs = prefs && (prefs.smokingAllowed || prefs.alcoholAllowed || prefs.musicAllowed !== undefined);
               const hostBio = hostBioMap.get(trip.hostId);
               const segment = trip.matchedSegment;
               const isFullRoute =
@@ -1250,42 +1246,12 @@ export function TripSearchResults({ variant }: { variant: "landing" | "page" }) 
 
                     </div>
 
-                    {/* Ride preference icon strip — shown when host has configured prefs */}
-                    {hasPrefs && (
-                      <div className="mt-2 pt-2 border-t border-gray-100 flex items-center gap-2.5 flex-wrap">
-                        {prefs.smokingAllowed ? (
-                          <span className="inline-flex items-center gap-1 text-[11px] font-medium text-amber-600">
-                            <Cigarette size={12} /> Smoking OK
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 text-[11px] font-medium text-gray-400">
-                            <Cigarette size={12} className="opacity-40" /> No smoking
-                          </span>
-                        )}
-                        <span className="text-gray-200">·</span>
-                        {prefs.alcoholAllowed ? (
-                          <span className="inline-flex items-center gap-1 text-[11px] font-medium text-rose-500">
-                            <Wine size={12} /> Alcohol OK
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 text-[11px] font-medium text-gray-400">
-                            <Wine size={12} className="opacity-40" /> No alcohol
-                          </span>
-                        )}
-                        <span className="text-gray-200">·</span>
-                        {prefs.musicAllowed ? (
-                          <span className="inline-flex items-center gap-1 text-[11px] font-medium text-green-600">
-                            <Music2 size={12} />
-                            {prefs.musicType && prefs.musicType !== "any"
-                              ? `${prefs.musicType.charAt(0).toUpperCase()}${prefs.musicType.slice(1)}`
-                              : "Music"}
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 text-[11px] font-medium text-gray-400">
-                            <VolumeX size={12} /> Quiet ride
-                          </span>
-                        )}
-                      </div>
+                    {/* Ride preference chips — green = allowed, red = not allowed */}
+                    {prefs && (
+                      <RidePrefChips
+                        prefs={prefs}
+                        className="mt-2 pt-2 border-t border-gray-100"
+                      />
                     )}
                   </Card>
                 </Link>

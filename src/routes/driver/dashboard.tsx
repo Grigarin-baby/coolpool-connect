@@ -24,6 +24,7 @@ import {
   UserCheck,
   ArrowRight,
   Cigarette,
+  PawPrint,
   Wine,
   Music2,
   VolumeX,
@@ -113,6 +114,7 @@ import { getUserDisplayName } from "@/lib/user-display";
 import { TripWizard } from "@/components/trip-wizard/TripWizard";
 import type { WizardResult } from "@/components/trip-wizard/types";
 import { NotificationPermissionPrompt } from "@/components/NotificationPermissionPrompt";
+import { RidePrefChips } from "@/components/RidePrefChips";
 import {
   getNotificationPermission,
   isNotificationSupported,
@@ -361,6 +363,7 @@ function DriverDashboardPage() {
     alcoholAllowed: false,
     musicAllowed: false,
     musicType: null,
+    petsAllowed: false,
   });
   const [otpInputs, setOtpInputs] = useState<Record<string, string>>({});
   const [verifyingId, setVerifyingId] = useState<string | null>(null);
@@ -1941,6 +1944,7 @@ function DriverDashboardPage() {
                                         alcoholAllowed: false,
                                         musicAllowed: false,
                                         musicType: null,
+                                        petsAllowed: false,
                                       },
                                     );
                                     setPrefsDrawerOpen(true);
@@ -1950,32 +1954,7 @@ function DriverDashboardPage() {
                                   <Pencil size={11} /> Edit
                                 </button>
                               </div>
-                              {savedPrefs &&
-                                (savedPrefs.smokingAllowed ||
-                                  savedPrefs.alcoholAllowed ||
-                                  savedPrefs.musicAllowed) && (
-                                <div className="flex flex-wrap gap-1.5">
-                                  {savedPrefs.smokingAllowed && (
-                                    <span className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full bg-amber-50 text-amber-600 border border-amber-200">
-                                      <Cigarette size={10} /> Smoking OK
-                                    </span>
-                                  )}
-                                  {savedPrefs.alcoholAllowed && (
-                                    <span className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full bg-rose-50 text-rose-500 border border-rose-200">
-                                      <Wine size={10} /> Alcohol OK
-                                    </span>
-                                  )}
-                                  {savedPrefs.musicAllowed && (
-                                    <span className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full bg-green-50 text-green-600 border border-green-200">
-                                      <Music2 size={10} />
-                                      {savedPrefs.musicType && savedPrefs.musicType !== "any"
-                                        ? savedPrefs.musicType.charAt(0).toUpperCase() +
-                                          savedPrefs.musicType.slice(1)
-                                        : "Music"}
-                                    </span>
-                                  )}
-                                </div>
-                              )}
+                              {savedPrefs && <RidePrefChips prefs={savedPrefs} />}
                             </div>
                           </div>
                         ),
@@ -2319,6 +2298,25 @@ function DriverDashboardPage() {
                             ))}
                           </div>
                         )}
+                      </div>
+
+                      {/* Pets */}
+                      <div className="flex items-center justify-between p-4 rounded-2xl bg-gray-50 border border-gray-100">
+                        <div className="flex items-center gap-3">
+                          <div className={`p-2 rounded-xl ${prefsLocal.petsAllowed ? "bg-emerald-100 text-emerald-600" : "bg-gray-100 text-gray-400"}`}>
+                            <PawPrint size={20} />
+                          </div>
+                          <div>
+                            <div className="font-semibold text-gray-800 text-sm">Pets</div>
+                            <div className="text-xs text-gray-400 mt-0.5">
+                              {prefsLocal.petsAllowed ? "Pets welcome on board" : "Not allowed"}
+                            </div>
+                          </div>
+                        </div>
+                        <Switch
+                          checked={prefsLocal.petsAllowed}
+                          onChange={(v) => setPrefsLocal((p) => ({ ...p, petsAllowed: v }))}
+                        />
                       </div>
 
                       <div className="text-xs text-gray-400 text-center pt-2">

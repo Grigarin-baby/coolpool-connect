@@ -15,6 +15,7 @@ import { useAuth } from "@/hooks/useAuth";
 import {
   createBookingWithSeatReservations,
   getTripById,
+  getHostPreferences,
   getVehicleByDriverUserId,
   listTripSeatReservations,
   listTripStops,
@@ -26,6 +27,7 @@ import { getSegmentPrice } from "@/lib/segment-pricing";
 import { buildSeatLayout } from "@/lib/seatLayout";
 import { toast } from "sonner";
 import { RideRouteMap } from "@/components/RideRouteMap";
+import { RidePrefChips } from "@/components/RidePrefChips";
 
 interface BookingSearch {
   fromStopIndex?: number;
@@ -93,6 +95,13 @@ function BookingTripPage() {
     queryKey: ["vehicle-by-host", tripQuery.data?.hostId],
     queryFn: () =>
       tripQuery.data ? getVehicleByDriverUserId(tripQuery.data.hostId) : Promise.resolve(null),
+    enabled: !!tripQuery.data,
+  });
+
+  const hostPrefsQuery = useQuery({
+    queryKey: ["host-prefs", tripQuery.data?.hostId],
+    queryFn: () =>
+      tripQuery.data ? getHostPreferences(tripQuery.data.hostId) : Promise.resolve(null),
     enabled: !!tripQuery.data,
   });
 
@@ -383,6 +392,14 @@ function BookingTripPage() {
               </span>
             </div>
           </div>
+          {hostPrefsQuery.data && (
+            <div className="mt-3 pt-3 border-t border-border/60">
+              <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">
+                Ride rules
+              </p>
+              <RidePrefChips prefs={hostPrefsQuery.data} size="md" />
+            </div>
+          )}
           {vehicleMissing && (
             <p className="mt-3 text-xs text-amber-700 dark:text-amber-400">
               Vehicle profile not found — seat layout is estimated.
