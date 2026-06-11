@@ -6,6 +6,7 @@ import { useWizardMaps } from "./useWizardMaps";
 import { RouteMap } from "./RouteMap";
 import { BENGALURU_AIRPORTS, SERVICE_CITY } from "@/lib/config";
 import { fetchPlaceSuggestions, resolvePlace } from "./placesAutocomplete";
+import { stripCountrySuffix } from "@/lib/geo";
 import type { IntermediatePoint, PlacePoint, RouteAlternative } from "./types";
 
 interface StepRouteProps {
@@ -110,8 +111,8 @@ export function StepRoute({
       });
 
       let options: CityOption[] = filtered.map((s) => ({
-        value: s.description,
-        label: s.description,
+        value: stripCountrySuffix(s.description),
+        label: stripCountrySuffix(s.description),
         placeId: s.id,
       }));
 
@@ -202,7 +203,11 @@ export function StepRoute({
       const filtered = suggestions.filter((s) =>
         SOUTH_INDIA_STATES.some((st) => s.description.toLowerCase().includes(st)) || isAirport,
       );
-      const opts: CityOption[] = filtered.map((s) => ({ value: s.description, label: s.description, placeId: s.id }));
+      const opts: CityOption[] = filtered.map((s) => ({
+        value: stripCountrySuffix(s.description),
+        label: stripCountrySuffix(s.description),
+        placeId: s.id,
+      }));
       setStopOptions((prev) => { const n = [...prev]; n[idx] = opts; return n; });
       setStopSearching((prev) => { const n = [...prev]; n[idx] = false; return n; });
     }, 300);

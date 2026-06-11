@@ -71,7 +71,7 @@ import {
   listDriverProfilesByUserIds,
 } from "@/data/appwrite-repository";
 import type { RidePreferences, TripStop } from "@/lib/domain";
-import { routeCitySegmentsMatch } from "@/lib/geo";
+import { routeCitySegmentsMatch, stripCountrySuffix } from "@/lib/geo";
 import { formatCurrency } from "@/lib/pricing";
 import { getSegmentPrice } from "@/lib/segment-pricing";
 import { appwriteConfig } from "@/integrations/appwrite/client";
@@ -390,8 +390,8 @@ export function TripSearchProvider({ children }: { children: ReactNode }) {
           return;
         }
         let options: any[] = filteredPredictions.map((p) => ({
-          value: p.description,
-          label: p.description,
+          value: stripCountrySuffix(p.description),
+          label: stripCountrySuffix(p.description),
         }));
 
         if (isAirportQuery) {

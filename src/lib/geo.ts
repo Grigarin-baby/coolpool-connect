@@ -89,6 +89,11 @@ export function distanceAlongPolylineKm(polyline: LatLng[], uptoIdx: number): nu
   return total;
 }
 
+/** Strip a trailing ", India" country suffix from a place description. */
+export function stripCountrySuffix(description: string): string {
+  return description.replace(/,\s*India\s*$/i, "");
+}
+
 /** Alternate names for the same place (keys and values lowercase). Extend as needed for route search. */
 const CITY_NAME_ALIASES: Record<string, readonly string[]> = {
   calicut: ["kozhikode"],

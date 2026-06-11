@@ -98,6 +98,7 @@ import { ID } from "appwrite";
 import type { Trip, TripStop, DriverProfile, Booking } from "@/lib/domain";
 import { APP_FONT_FAMILY } from "@/lib/fonts";
 import { calcPricePerKm } from "@/lib/pricing";
+import { stripCountrySuffix } from "@/lib/geo";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -1267,8 +1268,8 @@ function DriverDashboardPage() {
           return;
         }
         let options: any[] = filteredPredictions.map((prediction) => ({
-          value: prediction.description,
-          label: prediction.description,
+          value: stripCountrySuffix(prediction.description),
+          label: stripCountrySuffix(prediction.description),
           placeId: prediction.place_id,
           lat: 0,
           lng: 0,

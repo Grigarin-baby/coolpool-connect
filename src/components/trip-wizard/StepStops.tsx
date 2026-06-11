@@ -2,7 +2,7 @@ import { useCallback, useMemo, useState } from "react";
 import { AutoComplete } from "antd";
 import { MapPin, Plus, Trash2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { closestPolylineIndex, decodePolyline, distanceAlongPolylineKm } from "@/lib/geo";
+import { closestPolylineIndex, decodePolyline, distanceAlongPolylineKm, stripCountrySuffix } from "@/lib/geo";
 import { StopsMap } from "./StopsMap";
 import { fetchPlaceSuggestions, resolvePlace } from "./placesAutocomplete";
 import type { PlacePoint, RouteAlternative, WizardStop } from "./types";
@@ -82,8 +82,8 @@ export function StepStops({ from, to, alternative, stops, onStopsChange }: StepS
     const suggestions = await fetchPlaceSuggestions(q);
     setPredictions(
       suggestions.slice(0, 6).map((s) => ({
-        value: s.description,
-        label: s.description,
+        value: stripCountrySuffix(s.description),
+        label: stripCountrySuffix(s.description),
         place_id: s.id,
       })),
     );
