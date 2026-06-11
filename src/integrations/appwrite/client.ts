@@ -31,6 +31,7 @@ function getClientConfig() {
 const config = getClientConfig();
 const client = new Client().setEndpoint(config.endpoint).setProject(config.projectId);
 
+export { client };
 export const account = new Account(client);
 export const databases = new Databases(client);
 export const storage = new Storage(client);

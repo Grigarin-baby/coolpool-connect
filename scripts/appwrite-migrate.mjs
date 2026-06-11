@@ -279,6 +279,9 @@ async function run() {
   await ensureStringAttribute(COLLECTIONS.trips, "vehicle_id", 64, false);
   await ensureStringAttribute(COLLECTIONS.trips, "assigned_driver_id", 64, false);
   await ensureStringAttribute(COLLECTIONS.trips, "seat_config", 64, false, undefined, true);
+  await ensureFloatAttribute(COLLECTIONS.trips, "current_lat", false);
+  await ensureFloatAttribute(COLLECTIONS.trips, "current_lng", false);
+  await ensureDatetimeAttribute(COLLECTIONS.trips, "location_updated_at", false);
 
   // trip stops
   await ensureStringAttribute(COLLECTIONS.tripStops, "trip_id", 64, true);

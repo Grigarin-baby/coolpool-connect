@@ -49,6 +49,9 @@ export interface Trip {
   vehicleId?: string;
   assignedDriverId?: string;
   seatConfig?: string[]; // e.g. ["front_p", "back_l", "back_c", "back_r"]
+  currentLat?: number;
+  currentLng?: number;
+  locationUpdatedAt?: string;
 }
 
 export interface Booking {

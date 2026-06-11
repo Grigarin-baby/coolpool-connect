@@ -9,6 +9,7 @@ interface RideRouteMapProps {
   toLng: number;
   polyline: string;
   isAirportDrop?: boolean;
+  liveLocation?: { lat: number; lng: number } | null;
 }
 
 export function RideRouteMap({
@@ -18,9 +19,11 @@ export function RideRouteMap({
   toLng,
   polyline,
   isAirportDrop,
+  liveLocation,
 }: RideRouteMapProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const googleMapRef = useRef<any>(null);
+  const carMarkerRef = useRef<any>(null);
   const [mapsReady, setMapsReady] = useState(false);
 
   useEffect(() => {
@@ -188,6 +191,49 @@ export function RideRouteMap({
       if (dropMarker) dropMarker.setMap(null);
     };
   }, [mapsReady, fromLat, fromLng, toLat, toLng, polyline, isAirportDrop]);
+
+  // Live car marker — kept in a separate effect so it updates without
+  // re-drawing the route/markers on every location ping.
+  useEffect(() => {
+    if (!mapsReady || !googleMapRef.current) return;
+    const google = (window as any).google;
+    const map = googleMapRef.current;
+
+    if (!liveLocation) {
+      if (carMarkerRef.current) {
+        carMarkerRef.current.setMap(null);
+        carMarkerRef.current = null;
+      }
+      return;
+    }
+
+    const position = { lat: liveLocation.lat, lng: liveLocation.lng };
+
+    if (!carMarkerRef.current) {
+      carMarkerRef.current = new google.maps.Marker({
+        position,
+        map,
+        icon: {
+          path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
+          scale: 6,
+          fillColor: "#16A34A",
+          fillOpacity: 1,
+          strokeWeight: 2,
+          strokeColor: "#FFFFFF",
+        },
+        title: "Your ride",
+        zIndex: 999,
+      });
+    } else {
+      carMarkerRef.current.setPosition(position);
+    }
+  }, [mapsReady, liveLocation]);
+
+  useEffect(() => {
+    return () => {
+      if (carMarkerRef.current) carMarkerRef.current.setMap(null);
+    };
+  }, []);
 
   return (
     <div className="w-full h-48 rounded-2xl overflow-hidden border border-gray-100 shadow-sm relative">

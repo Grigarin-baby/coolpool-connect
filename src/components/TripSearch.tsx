@@ -65,11 +65,12 @@ import { Card } from "@/components/ui/card";
 import { useQuery } from "@tanstack/react-query";
 import {
   listTrips,
+  listTripStopsByTripIds,
   listTripSeatReservationsByTripIds,
   getMultipleHostPreferences,
   listDriverProfilesByUserIds,
 } from "@/data/appwrite-repository";
-import type { RidePreferences } from "@/lib/domain";
+import type { RidePreferences, TripStop } from "@/lib/domain";
 import { routeCitySegmentsMatch } from "@/lib/geo";
 import { formatCurrency } from "@/lib/pricing";
 import { appwriteConfig } from "@/integrations/appwrite/client";
@@ -132,6 +133,37 @@ function matchesLocation(tripLocation: string, searchLocation: string) {
   if (!searchFull) return true;
   if (tripFull.includes(searchFull) || searchFull.includes(tripFull)) return true;
   return routeCitySegmentsMatch(primarySegment(tripLocation), primarySegment(searchLocation));
+}
+
+/** A trip's full ordered route — origin, intermediate stops, and destination —
+ *  any of which can serve as a pickup or drop-off point for a passenger. */
+type RouteStop = Pick<TripStop, "stopIndex" | "location" | "stopType">;
+
+function fallbackRoute(trip: TripRow): RouteStop[] {
+  return [
+    { stopIndex: 0, location: trip.fromLocation, stopType: "pickup" },
+    { stopIndex: 1, location: trip.toLocation, stopType: "drop" },
+  ];
+}
+
+/** True if some stop matching `fromNeedle` precedes some later stop matching
+ *  `toNeedle` along the route — covers both the trip's main endpoints and any
+ *  intermediate stops, so passengers can search by a stop along the way. */
+function tripRouteMatches(route: RouteStop[], fromNeedle: string, toNeedle: string) {
+  if (!fromNeedle && !toNeedle) return true;
+  const sorted = [...route].sort((a, b) => a.stopIndex - b.stopIndex);
+  for (let i = 0; i < sorted.length; i++) {
+    const pickup = sorted[i];
+    if (pickup.stopType === "drop") continue;
+    if (fromNeedle && !matchesLocation(pickup.location, fromNeedle)) continue;
+    for (let j = i + 1; j < sorted.length; j++) {
+      const drop = sorted[j];
+      if (drop.stopType === "pickup") continue;
+      if (toNeedle && !matchesLocation(drop.location, toNeedle)) continue;
+      return true;
+    }
+  }
+  return false;
 }
 
 const SOUTH_INDIA_STATES = [
@@ -357,10 +389,25 @@ export function TripSearchProvider({ children }: { children: ReactNode }) {
     try {
       const allTrips = await listTrips(200);
 
+      const stopsByTrip = new Map<string, RouteStop[]>();
+      try {
+        const allStops = await listTripStopsByTripIds(allTrips.map((t) => t.id));
+        for (const stop of allStops) {
+          if (!stopsByTrip.has(stop.tripId)) stopsByTrip.set(stop.tripId, []);
+          stopsByTrip.get(stop.tripId)!.push(stop);
+        }
+      } catch {
+        // If stops can't be loaded, fall back to matching main endpoints only.
+      }
+
       const filtered = allTrips
         .filter((trip) => {
-          const fromOk = matchesLocation(trip.fromLocation, fromNeedle);
-          const toOk = matchesLocation(trip.toLocation, toNeedle);
+          const route = stopsByTrip.get(trip.id);
+          const routeOk = tripRouteMatches(
+            route && route.length >= 2 ? route : fallbackRoute(trip),
+            fromNeedle,
+            toNeedle,
+          );
 
           let dateOk = true;
           if (searchDate) {
@@ -368,7 +415,7 @@ export function TripSearchProvider({ children }: { children: ReactNode }) {
             dateOk = tripDate.isSame(searchDate, "day");
           }
 
-          return fromOk && toOk && dateOk;
+          return routeOk && dateOk;
         })
         .sort((a, b) => new Date(a.departureAt).getTime() - new Date(b.departureAt).getTime());
 

@@ -112,6 +112,20 @@ export function TripWizard({
   const selectedVehicle = vehicles.find((v) => v.id === data.vehicleId) ?? null;
   const selectedDriver = drivers.find((d) => d.id === data.driverId) ?? null;
 
+  // Default to the first vehicle/driver so the host doesn't have to pick when
+  // they only have one of each (the common case).
+  useEffect(() => {
+    if (!data.vehicleId && vehicles.length > 0) {
+      setData((d) => ({ ...d, vehicleId: vehicles[0].id }));
+    }
+  }, [data.vehicleId, vehicles]);
+
+  useEffect(() => {
+    if (!data.driverId && drivers.length > 0) {
+      setData((d) => ({ ...d, driverId: drivers[0].id }));
+    }
+  }, [data.driverId, drivers]);
+
   // Pre-compute stops with distanceFromOriginKm — shared by StepReview and finish()
   const computedStops = useMemo((): WizardStop[] => {
     if (!selectedAlt) return [];
@@ -166,7 +180,7 @@ export function TripWizard({
       case "route":
         return !!data.from && !!data.to && !!selectedAlt;
       case "when":
-        return !!selectedDeparture && selectedDeparture.isAfter(dayjs());
+        return !!selectedDeparture && selectedDeparture.isAfter(dayjs().add(30, "minute"));
       case "seats":
         return data.seatConfig.length > 0 && typeof data.pricePerSeat === "number" && data.pricePerSeat > 0;
       case "vehicle":
@@ -179,7 +193,7 @@ export function TripWizard({
           data.to &&
           data.date &&
           data.time &&
-          selectedDeparture?.isAfter(dayjs()) &&
+          selectedDeparture?.isAfter(dayjs().add(30, "minute")) &&
           selectedAlt &&
           data.pricePerSeat &&
           data.seatConfig.length > 0 &&
@@ -240,7 +254,7 @@ export function TripWizard({
   if (!open) return null;
 
   const body = (
-    <div className="flex h-full flex-col">
+    <div className="trip-wizard flex h-full flex-col">
       {/* Header */}
       <div className="flex items-center justify-between gap-3 border-b border-gray-100 px-4 py-3">
         <button

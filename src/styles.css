@@ -381,6 +381,17 @@ a.inline-flex.bg-gradient-primary:focus-visible {
   align-items: center !important;
 }
 
+/* iOS Safari zooms the page when a focused input/select has font-size < 16px.
+   The trip wizard's AutoComplete fields use AntD's default 14px, so pin every
+   text input inside the wizard to 16px to keep the viewport stable. */
+.trip-wizard input,
+.trip-wizard .ant-select-selector,
+.trip-wizard .ant-select-selection-search-input,
+.trip-wizard .ant-select-selection-item,
+.trip-wizard .ant-select-selection-placeholder {
+  font-size: 16px !important;
+}
+
 .trip-search-autocomplete .ant-select-input,
 .trip-search-autocomplete .ant-select-content-value {
   font-weight: 800 !important;

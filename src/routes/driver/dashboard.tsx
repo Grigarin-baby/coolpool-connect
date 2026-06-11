@@ -27,6 +27,10 @@ import {
   Music2,
   VolumeX,
   TriangleAlert,
+  Navigation,
+  PlayCircle,
+  FlagTriangleRight,
+  RadioTower,
 } from "lucide-react";
 import {
   Layout,
@@ -74,6 +78,7 @@ import {
   deleteDriverAccount,
   updateBookingRating,
   updateTrip,
+  updateTripLocation,
   deleteTrip,
   deleteTripStop,
   listTripStops,
@@ -103,6 +108,8 @@ import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp
 import { getUserDisplayName } from "@/lib/user-display";
 import { TripWizard } from "@/components/trip-wizard/TripWizard";
 import type { WizardResult } from "@/components/trip-wizard/types";
+import { NotificationPermissionPrompt } from "@/components/NotificationPermissionPrompt";
+import { showAppNotification } from "@/lib/notifications";
 
 import logo from "@/assets/logo.png";
 
@@ -347,8 +354,76 @@ function DriverDashboardPage() {
   });
   const [otpInputs, setOtpInputs] = useState<Record<string, string>>({});
   const [verifyingId, setVerifyingId] = useState<string | null>(null);
+  const [liveTripId, setLiveTripId] = useState<string | null>(null);
+  const [tripActionLoading, setTripActionLoading] = useState<string | null>(null);
+  const locationWatchIdRef = useRef<number | null>(null);
   const performanceRating = 5;
   const performanceRatingColors = getRatingColorClasses(performanceRating);
+
+  // Stop sharing location whenever the dashboard unmounts (e.g. driver navigates away).
+  useEffect(() => {
+    return () => {
+      if (locationWatchIdRef.current != null) {
+        navigator.geolocation.clearWatch(locationWatchIdRef.current);
+      }
+    };
+  }, []);
+
+  const handleStartTrip = (tripId: string) => {
+    if (!navigator.geolocation) {
+      message.error("Geolocation isn't supported on this device.");
+      return;
+    }
+    setTripActionLoading(tripId);
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        try {
+          await updateTrip(tripId, { status: "in_progress" });
+          await updateTripLocation(tripId, pos.coords.latitude, pos.coords.longitude);
+          if (locationWatchIdRef.current != null) {
+            navigator.geolocation.clearWatch(locationWatchIdRef.current);
+          }
+          locationWatchIdRef.current = navigator.geolocation.watchPosition(
+            (p) => {
+              void updateTripLocation(tripId, p.coords.latitude, p.coords.longitude);
+            },
+            (err) => console.error("Location watch error", err),
+            { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 },
+          );
+          setLiveTripId(tripId);
+          void queryClient.invalidateQueries({ queryKey: ["host-trips"] });
+          message.success("Trip started — your live location is now visible to passengers.");
+        } catch (err) {
+          message.error(err instanceof Error ? err.message : "Failed to start trip.");
+        } finally {
+          setTripActionLoading(null);
+        }
+      },
+      () => {
+        message.error("Location permission denied. Enable GPS to start the trip.");
+        setTripActionLoading(null);
+      },
+      { enableHighAccuracy: true },
+    );
+  };
+
+  const handleEndTrip = async (tripId: string) => {
+    if (locationWatchIdRef.current != null) {
+      navigator.geolocation.clearWatch(locationWatchIdRef.current);
+      locationWatchIdRef.current = null;
+    }
+    setLiveTripId((cur) => (cur === tripId ? null : cur));
+    setTripActionLoading(tripId);
+    try {
+      await updateTrip(tripId, { status: "completed" });
+      void queryClient.invalidateQueries({ queryKey: ["host-trips"] });
+      message.success("Trip marked as completed.");
+    } catch (err) {
+      message.error(err instanceof Error ? err.message : "Failed to complete trip.");
+    } finally {
+      setTripActionLoading(null);
+    }
+  };
 
   const handleVerifyOtp = async (bookingId: string) => {
     const code = (otpInputs[bookingId] || "").trim();
@@ -648,13 +723,45 @@ function DriverDashboardPage() {
     queryKey: ["host-bookings", user?.$id],
     queryFn: () => (user ? listHostBookings(user.$id) : Promise.resolve([])),
     enabled: !!user,
+    refetchInterval: user ? 20000 : false,
   });
+
+  // Notify the host when a new booking comes in.
+  const seenBookingIdsRef = useRef<Set<string> | null>(null);
+  useEffect(() => {
+    if (bookingsLoading) return;
+    const ids = new Set(bookings.map((b) => b.id));
+
+    if (seenBookingIdsRef.current === null) {
+      seenBookingIdsRef.current = ids;
+      return;
+    }
+
+    const newBookings = bookings.filter((b) => !seenBookingIdsRef.current!.has(b.id));
+    newBookings.forEach((b) => {
+      void showAppNotification("New booking received!", {
+        body: `${b.seatsBooked} seat${b.seatsBooked === 1 ? "" : "s"} booked for your trip.`,
+        url: "/driver/dashboard",
+        tag: `new-booking-${b.id}`,
+      });
+    });
+
+    seenBookingIdsRef.current = ids;
+  }, [bookings, bookingsLoading]);
 
   // Stops for the history detail drawer
   const { data: historyDetailStops = [], isLoading: historyStopsLoading } = useQuery({
     queryKey: ["history-trip-stops", historyDetailTripId],
     queryFn: () => listTripStops(historyDetailTripId!),
     enabled: !!historyDetailTripId,
+  });
+
+  // Stops for the manage-passengers drawer's "view full route" popup
+  const [showManagingTripRoute, setShowManagingTripRoute] = useState(false);
+  const { data: managingTripStops = [] } = useQuery({
+    queryKey: ["managing-trip-stops", managingTripId],
+    queryFn: () => listTripStops(managingTripId!),
+    enabled: !!managingTripId,
   });
 
   const { mutate: saveDriver, isPending: savingDriver } = useMutation({
@@ -697,9 +804,11 @@ function DriverDashboardPage() {
   // Derived history stats from real trips
   const completedTrips = trips.filter((t) => t.status === "completed");
   // lifetimeEarnings computed after receivedByTrip is built (below)
-  // Past trips: departure already happened, or trip was cancelled (regardless of date)
+  // Past trips: only trips explicitly marked completed or cancelled move to
+  // history — trips that are merely "in progress" (departure passed but not
+  // yet completed) stay in the upcoming Trips tab.
   const pastTrips = trips.filter(
-    (t) => !dayjs(t.departureAt).isAfter(dayjs()) || t.status === "cancelled",
+    (t) => t.status === "completed" || t.status === "cancelled",
   );
   const filteredHistory =
     historyFilter === "all"
@@ -721,11 +830,15 @@ function DriverDashboardPage() {
     0,
   );
 
-  const upcomingTrips = trips.filter((t) => dayjs(t.departureAt).isAfter(dayjs()));
+  // Trips tab shows everything not yet completed/cancelled, including trips
+  // currently in progress whose departure time has already passed.
+  const upcomingTrips = trips.filter(
+    (t) => t.status !== "completed" && t.status !== "cancelled",
+  );
 
-  const sortedTrips = trips
-    .filter((t) => t.status !== "cancelled" && dayjs(t.departureAt).isAfter(dayjs()))
-    .sort((a, b) => new Date(a.departureAt).getTime() - new Date(b.departureAt).getTime());
+  const sortedTrips = [...upcomingTrips].sort(
+    (a, b) => new Date(a.departureAt).getTime() - new Date(b.departureAt).getTime(),
+  );
 
   const isVerifiedHost = vehicles.length > 0;
 
@@ -1531,7 +1644,14 @@ function DriverDashboardPage() {
             }}
           >
             <div className="p-4 sm:p-6 pb-2 text-center">
-              <img src={logo} alt="Coolpool Logo" className="h-16 w-auto mx-auto object-contain" />
+              <button
+                type="button"
+                onClick={() => void navigate({ to: "/" })}
+                aria-label="Go to coolpool.in home"
+                className="inline-block"
+              >
+                <img src={logo} alt="Coolpool Logo" className="h-16 w-auto mx-auto object-contain" />
+              </button>
             </div>
 
             <Menu
@@ -1610,7 +1730,14 @@ function DriverDashboardPage() {
                             : "Vehicle Fleet"}
                 </Title>
                 <div className="sm:hidden">
-                  <img src={logo} alt="Coolpool Logo" className="h-12 w-auto object-contain" />
+                  <button
+                    type="button"
+                    onClick={() => void navigate({ to: "/" })}
+                    aria-label="Go to coolpool.in home"
+                    className="block"
+                  >
+                    <img src={logo} alt="Coolpool Logo" className="h-12 w-auto object-contain" />
+                  </button>
                 </div>
               </div>
               <div className="flex items-center gap-4">
@@ -1756,6 +1883,7 @@ function DriverDashboardPage() {
             </Header>
 
             <Content className="p-5 sm:p-8 md:p-12 max-w-7xl mx-auto w-full pb-28 lg:pb-12">
+              <NotificationPermissionPrompt />
               {activeModule === "dashboard" && (
                 <div className="flex flex-col gap-4 animate-in fade-in slide-in-from-bottom-4 duration-700">
                   {!isVerifiedHost && (
@@ -1791,12 +1919,12 @@ function DriverDashboardPage() {
                   )}
                   <div className="flex items-center justify-between gap-4">
                     <div className="flex flex-col gap-1">
-                      <Title level={2} style={{ margin: 0 }}>
+                      <h1 className="m-0 text-2xl sm:text-3xl font-bold tracking-tight text-gray-900">
                         Hi, {getUserDisplayName(user).split(" ")[0]}!
-                      </Title>
-                      <Text type="secondary" className="text-sm">
+                      </h1>
+                      <p className="m-0 text-sm font-medium text-gray-500">
                         Here's what's happening with your trips today.
-                      </Text>
+                      </p>
                     </div>
                     <Button
                       type="primary"
@@ -2267,10 +2395,11 @@ function DriverDashboardPage() {
                       <Title level={4} style={{ margin: 0 }}>
                         Quick Access
                       </Title>
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-3 gap-3">
                         <Card
                           hoverable
-                          className="rounded-2xl border border-white/60 shadow-soft text-center p-3 group bg-white/60 hover:bg-white transition-all"
+                          styles={{ body: { padding: "16px 8px" } }}
+                          className="rounded-2xl border border-white/60 shadow-soft text-center group bg-white/60 hover:bg-white transition-all"
                           onClick={() => {
                             setEditingTripId(null);
                             setIsEditingTrip(false);
@@ -2281,36 +2410,44 @@ function DriverDashboardPage() {
                             setActiveModule("trips");
                           }}
                         >
-                          <div className="h-12 w-12 mx-auto rounded-3xl bg-purple-100 text-purple-600 flex items-center justify-center mb-3 group-hover:bg-purple-600 group-hover:text-white transition-all group-hover:scale-110 duration-300">
-                            <PlusCircle size={22} />
+                          <div className="flex flex-col items-center gap-3">
+                            <div className="h-11 w-11 sm:h-12 sm:w-12 rounded-3xl bg-purple-100 text-purple-600 flex items-center justify-center group-hover:bg-purple-600 group-hover:text-white transition-all group-hover:scale-110 duration-300 shrink-0">
+                              <PlusCircle size={20} />
+                            </div>
+                            <Text strong className="text-xs sm:text-sm leading-tight">
+                              Host a Ride
+                            </Text>
                           </div>
-                          <Text strong className="text-sm">
-                            Host a Ride
-                          </Text>
                         </Card>
                         <Card
                           hoverable
-                          className="rounded-2xl border border-white/60 shadow-soft text-center p-3 group bg-white/60 hover:bg-white transition-all"
+                          styles={{ body: { padding: "16px 8px" } }}
+                          className="rounded-2xl border border-white/60 shadow-soft text-center group bg-white/60 hover:bg-white transition-all"
                           onClick={() => setActiveModule("history")}
                         >
-                          <div className="h-12 w-12 mx-auto rounded-3xl bg-blue-100 text-blue-600 flex items-center justify-center mb-3 group-hover:bg-blue-600 group-hover:text-white transition-all group-hover:scale-110 duration-300">
-                            <History size={22} />
+                          <div className="flex flex-col items-center gap-3">
+                            <div className="h-11 w-11 sm:h-12 sm:w-12 rounded-3xl bg-blue-100 text-blue-600 flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-all group-hover:scale-110 duration-300 shrink-0">
+                              <History size={20} />
+                            </div>
+                            <Text strong className="text-xs sm:text-sm leading-tight">
+                              History
+                            </Text>
                           </div>
-                          <Text strong className="text-sm">
-                            History
-                          </Text>
                         </Card>
                         <Card
                           hoverable
-                          className="rounded-2xl border border-white/60 shadow-soft text-center p-3 group bg-white/60 hover:bg-white transition-all"
+                          styles={{ body: { padding: "16px 8px" } }}
+                          className="rounded-2xl border border-white/60 shadow-soft text-center group bg-white/60 hover:bg-white transition-all"
                           onClick={() => setActiveModule("settings")}
                         >
-                          <div className="h-12 w-12 mx-auto rounded-3xl bg-gray-100 text-gray-600 flex items-center justify-center mb-3 group-hover:bg-gray-600 group-hover:text-white transition-all group-hover:scale-110 duration-300">
-                            <Settings size={22} />
+                          <div className="flex flex-col items-center gap-3">
+                            <div className="h-11 w-11 sm:h-12 sm:w-12 rounded-3xl bg-gray-100 text-gray-600 flex items-center justify-center group-hover:bg-gray-600 group-hover:text-white transition-all group-hover:scale-110 duration-300 shrink-0">
+                              <Settings size={20} />
+                            </div>
+                            <Text strong className="text-xs sm:text-sm leading-tight">
+                              Vehicle Settings
+                            </Text>
                           </div>
-                          <Text strong className="text-sm">
-                            Vehicle Settings
-                          </Text>
                         </Card>
                       </div>
 
@@ -2404,15 +2541,17 @@ function DriverDashboardPage() {
                               render: (status) => (
                                 <Tag
                                   color={
-                                    status === "active"
-                                      ? "blue"
+                                    status === "in_progress"
+                                      ? "processing"
                                       : status === "completed"
                                         ? "success"
-                                        : "error"
+                                        : status === "cancelled"
+                                          ? "error"
+                                          : "blue"
                                   }
                                   className="rounded-full"
                                 >
-                                  {status?.toUpperCase()}
+                                  {status?.toUpperCase().replace("_", " ")}
                                 </Tag>
                               ),
                             },
@@ -2421,138 +2560,66 @@ function DriverDashboardPage() {
                               key: "actions",
                               width: "18%",
                               align: "right" as const,
-                              render: (_, trip) => (
-                                <Space size="small">
-                                  <Button
-                                    type="link"
-                                    size="small"
-                                    className="text-primary font-medium p-0"
-                                    onClick={() => setManagingTripId(trip.id)}
-                                  >
-                                    View
-                                  </Button>
-                                  <Button
-                                    type="link"
-                                    size="small"
-                                    className="text-primary font-medium p-0"
-                                    onClick={async () => {
-                                      const hide = message.loading(
-                                        "Fetching trip details...",
-                                        0,
-                                      );
-                                      try {
-                                        setEditingTripId(trip.id);
-                                        setIsEditingTrip(true);
-
-                                        const stops = await listTripStops(trip.id);
-                                        const fromStop = stops.find(
-                                          (s) => s.stopType === "pickup",
-                                        );
-                                        const toStop = stops.find(
-                                          (s) => s.stopType === "drop",
-                                        );
-                                        const intermediateStops = stops.filter(
-                                          (s) => s.stopType === "both",
-                                        );
-
-                                        if (fromStop)
-                                          setSelectedFrom({
-                                            label: fromStop.location,
-                                            value: fromStop.location,
-                                            lat: fromStop.lat,
-                                            lng: fromStop.lng,
-                                          });
-                                        if (toStop)
-                                          setSelectedTo({
-                                            label: toStop.location,
-                                            value: toStop.location,
-                                            lat: toStop.lat,
-                                            lng: toStop.lng,
-                                          });
-                                        setSelectedIntermediateStops(
-                                          Object.fromEntries(
-                                            intermediateStops.map((stop, index) => [
-                                              index,
-                                              {
-                                                label: stop.location,
-                                                value: stop.location,
-                                                lat: stop.lat,
-                                                lng: stop.lng,
-                                              },
-                                            ]),
-                                          ),
-                                        );
-
-                                        form.setFieldsValue({
-                                          fromLocation: trip.fromLocation,
-                                          toLocation: trip.toLocation,
-                                          departureAt: dayjs(trip.departureAt),
-                                          totalSeats: trip.totalSeats,
-                                          totalTripPrice: Math.round(
-                                            trip.totalPrice /
-                                            (trip.totalSeats || 1),
-                                          ),
-                                          vehicleId: trip.vehicleId,
-                                          driverId: trip.assignedDriverId,
-                                          seatConfig: (trip as any).seatConfig ?? [],
-                                          intermediateStops: intermediateStops.map(
-                                            (stop) => stop.location,
-                                          ),
-                                        });
-
-                                        setShowTripForm(true);
-                                        message.success("Trip loaded for editing.");
-                                      } catch (err) {
-                                        console.error("[EditTrip] Error:", err);
-                                        message.error(
-                                          "Failed to load trip details.",
-                                        );
-                                      } finally {
-                                        hide();
-                                      }
-                                    }}
-                                  >
-                                    Edit
-                                  </Button>
-                                  <Popconfirm
-                                    title="Cancel Trip"
-                                    description="Are you sure you want to cancel this trip? This action cannot be undone."
-                                    onConfirm={async () => {
-                                      try {
-                                        await updateTrip(trip.id, {
-                                          status: "cancelled",
-                                        });
-                                        message.success(
-                                          "Trip cancelled successfully",
-                                        );
-                                        queryClient.invalidateQueries({
-                                          queryKey: ["host-trips"],
-                                        });
-                                      } catch (err) {
-                                        console.error(
-                                          "[CancelTrip] Error:",
-                                          err,
-                                        );
-                                        message.error(
-                                          "Failed to cancel trip",
-                                        );
-                                      }
-                                    }}
-                                    okText="Yes, Cancel"
-                                    cancelText="Keep Trip"
-                                    okButtonProps={{ danger: true }}
-                                  >
+                              render: (_, trip) => {
+                                const seatsBooked = bookings
+                                  .filter(
+                                    (b) =>
+                                      b.tripId === trip.id &&
+                                      b.status !== "cancelled",
+                                  )
+                                  .reduce((sum, b) => sum + (b.seatsBooked || 0), 0);
+                                return (
+                                  <Space size="small">
                                     <Button
                                       type="link"
                                       size="small"
-                                      danger
-                                      className="p-0"
+                                      className="text-primary font-medium p-0"
+                                      onClick={() => setManagingTripId(trip.id)}
                                     >
-                                      Cancel
+                                      View
                                     </Button>
-                                  </Popconfirm>
-                                </Space>
-                              ),
+                                    {seatsBooked === 0 && (
+                                      <Popconfirm
+                                        title="Cancel Trip"
+                                        description="Are you sure you want to cancel this trip? This action cannot be undone."
+                                        onConfirm={async () => {
+                                          try {
+                                            await updateTrip(trip.id, {
+                                              status: "cancelled",
+                                            });
+                                            message.success(
+                                              "Trip cancelled successfully",
+                                            );
+                                            queryClient.invalidateQueries({
+                                              queryKey: ["host-trips"],
+                                            });
+                                          } catch (err) {
+                                            console.error(
+                                              "[CancelTrip] Error:",
+                                              err,
+                                            );
+                                            message.error(
+                                              "Failed to cancel trip",
+                                            );
+                                          }
+                                        }}
+                                        okText="Yes, Cancel"
+                                        cancelText="Keep Trip"
+                                        okButtonProps={{ danger: true }}
+                                      >
+                                        <Button
+                                          type="link"
+                                          size="small"
+                                          danger
+                                          className="p-0"
+                                        >
+                                          Cancel
+                                        </Button>
+                                      </Popconfirm>
+                                    )}
+                                  </Space>
+                                );
+                              },
                             },
                           ]}
                           dataSource={sortedTrips}
@@ -2594,10 +2661,19 @@ function DriverDashboardPage() {
                             </Text>
                           </Card>
                         ) : (
-                          sortedTrips.map((trip) => (
+                          sortedTrips.map((trip) => {
+                            const seatsBooked = bookings
+                              .filter(
+                                (b) =>
+                                  b.tripId === trip.id &&
+                                  b.status !== "cancelled",
+                              )
+                              .reduce((sum, b) => sum + (b.seatsBooked || 0), 0);
+                            return (
                             <Card
                               key={trip.id}
-                              className="rounded-2xl border border-white/60 shadow-card bg-white/80 backdrop-blur-md p-4"
+                              onClick={() => setManagingTripId(trip.id)}
+                              className="rounded-2xl border border-white/60 shadow-card bg-white/80 backdrop-blur-md p-4 cursor-pointer transition-transform active:scale-[0.99]"
                             >
                               <div className="space-y-3">
                                 {/* Route */}
@@ -2644,154 +2720,66 @@ function DriverDashboardPage() {
                                   <div className="flex items-center gap-2">
                                     <Tag
                                       color={
-                                        trip.status === "active"
-                                          ? "blue"
+                                        trip.status === "in_progress"
+                                          ? "processing"
                                           : trip.status === "completed"
                                             ? "success"
-                                            : "error"
+                                            : trip.status === "cancelled"
+                                              ? "error"
+                                              : "blue"
                                       }
                                       className="rounded-full m-0"
                                     >
-                                      {trip.status?.toUpperCase()}
+                                      {trip.status?.toUpperCase().replace("_", " ")}
                                     </Tag>
                                     <Text type="secondary" className="text-xs">
                                       {trip.totalSeats} seats
                                     </Text>
                                   </div>
-                                </div>
-
-                                {/* Actions */}
-                                <div className="flex gap-2 pt-2">
-                                  <Button
-                                    size="small"
-                                    className="flex-1 rounded-xl"
-                                    onClick={() => setManagingTripId(trip.id)}
-                                  >
-                                    View
-                                  </Button>
-                                  <Button
-                                    type="primary"
-                                    size="small"
-                                    className="flex-1 bg-gradient-primary border-none rounded-xl"
-                                    onClick={async () => {
-                                      const hide = message.loading(
-                                        "Fetching trip details...",
-                                        0,
-                                      );
-                                      try {
-                                        setEditingTripId(trip.id);
-                                        setIsEditingTrip(true);
-
-                                        const stops = await listTripStops(trip.id);
-                                        const fromStop = stops.find(
-                                          (s) => s.stopType === "pickup",
-                                        );
-                                        const toStop = stops.find(
-                                          (s) => s.stopType === "drop",
-                                        );
-                                        const intermediateStops = stops.filter(
-                                          (s) => s.stopType === "both",
-                                        );
-
-                                        if (fromStop)
-                                          setSelectedFrom({
-                                            label: fromStop.location,
-                                            value: fromStop.location,
-                                            lat: fromStop.lat,
-                                            lng: fromStop.lng,
+                                  {seatsBooked === 0 && (
+                                    <Popconfirm
+                                      title="Cancel Trip"
+                                      description="Are you sure you want to cancel this trip?"
+                                      onConfirm={async () => {
+                                        try {
+                                          await updateTrip(trip.id, {
+                                            status: "cancelled",
                                           });
-                                        if (toStop)
-                                          setSelectedTo({
-                                            label: toStop.location,
-                                            value: toStop.location,
-                                            lat: toStop.lat,
-                                            lng: toStop.lng,
+                                          message.success(
+                                            "Trip cancelled successfully",
+                                          );
+                                          queryClient.invalidateQueries({
+                                            queryKey: ["host-trips"],
                                           });
-                                        setSelectedIntermediateStops(
-                                          Object.fromEntries(
-                                            intermediateStops.map((stop, index) => [
-                                              index,
-                                              {
-                                                label: stop.location,
-                                                value: stop.location,
-                                                lat: stop.lat,
-                                                lng: stop.lng,
-                                              },
-                                            ]),
-                                          ),
-                                        );
-
-                                        form.setFieldsValue({
-                                          fromLocation: trip.fromLocation,
-                                          toLocation: trip.toLocation,
-                                          departureAt: dayjs(trip.departureAt),
-                                          totalSeats: trip.totalSeats,
-                                          totalTripPrice: Math.round(
-                                            trip.totalPrice /
-                                            (trip.totalSeats || 1),
-                                          ),
-                                          vehicleId: trip.vehicleId,
-                                          driverId: trip.assignedDriverId,
-                                          intermediateStops: intermediateStops.map(
-                                            (stop) => stop.location,
-                                          ),
-                                          seatConfig: (trip as any).seatConfig ?? [],
-                                        });
-
-                                        setShowTripForm(true);
-                                        message.success("Trip loaded for editing.");
-                                      } catch (err) {
-                                        console.error("[EditTrip] Error:", err);
-                                        message.error(
-                                          "Failed to load trip details.",
-                                        );
-                                      } finally {
-                                        hide();
-                                      }
-                                    }}
-                                  >
-                                    Edit
-                                  </Button>
-                                  <Popconfirm
-                                    title="Cancel Trip"
-                                    description="Are you sure you want to cancel this trip?"
-                                    onConfirm={async () => {
-                                      try {
-                                        await updateTrip(trip.id, {
-                                          status: "cancelled",
-                                        });
-                                        message.success(
-                                          "Trip cancelled successfully",
-                                        );
-                                        queryClient.invalidateQueries({
-                                          queryKey: ["host-trips"],
-                                        });
-                                      } catch (err) {
-                                        console.error(
-                                          "[CancelTrip] Error:",
-                                          err,
-                                        );
-                                        message.error(
-                                          "Failed to cancel trip",
-                                        );
-                                      }
-                                    }}
-                                    okText="Yes"
-                                    cancelText="No"
-                                    okButtonProps={{ danger: true }}
-                                  >
-                                    <Button
-                                      size="small"
-                                      danger
-                                      className="rounded-xl"
+                                        } catch (err) {
+                                          console.error(
+                                            "[CancelTrip] Error:",
+                                            err,
+                                          );
+                                          message.error(
+                                            "Failed to cancel trip",
+                                          );
+                                        }
+                                      }}
+                                      okText="Yes"
+                                      cancelText="No"
+                                      okButtonProps={{ danger: true }}
                                     >
-                                      Cancel
-                                    </Button>
-                                  </Popconfirm>
+                                      <Button
+                                        size="small"
+                                        danger
+                                        className="rounded-xl"
+                                        onClick={(e) => e.stopPropagation()}
+                                      >
+                                        Cancel
+                                      </Button>
+                                    </Popconfirm>
+                                  )}
                                 </div>
                               </div>
                             </Card>
-                          ))
+                            );
+                          })
                         )}
                       </div>
                     </>
@@ -4491,7 +4479,10 @@ function DriverDashboardPage() {
               title={null}
               placement="right"
               width={480}
-              onClose={() => setManagingTripId(null)}
+              onClose={() => {
+                setManagingTripId(null);
+                setShowManagingTripRoute(false);
+              }}
               open={!!managingTripId}
               closable={false}
               className="bg-gray-50"
@@ -4502,37 +4493,79 @@ function DriverDashboardPage() {
                   <div className="bg-gradient-primary p-6 text-white relative">
                     <Button
                       type="text"
-                      icon={<XCircle size={24} className="text-white/80 hover:text-white" />}
-                      onClick={() => setManagingTripId(null)}
+                      icon={<XCircle size={24} className="!text-white/80 hover:!text-white" />}
+                      onClick={() => {
+                        setManagingTripId(null);
+                        setShowManagingTripRoute(false);
+                      }}
                       className="absolute top-4 right-4 p-0 hover:bg-transparent"
                     />
                     <div className="mt-4">
                       <Tag
                         color="purple"
-                        className="border-none bg-white/20 text-white rounded-full px-3 py-1 mb-4"
+                        className="border-none bg-white/20 !text-white rounded-full px-3 py-1 mb-4"
                       >
                         {dayjs(managingTrip.departureAt).format("MMM D, YYYY • h:mm A")}
                       </Tag>
                       <div className="space-y-4">
                         <div className="flex items-center gap-3">
                           <div className="w-2 h-2 rounded-full bg-white flex-shrink-0"></div>
-                          <Text className="text-white font-medium text-lg leading-tight">
+                          <Text className="!text-white font-medium text-lg leading-tight">
                             {managingTrip.fromLocation}
                           </Text>
                         </div>
                         <div className="ml-1 w-0.5 h-6 bg-white/30"></div>
                         <div className="flex items-center gap-3">
                           <div className="w-2 h-2 rounded-full bg-white flex-shrink-0"></div>
-                          <Text className="text-white font-medium text-lg leading-tight">
+                          <Text className="!text-white font-medium text-lg leading-tight">
                             {managingTrip.toLocation}
                           </Text>
                         </div>
                       </div>
 
-                      <div className="mt-6 bg-white/10 rounded-2xl p-4 backdrop-blur-sm border border-white/20">
+                      <div className="mt-3 flex flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setShowManagingTripRoute(true)}
+                          className="inline-flex items-center gap-1.5 rounded-full bg-white/15 hover:bg-white/25 transition-colors px-3 py-1.5 text-xs font-bold !text-white"
+                        >
+                          <Navigation size={14} /> View full route
+                        </button>
+
+                        {managingTrip.status === "scheduled" && (
+                          <button
+                            type="button"
+                            onClick={() => handleStartTrip(managingTrip.id)}
+                            disabled={tripActionLoading === managingTrip.id}
+                            className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500 hover:bg-emerald-400 transition-colors px-3 py-1.5 text-xs font-bold !text-white disabled:opacity-60"
+                          >
+                            <PlayCircle size={14} />
+                            {tripActionLoading === managingTrip.id ? "Starting…" : "Start Trip"}
+                          </button>
+                        )}
+
+                        {managingTrip.status === "in_progress" && (
+                          <>
+                            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/90 px-3 py-1.5 text-xs font-bold !text-white animate-pulse">
+                              <RadioTower size={14} /> Sharing live location
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleEndTrip(managingTrip.id)}
+                              disabled={tripActionLoading === managingTrip.id}
+                              className="inline-flex items-center gap-1.5 rounded-full bg-white/15 hover:bg-white/25 transition-colors px-3 py-1.5 text-xs font-bold !text-white disabled:opacity-60"
+                            >
+                              <FlagTriangleRight size={14} />
+                              {tripActionLoading === managingTrip.id ? "Finishing…" : "End Trip"}
+                            </button>
+                          </>
+                        )}
+                      </div>
+
+                      <div className="mt-4 bg-white/10 rounded-2xl p-4 backdrop-blur-sm border border-white/20">
                         <div className="flex justify-between items-center mb-2">
-                          <Text className="text-white/80 font-medium">Capacity</Text>
-                          <Text className="text-white font-bold">
+                          <Text className="!text-white/80 font-medium">Capacity</Text>
+                          <Text className="!text-white font-bold">
                             {seatsBooked} / {managingTrip.totalSeats} booked
                           </Text>
                         </div>
@@ -4547,6 +4580,44 @@ function DriverDashboardPage() {
                       </div>
                     </div>
                   </div>
+
+                  <Modal
+                    title="Full route"
+                    open={showManagingTripRoute}
+                    onCancel={() => setShowManagingTripRoute(false)}
+                    footer={null}
+                    centered
+                  >
+                    <div className="space-y-3 py-2">
+                      <div className="flex items-start gap-3">
+                        <div className="mt-1.5 h-2.5 w-2.5 rounded-full bg-primary flex-shrink-0"></div>
+                        <div>
+                          <p className="text-xs font-bold uppercase tracking-widest text-gray-400">Pickup</p>
+                          <p className="font-semibold text-gray-800">{managingTrip.fromLocation}</p>
+                        </div>
+                      </div>
+                      {[...managingTripStops]
+                        .sort((a, b) => a.stopIndex - b.stopIndex)
+                        .map((stop) => (
+                          <div key={stop.id} className="flex items-start gap-3">
+                            <div className="mt-1.5 h-2.5 w-2.5 rounded-full bg-amber-400 flex-shrink-0"></div>
+                            <div>
+                              <p className="text-xs font-bold uppercase tracking-widest text-gray-400">
+                                Stop {stop.stopIndex}
+                              </p>
+                              <p className="font-semibold text-gray-800">{stop.location}</p>
+                            </div>
+                          </div>
+                        ))}
+                      <div className="flex items-start gap-3">
+                        <div className="mt-1.5 h-2.5 w-2.5 rounded-full bg-pink-500 flex-shrink-0"></div>
+                        <div>
+                          <p className="text-xs font-bold uppercase tracking-widest text-gray-400">Drop-off</p>
+                          <p className="font-semibold text-gray-800">{managingTrip.toLocation}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </Modal>
 
                   <div className="flex-1 overflow-y-auto p-6">
                     <Title level={4} className="mb-6 font-bold text-gray-800">
@@ -4632,10 +4703,25 @@ function DriverDashboardPage() {
                             <div className="mt-4 pt-4 border-t border-gray-100">
                               {b.verified ? (
                                 <div className="flex items-center gap-2 rounded-xl bg-emerald-50 border border-emerald-200 px-3 py-2">
-                                  <Star size={14} className="text-emerald-600 fill-emerald-600" />
-                                  <Text className="text-sm font-bold text-emerald-700">
+                                  <Star size={14} className="text-emerald-600 fill-emerald-600 shrink-0" />
+                                  <Text className="text-sm font-bold text-emerald-700 flex-1">
                                     Customer Verified
                                   </Text>
+                                  {!b.ratingByHost && (
+                                    <Button
+                                      type="primary"
+                                      size="small"
+                                      className="rounded-xl bg-purple-600 border-none font-semibold"
+                                      onClick={() => {
+                                        setSelectedBooking(b);
+                                        setRatingValue(5);
+                                        setRatingComment("");
+                                        setRatingModalVisible(true);
+                                      }}
+                                    >
+                                      Rate Customer
+                                    </Button>
+                                  )}
                                 </div>
                               ) : (
                                 <div>

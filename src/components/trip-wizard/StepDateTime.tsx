@@ -24,11 +24,12 @@ export function StepDateTime({ date, time, onDateChange, onTimeChange }: StepDat
     if (!date) onDateChange(today);
   }, [date, today, onDateChange]);
 
-  // Keep the visible clock default and wizard state in sync. For today, start
-  // at the next future 5-minute slot so Continue is immediately available.
+  // Keep the visible clock default and wizard state in sync. Trips must be
+  // postable at least 30 minutes out, so default to the next 5-minute slot
+  // after that so Continue is immediately available.
   useEffect(() => {
     if (time) return;
-    const next = dayjs().add(5, "minute");
+    const next = dayjs().add(30, "minute");
     const roundedMinute = Math.ceil(next.minute() / 5) * 5;
     const defaultTime = next.minute(0).second(0).millisecond(0).add(roundedMinute, "minute");
     if (!defaultTime.isSame(today, "day")) onDateChange(defaultTime.startOf("day"));
@@ -45,6 +46,12 @@ export function StepDateTime({ date, time, onDateChange, onTimeChange }: StepDat
   const selected = date ?? today;
   const todaySelected = selected.isSame(today, "day");
   const tomorrowSelected = selected.isSame(tomorrow, "day");
+
+  const selectedDeparture = useMemo(() => {
+    if (!date || !time) return null;
+    return date.hour(time.hour24).minute(time.minute).second(0).millisecond(0);
+  }, [date, time]);
+  const tooSoon = !!selectedDeparture && !selectedDeparture.isAfter(dayjs().add(30, "minute"));
 
   return (
     <div className="flex flex-col gap-6 px-4 pb-6">
@@ -130,6 +137,11 @@ export function StepDateTime({ date, time, onDateChange, onTimeChange }: StepDat
         <div className="rounded-3xl border border-gray-100 bg-white p-5 shadow-sm">
           <ClockFacePicker value={time} onChange={onTimeChange} size={260} />
         </div>
+        {tooSoon && (
+          <p className="mt-3 text-center text-sm font-semibold text-destructive">
+            Trips must be scheduled at least 30 minutes from now.
+          </p>
+        )}
       </div>
     </div>
   );

@@ -296,8 +296,13 @@ function BookingTripPage() {
 
   const vehicleMissing = vehicleQuery.data == null && vehicleQuery.isFetched;
 
+  const SERVICE_FEE = 29;
+  const PAYMENT_GATEWAY_CHARGE = 5;
+
   const totalAmount =
-    selected.size > 0 ? pricePerSeat * selected.size + 29 : 0;
+    selected.size > 0
+      ? pricePerSeat * selected.size + SERVICE_FEE + PAYMENT_GATEWAY_CHARGE
+      : 0;
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-hero">
@@ -477,10 +482,16 @@ function BookingTripPage() {
                   </span>
                 </div>
                 {selected.size > 0 && (
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Platform fee</span>
-                    <span className="font-semibold">{formatCurrency(29)}</span>
-                  </div>
+                  <>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Service fee</span>
+                      <span className="font-semibold">{formatCurrency(SERVICE_FEE)}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Payment gateway charge</span>
+                      <span className="font-semibold">{formatCurrency(PAYMENT_GATEWAY_CHARGE)}</span>
+                    </div>
+                  </>
                 )}
                 <div className="pt-2 border-t border-border/60 flex justify-between items-baseline">
                   <span className="font-bold">Total</span>

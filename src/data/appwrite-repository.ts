@@ -50,6 +50,9 @@ function toTrip(doc: any): Trip {
     assignedDriverId: doc.assigned_driver_id ? String(doc.assigned_driver_id) : undefined,
     seatConfig:
       doc.seat_config && Array.isArray(doc.seat_config) ? doc.seat_config.map(String) : undefined,
+    currentLat: doc.current_lat != null ? Number(doc.current_lat) : undefined,
+    currentLng: doc.current_lng != null ? Number(doc.current_lng) : undefined,
+    locationUpdatedAt: doc.location_updated_at ? String(doc.location_updated_at) : undefined,
   };
 }
 
@@ -235,6 +238,18 @@ export async function listTripStops(tripId: string): Promise<TripStop[]> {
   return result.documents.map(toTripStop);
 }
 
+export async function listTripStopsByTripIds(tripIds: string[]): Promise<TripStop[]> {
+  const unique = [...new Set(tripIds.filter(Boolean))];
+  if (unique.length === 0) return [];
+  const c = ids();
+  const result = await databases.listDocuments(appwriteConfig.databaseId, c.tripStops, [
+    Query.equal("trip_id", unique),
+    Query.orderAsc("stop_index"),
+    Query.limit(1000),
+  ]);
+  return result.documents.map(toTripStop);
+}
+
 export async function listHostTrips(hostId: string): Promise<Trip[]> {
   const c = ids();
   const result = await databases.listDocuments(appwriteConfig.databaseId, c.trips, [
@@ -323,6 +338,19 @@ export async function updateTrip(tripId: string, input: Partial<CreateTripInput>
     seat_config: input.seatConfig,
   });
   return toTrip(doc);
+}
+
+export async function updateTripLocation(
+  tripId: string,
+  lat: number,
+  lng: number,
+): Promise<void> {
+  const c = ids();
+  await databases.updateDocument(appwriteConfig.databaseId, c.trips, tripId, {
+    current_lat: lat,
+    current_lng: lng,
+    location_updated_at: new Date().toISOString(),
+  });
 }
 
 export async function deleteTrip(tripId: string): Promise<void> {

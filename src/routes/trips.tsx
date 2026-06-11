@@ -1,8 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { Ticket, MapPin, Calendar, Users, Loader2, ShieldCheck, KeyRound, ChevronDown, CheckCircle2 } from "lucide-react";
+import { Ticket, MapPin, Calendar, Users, Loader2, ShieldCheck, KeyRound, CheckCircle2, Download, Radio } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import dayjs from "dayjs";
+import { jsPDF } from "jspdf";
 import { SiteHeader } from "@/components/SiteHeader";
 import { SiteFooter } from "@/components/SiteFooter";
 import { Button } from "@/components/ui/button";
@@ -10,7 +11,10 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/useAuth";
 import { listTravelerBookings, getTripById } from "@/data/appwrite-repository";
-import type { Trip } from "@/lib/domain";
+import { RideRouteMap } from "@/components/RideRouteMap";
+import { NotificationPermissionPrompt } from "@/components/NotificationPermissionPrompt";
+import { showAppNotification } from "@/lib/notifications";
+import type { Booking, Trip } from "@/lib/domain";
 
 type TripsSearch = { booking?: string };
 
@@ -40,6 +44,119 @@ function statusColor(status: string) {
     default:
       return "bg-gray-100 text-gray-700 border-gray-200";
   }
+}
+
+function downloadTicketPdf(
+  booking: Booking,
+  trip: Trip | undefined,
+  passengerList: { seat: string; name: string; phone: string }[],
+) {
+  const doc = new jsPDF({ unit: "pt", format: "a4" });
+  const margin = 48;
+  let y = margin;
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(20);
+  doc.setTextColor(16, 122, 87);
+  doc.text("coolpool", margin, y);
+  doc.setFontSize(12);
+  doc.setTextColor(100);
+  doc.text("Ride Ticket", 595 - margin, y, { align: "right" });
+
+  y += 30;
+  doc.setDrawColor(220);
+  doc.line(margin, y, 595 - margin, y);
+  y += 30;
+
+  doc.setTextColor(20);
+  doc.setFontSize(11);
+  doc.setFont("helvetica", "normal");
+
+  const addRow = (label: string, value: string) => {
+    doc.setFont("helvetica", "bold");
+    doc.text(label, margin, y);
+    doc.setFont("helvetica", "normal");
+    doc.text(value, margin + 140, y);
+    y += 22;
+  };
+
+  addRow("Booking ID", booking.id);
+  addRow("Status", booking.status.toUpperCase());
+  if (trip) {
+    addRow("From", trip.fromLocation);
+    addRow("To", trip.toLocation);
+    addRow("Departure", dayjs(trip.departureAt).format("MMM D, YYYY • h:mm A"));
+  }
+  addRow("Seats booked", String(booking.seatsBooked));
+  addRow("Amount paid", `Rs. ${booking.segmentPrice}`);
+  addRow("Booked on", dayjs(booking.createdAt).format("MMM D, YYYY • h:mm A"));
+
+  if (booking.otp) {
+    y += 10;
+    doc.setFont("helvetica", "bold");
+    doc.text("Boarding OTP", margin, y);
+    doc.setFontSize(18);
+    doc.text(booking.otp, margin + 140, y);
+    doc.setFontSize(11);
+    y += 30;
+  }
+
+  y += 10;
+  doc.setFont("helvetica", "bold");
+  doc.text("Passengers", margin, y);
+  y += 20;
+  doc.setFont("helvetica", "normal");
+  passengerList.forEach((p) => {
+    doc.text(`Seat ${p.seat}: ${p.name}${p.phone ? ` (${p.phone})` : ""}`, margin, y);
+    y += 20;
+  });
+
+  y += 20;
+  doc.setDrawColor(220);
+  doc.line(margin, y, 595 - margin, y);
+  y += 24;
+  doc.setFontSize(9);
+  doc.setTextColor(140);
+  doc.text("Show this ticket and your boarding OTP to the host when boarding.", margin, y);
+
+  doc.save(`coolpool-ticket-${booking.id}.pdf`);
+}
+
+function LiveTripTracker({ trip }: { trip: Trip }) {
+  const isLive = trip.status === "in_progress";
+  const liveQuery = useQuery({
+    queryKey: ["trip-live-location", trip.id],
+    queryFn: () => getTripById(trip.id),
+    enabled: isLive,
+    refetchInterval: isLive ? 8000 : false,
+  });
+
+  if (!isLive) return null;
+
+  const live = liveQuery.data ?? trip;
+  const liveLocation =
+    live.currentLat != null && live.currentLng != null
+      ? { lat: live.currentLat, lng: live.currentLng }
+      : null;
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center gap-2 rounded-2xl bg-emerald-50 border border-emerald-200 px-4 py-2.5">
+        <Radio className="h-4 w-4 text-emerald-600 animate-pulse" />
+        <span className="text-sm font-semibold text-emerald-700">
+          Trip in progress — track your ride live
+        </span>
+      </div>
+      <RideRouteMap
+        fromLat={trip.fromLat}
+        fromLng={trip.fromLng}
+        toLat={trip.toLat}
+        toLng={trip.toLng}
+        polyline={trip.polyline}
+        liveLocation={liveLocation}
+      />
+    </div>
+  );
 }
 
 function TripsPage() {
@@ -81,15 +198,36 @@ function TripsPage() {
       return map;
     },
     enabled: tripIds.length > 0,
+    refetchInterval: tripIds.length > 0 ? 20000 : false,
   });
 
   const isLoading = authLoading || bookingsQuery.isLoading || tripsQuery.isLoading;
   const bookings = bookingsQuery.data ?? [];
 
+  // Notify the passenger when their driver starts the trip.
+  const tripStatusRef = useRef<Map<string, string>>(new Map());
+  useEffect(() => {
+    const trips = tripsQuery.data;
+    if (!trips) return;
+
+    trips.forEach((trip, id) => {
+      const prevStatus = tripStatusRef.current.get(id);
+      if (prevStatus && prevStatus !== "in_progress" && trip.status === "in_progress") {
+        void showAppNotification("Your ride has started!", {
+          body: `${trip.fromLocation} → ${trip.toLocation} — track your driver live.`,
+          url: "/trips",
+          tag: `trip-started-${id}`,
+        });
+      }
+      tripStatusRef.current.set(id, trip.status);
+    });
+  }, [tripsQuery.data]);
+
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-emerald-50 via-green-50 to-emerald-100 bg-fixed">
       <SiteHeader />
       <main className="container mx-auto px-4 pt-24 pb-10 md:pt-28 md:pb-14 max-w-4xl flex-1">
+        <NotificationPermissionPrompt />
         <div className="mb-6 flex items-center gap-3">
           <div className="h-12 w-12 rounded-2xl bg-gradient-primary text-primary-foreground flex items-center justify-center shadow-glow">
             <Ticket className="h-6 w-6" />
@@ -150,7 +288,8 @@ function TripsPage() {
                 <Card
                   key={b.id}
                   ref={isJustBooked ? highlightRef : undefined}
-                  className={`p-5 rounded-3xl border bg-white/85 shadow-card hover:shadow-elevated transition-all ${
+                  onClick={() => setExpandedId(b.id)}
+                  className={`p-5 rounded-3xl border bg-white/85 shadow-card hover:shadow-elevated transition-all cursor-pointer ${
                     isJustBooked
                       ? "border-emerald-400 ring-2 ring-emerald-400/40"
                       : "border-border/60"
@@ -200,17 +339,9 @@ function TripsPage() {
                       <Users className="h-4 w-4 shrink-0" />
                       <span className="truncate">{primaryDisplay}</span>
                     </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="rounded-2xl gap-1"
-                      onClick={() => setExpandedId(isExpanded ? null : b.id)}
-                    >
-                      {isExpanded ? "Hide" : "View"}
-                      <ChevronDown
-                        className={`h-4 w-4 transition-transform ${isExpanded ? "rotate-180" : ""}`}
-                      />
-                    </Button>
+                    {!isExpanded && (
+                      <span className="text-xs font-semibold text-primary">Tap to view ticket</span>
+                    )}
                   </div>
 
                   {isExpanded && (
@@ -223,6 +354,8 @@ function TripsPage() {
                           </span>
                         </div>
                       )}
+
+                      {trip && <LiveTripTracker trip={trip} />}
 
                       {b.otp && (
                         <div className="rounded-2xl border-2 border-dashed border-primary/40 bg-primary/5 px-4 py-4 text-center">
@@ -288,8 +421,27 @@ function TripsPage() {
                         )}
                       </div>
 
+                      <Button
+                        variant="hero"
+                        size="sm"
+                        className="w-full rounded-2xl gap-2"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          downloadTicketPdf(b, trip, passengerList);
+                        }}
+                      >
+                        <Download className="h-4 w-4" />
+                        Download Ticket
+                      </Button>
+
                       {trip && (
-                        <Button asChild variant="ghost" size="sm" className="w-full rounded-2xl">
+                        <Button
+                          asChild
+                          variant="ghost"
+                          size="sm"
+                          className="w-full rounded-2xl"
+                          onClick={(e) => e.stopPropagation()}
+                        >
                           <Link to="/booking/$tripId" params={{ tripId: trip.id }}>
                             Open ride page
                           </Link>
