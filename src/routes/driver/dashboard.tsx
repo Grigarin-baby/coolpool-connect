@@ -32,6 +32,9 @@ import {
   FlagTriangleRight,
   RadioTower,
   Wallet,
+  Phone,
+  MessageCircle,
+  UserX,
 } from "lucide-react";
 import {
   Layout,
@@ -88,6 +91,7 @@ import {
   assignRole,
   listHostBookings,
   verifyBookingOtp,
+  updateBookingStatus,
   getHostPreferences,
   updateHostPreferences,
   updateDriverBio,
@@ -97,7 +101,7 @@ import { PayoutsPanel } from "@/components/driver/PayoutsPanel";
 import type { RidePreferences } from "@/lib/domain";
 import { storage } from "@/integrations/appwrite/client";
 import { ID } from "appwrite";
-import type { Trip, TripStop, DriverProfile, Booking } from "@/lib/domain";
+import type { Trip, TripStop, DriverProfile, Booking, BookingStatus } from "@/lib/domain";
 import { APP_FONT_FAMILY } from "@/lib/fonts";
 import { calcPricePerKm } from "@/lib/pricing";
 import { stripCountrySuffix } from "@/lib/geo";
@@ -256,6 +260,18 @@ function disabledTripTime(current: dayjs.Dayjs | null) {
   };
 }
 
+/** Builds tel: and wa.me links from a (possibly pipe-separated, multi-passenger) phone string. */
+function getContactLinks(rawPhone: string): { tel: string | null; whatsapp: string | null } {
+  const phone = (rawPhone || "").split("|")[0].trim();
+  const digits = phone.replace(/\D/g, "");
+  if (!digits) return { tel: null, whatsapp: null };
+  const intl = digits.length === 10 ? `91${digits}` : digits;
+  return {
+    tel: `tel:+${intl}`,
+    whatsapp: `https://wa.me/${intl}`,
+  };
+}
+
 function getRatingColorClasses(rating: number) {
   if (rating >= 4) {
     return {
@@ -358,6 +374,7 @@ function DriverDashboardPage() {
   });
   const [otpInputs, setOtpInputs] = useState<Record<string, string>>({});
   const [verifyingId, setVerifyingId] = useState<string | null>(null);
+  const [noShowId, setNoShowId] = useState<string | null>(null);
   const [liveTripId, setLiveTripId] = useState<string | null>(null);
   const [tripActionLoading, setTripActionLoading] = useState<string | null>(null);
   const [now, setNow] = useState(() => dayjs());
@@ -454,6 +471,32 @@ function DriverDashboardPage() {
     } finally {
       setVerifyingId(null);
     }
+  };
+
+  const handleSetBookingStatus = async (bookingId: string, status: BookingStatus) => {
+    setNoShowId(bookingId);
+    try {
+      await updateBookingStatus(bookingId, status);
+      message.success(
+        status === "no_show" ? "Passenger marked as no-show." : "Booking status updated.",
+      );
+      void queryClient.invalidateQueries({ queryKey: ["host-bookings"] });
+    } catch (err) {
+      message.error(err instanceof Error ? err.message : "Failed to update booking.");
+    } finally {
+      setNoShowId(null);
+    }
+  };
+
+  const confirmMarkNoShow = (bookingId: string, passengerName: string) => {
+    Modal.confirm({
+      title: "Mark as no-show?",
+      content: `Confirm that ${passengerName || "this passenger"} did not show up for this trip. This cannot be verified with an OTP afterwards.`,
+      okText: "Mark no-show",
+      okButtonProps: { danger: true },
+      cancelText: "Cancel",
+      onOk: () => handleSetBookingStatus(bookingId, "no_show"),
+    });
   };
   const publishViaWizard = (result: WizardResult) => {
     if (!user?.$id) {
@@ -4498,6 +4541,9 @@ function DriverDashboardPage() {
           const managingTrip = trips.find((t) => t.id === managingTripId);
           const tripBookings = bookings.filter((b) => b.tripId === managingTripId);
           const seatsBooked = tripBookings.reduce((sum, b) => sum + (b.seatsBooked || 0), 0);
+          const managingStopsByIndex = new Map(
+            managingTripStops.map((s) => [s.stopIndex, s.location]),
+          );
 
           return (
             <Drawer
@@ -4620,33 +4666,25 @@ function DriverDashboardPage() {
                     centered
                   >
                     <div className="space-y-3 py-2">
-                      <div className="flex items-start gap-3">
-                        <div className="mt-1.5 h-2.5 w-2.5 rounded-full bg-primary flex-shrink-0"></div>
-                        <div>
-                          <p className="text-xs font-bold uppercase tracking-widest text-gray-400">Pickup</p>
-                          <p className="font-semibold text-gray-800">{managingTrip.fromLocation}</p>
-                        </div>
-                      </div>
-                      {[...managingTripStops]
-                        .sort((a, b) => a.stopIndex - b.stopIndex)
-                        .map((stop) => (
+                      {(() => {
+                        const sortedStops = [...managingTripStops].sort((a, b) => a.stopIndex - b.stopIndex);
+                        const last = sortedStops.length - 1;
+                        return sortedStops.map((stop, i) => (
                           <div key={stop.id} className="flex items-start gap-3">
-                            <div className="mt-1.5 h-2.5 w-2.5 rounded-full bg-amber-400 flex-shrink-0"></div>
+                            <div
+                              className={`mt-1.5 h-2.5 w-2.5 rounded-full flex-shrink-0 ${
+                                i === 0 ? "bg-primary" : i === last ? "bg-pink-500" : "bg-amber-400"
+                              }`}
+                            ></div>
                             <div>
                               <p className="text-xs font-bold uppercase tracking-widest text-gray-400">
-                                Stop {stop.stopIndex}
+                                {i === 0 ? "Pickup" : i === last ? "Drop-off" : `Stop ${stop.stopIndex}`}
                               </p>
                               <p className="font-semibold text-gray-800">{stop.location}</p>
                             </div>
                           </div>
-                        ))}
-                      <div className="flex items-start gap-3">
-                        <div className="mt-1.5 h-2.5 w-2.5 rounded-full bg-pink-500 flex-shrink-0"></div>
-                        <div>
-                          <p className="text-xs font-bold uppercase tracking-widest text-gray-400">Drop-off</p>
-                          <p className="font-semibold text-gray-800">{managingTrip.toLocation}</p>
-                        </div>
-                      </div>
+                        ));
+                      })()}
                     </div>
                   </Modal>
 
@@ -4669,7 +4707,9 @@ function DriverDashboardPage() {
                       </div>
                     ) : (
                       <div className="space-y-4">
-                        {tripBookings.map((b) => (
+                        {tripBookings.map((b) => {
+                          const contact = getContactLinks(b.passengerPhone);
+                          return (
                           <Card
                             key={b.id}
                             className="rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-all overflow-hidden"
@@ -4689,6 +4729,30 @@ function DriverDashboardPage() {
                                   <Text type="secondary" className="text-sm">
                                     {b.passengerPhone}
                                   </Text>
+                                  {(contact.tel || contact.whatsapp) && (
+                                    <div className="flex items-center gap-2 mt-1.5">
+                                      {contact.tel && (
+                                        <a
+                                          href={contact.tel}
+                                          className="inline-flex items-center justify-center h-7 w-7 rounded-full bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors"
+                                          title="Call passenger"
+                                        >
+                                          <Phone size={14} />
+                                        </a>
+                                      )}
+                                      {contact.whatsapp && (
+                                        <a
+                                          href={contact.whatsapp}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="inline-flex items-center justify-center h-7 w-7 rounded-full bg-emerald-50 text-emerald-600 hover:bg-emerald-100 transition-colors"
+                                          title="Message on WhatsApp"
+                                        >
+                                          <MessageCircle size={14} />
+                                        </a>
+                                      )}
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                               <div className="text-right">
@@ -4696,10 +4760,16 @@ function DriverDashboardPage() {
                                   ₹{b.segmentPrice}
                                 </Text>
                                 <Tag
-                                  color={b.status === "confirmed" ? "success" : "processing"}
+                                  color={
+                                    b.status === "confirmed"
+                                      ? "success"
+                                      : b.status === "no_show"
+                                        ? "error"
+                                        : "processing"
+                                  }
                                   className="m-0 rounded-full uppercase text-[10px] font-bold border-none"
                                 >
-                                  {b.status}
+                                  {b.status === "no_show" ? "No-show" : b.status}
                                 </Tag>
                               </div>
                             </div>
@@ -4713,12 +4783,12 @@ function DriverDashboardPage() {
                               <div className="flex-1 flex flex-col justify-between py-0.5 gap-2">
                                 <div>
                                   <Text strong className="text-sm text-gray-800 line-clamp-1">
-                                    {managingTrip.fromLocation}
+                                    {managingStopsByIndex.get(b.fromStopIndex) ?? managingTrip.fromLocation}
                                   </Text>
                                 </div>
                                 <div>
                                   <Text strong className="text-sm text-gray-800 line-clamp-1">
-                                    {managingTrip.toLocation}
+                                    {managingStopsByIndex.get(b.toStopIndex) ?? managingTrip.toLocation}
                                   </Text>
                                 </div>
                               </div>
@@ -4732,7 +4802,22 @@ function DriverDashboardPage() {
                             </div>
 
                             <div className="mt-4 pt-4 border-t border-gray-100">
-                              {b.verified ? (
+                              {b.status === "no_show" ? (
+                                <div className="flex items-center gap-2 rounded-xl bg-rose-50 border border-rose-200 px-3 py-2">
+                                  <UserX size={14} className="text-rose-600 shrink-0" />
+                                  <Text className="text-sm font-bold text-rose-700 flex-1">
+                                    Marked as no-show
+                                  </Text>
+                                  <Button
+                                    size="small"
+                                    loading={noShowId === b.id}
+                                    className="rounded-xl font-semibold"
+                                    onClick={() => handleSetBookingStatus(b.id, "confirmed")}
+                                  >
+                                    Undo
+                                  </Button>
+                                </div>
+                              ) : b.verified ? (
                                 <div className="flex items-center gap-2 rounded-xl bg-emerald-50 border border-emerald-200 px-3 py-2">
                                   <Star size={14} className="text-emerald-600 fill-emerald-600 shrink-0" />
                                   <Text className="text-sm font-bold text-emerald-700 flex-1">
@@ -4791,11 +4876,19 @@ function DriverDashboardPage() {
                                       Verify
                                     </Button>
                                   </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => confirmMarkNoShow(b.id, b.passengerName)}
+                                    className="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold text-gray-400 hover:text-rose-600 transition-colors"
+                                  >
+                                    <UserX size={12} />
+                                    Passenger didn't show up
+                                  </button>
                                 </div>
                               )}
                             </div>
                           </Card>
-                        ))}
+                        );})}
                       </div>
                     )}
                   </div>

@@ -11,6 +11,7 @@ const STATUS_COLOR: Record<BookingStatus, string> = {
   confirmed: "processing",
   completed: "success",
   cancelled: "error",
+  no_show: "error",
 };
 
 const STATUS_OPTIONS: { label: string; value: BookingStatus | "all" }[] = [
@@ -19,6 +20,7 @@ const STATUS_OPTIONS: { label: string; value: BookingStatus | "all" }[] = [
   { label: "Confirmed", value: "confirmed" },
   { label: "Completed", value: "completed" },
   { label: "Cancelled", value: "cancelled" },
+  { label: "No-show", value: "no_show" },
 ];
 
 export function BookingsPanel() {
@@ -134,7 +136,7 @@ export function BookingsPanel() {
                   bordered={false}
                   className="capitalize px-3 rounded-3xl"
                 >
-                  {b.status}
+                  {b.status === "no_show" ? "No-show" : b.status}
                 </Tag>
               ),
             },
@@ -148,7 +150,7 @@ export function BookingsPanel() {
                     onConfirm={() => cancelMutation.mutate(b.id)}
                     okText="Cancel booking"
                     okButtonProps={{ danger: true }}
-                    disabled={b.status === "cancelled" || b.status === "completed"}
+                    disabled={b.status === "cancelled" || b.status === "completed" || b.status === "no_show"}
                   >
                     <Button
                       type="text"
@@ -157,6 +159,7 @@ export function BookingsPanel() {
                       disabled={
                         b.status === "cancelled" ||
                         b.status === "completed" ||
+                        b.status === "no_show" ||
                         cancelMutation.isPending
                       }
                     >

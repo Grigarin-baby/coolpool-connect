@@ -1,7 +1,7 @@
 export type AppRole = "admin" | "driver" | "user";
 export type StopType = "pickup" | "drop" | "both";
 export type TripStatus = "scheduled" | "in_progress" | "completed" | "cancelled";
-export type BookingStatus = "pending" | "confirmed" | "cancelled" | "completed";
+export type BookingStatus = "pending" | "confirmed" | "cancelled" | "completed" | "no_show";
 export type VerificationStatus = "pending" | "approved" | "rejected";
 export type PayoutStatus = "pending" | "processing" | "paid" | "rejected";
 
