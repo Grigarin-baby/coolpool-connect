@@ -105,6 +105,7 @@ import type { Trip, TripStop, DriverProfile, Booking, BookingStatus } from "@/li
 import { APP_FONT_FAMILY } from "@/lib/fonts";
 import { calcPricePerKm } from "@/lib/pricing";
 import { stripCountrySuffix } from "@/lib/geo";
+import { findDuplicateTeamDriver, findDuplicateVehicle } from "@/lib/duplicateChecks";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -699,6 +700,15 @@ function DriverDashboardPage() {
     mutationFn: async (vals: { make: string; model: string; color: string; plate: string }) => {
       if (!user) throw new Error("Not logged in");
 
+      const duplicate = findDuplicateVehicle(
+        { plateNumber: vals.plate },
+        vehicles.map((v) => ({ id: v.id, plateNumber: v.plateNumber })),
+        editingVehicleId,
+      );
+      if (duplicate) {
+        throw new Error("A vehicle with this plate number already exists in your fleet.");
+      }
+
       const carImageIds: string[] = [];
       for (const file of carImagesList) {
         if (file.originFileObj) {
@@ -738,7 +748,14 @@ function DriverDashboardPage() {
       setCarImagesList([]);
       setEditingVehicleId(null);
     },
-    onError: (err: any) => message.error(err.message || "Failed to save vehicle."),
+    onError: (err: any) => {
+      const msg = err?.message || "Failed to save vehicle.";
+      if (msg.includes("already exists")) {
+        Modal.error({ title: "Duplicate vehicle details", content: msg, centered: true });
+      } else {
+        message.error(msg);
+      }
+    },
   });
 
   const { mutate: removeVehicle } = useMutation({
@@ -825,12 +842,27 @@ function DriverDashboardPage() {
   });
 
   const { mutate: saveDriver, isPending: savingDriver } = useMutation({
-    mutationFn: (vals: Omit<CreateTeamDriverInput, "ownerUserId">) =>
-      user
-        ? editingDriverId
-          ? updateTeamDriver(editingDriverId, vals)
-          : createTeamDriver({ ownerUserId: user.$id, ...vals })
-        : Promise.reject(new Error("Not logged in")),
+    mutationFn: (vals: Omit<CreateTeamDriverInput, "ownerUserId">) => {
+      if (!user) return Promise.reject(new Error("Not logged in"));
+
+      const existingDrivers = [
+        ...(driverProfile
+          ? [{ id: "self", phone: driverProfile.phone, licenseNumber: driverProfile.licenseNumber }]
+          : []),
+        ...teamDrivers.map((d) => ({ id: d.id, phone: d.phone, licenseNumber: d.licenseNumber })),
+      ];
+      const duplicate = findDuplicateTeamDriver(vals, existingDrivers, editingDriverId);
+      if (duplicate === "phone") {
+        return Promise.reject(new Error("A driver with this phone number already exists."));
+      }
+      if (duplicate === "license") {
+        return Promise.reject(new Error("A driver with this license number already exists."));
+      }
+
+      return editingDriverId
+        ? updateTeamDriver(editingDriverId, vals)
+        : createTeamDriver({ ownerUserId: user.$id, ...vals });
+    },
     onSuccess: () => {
       message.success(editingDriverId ? "Driver updated!" : "Driver added!");
       void queryClient.invalidateQueries({ queryKey: ["team-drivers"] });
@@ -838,7 +870,14 @@ function DriverDashboardPage() {
       driverForm.resetFields();
       setEditingDriverId(null);
     },
-    onError: () => message.error("Failed to save driver."),
+    onError: (err: any) => {
+      const msg = err?.message || "Failed to save driver.";
+      if (msg.includes("already exists")) {
+        Modal.error({ title: "Duplicate driver details", content: msg, centered: true });
+      } else {
+        message.error(msg);
+      }
+    },
   });
 
   const { mutate: removeDriver } = useMutation({
