@@ -23,11 +23,26 @@ jobs:
           mkdir -p ~/.ssh
           ssh-keyscan -4 -T 30 -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts || true
 
+      # SSH from GitHub runners to the VPS times out intermittently, so retry
+      # the connection up to 5 times before declaring the deploy failed.
       - name: Deploy on Server
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: root
-          key: ${{ secrets.VPS_SSH_KEY }}
-          script: |
-            bash /root/deploy.sh
+        run: |
+          for attempt in 1 2 3 4 5; do
+            echo "::group::Deploy attempt $attempt"
+            if ssh -4 \
+              -o ConnectTimeout=40 \
+              -o ConnectionAttempts=3 \
+              -o ServerAliveInterval=15 \
+              -o ServerAliveCountMax=4 \
+              -o StrictHostKeyChecking=accept-new \
+              root@${{ secrets.VPS_HOST }} 'bash /root/deploy.sh'; then
+              echo "::endgroup::"
+              echo "Deploy succeeded on attempt $attempt"
+              exit 0
+            fi
+            echo "::endgroup::"
+            echo "Attempt $attempt failed — retrying in 25s..."
+            sleep 25
+          done
+          echo "All deploy attempts failed"
+          exit 1

@@ -90,6 +90,7 @@ export interface RidePreferences {
   alcoholAllowed: boolean;
   musicAllowed: boolean;
   musicType: MusicType | null;
+  petsAllowed: boolean;
 }
 
 export interface DriverProfile {
@@ -103,11 +104,14 @@ export interface DriverProfile {
   ownerUserId?: string;
   /** Short host bio shown on trip cards */
   bio?: string | null;
+  /** Profile photo URL shown on trip cards and the booking page */
+  photoUrl?: string | null;
   /** Ride comfort preferences set by the host */
   smokingAllowed?: boolean;
   alcoholAllowed?: boolean;
   musicAllowed?: boolean;
   musicType?: string | null;
+  petsAllowed?: boolean;
   verificationStatus?: VerificationStatus;
   verificationNote?: string | null;
 }

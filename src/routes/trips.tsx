@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { Ticket, MapPin, Calendar, Users, Loader2, ShieldCheck, KeyRound, CheckCircle2, Download, Radio } from "lucide-react";
+import { Ticket, MapPin, Calendar, Users, Loader2, ShieldCheck, KeyRound, CheckCircle2, Download, Radio, Bell } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import dayjs from "dayjs";
 import { jsPDF } from "jspdf";
@@ -14,6 +14,7 @@ import { listTravelerBookings, getTripById, listTripStopsByTripIds } from "@/dat
 import { RideRouteMap } from "@/components/RideRouteMap";
 import { NotificationPermissionPrompt } from "@/components/NotificationPermissionPrompt";
 import { showAppNotification } from "@/lib/notifications";
+import { useNotificationPermission } from "@/hooks/useNotificationPermission";
 import type { Booking, Trip } from "@/lib/domain";
 import logoUrl from "@/assets/logo.png";
 
@@ -311,6 +312,17 @@ function TripsPage() {
   const [expandedId, setExpandedId] = useState<string | null>(highlightedBookingId ?? null);
   const highlightRef = useRef<HTMLDivElement | null>(null);
 
+  // Right after a booking, ask the traveler to enable notifications so they
+  // get live updates (driver started, etc.). Optional for travelers.
+  const { permission: notifPermission, supported: notifSupported, request: requestNotif } =
+    useNotificationPermission();
+  const [notifAskDismissed, setNotifAskDismissed] = useState(false);
+  const showNotifAsk =
+    Boolean(highlightedBookingId) &&
+    notifSupported &&
+    notifPermission === "default" &&
+    !notifAskDismissed;
+
   useEffect(() => {
     if (highlightedBookingId) {
       setExpandedId(highlightedBookingId);
@@ -384,6 +396,36 @@ function TripsPage() {
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-emerald-50 via-green-50 to-emerald-100 bg-fixed">
       <SiteHeader />
+      {showNotifAsk && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 px-4">
+          <Card className="w-full max-w-sm rounded-3xl p-7 text-center shadow-card border-border/60 bg-white">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100">
+              <Bell className="h-7 w-7 text-emerald-600" />
+            </div>
+            <h3 className="mt-4 text-xl font-bold">Booking confirmed! 🎉</h3>
+            <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
+              Enable notifications to get live updates about your trip — like when your driver
+              starts the ride.
+            </p>
+            <Button
+              variant="hero"
+              className="mt-5 w-full rounded-3xl h-11 font-bold"
+              onClick={() => {
+                void requestNotif().finally(() => setNotifAskDismissed(true));
+              }}
+            >
+              Enable Notifications
+            </Button>
+            <button
+              type="button"
+              className="mt-3 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+              onClick={() => setNotifAskDismissed(true)}
+            >
+              Maybe later
+            </button>
+          </Card>
+        </div>
+      )}
       <main className="container mx-auto px-4 pt-24 pb-10 md:pt-28 md:pb-14 max-w-4xl flex-1">
         <NotificationPermissionPrompt />
         <div className="mb-6 flex items-center gap-3">

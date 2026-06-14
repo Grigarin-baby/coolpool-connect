@@ -51,29 +51,27 @@ import {
   Star,
   ShieldCheck,
   Filter,
-  Map as MapIcon,
-  SearchX,
-  Cigarette,
-  Wine,
-  Music2,
-  VolumeX,
   PlusCircle,
 } from "lucide-react";
 import dayjs, { Dayjs } from "dayjs";
 import { Button as UiButton } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { RidePrefChips } from "@/components/RidePrefChips";
+import { HostAvatar } from "@/components/HostAvatar";
 import { useQuery } from "@tanstack/react-query";
 import {
   listTrips,
   listTripStopsByTripIds,
   listTripSeatReservationsByTripIds,
   getMultipleHostPreferences,
+  getVehiclesByDriverUserIds,
   listDriverProfilesByUserIds,
 } from "@/data/appwrite-repository";
-import type { RidePreferences, TripStop } from "@/lib/domain";
+import type { DriverProfile, RidePreferences, TripStop } from "@/lib/domain";
 import { routeCitySegmentsMatch, stripCountrySuffix } from "@/lib/geo";
 import { formatCurrency } from "@/lib/pricing";
 import { getSegmentPrice } from "@/lib/segment-pricing";
+import { estimateSegmentTimes, type SegmentTimes } from "@/lib/segment-times";
 import { appwriteConfig } from "@/integrations/appwrite/client";
 import { cn } from "@/lib/utils";
 import { SERVICE_CITY, BENGALURU_AIRPORTS } from "@/lib/config";
@@ -109,6 +107,7 @@ export interface MatchedSegment {
   fromLabel: string;
   toLabel: string;
   price: number;
+  times: SegmentTimes;
 }
 
 type SearchResult = TripRow & { matchedSegment: MatchedSegment };
@@ -443,6 +442,7 @@ export function TripSearchProvider({ children }: { children: ReactNode }) {
 
       const filtered = allTrips
         .filter((trip) => trip.status === "scheduled" || trip.status === "in_progress")
+        .filter((trip) => trip.status === "in_progress" || dayjs(trip.departureAt).isAfter(dayjs()))
         .filter((trip) => {
           if (!searchDate) return true;
           return dayjs(trip.departureAt).isSame(searchDate, "day");
@@ -460,6 +460,12 @@ export function TripSearchProvider({ children }: { children: ReactNode }) {
               fromLabel: segment.fromStop.location,
               toLabel: segment.toStop.location,
               price: getSegmentPrice(
+                trip,
+                fullRoute,
+                segment.fromStop.stopIndex,
+                segment.toStop.stopIndex,
+              ),
+              times: estimateSegmentTimes(
                 trip,
                 fullRoute,
                 segment.fromStop.stopIndex,
@@ -1055,6 +1061,20 @@ export function TripSearchResults({ variant }: { variant: "landing" | "page" }) 
     }
     return map;
   }, [hostProfiles]);
+  // Full profile lookup — used to fill in host name/photo when older trips
+  // were published without them.
+  const hostProfileMap = useMemo(() => {
+    const map = new Map<string, DriverProfile>();
+    for (const p of hostProfiles ?? []) map.set(p.userId, p);
+    return map;
+  }, [hostProfiles]);
+  // Vehicle fallback for trips published without vehicle details.
+  const { data: hostVehiclesMap } = useQuery({
+    queryKey: ["host-vehicles-batch", hostIds.join(",")],
+    queryFn: () => getVehiclesByDriverUserIds(hostIds),
+    enabled: hostIds.length > 0,
+    staleTime: 1000 * 60 * 5,
+  });
   const reservedSeatsByTripId = useMemo(() => {
     const map: Record<string, Set<string>> = {};
     for (const reservation of seatReservations ?? []) {
@@ -1100,26 +1120,32 @@ export function TripSearchResults({ variant }: { variant: "landing" | "page" }) 
       )}
 
       {!loading && searched && results.length === 0 && (
-        <Card className="rounded-3xl border border-dashed border-destructive/40 bg-destructive/5 p-8 md:p-12 text-center">
-          <div className="flex flex-col items-center gap-4">
-            <div className="h-16 w-16 rounded-full bg-destructive/10 text-destructive flex items-center justify-center">
-              <SearchX className="h-8 w-8" />
-            </div>
-            <h3 className="text-xl sm:text-2xl font-bold text-destructive">
-              No trips found on this route
-            </h3>
-            <p className="text-destructive/80 text-base max-w-md leading-relaxed">
-              No trips match this route yet. Try nearby cities or check back soon.
-            </p>
-            <div className="mt-2 flex flex-col items-center gap-3">
-              <p className="text-sm font-semibold text-gray-500">Be the first!</p>
-              <UiButton
-                onClick={handleHostARide}
-                style={{ color: "white" }}
-                className="rounded-full h-12 px-8 bg-gradient-primary !text-white [&_svg]:!text-white font-bold shadow-glow border-none hover:scale-105 active:scale-95 transition-all flex items-center gap-2"
-              >
-                <PlusCircle className="h-4 w-4 text-white" color="white" /> Host a Ride
-              </UiButton>
+        <Card className="rounded-3xl border border-dashed border-destructive/40 bg-destructive/5 px-6 pb-8 pt-6 md:px-10 md:pb-12 text-center overflow-hidden">
+          <div className="flex flex-col items-center">
+            {/* Sad kitten peeking over the message panel */}
+            <img
+              src="/sad-cat.png"
+              alt="Sad kitten — no rides found"
+              className="w-36 sm:w-44 -mb-10 relative z-10 pointer-events-none select-none"
+              loading="lazy"
+            />
+            <div className="w-full max-w-md rounded-3xl bg-white shadow-soft px-6 pt-12 pb-8 flex flex-col items-center gap-3">
+              <h3 className="text-xl sm:text-2xl font-bold text-destructive">
+                No trips found on this route
+              </h3>
+              <p className="text-gray-500 text-base leading-relaxed">
+                No trips match this route yet. Try nearby cities or check back soon.
+              </p>
+              <div className="mt-2 flex flex-col items-center gap-3">
+                <p className="text-sm font-semibold text-gray-500">Be the first!</p>
+                <UiButton
+                  onClick={handleHostARide}
+                  style={{ color: "white" }}
+                  className="rounded-full h-12 px-8 bg-gradient-primary !text-white [&_svg]:!text-white font-bold shadow-glow border-none hover:scale-105 active:scale-95 transition-all flex items-center gap-2"
+                >
+                  <PlusCircle className="h-4 w-4 text-white" color="white" /> Host a Ride
+                </UiButton>
+              </div>
             </div>
           </div>
         </Card>
@@ -1138,16 +1164,23 @@ export function TripSearchResults({ variant }: { variant: "landing" | "page" }) 
 
           <div className="space-y-2.5">
             {results.map((trip) => {
-              const hostName = trip.hostDisplayName || "Verified Host";
-              const vehicleLabel = trip.vehicleModel
-                ? [trip.vehicleModel, trip.vehicleColor].filter(Boolean).join(" · ")
+              // Fall back to the host's profile and fleet for trips that were
+              // published without a display name or vehicle attached.
+              const hostProfile = hostProfileMap.get(trip.hostId);
+              const hostVehicle = hostVehiclesMap?.get(trip.hostId);
+              const hostName = trip.hostDisplayName || hostProfile?.fullName || "Verified Host";
+              const vehicleModel = trip.vehicleModel || hostVehicle?.modelName;
+              const vehicleColor = trip.vehicleColor || hostVehicle?.color;
+              const vehicleLabel = vehicleModel
+                ? [vehicleModel, vehicleColor].filter(Boolean).join(" · ")
                 : "Vehicle details pending";
-              const departure = dayjs(trip.departureAt);
-              const fallbackDuration = Math.max(1, Math.round(trip.totalDistanceKm));
-              const durationMinutes = trip.durationMinutes || fallbackDuration;
-              const arrival = trip.arrivalAt
-                ? dayjs(trip.arrivalAt)
-                : departure.add(durationMinutes, "minute");
+              // Show the passenger's own boarding/arrival times for partial
+              // segments, not the full trip's endpoints.
+              const segmentTimes = trip.matchedSegment.times;
+              const departure = dayjs(segmentTimes.departureAt);
+              const arrival = dayjs(segmentTimes.arrivalAt);
+              const durationMinutes = Math.max(1, segmentTimes.durationMinutes);
+              const timesEstimated = segmentTimes.isEstimated;
               const durationLabel =
                 durationMinutes >= 60
                   ? `${Math.floor(durationMinutes / 60)}h ${durationMinutes % 60}m`
@@ -1157,7 +1190,6 @@ export function TripSearchResults({ variant }: { variant: "landing" | "page" }) 
                 trip.totalSeats - (reservedSeatsByTripId[trip.id]?.size ?? 0),
               );
               const prefs: RidePreferences | undefined = hostPrefsMap?.get(trip.hostId);
-              const hasPrefs = prefs && (prefs.smokingAllowed || prefs.alcoholAllowed || prefs.musicAllowed !== undefined);
               const hostBio = hostBioMap.get(trip.hostId);
               const segment = trip.matchedSegment;
               const isFullRoute =
@@ -1198,19 +1230,22 @@ export function TripSearchResults({ variant }: { variant: "landing" | "page" }) 
                     <div className="grid grid-cols-2 gap-x-3 gap-y-2 sm:grid-cols-[minmax(0,1.5fr)_0.7fr_1.2fr_auto] sm:items-center sm:gap-x-4 sm:gap-y-0">
 
                       {/* ① Host + Vehicle — mobile r1c1, desktop col1 */}
-                      <div className="min-w-0 order-1 sm:order-1">
-                        <div className="flex items-center gap-1">
-                          <p className="font-bold text-sm text-gray-900 truncate leading-tight">
-                            {hostName}
-                          </p>
-                          <ShieldCheck size={13} className="text-blue-500 shrink-0 hidden sm:block" />
+                      <div className="min-w-0 order-1 sm:order-1 flex items-center gap-2.5">
+                        <HostAvatar name={hostName} photoUrl={hostProfile?.photoUrl} size={36} />
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1">
+                            <p className="font-bold text-sm text-gray-900 truncate leading-tight">
+                              {hostName}
+                            </p>
+                            <ShieldCheck size={13} className="text-blue-500 shrink-0 hidden sm:block" />
+                          </div>
+                          <p className="mt-0.5 text-xs text-gray-500 truncate leading-tight">{vehicleLabel}</p>
+                          {hostBio && (
+                            <p className="mt-0.5 text-[11px] text-gray-400 italic truncate leading-tight hidden sm:block">
+                              "{hostBio}"
+                            </p>
+                          )}
                         </div>
-                        <p className="mt-0.5 text-xs text-gray-500 truncate leading-tight">{vehicleLabel}</p>
-                        {hostBio && (
-                          <p className="mt-0.5 text-[11px] text-gray-400 italic truncate leading-tight hidden sm:block">
-                            "{hostBio}"
-                          </p>
-                        )}
                       </div>
 
                       {/* ② Price — mobile r1c2 (right), desktop col4 */}
@@ -1239,53 +1274,25 @@ export function TripSearchResults({ variant }: { variant: "landing" | "page" }) 
                       {/* ④ Time + Duration — mobile r2c2 (right), desktop col3 */}
                       <div className="min-w-0 order-4 sm:order-3 text-right sm:text-left">
                         <p className="font-black text-sm sm:text-base text-gray-900 whitespace-nowrap leading-tight">
+                          {timesEstimated && <span className="text-gray-400 font-semibold">~</span>}
                           {departure.format("HH:mm")}
                           <span className="text-primary mx-1">→</span>
                           {arrival.format("HH:mm")}
                         </p>
                         <p className="text-[11px] sm:text-xs font-medium text-gray-400 whitespace-nowrap leading-tight">
                           {durationLabel} · {seatsLeft} {seatsLeft === 1 ? "seat" : "seats"} left
+                          {timesEstimated && " · est."}
                         </p>
                       </div>
 
                     </div>
 
-                    {/* Ride preference icon strip — shown when host has configured prefs */}
-                    {hasPrefs && (
-                      <div className="mt-2 pt-2 border-t border-gray-100 flex items-center gap-2.5 flex-wrap">
-                        {prefs.smokingAllowed ? (
-                          <span className="inline-flex items-center gap-1 text-[11px] font-medium text-amber-600">
-                            <Cigarette size={12} /> Smoking OK
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 text-[11px] font-medium text-gray-400">
-                            <Cigarette size={12} className="opacity-40" /> No smoking
-                          </span>
-                        )}
-                        <span className="text-gray-200">·</span>
-                        {prefs.alcoholAllowed ? (
-                          <span className="inline-flex items-center gap-1 text-[11px] font-medium text-rose-500">
-                            <Wine size={12} /> Alcohol OK
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 text-[11px] font-medium text-gray-400">
-                            <Wine size={12} className="opacity-40" /> No alcohol
-                          </span>
-                        )}
-                        <span className="text-gray-200">·</span>
-                        {prefs.musicAllowed ? (
-                          <span className="inline-flex items-center gap-1 text-[11px] font-medium text-green-600">
-                            <Music2 size={12} />
-                            {prefs.musicType && prefs.musicType !== "any"
-                              ? `${prefs.musicType.charAt(0).toUpperCase()}${prefs.musicType.slice(1)}`
-                              : "Music"}
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 text-[11px] font-medium text-gray-400">
-                            <VolumeX size={12} /> Quiet ride
-                          </span>
-                        )}
-                      </div>
+                    {/* Ride preference chips — green = allowed, red = not allowed */}
+                    {prefs && (
+                      <RidePrefChips
+                        prefs={prefs}
+                        className="mt-2 pt-2 border-t border-gray-100"
+                      />
                     )}
                   </Card>
                 </Link>
@@ -1293,13 +1300,6 @@ export function TripSearchResults({ variant }: { variant: "landing" | "page" }) 
             })}
           </div>
 
-          {/* Floating Map Button */}
-          <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-40">
-            <UiButton className="rounded-full h-12 px-6 bg-primary text-white font-bold shadow-glow border-none flex items-center gap-2 hover:scale-105 active:scale-95 transition-all">
-              <MapIcon size={18} />
-              Show rides on map
-            </UiButton>
-          </div>
         </div>
       )}
     </div>

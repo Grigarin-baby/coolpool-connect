@@ -15,7 +15,9 @@ import { useAuth } from "@/hooks/useAuth";
 import {
   createBookingWithSeatReservations,
   getTripById,
+  getHostPreferences,
   getVehicleByDriverUserId,
+  listDriverProfilesByUserIds,
   listTripSeatReservations,
   listTripStops,
   listTravelerBookings,
@@ -23,9 +25,12 @@ import {
 import { account } from "@/integrations/appwrite/client";
 import { formatCurrency } from "@/lib/pricing";
 import { getSegmentPrice } from "@/lib/segment-pricing";
+import { estimateSegmentTimes } from "@/lib/segment-times";
 import { buildSeatLayout } from "@/lib/seatLayout";
 import { toast } from "sonner";
 import { RideRouteMap } from "@/components/RideRouteMap";
+import { RidePrefChips } from "@/components/RidePrefChips";
+import { HostAvatar } from "@/components/HostAvatar";
 
 interface BookingSearch {
   fromStopIndex?: number;
@@ -93,6 +98,23 @@ function BookingTripPage() {
     queryKey: ["vehicle-by-host", tripQuery.data?.hostId],
     queryFn: () =>
       tripQuery.data ? getVehicleByDriverUserId(tripQuery.data.hostId) : Promise.resolve(null),
+    enabled: !!tripQuery.data,
+  });
+
+  const hostProfileQuery = useQuery({
+    queryKey: ["host-profile", tripQuery.data?.hostId],
+    queryFn: async () => {
+      if (!tripQuery.data) return null;
+      const profiles = await listDriverProfilesByUserIds([tripQuery.data.hostId]);
+      return profiles[0] ?? null;
+    },
+    enabled: !!tripQuery.data,
+  });
+
+  const hostPrefsQuery = useQuery({
+    queryKey: ["host-prefs", tripQuery.data?.hostId],
+    queryFn: () =>
+      tripQuery.data ? getHostPreferences(tripQuery.data.hostId) : Promise.resolve(null),
     enabled: !!tripQuery.data,
   });
 
@@ -198,6 +220,19 @@ function BookingTripPage() {
   }, [tripQuery.data, sortedStops, segmentSearch]);
 
   const pricePerSeat = segment.price;
+
+  // Boarding/arrival times for the passenger's own segment — estimated by
+  // distance along the route when boarding at a mid-route stop.
+  const segmentTimes = useMemo(() => {
+    const trip = tripQuery.data;
+    if (!trip) return null;
+    return estimateSegmentTimes(
+      trip,
+      sortedStops,
+      segment.fromStopIndex,
+      segment.toStopIndex,
+    );
+  }, [tripQuery.data, sortedStops, segment.fromStopIndex, segment.toStopIndex]);
 
   const bookingMutation = useMutation({
     mutationFn: async () => {
@@ -371,7 +406,25 @@ function BookingTripPage() {
                 <span className="font-semibold truncate">{segment.toLabel}</span>
               </div>
               <p className="text-xs sm:text-sm text-muted-foreground mt-1">
-                {new Date(trip.departureAt).toLocaleString()}
+                {segmentTimes ? (
+                  <>
+                    Boarding {segmentTimes.isEstimated ? "~" : ""}
+                    {new Date(segmentTimes.departureAt).toLocaleString([], {
+                      dateStyle: "medium",
+                      timeStyle: "short",
+                    })}
+                    {" · arrives "}
+                    {segmentTimes.isEstimated ? "~" : ""}
+                    {new Date(segmentTimes.arrivalAt).toLocaleTimeString([], {
+                      timeStyle: "short",
+                    })}
+                    {segmentTimes.isEstimated && (
+                      <span className="text-muted-foreground/70"> (estimated)</span>
+                    )}
+                  </>
+                ) : (
+                  new Date(trip.departureAt).toLocaleString()
+                )}
               </p>
             </div>
             <div className="flex flex-col items-end gap-1.5">
@@ -383,6 +436,29 @@ function BookingTripPage() {
               </span>
             </div>
           </div>
+          {(trip.hostDisplayName || hostProfileQuery.data) && (
+            <div className="mt-3 pt-3 border-t border-border/60 flex items-center gap-2.5">
+              <HostAvatar
+                name={trip.hostDisplayName || hostProfileQuery.data?.fullName}
+                photoUrl={hostProfileQuery.data?.photoUrl}
+                size={40}
+              />
+              <div className="min-w-0">
+                <p className="text-sm font-bold truncate">
+                  {trip.hostDisplayName || hostProfileQuery.data?.fullName || "Verified Host"}
+                </p>
+                <p className="text-xs text-muted-foreground">Your host</p>
+              </div>
+            </div>
+          )}
+          {hostPrefsQuery.data && (
+            <div className="mt-3 pt-3 border-t border-border/60">
+              <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">
+                Ride rules
+              </p>
+              <RidePrefChips prefs={hostPrefsQuery.data} size="md" />
+            </div>
+          )}
           {vehicleMissing && (
             <p className="mt-3 text-xs text-amber-700 dark:text-amber-400">
               Vehicle profile not found — seat layout is estimated.

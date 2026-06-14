@@ -11,18 +11,21 @@ import {
   Settings,
   MoreVertical,
   Car,
+  Camera,
   CheckCircle,
   CheckCircle2,
   XCircle,
   Banknote,
   Users2,
   Plus,
+  Bell,
   Trash2,
   Pencil,
   Star,
   UserCheck,
   ArrowRight,
   Cigarette,
+  PawPrint,
   Wine,
   Music2,
   VolumeX,
@@ -95,6 +98,7 @@ import {
   getHostPreferences,
   updateHostPreferences,
   updateDriverBio,
+  updateDriverPhoto,
   type CreateTeamDriverInput,
 } from "@/data/appwrite-repository";
 import { PayoutsPanel } from "@/components/driver/PayoutsPanel";
@@ -105,7 +109,7 @@ import type { Trip, TripStop, DriverProfile, Booking, BookingStatus } from "@/li
 import { APP_FONT_FAMILY } from "@/lib/fonts";
 import { calcPricePerKm } from "@/lib/pricing";
 import { stripCountrySuffix } from "@/lib/geo";
-import { findDuplicateTeamDriver, findDuplicateVehicle } from "@/lib/duplicateChecks";
+import { findDuplicateVehicle } from "@/lib/duplicateChecks";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -117,7 +121,13 @@ import { getUserDisplayName } from "@/lib/user-display";
 import { TripWizard } from "@/components/trip-wizard/TripWizard";
 import type { WizardResult } from "@/components/trip-wizard/types";
 import { NotificationPermissionPrompt } from "@/components/NotificationPermissionPrompt";
-import { showAppNotification } from "@/lib/notifications";
+import { RidePrefChips } from "@/components/RidePrefChips";
+import {
+  getNotificationPermission,
+  isNotificationSupported,
+  requestNotificationPermission,
+  showAppNotification,
+} from "@/lib/notifications";
 
 import logo from "@/assets/logo.png";
 
@@ -372,6 +382,7 @@ function DriverDashboardPage() {
     alcoholAllowed: false,
     musicAllowed: false,
     musicType: null,
+    petsAllowed: false,
   });
   const [otpInputs, setOtpInputs] = useState<Record<string, string>>({});
   const [verifyingId, setVerifyingId] = useState<string | null>(null);
@@ -505,6 +516,7 @@ function DriverDashboardPage() {
       return;
     }
     const totalPrice = result.pricePerSeat * result.totalSeats;
+    const wizardVehicle = vehicles.find((vehicle) => vehicle.id === result.vehicleId);
     // Build trip_stops the way the legacy handler does: origin (pickup),
     // intermediates (both), destination (drop). distanceFromOriginKm comes
     // from the wizard's polyline projection.
@@ -554,6 +566,11 @@ function DriverDashboardPage() {
         departureAt: result.departureAt,
         arrivalAt: dayjs(result.departureAt).add(result.durationMin, "minute").toISOString(),
         durationMinutes: result.durationMin,
+        hostDisplayName: user.name || "Verified Host",
+        hostRating: 0,
+        hostRatingCount: 0,
+        vehicleModel: wizardVehicle?.modelName,
+        vehicleColor: wizardVehicle?.color || undefined,
         notes: `Created via routing wizard. Total price: ₹${totalPrice}.`,
         vehicleId: result.vehicleId,
         assignedDriverId: result.driverId,
@@ -565,9 +582,34 @@ function DriverDashboardPage() {
     performCreateTrip(payload);
   };
 
+  // Hosting requires notifications (so we can remind the host to start the
+  // trip on time). Browsers that can't do web push at all (e.g. iPhone Safari
+  // before the site is added to the Home Screen) are let through with the
+  // softer in-page prompt instead of being locked out.
+  const [notifGateOpen, setNotifGateOpen] = useState(false);
+  const [notifGateRequesting, setNotifGateRequesting] = useState(false);
+
   const openWizard = () => {
+    if (isNotificationSupported() && getNotificationPermission() !== "granted") {
+      setNotifGateOpen(true);
+      return;
+    }
     setWizardResult(null);
     setWizardOpen(true);
+  };
+
+  const handleNotifGateEnable = async () => {
+    setNotifGateRequesting(true);
+    try {
+      const result = await requestNotificationPermission();
+      if (result === "granted") {
+        setNotifGateOpen(false);
+        setWizardResult(null);
+        setWizardOpen(true);
+      }
+    } finally {
+      setNotifGateRequesting(false);
+    }
   };
 
   const handleDeleteAccount = async () => {
@@ -672,6 +714,30 @@ function DriverDashboardPage() {
       void import("sonner").then((m) => m.toast.success("Bio saved!"));
     },
     onError: () => void import("sonner").then((m) => m.toast.error("Failed to save bio.")),
+  });
+
+  // Profile photo — uploaded to storage, URL saved on the driver profile.
+  const photoInputRef = useRef<HTMLInputElement | null>(null);
+  const { mutate: savePhoto, isPending: savingPhoto } = useMutation({
+    mutationFn: async (file: File) => {
+      if (!user) throw new Error("Not logged in");
+      if (!file.type.startsWith("image/")) throw new Error("Please choose an image file.");
+      if (file.size > 5 * 1024 * 1024) throw new Error("Photo must be under 5 MB.");
+      const uploaded = await storage.createFile(
+        appwriteConfig.driverDocsBucketId,
+        ID.unique(),
+        file,
+      );
+      const url = `${appwriteConfig.endpoint}/storage/buckets/${appwriteConfig.driverDocsBucketId}/files/${uploaded.$id}/view?project=${appwriteConfig.projectId}`;
+      await updateDriverPhoto(user.$id, url);
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["driver-profile", user?.$id] });
+      message.success("Profile photo updated.");
+    },
+    onError: (err) => {
+      message.error(err instanceof Error ? err.message : "Failed to upload photo.");
+    },
   });
 
   const { mutate: savePrefs, isPending: savingPrefs } = useMutation({
@@ -842,21 +908,28 @@ function DriverDashboardPage() {
   });
 
   const { mutate: saveDriver, isPending: savingDriver } = useMutation({
-    mutationFn: (vals: Omit<CreateTeamDriverInput, "ownerUserId">) => {
-      if (!user) return Promise.reject(new Error("Not logged in"));
+    mutationFn: async (vals: Omit<CreateTeamDriverInput, "ownerUserId">) => {
+      if (!user) throw new Error("Not logged in");
 
-      const existingDrivers = [
-        ...(driverProfile
-          ? [{ id: "self", phone: driverProfile.phone, licenseNumber: driverProfile.licenseNumber }]
-          : []),
-        ...teamDrivers.map((d) => ({ id: d.id, phone: d.phone, licenseNumber: d.licenseNumber })),
+      // Block duplicate drivers: same phone or license as an existing team
+      // driver (or the host themselves). Normalized so spaces, case, or a
+      // +91 prefix can't sneak a duplicate through.
+      const normPhone = (v?: string | null) => (v ?? "").replace(/\D/g, "").slice(-10);
+      const normLicense = (v?: string | null) =>
+        (v ?? "").replace(/[^a-z0-9]/gi, "").toUpperCase();
+      const newPhone = normPhone(vals.phone);
+      const newLicense = normLicense(vals.licenseNumber);
+      const existing = [
+        ...teamDrivers.filter((d) => d.id !== editingDriverId),
+        ...(driverProfile ? [driverProfile] : []),
       ];
-      const duplicate = findDuplicateTeamDriver(vals, existingDrivers, editingDriverId);
-      if (duplicate === "phone") {
-        return Promise.reject(new Error("A driver with this phone number already exists."));
-      }
-      if (duplicate === "license") {
-        return Promise.reject(new Error("A driver with this license number already exists."));
+      for (const d of existing) {
+        if (newPhone && normPhone(d.phone) === newPhone) {
+          throw new Error(`A driver with this phone number already exists (${d.fullName}).`);
+        }
+        if (newLicense && normLicense(d.licenseNumber) === newLicense) {
+          throw new Error(`A driver with this license number already exists (${d.fullName}).`);
+        }
       }
 
       return editingDriverId
@@ -871,7 +944,7 @@ function DriverDashboardPage() {
       setEditingDriverId(null);
     },
     onError: (err: any) => {
-      const msg = err?.message || "Failed to save driver.";
+      const msg = err instanceof Error ? err.message : "Failed to save driver.";
       if (msg.includes("already exists")) {
         Modal.error({ title: "Duplicate driver details", content: msg, centered: true });
       } else {
@@ -938,6 +1011,38 @@ function DriverDashboardPage() {
   const sortedTrips = [...upcomingTrips].sort(
     (a, b) => new Date(a.departureAt).getTime() - new Date(b.departureAt).getTime(),
   );
+
+  // Remind the host to start each scheduled trip: once at 15 minutes before
+  // departure, and once more if departure passes while the trip is still not
+  // started. localStorage keeps each reminder to a single notification.
+  useEffect(() => {
+    for (const trip of upcomingTrips) {
+      if (trip.status !== "scheduled") continue;
+      const departure = dayjs(trip.departureAt);
+      const route = `${trip.fromLocation} → ${trip.toLocation}`;
+      if (now.isAfter(departure)) {
+        const key = `coolpool-reminded-timeup-${trip.id}`;
+        if (!localStorage.getItem(key)) {
+          localStorage.setItem(key, "1");
+          void showAppNotification("Time is up — start your trip!", {
+            body: `${route} was due at ${departure.format("h:mm A")}. Passengers are waiting.`,
+            url: "/driver/dashboard",
+            tag: `trip-timeup-${trip.id}`,
+          });
+        }
+      } else if (now.isAfter(departure.subtract(15, "minute"))) {
+        const key = `coolpool-reminded-15m-${trip.id}`;
+        if (!localStorage.getItem(key)) {
+          localStorage.setItem(key, "1");
+          void showAppNotification("Start your trip now", {
+            body: `${route} departs at ${departure.format("h:mm A")} — get ready and start the trip.`,
+            url: "/driver/dashboard",
+            tag: `trip-reminder-${trip.id}`,
+          });
+        }
+      }
+    }
+  }, [now, upcomingTrips]);
 
   const isVerifiedHost = vehicles.length > 0;
 
@@ -1690,6 +1795,55 @@ function DriverDashboardPage() {
         )}
 
         <Modal
+          open={notifGateOpen}
+          onCancel={() => setNotifGateOpen(false)}
+          footer={null}
+          centered
+          width={460}
+          styles={{ content: { borderRadius: "1.5rem", padding: 0, overflow: "hidden" } }}
+        >
+          <div className="px-7 pt-7 pb-6">
+            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-purple-100">
+              <Bell className="text-purple-600" size={26} />
+            </div>
+            <h3 className="mt-5 text-2xl font-bold text-gray-900">
+              Enable notifications to host rides
+            </h3>
+            {getNotificationPermission() === "denied" ? (
+              <>
+                <p className="mt-2 text-sm leading-relaxed text-gray-600">
+                  Hosts must receive trip reminders — we notify you 15 minutes before departure so
+                  your passengers are never left waiting.
+                </p>
+                <p className="mt-3 text-sm leading-relaxed text-gray-600">
+                  Notifications are currently <strong>blocked</strong> for coolpool.in in your
+                  browser. To enable them, open your browser&apos;s site settings for coolpool.in,
+                  set Notifications to <strong>Allow</strong>, then come back and tap Host a Ride
+                  again.
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="mt-2 text-sm leading-relaxed text-gray-600">
+                  Hosts must receive trip reminders — we notify you 15 minutes before departure so
+                  your passengers are never left waiting. Please allow notifications to continue.
+                </p>
+                <Button
+                  type="primary"
+                  size="large"
+                  block
+                  loading={notifGateRequesting}
+                  onClick={() => void handleNotifGateEnable()}
+                  className="mt-6 bg-gradient-primary border-none rounded-3xl h-12 font-bold"
+                >
+                  Enable Notifications
+                </Button>
+              </>
+            )}
+          </div>
+        </Modal>
+
+        <Modal
           open={deleteAccountModalOpen}
           onCancel={() => {
             if (!deletingAccount) setDeleteAccountModalOpen(false);
@@ -1862,14 +2016,49 @@ function DriverDashboardPage() {
                           <div className="px-1 py-3" style={{ minWidth: 240 }}>
                             {/* User info */}
                             <div className="flex items-center gap-3 mb-3">
-                              <Avatar
-                                size={48}
-                                src={getUserAvatarUrl(getUserDisplayName(user), 96)}
-                                className="bg-gradient-primary text-primary-foreground font-bold text-lg border border-white/60"
-                              >
-                                {!getUserAvatarUrl(getUserDisplayName(user)) &&
-                                  (getUserDisplayName(user)?.[0]?.toUpperCase() || "U")}
-                              </Avatar>
+                              <div className="relative">
+                                <Avatar
+                                  size={48}
+                                  src={
+                                    driverProfile?.photoUrl ||
+                                    getUserAvatarUrl(getUserDisplayName(user), 96)
+                                  }
+                                  className="bg-gradient-primary text-primary-foreground font-bold text-lg border border-white/60"
+                                >
+                                  {!driverProfile?.photoUrl &&
+                                    !getUserAvatarUrl(getUserDisplayName(user)) &&
+                                    (getUserDisplayName(user)?.[0]?.toUpperCase() || "U")}
+                                </Avatar>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    photoInputRef.current?.click();
+                                  }}
+                                  disabled={savingPhoto}
+                                  aria-label={
+                                    driverProfile?.photoUrl ? "Change photo" : "Add photo"
+                                  }
+                                  className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-white shadow ring-2 ring-white"
+                                >
+                                  {savingPhoto ? (
+                                    <Spin size="small" />
+                                  ) : (
+                                    <Camera size={11} />
+                                  )}
+                                </button>
+                                <input
+                                  ref={photoInputRef}
+                                  type="file"
+                                  accept="image/*"
+                                  className="hidden"
+                                  onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (file) savePhoto(file);
+                                    e.target.value = "";
+                                  }}
+                                />
+                              </div>
                               <div className="flex-1 min-w-0">
                                 <div className="font-semibold text-gray-900 truncate">
                                   {getUserDisplayName(user)}
@@ -1911,6 +2100,7 @@ function DriverDashboardPage() {
                                         alcoholAllowed: false,
                                         musicAllowed: false,
                                         musicType: null,
+                                        petsAllowed: false,
                                       },
                                     );
                                     setPrefsDrawerOpen(true);
@@ -1920,32 +2110,7 @@ function DriverDashboardPage() {
                                   <Pencil size={11} /> Edit
                                 </button>
                               </div>
-                              {savedPrefs &&
-                                (savedPrefs.smokingAllowed ||
-                                  savedPrefs.alcoholAllowed ||
-                                  savedPrefs.musicAllowed) && (
-                                <div className="flex flex-wrap gap-1.5">
-                                  {savedPrefs.smokingAllowed && (
-                                    <span className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full bg-amber-50 text-amber-600 border border-amber-200">
-                                      <Cigarette size={10} /> Smoking OK
-                                    </span>
-                                  )}
-                                  {savedPrefs.alcoholAllowed && (
-                                    <span className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full bg-rose-50 text-rose-500 border border-rose-200">
-                                      <Wine size={10} /> Alcohol OK
-                                    </span>
-                                  )}
-                                  {savedPrefs.musicAllowed && (
-                                    <span className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full bg-green-50 text-green-600 border border-green-200">
-                                      <Music2 size={10} />
-                                      {savedPrefs.musicType && savedPrefs.musicType !== "any"
-                                        ? savedPrefs.musicType.charAt(0).toUpperCase() +
-                                          savedPrefs.musicType.slice(1)
-                                        : "Music"}
-                                    </span>
-                                  )}
-                                </div>
-                              )}
+                              {savedPrefs && <RidePrefChips prefs={savedPrefs} />}
                             </div>
                           </div>
                         ),
@@ -1981,11 +2146,14 @@ function DriverDashboardPage() {
                       color={isVerifiedHost ? "#6b46c1" : "#f59e0b"}
                     >
                       <Avatar
-                        src={getUserAvatarUrl(getUserDisplayName(user), 68)}
+                        src={
+                          driverProfile?.photoUrl || getUserAvatarUrl(getUserDisplayName(user), 68)
+                        }
                         className="bg-gradient-primary shadow-sm border border-white/40 group-hover:border-white/80 transition-all"
                         size={34}
                       >
-                        {!getUserAvatarUrl(getUserDisplayName(user)) &&
+                        {!driverProfile?.photoUrl &&
+                          !getUserAvatarUrl(getUserDisplayName(user)) &&
                           (getUserDisplayName(user)?.[0]?.toUpperCase() || <User size={16} />)}
                       </Avatar>
                     </Badge>
@@ -2291,6 +2459,25 @@ function DriverDashboardPage() {
                         )}
                       </div>
 
+                      {/* Pets */}
+                      <div className="flex items-center justify-between p-4 rounded-2xl bg-gray-50 border border-gray-100">
+                        <div className="flex items-center gap-3">
+                          <div className={`p-2 rounded-xl ${prefsLocal.petsAllowed ? "bg-emerald-100 text-emerald-600" : "bg-gray-100 text-gray-400"}`}>
+                            <PawPrint size={20} />
+                          </div>
+                          <div>
+                            <div className="font-semibold text-gray-800 text-sm">Pets</div>
+                            <div className="text-xs text-gray-400 mt-0.5">
+                              {prefsLocal.petsAllowed ? "Pets welcome on board" : "Not allowed"}
+                            </div>
+                          </div>
+                        </div>
+                        <Switch
+                          checked={prefsLocal.petsAllowed}
+                          onChange={(v) => setPrefsLocal((p) => ({ ...p, petsAllowed: v }))}
+                        />
+                      </div>
+
                       <div className="text-xs text-gray-400 text-center pt-2">
                         These preferences appear on your trip cards to help travelers decide.
                       </div>
@@ -2350,8 +2537,17 @@ function DriverDashboardPage() {
                                   color="purple"
                                   className="rounded-full border-none px-3 py-1 font-semibold text-xs m-0"
                                 >
-                                  {dayjs(item.departureAt).format("MMM D, YYYY â€¢ h:mm A")}
+                                  {dayjs(item.departureAt).format("MMM D, YYYY • h:mm A")}
                                 </Tag>
+                                {item.status === "scheduled" &&
+                                  now.isAfter(dayjs(item.departureAt)) && (
+                                    <Tag
+                                      color="error"
+                                      className="rounded-full px-3 py-1 font-semibold text-xs m-0 ml-2"
+                                    >
+                                      TIME IS UP — START NOW
+                                    </Tag>
+                                  )}
                                 <div className="flex items-center gap-2">
                                   <Text strong className="text-lg text-emerald-600">
                                     ₹{item.totalPrice}
@@ -2822,20 +3018,27 @@ function DriverDashboardPage() {
                                 {/* Status & Seats */}
                                 <div className="flex items-center justify-between">
                                   <div className="flex items-center gap-2">
-                                    <Tag
-                                      color={
-                                        trip.status === "in_progress"
-                                          ? "processing"
-                                          : trip.status === "completed"
-                                            ? "success"
-                                            : trip.status === "cancelled"
-                                              ? "error"
-                                              : "blue"
-                                      }
-                                      className="rounded-full m-0"
-                                    >
-                                      {trip.status?.toUpperCase().replace("_", " ")}
-                                    </Tag>
+                                    {trip.status === "scheduled" &&
+                                    now.isAfter(dayjs(trip.departureAt)) ? (
+                                      <Tag color="error" className="rounded-full m-0 font-semibold">
+                                        TIME IS UP — START NOW
+                                      </Tag>
+                                    ) : (
+                                      <Tag
+                                        color={
+                                          trip.status === "in_progress"
+                                            ? "processing"
+                                            : trip.status === "completed"
+                                              ? "success"
+                                              : trip.status === "cancelled"
+                                                ? "error"
+                                                : "blue"
+                                        }
+                                        className="rounded-full m-0"
+                                      >
+                                        {trip.status?.toUpperCase().replace("_", " ")}
+                                      </Tag>
+                                    )}
                                     <Text type="secondary" className="text-xs">
                                       {trip.totalSeats} seats
                                     </Text>
@@ -3776,81 +3979,6 @@ function DriverDashboardPage() {
                     </div>
                   )}
 
-                  {/* Add/Edit Driver Drawer */}
-                  <Drawer
-                    title={editingDriverId ? "Edit Driver" : "Add Driver"}
-                    placement="right"
-                    width={420}
-                    open={driverDrawerOpen}
-                    onClose={() => {
-                      setDriverDrawerOpen(false);
-                      driverForm.resetFields();
-                      setEditingDriverId(null);
-                    }}
-                    footer={
-                      <Button
-                        type="primary"
-                        loading={savingDriver}
-                        block
-                        size="large"
-                        className="bg-gradient-primary border-none rounded-3xl font-bold h-12"
-                        onClick={() => driverForm.submit()}
-                      >
-                        {editingDriverId ? "Save Changes" : "Add Driver"}
-                      </Button>
-                    }
-                  >
-                    <Form
-                      form={driverForm}
-                      layout="vertical"
-                      onFinish={(vals) =>
-                        saveDriver(vals as Omit<CreateTeamDriverInput, "ownerUserId">)
-                      }
-                    >
-                      {[
-                        {
-                          name: "fullName",
-                          label: "Full Name",
-                          rules: [{ required: true, message: "Required" }],
-                        },
-                        {
-                          name: "email",
-                          label: "Email",
-                          rules: [
-                            {
-                              required: true,
-                              type: "email" as const,
-                              message: "Valid email required",
-                            },
-                          ],
-                        },
-                        {
-                          name: "phone",
-                          label: "Phone",
-                          rules: [{ required: true, message: "Required" }],
-                        },
-                        {
-                          name: "licenseNumber",
-                          label: "License Number",
-                          rules: [{ required: true, message: "Required" }],
-                        },
-                        {
-                          name: "city",
-                          label: "City",
-                          rules: [{ required: true, message: "Required" }],
-                        },
-                      ].map((f) => (
-                        <Form.Item
-                          key={f.name}
-                          name={f.name}
-                          label={<span className="font-semibold text-gray-700">{f.label}</span>}
-                          rules={f.rules}
-                        >
-                          <Input size="large" className="rounded-3xl h-12" />
-                        </Form.Item>
-                      ))}
-                    </Form>
-                  </Drawer>
                 </div>
               )}
 
@@ -4936,11 +5064,87 @@ function DriverDashboardPage() {
             </Drawer>
           );
         })()}
+      {/* Add/Edit Driver Drawer — rendered globally (zIndex above the trip
+          wizard) so it can open on top without closing the wizard */}
+      <Drawer
+        title={editingDriverId ? "Edit Driver" : "Add Driver"}
+        placement="right"
+        width={420}
+        zIndex={1200}
+        open={driverDrawerOpen}
+        onClose={() => {
+          setDriverDrawerOpen(false);
+          driverForm.resetFields();
+          setEditingDriverId(null);
+        }}
+        footer={
+          <Button
+            type="primary"
+            loading={savingDriver}
+            block
+            size="large"
+            className="bg-gradient-primary border-none rounded-3xl font-bold h-12"
+            onClick={() => driverForm.submit()}
+          >
+            {editingDriverId ? "Save Changes" : "Add Driver"}
+          </Button>
+        }
+      >
+        <Form
+          form={driverForm}
+          layout="vertical"
+          onFinish={(vals) => saveDriver(vals as Omit<CreateTeamDriverInput, "ownerUserId">)}
+        >
+          {[
+            {
+              name: "fullName",
+              label: "Full Name",
+              rules: [{ required: true, message: "Required" }],
+            },
+            {
+              name: "email",
+              label: "Email",
+              rules: [
+                {
+                  required: true,
+                  type: "email" as const,
+                  message: "Valid email required",
+                },
+              ],
+            },
+            {
+              name: "phone",
+              label: "Phone",
+              rules: [{ required: true, message: "Required" }],
+            },
+            {
+              name: "licenseNumber",
+              label: "License Number",
+              rules: [{ required: true, message: "Required" }],
+            },
+            {
+              name: "city",
+              label: "City",
+              rules: [{ required: true, message: "Required" }],
+            },
+          ].map((f) => (
+            <Form.Item
+              key={f.name}
+              name={f.name}
+              label={<span className="font-semibold text-gray-700">{f.label}</span>}
+              rules={f.rules}
+            >
+              <Input size="large" className="rounded-3xl h-12" />
+            </Form.Item>
+          ))}
+        </Form>
+      </Drawer>
       {/* Add/Edit Vehicle Drawer */}
       <Drawer
         title={editingVehicleId ? "Edit Vehicle" : "Add Vehicle"}
         placement="right"
         width={420}
+        zIndex={1200}
         open={vehicleDrawerOpen}
         onClose={() => {
           setVehicleDrawerOpen(false);
@@ -5442,11 +5646,14 @@ function DriverDashboardPage() {
         onClose={() => setWizardOpen(false)}
         onComplete={publishViaWizard}
         onAddVehicle={() => {
-          setWizardOpen(false);
+          // Drawer opens above the wizard (zIndex) so trip data is preserved.
+          setEditingVehicleId(null);
+          vehicleForm.resetFields();
           setVehicleDrawerOpen(true);
         }}
         onAddDriver={() => {
-          setWizardOpen(false);
+          setEditingDriverId(null);
+          driverForm.resetFields();
           setDriverDrawerOpen(true);
         }}
       />
