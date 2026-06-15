@@ -1,10 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { Ticket, MapPin, Calendar, Users, Loader2, ShieldCheck, KeyRound, CheckCircle2, Download, Radio, Bell, Star } from "lucide-react";
+import { Ticket, MapPin, Calendar, Users, Loader2, ShieldCheck, KeyRound, CheckCircle2, Radio, Bell, Star } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
-import { jsPDF } from "jspdf";
 import { SiteHeader } from "@/components/SiteHeader";
 import { SiteFooter } from "@/components/SiteFooter";
 import { Button } from "@/components/ui/button";
@@ -24,7 +23,6 @@ import { showAppNotification } from "@/lib/notifications";
 import { useNotificationPermission } from "@/hooks/useNotificationPermission";
 import { ReviewModal } from "@/components/ReviewModal";
 import type { Booking, Trip } from "@/lib/domain";
-import logoUrl from "@/assets/logo.png";
 
 dayjs.extend(relativeTime);
 
@@ -56,227 +54,6 @@ function statusColor(status: string) {
     default:
       return "bg-gray-100 text-gray-700 border-gray-200";
   }
-}
-
-function loadImageAsDataUrl(src: string): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.crossOrigin = "anonymous";
-    img.onload = () => {
-      const canvas = document.createElement("canvas");
-      canvas.width = img.naturalWidth;
-      canvas.height = img.naturalHeight;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) {
-        reject(new Error("Canvas context unavailable"));
-        return;
-      }
-      ctx.drawImage(img, 0, 0);
-      resolve(canvas.toDataURL("image/png"));
-    };
-    img.onerror = () => reject(new Error("Failed to load logo image"));
-    img.src = src;
-  });
-}
-
-async function downloadTicketPdf(
-  booking: Booking,
-  trip: Trip | undefined,
-  passengerList: { seat: string; name: string; phone: string }[],
-  fromLabel: string,
-  toLabel: string,
-) {
-  const doc = new jsPDF({ unit: "pt", format: "a4" });
-  const pageWidth = 595;
-  const margin = 42;
-  const contentWidth = pageWidth - margin * 2;
-
-  const purple: [number, number, number] = [109, 40, 217];
-  const pink: [number, number, number] = [219, 39, 119];
-  const emerald: [number, number, number] = [16, 122, 87];
-  const lightGray: [number, number, number] = [246, 246, 250];
-
-  // Brand header
-  try {
-    const logoData = await loadImageAsDataUrl(logoUrl);
-    const logoWidth = 110;
-    const logoHeight = logoWidth * (306 / 816);
-    doc.addImage(logoData, "PNG", margin, 28, logoWidth, logoHeight);
-  } catch {
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(20);
-    doc.setTextColor(...purple);
-    doc.text("coolpool.in", margin, 50);
-  }
-
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(16);
-  doc.setTextColor(...purple);
-  doc.text("RIDE TICKET", pageWidth - margin, 44, { align: "right" });
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(9);
-  doc.setTextColor(130);
-  doc.text(`Booking ID: ${booking.id}`, pageWidth - margin, 60, { align: "right" });
-
-  let y = 92;
-  doc.setDrawColor(...purple);
-  doc.setLineWidth(2);
-  doc.line(margin, y, pageWidth - margin, y);
-  y += 32;
-
-  // Status pill + departure date
-  const statusLabel = booking.status === "no_show" ? "NO-SHOW" : booking.status.toUpperCase();
-  const pillColor: [number, number, number] =
-    booking.status === "confirmed" || booking.status === "completed"
-      ? emerald
-      : booking.status === "cancelled" || booking.status === "no_show"
-        ? [225, 29, 72]
-        : [217, 119, 6];
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(10);
-  const pillWidth = doc.getTextWidth(statusLabel) + 24;
-  doc.setFillColor(...pillColor);
-  doc.roundedRect(margin, y - 14, pillWidth, 22, 11, 11, "F");
-  doc.setTextColor(255, 255, 255);
-  doc.text(statusLabel, margin + 12, y + 1);
-
-  if (trip) {
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(10);
-    doc.setTextColor(100);
-    doc.text(dayjs(trip.departureAt).format("MMM D, YYYY • h:mm A"), pageWidth - margin, y + 1, {
-      align: "right",
-    });
-  }
-
-  y += 34;
-
-  // Route card
-  const routeCardHeight = 90;
-  doc.setFillColor(...lightGray);
-  doc.roundedRect(margin, y, contentWidth, routeCardHeight, 10, 10, "F");
-
-  const dotX = margin + 26;
-  const textX = dotX + 18;
-  doc.setFillColor(...emerald);
-  doc.circle(dotX, y + 28, 4, "F");
-  doc.setFillColor(...pink);
-  doc.circle(dotX, y + routeCardHeight - 28, 4, "F");
-  doc.setDrawColor(210);
-  doc.setLineWidth(1);
-  doc.line(dotX, y + 34, dotX, y + routeCardHeight - 34);
-
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(8);
-  doc.setTextColor(140);
-  doc.text("PICKUP", textX, y + 18);
-  doc.text("DROP-OFF", textX, y + routeCardHeight - 38);
-
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(13);
-  doc.setTextColor(20);
-  doc.text(fromLabel || "—", textX, y + 32, { maxWidth: contentWidth - 70 });
-  doc.text(toLabel || "—", textX, y + routeCardHeight - 24, { maxWidth: contentWidth - 70 });
-
-  y += routeCardHeight + 28;
-
-  // Info grid
-  const colWidth = contentWidth / 2;
-  const addInfoPair = (l1: string, v1: string, l2: string, v2: string) => {
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(8);
-    doc.setTextColor(150);
-    doc.text(l1.toUpperCase(), margin, y);
-    doc.text(l2.toUpperCase(), margin + colWidth, y);
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(12);
-    doc.setTextColor(30);
-    doc.text(v1, margin, y + 18);
-    doc.text(v2, margin + colWidth, y + 18);
-    y += 42;
-  };
-
-  addInfoPair("Seats booked", String(booking.seatsBooked), "Amount paid", `Rs. ${booking.segmentPrice}`);
-  addInfoPair(
-    "Booked on",
-    dayjs(booking.createdAt).format("MMM D, YYYY • h:mm A"),
-    "Host",
-    trip?.hostDisplayName || "—",
-  );
-
-  // Boarding OTP
-  if (booking.otp) {
-    const otpHeight = 70;
-    doc.setDrawColor(...purple);
-    doc.setLineWidth(1.5);
-    doc.setLineDashPattern([4, 3], 0);
-    doc.roundedRect(margin, y, contentWidth, otpHeight, 10, 10, "S");
-    doc.setLineDashPattern([], 0);
-
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(9);
-    doc.setTextColor(140);
-    doc.text("BOARDING OTP", margin + 20, y + 26);
-    doc.setFontSize(28);
-    doc.setTextColor(...purple);
-    doc.text(booking.otp.split("").join("  "), margin + 20, y + 52);
-
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(9);
-    if (booking.verified) {
-      doc.setTextColor(...emerald);
-      doc.text("Verified by host", pageWidth - margin - 20, y + 40, { align: "right" });
-    } else {
-      doc.setTextColor(150);
-      doc.text(["Show this to your host", "at boarding."], pageWidth - margin - 20, y + 32, {
-        align: "right",
-      });
-    }
-    y += otpHeight + 28;
-  }
-
-  // Passengers
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(11);
-  doc.setTextColor(20);
-  doc.text(`PASSENGERS (${passengerList.length})`, margin, y);
-  y += 18;
-
-  passengerList.forEach((p) => {
-    doc.setFillColor(250, 250, 252);
-    doc.roundedRect(margin, y - 14, contentWidth, 26, 6, 6, "F");
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(10);
-    doc.setTextColor(30);
-    doc.text(p.name, margin + 12, y + 2);
-    if (p.phone) {
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(9);
-      doc.setTextColor(130);
-      doc.text(p.phone, margin + 12 + doc.getTextWidth(p.name) + 10, y + 2);
-    }
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(8);
-    doc.setTextColor(...purple);
-    doc.text(`SEAT ${p.seat}`, pageWidth - margin - 12, y + 2, { align: "right" });
-    y += 32;
-  });
-
-  // Footer
-  y += 8;
-  doc.setDrawColor(230);
-  doc.setLineWidth(1);
-  doc.line(margin, y, pageWidth - margin, y);
-  y += 20;
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(9);
-  doc.setTextColor(150);
-  doc.text("Show this ticket and your boarding OTP to the host when boarding.", margin, y);
-  y += 16;
-  doc.setFontSize(8);
-  doc.text("Thank you for riding with coolpool.in — safe travels!", margin, y);
-
-  doc.save(`coolpool-ticket-${booking.id}.pdf`);
 }
 
 function LiveTripTracker({ trip }: { trip: Trip }) {
@@ -681,19 +458,6 @@ function TripsPage() {
                           </div>
                         )}
                       </div>
-
-                      <Button
-                        variant="hero"
-                        size="sm"
-                        className="w-full rounded-2xl gap-2"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          void downloadTicketPdf(b, trip, passengerList, fromLabel, toLabel);
-                        }}
-                      >
-                        <Download className="h-4 w-4" />
-                        Download Ticket
-                      </Button>
 
                       {/* Rate your host prompt for completed trips */}
                       {b.status === "completed" && trip && !existingReviewMap?.[b.id] && (
