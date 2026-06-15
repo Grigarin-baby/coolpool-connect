@@ -67,14 +67,12 @@ export function RidePrefChips({
         label={musicLabel}
         size={size}
       />
-      {prefs.musicAllowed && prefs.musicOnly && (
-        <Chip
-          allowed
-          icon={<Headphones size={iconSize} />}
-          label="Music only"
-          size={size}
-        />
-      )}
+      <Chip
+        allowed={prefs.musicOnly}
+        icon={<Headphones size={iconSize} />}
+        label={prefs.musicOnly ? "Music OK" : "No Music"}
+        size={size}
+      />
       <Chip
         allowed={prefs.petsAllowed}
         icon={<PawPrint size={iconSize} />}
