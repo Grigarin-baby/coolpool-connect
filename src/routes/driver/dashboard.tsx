@@ -100,13 +100,15 @@ import {
   updateHostPreferences,
   updateDriverBio,
   updateDriverPhoto,
+  getExistingReview,
+  listReviewsForUser,
   type CreateTeamDriverInput,
 } from "@/data/appwrite-repository";
 import { PayoutsPanel } from "@/components/driver/PayoutsPanel";
 import type { RidePreferences } from "@/lib/domain";
 import { storage } from "@/integrations/appwrite/client";
 import { ID } from "appwrite";
-import type { Trip, TripStop, DriverProfile, Booking, BookingStatus } from "@/lib/domain";
+import type { Trip, TripStop, DriverProfile, Booking, BookingStatus, Review } from "@/lib/domain";
 import { APP_FONT_FAMILY } from "@/lib/fonts";
 import { calcPricePerKm } from "@/lib/pricing";
 import { stripCountrySuffix } from "@/lib/geo";
@@ -286,6 +288,19 @@ function getContactLinks(rawPhone: string): { tel: string | null; whatsapp: stri
   };
 }
 
+function managingStopsByIndexForDetail(stops: TripStop[], stopIndex: number): string | null {
+  return stops.find((stop) => stop.stopIndex === stopIndex)?.location ?? null;
+}
+
+function TravelerStat({ value, label }: { value: string; label: string }) {
+  return (
+    <div className="border-r border-gray-100 px-2 py-3 text-center last:border-r-0">
+      <p className="text-base font-black text-gray-800">{value}</p>
+      <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">{label}</p>
+    </div>
+  );
+}
+
 function getRatingColorClasses(rating: number) {
   if (rating >= 4) {
     return {
@@ -365,6 +380,7 @@ function DriverDashboardPage() {
   const [isEditingTrip, setIsEditingTrip] = useState(false);
   const [ratingModalVisible, setRatingModalVisible] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
+  const [travelerDetailBooking, setTravelerDetailBooking] = useState<Booking | null>(null);
   const [ratingValue, setRatingValue] = useState(5);
   const [ratingComment, setRatingComment] = useState("");
   const [publishTripsModalOpen, setPublishTripsModalOpen] = useState(false);
@@ -872,6 +888,56 @@ function DriverDashboardPage() {
     enabled: !!user,
     refetchInterval: user ? 20000 : false,
   });
+
+  const completedTripIds = useMemo(
+    () => new Set(trips.filter((trip) => trip.status === "completed").map((trip) => trip.id)),
+    [trips],
+  );
+  const reviewEligibleBookingIds = useMemo(
+    () =>
+      bookings
+        .filter(
+          (booking) =>
+            completedTripIds.has(booking.tripId) &&
+            booking.status !== "no_show" &&
+            booking.status !== "cancelled",
+        )
+        .map((booking) => booking.id),
+    [bookings, completedTripIds],
+  );
+  const { data: existingHostReviewMap = {}, isLoading: existingHostReviewsLoading } = useQuery({
+    queryKey: ["existing-reviews-host", reviewEligibleBookingIds.join(",")],
+    queryFn: async () => {
+      const entries = await Promise.all(
+        reviewEligibleBookingIds.map(async (bookingId) => {
+          const review = await getExistingReview(bookingId, "host_to_guest");
+          return [bookingId, !!review] as const;
+        }),
+      );
+      return Object.fromEntries(entries);
+    },
+    enabled: reviewEligibleBookingIds.length > 0,
+    staleTime: 1000 * 60 * 5,
+  });
+  const travelerIds = useMemo(
+    () => [...new Set(bookings.map((booking) => booking.travelerId).filter(Boolean))],
+    [bookings],
+  );
+  const { data: travelerReviews = [], isLoading: travelerReviewsLoading } = useQuery({
+    queryKey: ["host-reviews-for-travelers", travelerIds.join(",")],
+    queryFn: async () => {
+      const reviews = await Promise.all(travelerIds.map((travelerId) => listReviewsForUser(travelerId)));
+      return reviews.flat().filter((review) => review.direction === "host_to_guest");
+    },
+    enabled: travelerIds.length > 0,
+    staleTime: 1000 * 60 * 5,
+  });
+  const travelerReviewsByUser = useMemo(() => {
+    return travelerReviews.reduce<Record<string, Review[]>>((byUser, review) => {
+      (byUser[review.toUserId] ??= []).push(review);
+      return byUser;
+    }, {});
+  }, [travelerReviews]);
 
   // Notify the host when a new booking comes in.
   const seenBookingIdsRef = useRef<Set<string> | null>(null);
@@ -4374,26 +4440,6 @@ function DriverDashboardPage() {
                     )}
                   </div>
 
-                  {/* Host → Passenger review modal */}
-                  {selectedBooking && user && (
-                    <ReviewModal
-                      open={ratingModalVisible}
-                      onClose={() => setRatingModalVisible(false)}
-                      direction="host_to_guest"
-                      tripId={selectedBooking.tripId}
-                      bookingId={selectedBooking.id}
-                      toUserId={selectedBooking.travelerId}
-                      toUserName={(() => {
-                        const raw = selectedBooking.passengerName?.split("|")[0] ?? "";
-                        const m = raw.match(/^Seat\s+[^:]+:\s*(.*)$/i);
-                        return (m ? m[1] : raw).trim() || "Passenger";
-                      })()}
-                      fromUserId={user.$id}
-                      onSuccess={() => {
-                        void queryClient.invalidateQueries({ queryKey: ["host-bookings"] });
-                      }}
-                    />
-                  )}
                 </div>
               )}
 
@@ -4689,6 +4735,7 @@ function DriverDashboardPage() {
               onClose={() => {
                 setManagingTripId(null);
                 setShowManagingTripRoute(false);
+                setTravelerDetailBooking(null);
               }}
               open={!!managingTripId}
               closable={false}
@@ -4704,6 +4751,7 @@ function DriverDashboardPage() {
                       onClick={() => {
                         setManagingTripId(null);
                         setShowManagingTripRoute(false);
+                        setTravelerDetailBooking(null);
                       }}
                       className="absolute top-4 right-4 p-0 hover:bg-transparent"
                     />
@@ -4845,54 +4893,60 @@ function DriverDashboardPage() {
                       <div className="space-y-4">
                         {tripBookings.map((b) => {
                           const contact = getContactLinks(b.passengerPhone);
+                          const passengers = getBookingPassengers(b);
+                          const primaryPassenger = passengers[0];
+                          const primaryName = primaryPassenger?.name || "Passenger";
+                          const seatLabel = passengers.map((passenger) => passenger.seatCode).join(", ");
+                          const genderLabel = [
+                            ...new Set(
+                              passengers
+                                .map((passenger) => passenger.gender)
+                                .filter((gender): gender is "male" | "female" => !!gender)
+                                .map((gender) => gender.charAt(0).toUpperCase() + gender.slice(1)),
+                            ),
+                          ].join(" · ");
+                          const reviews = travelerReviewsByUser[b.travelerId] ?? [];
+                          const rating =
+                            reviews.length > 0
+                              ? reviews.reduce((sum, review) => sum + review.stars, 0) / reviews.length
+                              : null;
                           return (
                           <Card
                             key={b.id}
                             className="rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-all overflow-hidden"
+                            bodyStyle={{ padding: 16 }}
                           >
-                            <div className="flex items-center justify-between mb-4 pb-4 border-b border-gray-50">
-                              <div className="flex items-center gap-3">
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="flex items-center gap-3 min-w-0">
                                 <Avatar
-                                  size={48}
-                                  className="bg-gradient-primary shadow-sm text-lg font-bold text-white"
+                                  size={54}
+                                  src={getUserAvatarUrl(primaryName, 108)}
+                                  className="bg-gradient-primary shadow-sm text-lg font-bold text-white shrink-0"
                                 >
-                                  {b.passengerName?.[0] || "P"}
+                                  {primaryName[0] || "P"}
                                 </Avatar>
-                                <div>
-                                  <Text strong className="block text-base text-gray-900">
-                                    {b.passengerName}
+                                <div className="min-w-0">
+                                  <Text strong className="block text-base text-gray-900 truncate">
+                                    {primaryName}
+                                    {passengers.length > 1 ? ` +${passengers.length - 1}` : ""}
                                   </Text>
-                                  <Text type="secondary" className="text-sm">
-                                    {b.passengerPhone}
+                                  <Text type="secondary" className="block text-xs mt-0.5">
+                                    {genderLabel || "Gender not provided"} · Seat {seatLabel || "—"}
                                   </Text>
-                                  {(contact.tel || contact.whatsapp) && (
-                                    <div className="flex items-center gap-2 mt-1.5">
-                                      {contact.tel && (
-                                        <a
-                                          href={contact.tel}
-                                          className="inline-flex items-center justify-center h-7 w-7 rounded-full bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors"
-                                          title="Call passenger"
-                                        >
-                                          <Phone size={14} />
-                                        </a>
-                                      )}
-                                      {contact.whatsapp && (
-                                        <a
-                                          href={contact.whatsapp}
-                                          target="_blank"
-                                          rel="noopener noreferrer"
-                                          className="inline-flex items-center justify-center h-7 w-7 rounded-full bg-emerald-50 text-emerald-600 hover:bg-emerald-100 transition-colors"
-                                          title="Message on WhatsApp"
-                                        >
-                                          <MessageCircle size={14} />
-                                        </a>
-                                      )}
-                                    </div>
-                                  )}
+                                  <div className="mt-1.5 flex items-center gap-1 text-xs">
+                                    <Star
+                                      size={13}
+                                      className={rating ? "fill-amber-400 text-amber-400" : "text-gray-300"}
+                                    />
+                                    <span className="font-bold text-gray-700">
+                                      {rating ? rating.toFixed(1) : "New"}
+                                    </span>
+                                    <span className="text-gray-400">· {reviews.length} reviews</span>
+                                  </div>
                                 </div>
                               </div>
-                              <div className="text-right">
-                                <Text strong className="block text-lg text-emerald-600">
+                              <div className="text-right shrink-0">
+                                <Text strong className="block text-base text-emerald-600">
                                   ₹{b.segmentPrice}
                                 </Text>
                                 <Tag
@@ -4910,31 +4964,33 @@ function DriverDashboardPage() {
                               </div>
                             </div>
 
-                            <div className="flex gap-4 mb-4 bg-gray-50 p-3 rounded-xl border border-gray-100">
-                              <div className="flex flex-col items-center justify-between py-1 w-2">
-                                <div className="w-1.5 h-1.5 rounded-full bg-gray-400 z-10"></div>
-                                <div className="w-px bg-gray-300 flex-1 my-0.5"></div>
-                                <div className="w-1.5 h-1.5 rounded-full bg-primary z-10"></div>
-                              </div>
-                              <div className="flex-1 flex flex-col justify-between py-0.5 gap-2">
-                                <div>
-                                  <Text strong className="text-sm text-gray-800 line-clamp-1">
-                                    {managingStopsByIndex.get(b.fromStopIndex) ?? managingTrip.fromLocation}
-                                  </Text>
-                                </div>
-                                <div>
-                                  <Text strong className="text-sm text-gray-800 line-clamp-1">
-                                    {managingStopsByIndex.get(b.toStopIndex) ?? managingTrip.toLocation}
-                                  </Text>
-                                </div>
-                              </div>
-                            </div>
-
-                            <div className="flex items-center gap-2 text-sm text-gray-600 bg-purple-50 px-3 py-2 rounded-lg border border-purple-100">
-                              <User size={16} className="text-primary" />
-                              <span className="font-medium text-purple-900">
-                                {b.seatsBooked} seats booked
-                              </span>
+                            <div className="mt-4 flex items-center gap-2">
+                              {contact.tel && (
+                                <a
+                                  href={contact.tel}
+                                  className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-100"
+                                  title="Call passenger"
+                                >
+                                  <Phone size={16} />
+                                </a>
+                              )}
+                              {contact.whatsapp && (
+                                <a
+                                  href={contact.whatsapp}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 hover:bg-emerald-100"
+                                  title="Message on WhatsApp"
+                                >
+                                  <MessageCircle size={16} />
+                                </a>
+                              )}
+                              <Button
+                                className="ml-auto h-9 rounded-xl font-semibold"
+                                onClick={() => setTravelerDetailBooking(b)}
+                              >
+                                View details
+                              </Button>
                             </div>
 
                             <div className="mt-4 pt-4 border-t border-gray-100">
@@ -4959,21 +5015,6 @@ function DriverDashboardPage() {
                                   <Text className="text-sm font-bold text-emerald-700 flex-1">
                                     Customer Verified
                                   </Text>
-                                  {!b.ratingByHost && (
-                                    <Button
-                                      type="primary"
-                                      size="small"
-                                      className="rounded-xl bg-purple-600 border-none font-semibold"
-                                      onClick={() => {
-                                        setSelectedBooking(b);
-                                        setRatingValue(5);
-                                        setRatingComment("");
-                                        setRatingModalVisible(true);
-                                      }}
-                                    >
-                                      Rate Customer
-                                    </Button>
-                                  )}
                                 </div>
                               ) : (
                                 <div>
@@ -5023,6 +5064,43 @@ function DriverDashboardPage() {
                                 </div>
                               )}
                             </div>
+
+                            {b.status !== "no_show" && b.status !== "cancelled" && (
+                              <Button
+                                type={
+                                  completedTripIds.has(b.tripId) &&
+                                  !existingHostReviewsLoading &&
+                                  !existingHostReviewMap[b.id]
+                                    ? "primary"
+                                    : "default"
+                                }
+                                block
+                                loading={completedTripIds.has(b.tripId) && existingHostReviewsLoading}
+                                disabled={
+                                  !completedTripIds.has(b.tripId) ||
+                                  existingHostReviewsLoading ||
+                                  !!existingHostReviewMap[b.id]
+                                }
+                                className={`mt-3 h-10 rounded-xl font-semibold ${
+                                  completedTripIds.has(b.tripId) &&
+                                  !existingHostReviewsLoading &&
+                                  !existingHostReviewMap[b.id]
+                                    ? "bg-purple-600 border-none"
+                                    : ""
+                                }`}
+                                onClick={() => {
+                                  setSelectedBooking(b);
+                                  setManagingTripId(null);
+                                  setRatingModalVisible(true);
+                                }}
+                              >
+                                {existingHostReviewMap[b.id]
+                                  ? "Review submitted"
+                                  : completedTripIds.has(b.tripId)
+                                    ? "Review traveller"
+                                    : "Review after trip"}
+                              </Button>
+                            )}
                           </Card>
                         );})}
                       </div>
@@ -5033,6 +5111,223 @@ function DriverDashboardPage() {
             </Drawer>
           );
         })()}
+
+      {/* Traveller profile and booking details */}
+      {travelerDetailBooking && (() => {
+        const booking = travelerDetailBooking;
+        const trip = trips.find((item) => item.id === booking.tripId);
+        const passengers = getBookingPassengers(booking);
+        const primaryPassenger = passengers[0];
+        const primaryName = primaryPassenger?.name || "Passenger";
+        const contact = getContactLinks(primaryPassenger?.phone || booking.passengerPhone);
+        const reviews = travelerReviewsByUser[booking.travelerId] ?? [];
+        const rating =
+          reviews.length > 0
+            ? reviews.reduce((sum, review) => sum + review.stars, 0) / reviews.length
+            : null;
+        const travelerBookings = bookings.filter((item) => item.travelerId === booking.travelerId);
+        const completedTravelerTrips = travelerBookings.filter((item) =>
+          completedTripIds.has(item.tripId),
+        ).length;
+        const fromLocation =
+          managingStopsByIndexForDetail(managingTripStops, booking.fromStopIndex) ??
+          trip?.fromLocation ??
+          "Pickup";
+        const toLocation =
+          managingStopsByIndexForDetail(managingTripStops, booking.toStopIndex) ??
+          trip?.toLocation ??
+          "Drop-off";
+        const canReview =
+          completedTripIds.has(booking.tripId) &&
+          booking.status !== "no_show" &&
+          booking.status !== "cancelled" &&
+          !existingHostReviewMap[booking.id];
+
+        return (
+          <Drawer
+            title={null}
+            placement="right"
+            width={440}
+            zIndex={1100}
+            open
+            closable={false}
+            onClose={() => setTravelerDetailBooking(null)}
+            styles={{ body: { padding: 0, overflowY: "auto" } }}
+          >
+            <div className="min-h-full bg-gray-50" style={{ fontFamily: APP_FONT_FAMILY }}>
+              <div className="relative bg-gradient-primary px-6 pb-7 pt-5 text-white">
+                <button
+                  type="button"
+                  onClick={() => setTravelerDetailBooking(null)}
+                  className="absolute left-4 top-4 grid h-9 w-9 place-items-center rounded-full bg-white/15 text-white"
+                  aria-label="Back to passenger roster"
+                >
+                  <ArrowRight size={18} className="rotate-180" />
+                </button>
+                <div className="flex flex-col items-center pt-7 text-center">
+                  <Avatar
+                    size={92}
+                    src={getUserAvatarUrl(primaryName, 184)}
+                    className="border-4 border-white/80 bg-white/20 text-2xl font-bold"
+                  >
+                    {primaryName[0] || "P"}
+                  </Avatar>
+                  <h2 className="mt-3 text-xl font-black text-white">{primaryName}</h2>
+                  <div className="mt-1 flex items-center gap-1.5 text-sm text-white/85">
+                    <Star size={15} className={rating ? "fill-amber-300 text-amber-300" : ""} />
+                    <span className="font-bold">{rating ? rating.toFixed(1) : "New traveller"}</span>
+                    <span>· {reviews.length} reviews</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-4 p-4">
+                <div className="grid grid-cols-3 overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
+                  <TravelerStat value={String(completedTravelerTrips)} label="trips" />
+                  <TravelerStat value={rating ? `${rating.toFixed(1)}★` : "New"} label="rating" />
+                  <TravelerStat value={String(reviews.length)} label="reviews" />
+                </div>
+
+                <section className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+                  <p className="mb-3 text-[10px] font-bold uppercase tracking-widest text-gray-400">
+                    This booking
+                  </p>
+                  <div className="mb-4 flex items-center gap-2 text-sm font-bold text-gray-800">
+                    <span className="truncate">{fromLocation}</span>
+                    <ArrowRight size={14} className="shrink-0 text-gray-300" />
+                    <span className="truncate">{toLocation}</span>
+                  </div>
+                  <div className="space-y-2">
+                    {passengers.map((passenger) => (
+                      <div
+                        key={`${passenger.seatCode}-${passenger.name}`}
+                        className="flex items-center justify-between gap-3 rounded-xl bg-gray-50 px-3 py-2.5"
+                      >
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-bold text-gray-800">{passenger.name}</p>
+                          <p className="text-xs text-gray-400">{passenger.phone}</p>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          {passenger.gender && (
+                            <span
+                              className={`rounded-full px-2 py-1 text-[10px] font-bold capitalize ${
+                                passenger.gender === "male"
+                                  ? "bg-blue-50 text-blue-700"
+                                  : "bg-pink-50 text-pink-700"
+                              }`}
+                            >
+                              {passenger.gender}
+                            </span>
+                          )}
+                          <span className="rounded-full bg-purple-50 px-2 py-1 text-[10px] font-bold text-purple-700">
+                            Seat {passenger.seatCode}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-4 flex items-center justify-between border-t border-gray-100 pt-3">
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Price</p>
+                      <p className="font-black text-emerald-600">₹{booking.segmentPrice}</p>
+                    </div>
+                    <Tag
+                      color={
+                        booking.status === "no_show"
+                          ? "error"
+                          : booking.status === "cancelled"
+                            ? "default"
+                            : "success"
+                      }
+                      className="m-0 rounded-full border-none px-3 font-bold capitalize"
+                    >
+                      {booking.status === "no_show" ? "No-show" : booking.status}
+                    </Tag>
+                  </div>
+                  <div className="mt-4 grid grid-cols-2 gap-2">
+                    <Button href={contact.tel} disabled={!contact.tel} className="h-10 rounded-xl">
+                      <Phone size={15} /> Call
+                    </Button>
+                    <Button
+                      href={contact.whatsapp}
+                      target="_blank"
+                      disabled={!contact.whatsapp}
+                      className="h-10 rounded-xl"
+                    >
+                      <MessageCircle size={15} /> Message
+                    </Button>
+                  </div>
+                </section>
+
+                <section className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+                  <div className="mb-3 flex items-center justify-between">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">
+                      Reviews from hosts
+                    </p>
+                    {travelerReviewsLoading && <Spin size="small" />}
+                  </div>
+                  {reviews.length === 0 ? (
+                    <p className="rounded-xl bg-gray-50 px-3 py-4 text-center text-sm text-gray-400">
+                      No reviews yet.
+                    </p>
+                  ) : (
+                    <div className="space-y-3">
+                      {reviews.slice(0, 5).map((review) => (
+                        <div key={review.id} className="border-b border-gray-50 pb-3 last:border-0 last:pb-0">
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-0.5">
+                              {[1, 2, 3, 4, 5].map((star) => (
+                                <Star
+                                  key={star}
+                                  size={13}
+                                  className={
+                                    star <= review.stars
+                                      ? "fill-amber-400 text-amber-400"
+                                      : "text-gray-200"
+                                  }
+                                />
+                              ))}
+                            </div>
+                            <span className="text-xs text-gray-400">
+                              {dayjs(review.createdAt).fromNow()}
+                            </span>
+                          </div>
+                          <p className="mt-1 text-sm font-semibold text-gray-700">
+                            {review.tags.join(" · ")}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </section>
+
+                {booking.status !== "no_show" && booking.status !== "cancelled" && (
+                  <Button
+                    type={canReview ? "primary" : "default"}
+                    block
+                    disabled={!canReview || existingHostReviewsLoading}
+                    loading={completedTripIds.has(booking.tripId) && existingHostReviewsLoading}
+                    className={`h-12 rounded-2xl font-bold ${canReview ? "bg-purple-600 border-none" : ""}`}
+                    onClick={() => {
+                      setSelectedBooking(booking);
+                      setTravelerDetailBooking(null);
+                      setManagingTripId(null);
+                      setRatingModalVisible(true);
+                    }}
+                  >
+                    {existingHostReviewMap[booking.id]
+                      ? "Review submitted"
+                      : completedTripIds.has(booking.tripId)
+                        ? "Review traveller"
+                        : "Review after trip"}
+                  </Button>
+                )}
+              </div>
+            </div>
+          </Drawer>
+        );
+      })()}
+
       {/* Add/Edit Driver Drawer — rendered globally (zIndex above the trip
           wizard) so it can open on top without closing the wizard */}
       <Drawer
@@ -5626,6 +5921,29 @@ function DriverDashboardPage() {
           setDriverDrawerOpen(true);
         }}
       />
+
+      {/* Host → Passenger review modal */}
+      {selectedBooking && user && (
+        <ReviewModal
+          open={ratingModalVisible}
+          onClose={() => setRatingModalVisible(false)}
+          direction="host_to_guest"
+          tripId={selectedBooking.tripId}
+          bookingId={selectedBooking.id}
+          toUserId={selectedBooking.travelerId}
+          toUserName={(() => {
+            const raw = selectedBooking.passengerName?.split("|")[0] ?? "";
+            const m = raw.match(/^Seat\s+[^:]+:\s*(.*)$/i);
+            return (m ? m[1] : raw).trim() || "Passenger";
+          })()}
+          fromUserId={user.$id}
+          onSuccess={() => {
+            void queryClient.invalidateQueries({ queryKey: ["host-bookings"] });
+            void queryClient.invalidateQueries({ queryKey: ["existing-reviews-host"] });
+            void queryClient.invalidateQueries({ queryKey: ["host-reviews-for-travelers"] });
+          }}
+        />
+      )}
     </ConfigProvider>
   );
 }
