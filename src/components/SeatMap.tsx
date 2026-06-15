@@ -1,7 +1,8 @@
 import { useState } from "react";
 import type { SeatSlot } from "@/lib/seatLayout";
 import { cn } from "@/lib/utils";
-import { Check } from "lucide-react";
+import { Check, Mars, Venus } from "lucide-react";
+import type { PassengerGender } from "@/lib/domain";
 import { Skeleton } from "@/components/ui/skeleton";
 import sedanInterior from "@/assets/sedan-interior-v3.png";
 import suvInterior from "@/assets/suv-interior.jpg";
@@ -9,6 +10,7 @@ import suvInterior from "@/assets/suv-interior.jpg";
 interface SeatMapProps {
   slots: SeatSlot[];
   occupiedCodes: ReadonlySet<string>;
+  occupiedGenderByCode?: ReadonlyMap<string, PassengerGender>;
   selectedCodes: ReadonlySet<string>;
   onTogglePassengerSeat: (seatCode: string) => void;
   maxSelectable: number;
@@ -41,6 +43,7 @@ const COORDINATES: Record<string, { top: string; left: string }> = {
 export function SeatMap({
   slots,
   occupiedCodes,
+  occupiedGenderByCode,
   selectedCodes,
   onTogglePassengerSeat,
   maxSelectable,
@@ -79,6 +82,7 @@ export function SeatMap({
             const pos = COORDINATES[seatId] || { top: "50%", left: "50%" };
             const isDriver = slot.kind === "driver";
             const isBooked = occupiedCodes.has(slot.seatCode);
+            const bookedGender = occupiedGenderByCode?.get(slot.seatCode);
             const isOffered =
               !seatConfig || seatConfig.length === 0 || seatConfig.includes(slot.seatCode);
             const isUnavailable = !isDriver && !isOffered;
@@ -113,9 +117,20 @@ export function SeatMap({
                       "after:content-[''] after:absolute after:inset-0 after:rounded-full after:border-2 after:border-white/20 after:animate-pulse",
                     ],
                     !isDriver &&
-                      isBooked && [
+                      isBooked &&
+                      !bookedGender && [
                         "cursor-not-allowed border-red-500/40 bg-red-500/10 scale-90",
                         "after:content-[''] after:absolute after:w-full after:h-[2px] after:bg-red-500/60 after:rotate-45",
+                      ],
+                    !isDriver &&
+                      isBooked &&
+                      bookedGender === "male" && [
+                        "cursor-not-allowed border-blue-400/80 bg-blue-500/60 text-white scale-90",
+                      ],
+                    !isDriver &&
+                      isBooked &&
+                      bookedGender === "female" && [
+                        "cursor-not-allowed border-pink-400/80 bg-pink-500/60 text-white scale-90",
                       ],
                     !isDriver &&
                       isUnavailable && [
@@ -145,8 +160,10 @@ export function SeatMap({
                       Host
                     </span>
                   ) : isBooked ? (
-                    <span className="text-base font-bold text-white/50 drop-shadow-md">
-                      {slot.displayLabel}
+                    <span className="flex flex-col items-center text-white drop-shadow-md">
+                      {bookedGender === "male" ? <Mars size={18} strokeWidth={3} /> : null}
+                      {bookedGender === "female" ? <Venus size={18} strokeWidth={3} /> : null}
+                      <span className="text-xs font-bold">{slot.displayLabel}</span>
                     </span>
                   ) : isUnavailable ? (
                     <span className="text-base font-bold text-slate-200 drop-shadow-md">
@@ -182,6 +199,14 @@ export function SeatMap({
         <div className="flex items-center gap-2">
           <div className="w-3 h-3 rounded-full bg-purple-600 shadow-glow-purple" />
           Selected
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="w-3 h-3 rounded-full bg-blue-500/60 border border-blue-400/80" />
+          Male
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="w-3 h-3 rounded-full bg-pink-500/60 border border-pink-400/80" />
+          Female
         </div>
         <div className="flex items-center gap-2">
           <div className="w-3 h-3 rounded-full bg-red-500/20 border border-red-500/40" />

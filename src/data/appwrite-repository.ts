@@ -13,6 +13,8 @@ import type {
   MusicType,
   PayoutRequest,
   PayoutStatus,
+  BookingPassenger,
+  PassengerGender,
   PricingRule,
   Review,
   ReviewDirection,
@@ -77,6 +79,24 @@ function toTripStop(doc: any): TripStop {
 }
 
 function toBooking(doc: any): Booking {
+  let passengers: BookingPassenger[] | undefined;
+  if (doc.passengers_json) {
+    try {
+      const parsed = JSON.parse(String(doc.passengers_json));
+      if (Array.isArray(parsed)) {
+        passengers = parsed.filter(
+          (passenger): passenger is BookingPassenger =>
+            passenger &&
+            typeof passenger.seatCode === "string" &&
+            typeof passenger.name === "string" &&
+            typeof passenger.phone === "string" &&
+            (passenger.gender === "male" || passenger.gender === "female"),
+        );
+      }
+    } catch {
+      passengers = undefined;
+    }
+  }
   return {
     id: doc.$id,
     tripId: String(doc.trip_id || ""),
@@ -87,6 +107,7 @@ function toBooking(doc: any): Booking {
     segmentPrice: Number(doc.segment_price || 0),
     passengerName: String(doc.passenger_name || ""),
     passengerPhone: String(doc.passenger_phone || ""),
+    passengers,
     status: String(doc.status || "pending") as BookingStatus,
     createdAt: String(doc.created_at ?? doc.$createdAt),
     ratingByHost: doc.rating_by_host ? Number(doc.rating_by_host) : undefined,
@@ -135,6 +156,10 @@ function toTripSeatReservation(doc: any): TripSeatReservation {
     tripId: String(doc.trip_id || ""),
     seatCode: String(doc.seat_code || ""),
     bookingId: String(doc.booking_id || ""),
+    gender:
+      doc.gender === "male" || doc.gender === "female"
+        ? (doc.gender as PassengerGender)
+        : undefined,
   };
 }
 
@@ -230,6 +255,7 @@ export interface CreateBookingInput {
   segmentPrice: number;
   passengerName: string;
   passengerPhone: string;
+  passengers?: BookingPassenger[];
   status?: BookingStatus;
 }
 
@@ -464,6 +490,7 @@ export async function createBooking(
     otp: generateBookingOtp(),
     verified: false,
   };
+  if (input.passengers) payload.passengers_json = JSON.stringify(input.passengers);
 
   let doc;
   try {
@@ -690,18 +717,22 @@ async function createTripSeatReservation(input: {
   seatCode: string;
   travelerId: string;
   hostId: string;
+  gender?: PassengerGender;
 }): Promise<TripSeatReservation> {
   const c = ids();
   const docId = tripSeatReservationDocumentId(input.tripId, input.seatCode);
+  const payload: Record<string, unknown> = {
+    trip_id: input.tripId,
+    seat_code: input.seatCode,
+    booking_id: input.bookingId,
+  };
+  if (input.gender) payload.gender = input.gender;
+
   const doc = await databases.createDocument(
     appwriteConfig.databaseId,
     c.tripSeatReservations,
     docId,
-    {
-      trip_id: input.tripId,
-      seat_code: input.seatCode,
-      booking_id: input.bookingId,
-    },
+    payload,
   );
   return toTripSeatReservation(doc);
 }
@@ -726,12 +757,14 @@ export async function createBookingWithSeatReservations(
 
   try {
     for (const seatCode of input.seatCodes) {
+      const passenger = input.passengers?.find((item) => item.seatCode === seatCode);
       await createTripSeatReservation({
         tripId: input.tripId,
         bookingId: booking.id,
         seatCode,
         travelerId: input.travelerId,
         hostId: input.hostId,
+        gender: passenger?.gender,
       });
       createdIds.push(tripSeatReservationDocumentId(input.tripId, seatCode));
     }

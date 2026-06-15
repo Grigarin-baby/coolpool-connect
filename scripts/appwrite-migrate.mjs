@@ -296,6 +296,7 @@ async function run() {
   await ensureStringAttribute(COLLECTIONS.tripSeatReservations, "trip_id", 64, true);
   await ensureStringAttribute(COLLECTIONS.tripSeatReservations, "seat_code", 32, true);
   await ensureStringAttribute(COLLECTIONS.tripSeatReservations, "booking_id", 64, true);
+  await ensureEnumAttribute(COLLECTIONS.tripSeatReservations, "gender", ["male", "female"], false);
 
   // bookings
   await ensureStringAttribute(COLLECTIONS.bookings, "trip_id", 64, true);
@@ -306,6 +307,7 @@ async function run() {
   await ensureFloatAttribute(COLLECTIONS.bookings, "segment_price", true, 0);
   await ensureStringAttribute(COLLECTIONS.bookings, "passenger_name", 120, true);
   await ensureStringAttribute(COLLECTIONS.bookings, "passenger_phone", 40, true);
+  await ensureStringAttribute(COLLECTIONS.bookings, "passengers_json", 4000, false);
   await ensureStringAttribute(COLLECTIONS.bookings, "status", 32, true);
   await ensureIntegerAttribute(COLLECTIONS.bookings, "rating_by_host", false, 1, 5);
   await ensureStringAttribute(COLLECTIONS.bookings, "comment_by_host", 500, false);

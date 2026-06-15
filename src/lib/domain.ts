@@ -15,6 +15,7 @@ export interface Review {
 export type StopType = "pickup" | "drop" | "both";
 export type TripStatus = "scheduled" | "in_progress" | "completed" | "cancelled";
 export type BookingStatus = "pending" | "confirmed" | "cancelled" | "completed" | "no_show";
+export type PassengerGender = "male" | "female";
 export type VerificationStatus = "pending" | "approved" | "rejected";
 export type PayoutStatus = "pending" | "processing" | "paid" | "rejected";
 
@@ -81,12 +82,20 @@ export interface Booking {
   segmentPrice: number;
   passengerName: string;
   passengerPhone: string;
+  passengers?: BookingPassenger[];
   status: BookingStatus;
   createdAt: string;
   ratingByHost?: number;
   commentByHost?: string;
   otp?: string;
   verified?: boolean;
+}
+
+export interface BookingPassenger {
+  seatCode: string;
+  name: string;
+  phone: string;
+  gender?: PassengerGender;
 }
 
 export type MusicType =
@@ -137,6 +146,7 @@ export interface TripSeatReservation {
   tripId: string;
   seatCode: string;
   bookingId: string;
+  gender?: PassengerGender;
 }
 
 export interface DriverVehicle {

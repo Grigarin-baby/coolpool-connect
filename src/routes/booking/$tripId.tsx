@@ -32,6 +32,13 @@ import { toast } from "sonner";
 import { RideRouteMap } from "@/components/RideRouteMap";
 import { RidePrefChips } from "@/components/RidePrefChips";
 import { HostAvatar } from "@/components/HostAvatar";
+import type { PassengerGender } from "@/lib/domain";
+
+type PassengerForm = {
+  name: string;
+  phone: string;
+  gender: PassengerGender | "";
+};
 
 interface BookingSearch {
   fromStopIndex?: number;
@@ -66,8 +73,8 @@ function BookingTripPage() {
   const queryClient = useQueryClient();
   const { user, loading: authLoading } = useAuth();
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
-  const [passengers, setPassengers] = useState<{ name: string; phone: string }[]>([
-    { name: "", phone: "" },
+  const [passengers, setPassengers] = useState<PassengerForm[]>([
+    { name: "", phone: "", gender: "" },
   ]);
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [callConsentGiven, setCallConsentGiven] = useState(false);
@@ -80,14 +87,18 @@ function BookingTripPage() {
       if (prev.length < target) {
         return [
           ...prev,
-          ...Array.from({ length: target - prev.length }, () => ({ name: "", phone: "" })),
+          ...Array.from({ length: target - prev.length }, () => ({
+            name: "",
+            phone: "",
+            gender: "" as const,
+          })),
         ];
       }
       return prev.slice(0, target);
     });
   }, [selected.size]);
 
-  const updatePassenger = (idx: number, patch: Partial<{ name: string; phone: string }>) => {
+  const updatePassenger = (idx: number, patch: Partial<PassengerForm>) => {
     setPassengers((prev) => prev.map((p, i) => (i === idx ? { ...p, ...patch } : p)));
   };
 
@@ -144,7 +155,7 @@ function BookingTripPage() {
     if (!user) return;
 
     setPassengers((prev) => {
-      const first = prev[0] || { name: "", phone: "" };
+      const first = prev[0] || { name: "", phone: "", gender: "" };
       let { name, phone } = first;
       const recent =
         pastBookingsQuery.data && pastBookingsQuery.data.length > 0
@@ -164,7 +175,7 @@ function BookingTripPage() {
       }
       if (name === first.name && phone === first.phone) return prev;
       const next = [...prev];
-      next[0] = { name, phone };
+      next[0] = { ...first, name, phone };
       return next;
     });
   }, [user, pastBookingsQuery.data]);
@@ -188,6 +199,15 @@ function BookingTripPage() {
 
   const occupiedCodes = useMemo(
     () => new Set(reservationsQuery.data?.map((r) => r.seatCode) ?? []),
+    [reservationsQuery.data],
+  );
+  const occupiedGenderByCode = useMemo(
+    () =>
+      new Map(
+        (reservationsQuery.data ?? [])
+          .filter((reservation) => reservation.gender)
+          .map((reservation) => [reservation.seatCode, reservation.gender!]),
+      ),
     [reservationsQuery.data],
   );
 
@@ -246,9 +266,10 @@ function BookingTripPage() {
       const trimmed = passengers.slice(0, codes.length).map((p) => ({
         name: p.name.trim(),
         phone: p.phone.trim(),
+        gender: p.gender,
       }));
-      if (trimmed.some((p) => !p.name || !p.phone)) {
-        throw new Error("Enter name and phone for every passenger.");
+      if (trimmed.some((p) => !p.name || !p.phone || !p.gender)) {
+        throw new Error("Enter name, phone, and gender for every passenger.");
       }
 
       const primaryPhone = trimmed[0].phone;
@@ -268,6 +289,12 @@ function BookingTripPage() {
         })
         .join(" | ");
       const joinedPhone = trimmed.map((p) => p.phone).join(" | ");
+      const structuredPassengers = trimmed.map((passenger, index) => ({
+        seatCode: codes[index],
+        name: passenger.name,
+        phone: passenger.phone,
+        gender: passenger.gender as PassengerGender,
+      }));
 
       return createBookingWithSeatReservations({
         tripId: tripQuery.data.id,
@@ -279,6 +306,7 @@ function BookingTripPage() {
         segmentPrice: Math.round(pricePerSeat * codes.length * 100) / 100,
         passengerName: joinedName,
         passengerPhone: joinedPhone,
+        passengers: structuredPassengers,
         status: "confirmed",
         seatCodes: codes,
       });
@@ -378,6 +406,11 @@ function BookingTripPage() {
   };
 
   const vehicleMissing = vehicleQuery.data == null && vehicleQuery.isFetched;
+  const passengerDetailsComplete =
+    selected.size > 0 &&
+    passengers
+      .slice(0, selected.size)
+      .every((passenger) => passenger.name.trim() && passenger.phone.trim() && passenger.gender);
 
   const SERVICE_FEE = 29;
   const PAYMENT_GATEWAY_CHARGE = 5;
@@ -487,6 +520,7 @@ function BookingTripPage() {
                 <SeatMap
                   slots={layout}
                   occupiedCodes={occupiedCodes}
+                  occupiedGenderByCode={occupiedGenderByCode}
                   selectedCodes={selected}
                   onTogglePassengerSeat={toggleSeat}
                   maxSelectable={remainingTripSeats}
@@ -556,6 +590,29 @@ function BookingTripPage() {
                             placeholder="Full name"
                             className="rounded-xl h-10"
                           />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-xs font-semibold text-muted-foreground">
+                            Gender
+                          </Label>
+                          <div className="grid grid-cols-2 gap-2">
+                            {(["male", "female"] as const).map((gender) => (
+                              <button
+                                key={gender}
+                                type="button"
+                                onClick={() => updatePassenger(idx, { gender })}
+                                className={`h-10 rounded-xl border text-sm font-bold capitalize transition-colors ${
+                                  p.gender === gender
+                                    ? gender === "male"
+                                      ? "border-blue-500 bg-blue-50 text-blue-700"
+                                      : "border-pink-500 bg-pink-50 text-pink-700"
+                                    : "border-border/60 bg-background text-muted-foreground hover:border-primary/40"
+                                }`}
+                              >
+                                {gender}
+                              </button>
+                            ))}
+                          </div>
                         </div>
                         <div className="space-y-1.5">
                           <Label
@@ -661,7 +718,8 @@ function BookingTripPage() {
                   selected.size === 0 ||
                   remainingTripSeats === 0 ||
                   !termsAccepted ||
-                  !callConsentGiven
+                  !callConsentGiven ||
+                  !passengerDetailsComplete
                 }
                 onClick={() => bookingMutation.mutate()}
               >

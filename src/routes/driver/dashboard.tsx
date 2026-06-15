@@ -119,6 +119,7 @@ import { SeatPicker, type SeatId } from "@/components/SeatPicker";
 import { ReviewModal } from "@/components/ReviewModal";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import { getUserDisplayName } from "@/lib/user-display";
+import { getBookingPassengers } from "@/lib/booking-passengers";
 import { TripWizard } from "@/components/trip-wizard/TripWizard";
 import type { WizardResult } from "@/components/trip-wizard/types";
 import { NotificationPermissionPrompt } from "@/components/NotificationPermissionPrompt";
@@ -3781,12 +3782,7 @@ function DriverDashboardPage() {
                     {/* Passenger detail view */}
                     {historyDetailPassenger && (() => {
                       const b = historyDetailPassenger;
-                      const nameParts = (b.passengerName || "").split("|").map((s) => s.trim());
-                      const phoneParts = (b.passengerPhone || "").split("|").map((s) => s.trim());
-                      const passengers = nameParts.map((raw, i) => {
-                        const m = raw.match(/^Seat\s+([^:]+):\s*(.*)$/i);
-                        return { seat: m ? m[1] : String(i + 1), name: m ? m[2] : raw, phone: phoneParts[i] || phoneParts[0] || "" };
-                      });
+                      const passengers = getBookingPassengers(b);
                       const fromStop = historyDetailStops.find((s) => s.stopIndex === b.fromStopIndex);
                       const toStop = historyDetailStops.find((s) => s.stopIndex === b.toStopIndex);
                       return (
@@ -3824,7 +3820,22 @@ function DriverDashboardPage() {
                                         <p className="text-xs text-gray-400">{p.phone}</p>
                                       </div>
                                     </div>
-                                    <span className="text-xs font-bold text-primary bg-primary/10 rounded-full px-2 py-0.5 shrink-0">Seat {p.seat}</span>
+                                    <div className="flex flex-col items-end gap-1">
+                                      <span className="text-xs font-bold text-primary bg-primary/10 rounded-full px-2 py-0.5 shrink-0">
+                                        Seat {p.seatCode}
+                                      </span>
+                                      {p.gender && (
+                                        <span
+                                          className={`rounded-full px-2 py-0.5 text-[10px] font-bold capitalize ${
+                                            p.gender === "male"
+                                              ? "bg-blue-50 text-blue-700"
+                                              : "bg-pink-50 text-pink-700"
+                                          }`}
+                                        >
+                                          {p.gender}
+                                        </span>
+                                      )}
+                                    </div>
                                   </div>
                                 ))}
                               </div>

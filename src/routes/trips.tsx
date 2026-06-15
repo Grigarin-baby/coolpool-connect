@@ -23,6 +23,7 @@ import { showAppNotification } from "@/lib/notifications";
 import { useNotificationPermission } from "@/hooks/useNotificationPermission";
 import { ReviewModal } from "@/components/ReviewModal";
 import type { Booking, Trip } from "@/lib/domain";
+import { getBookingPassengers } from "@/lib/booking-passengers";
 
 dayjs.extend(relativeTime);
 
@@ -306,16 +307,7 @@ function TripsPage() {
               const departure = trip ? dayjs(trip.departureAt) : null;
               const isExpanded = expandedId === b.id;
               const isJustBooked = highlightedBookingId === b.id;
-              const nameParts = (b.passengerName || "").split("|").map((s) => s.trim());
-              const phoneParts = (b.passengerPhone || "").split("|").map((s) => s.trim());
-              const passengerList = nameParts.map((raw, i) => {
-                const m = raw.match(/^Seat\s+([^:]+):\s*(.*)$/i);
-                return {
-                  seat: m ? m[1] : String(i + 1),
-                  name: m ? m[2] : raw,
-                  phone: phoneParts[i] || phoneParts[0] || "",
-                };
-              });
+              const passengerList = getBookingPassengers(b);
               const primaryDisplay =
                 passengerList[0]?.name +
                 (passengerList.length > 1 ? ` +${passengerList.length - 1}` : "");
@@ -433,8 +425,19 @@ function TripsPage() {
                                   <div className="text-xs text-muted-foreground truncate">{p.phone}</div>
                                 </div>
                                 <span className="shrink-0 rounded-full bg-primary/10 text-primary text-[10px] font-bold px-2 py-0.5">
-                                  Seat #{p.seat}
+                                  Seat #{p.seatCode}
                                 </span>
+                                {p.gender && (
+                                  <span
+                                    className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold capitalize ${
+                                      p.gender === "male"
+                                        ? "bg-blue-50 text-blue-700"
+                                        : "bg-pink-50 text-pink-700"
+                                    }`}
+                                  >
+                                    {p.gender}
+                                  </span>
+                                )}
                               </div>
                             ))}
                           </div>
