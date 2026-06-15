@@ -10,6 +10,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Banknote } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import {
@@ -68,6 +69,8 @@ function BookingTripPage() {
   const [passengers, setPassengers] = useState<{ name: string; phone: string }[]>([
     { name: "", phone: "" },
   ]);
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [callConsentGiven, setCallConsentGiven] = useState(false);
 
   // Keep passengers array length in sync with number of selected seats (at least 1 row)
   useEffect(() => {
@@ -622,13 +625,43 @@ function BookingTripPage() {
                 </div>
               </div>
 
+              <div className="space-y-3 pt-3 border-t border-border/60">
+                <label className="flex items-start gap-2 cursor-pointer">
+                  <Checkbox
+                    checked={termsAccepted}
+                    onCheckedChange={(v) => setTermsAccepted(!!v)}
+                    className="mt-0.5"
+                  />
+                  <span className="text-sm text-muted-foreground leading-snug">
+                    I accept the{" "}
+                    <Link to="/" className="text-primary underline">
+                      Terms &amp; Conditions
+                    </Link>
+                  </span>
+                </label>
+                <label className="flex items-start gap-2 cursor-pointer">
+                  <Checkbox
+                    checked={callConsentGiven}
+                    onCheckedChange={(v) => setCallConsentGiven(!!v)}
+                    className="mt-0.5"
+                  />
+                  <span className="text-sm text-muted-foreground leading-snug">
+                    I give consent to be called regarding my booking
+                  </span>
+                </label>
+              </div>
+
               <Button
                 variant="hero"
                 size="lg"
                 className="w-full rounded-2xl h-12 text-base"
                 style={{ color: "#fff" }}
                 disabled={
-                  bookingMutation.isPending || selected.size === 0 || remainingTripSeats === 0
+                  bookingMutation.isPending ||
+                  selected.size === 0 ||
+                  remainingTripSeats === 0 ||
+                  !termsAccepted ||
+                  !callConsentGiven
                 }
                 onClick={() => bookingMutation.mutate()}
               >

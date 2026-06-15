@@ -1,8 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { Ticket, MapPin, Calendar, Users, Loader2, ShieldCheck, KeyRound, CheckCircle2, Download, Radio, Bell } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import { Ticket, MapPin, Calendar, Users, Loader2, ShieldCheck, KeyRound, CheckCircle2, Download, Radio, Bell, Star } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import dayjs from "dayjs";
+import relativeTime from "dayjs/plugin/relativeTime";
 import { jsPDF } from "jspdf";
 import { SiteHeader } from "@/components/SiteHeader";
 import { SiteFooter } from "@/components/SiteFooter";
@@ -10,13 +11,22 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/useAuth";
-import { listTravelerBookings, getTripById, listTripStopsByTripIds } from "@/data/appwrite-repository";
+import {
+  listTravelerBookings,
+  getTripById,
+  getExistingReview,
+  listDriverProfilesByUserIds,
+  listTripStopsByTripIds,
+} from "@/data/appwrite-repository";
 import { RideRouteMap } from "@/components/RideRouteMap";
 import { NotificationPermissionPrompt } from "@/components/NotificationPermissionPrompt";
 import { showAppNotification } from "@/lib/notifications";
 import { useNotificationPermission } from "@/hooks/useNotificationPermission";
+import { ReviewModal } from "@/components/ReviewModal";
 import type { Booking, Trip } from "@/lib/domain";
 import logoUrl from "@/assets/logo.png";
+
+dayjs.extend(relativeTime);
 
 type TripsSearch = { booking?: string };
 
@@ -311,6 +321,11 @@ function TripsPage() {
   const { booking: highlightedBookingId } = Route.useSearch();
   const [expandedId, setExpandedId] = useState<string | null>(highlightedBookingId ?? null);
   const highlightRef = useRef<HTMLDivElement | null>(null);
+  const queryClient = useQueryClient();
+
+  // Review modal state
+  const [reviewBooking, setReviewBooking] = useState<Booking | null>(null);
+  const [reviewTrip, setReviewTrip] = useState<Trip | undefined>(undefined);
 
   // Right after a booking, ask the traveler to enable notifications so they
   // get live updates (driver started, etc.). Optional for travelers.
@@ -374,7 +389,37 @@ function TripsPage() {
   const isLoading = authLoading || bookingsQuery.isLoading || tripsQuery.isLoading;
   const bookings = bookingsQuery.data ?? [];
 
-  // Notify the passenger when their driver starts the trip.
+  // For completed bookings: check which ones already have a passenger→host review
+  const completedBookingIds = bookings
+    .filter((b) => b.status === "completed")
+    .map((b) => b.id);
+
+  const { data: existingReviewMap } = useQuery({
+    queryKey: ["existing-reviews-passenger", completedBookingIds.join(",")],
+    queryFn: async () => {
+      const entries = await Promise.all(
+        completedBookingIds.map(async (id) => {
+          const r = await getExistingReview(id, "guest_to_host");
+          return [id, !!r] as [string, boolean];
+        }),
+      );
+      return Object.fromEntries(entries);
+    },
+    enabled: completedBookingIds.length > 0,
+    staleTime: 1000 * 60 * 5,
+  });
+
+  // Batch-fetch host profiles so we can pass name/photo to ReviewModal
+  const hostIds = [...new Set(bookings.map((b) => tripsQuery.data?.get(b.tripId)?.hostId).filter(Boolean) as string[])];
+  const { data: hostProfiles } = useQuery({
+    queryKey: ["host-profiles-trips", hostIds.join(",")],
+    queryFn: () => listDriverProfilesByUserIds(hostIds),
+    enabled: hostIds.length > 0,
+    staleTime: 1000 * 60 * 5,
+  });
+  const hostProfileMap = new Map(hostProfiles?.map((p) => [p.userId, p]) ?? []);
+
+  // Notify the passenger when their driver starts the trip, and when it ends.
   const tripStatusRef = useRef<Map<string, string>>(new Map());
   useEffect(() => {
     const trips = tripsQuery.data;
@@ -388,6 +433,19 @@ function TripsPage() {
           url: "/trips",
           tag: `trip-started-${id}`,
         });
+      }
+      // Fire "rate your host" notification at estimated trip-end time
+      if (trip.status === "in_progress") {
+        const estimatedEnd = dayjs(trip.arrivalAt ?? dayjs(trip.departureAt).add(2, "hour"));
+        const notifKey = `coolpool-rate-notif-${id}`;
+        if (dayjs().isAfter(estimatedEnd) && !localStorage.getItem(notifKey)) {
+          localStorage.setItem(notifKey, "1");
+          void showAppNotification("How was your ride?", {
+            body: `Rate your host for the ${trip.fromLocation} → ${trip.toLocation} trip.`,
+            url: "/trips",
+            tag: `rate-host-${id}`,
+          });
+        }
       }
       tripStatusRef.current.set(id, trip.status);
     });
@@ -637,6 +695,28 @@ function TripsPage() {
                         Download Ticket
                       </Button>
 
+                      {/* Rate your host prompt for completed trips */}
+                      {b.status === "completed" && trip && !existingReviewMap?.[b.id] && (
+                        <div className="mt-1 rounded-xl border border-amber-100 bg-amber-50 p-3 flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-1.5">
+                            <Star size={14} className="fill-amber-400 text-amber-400 shrink-0" />
+                            <span className="text-sm font-semibold text-amber-700">Rate your host</span>
+                          </div>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="rounded-xl text-xs h-7 px-3"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setReviewBooking(b);
+                              setReviewTrip(trip);
+                            }}
+                          >
+                            Leave a review
+                          </Button>
+                        </div>
+                      )}
+
                       {trip && (
                         <Button
                           asChild
@@ -645,7 +725,7 @@ function TripsPage() {
                           className="w-full rounded-2xl"
                           onClick={(e) => e.stopPropagation()}
                         >
-                          <Link to="/booking/$tripId" params={{ tripId: trip.id }}>
+                          <Link to="/ride/$tripId" params={{ tripId: trip.id }}>
                             Open ride page
                           </Link>
                         </Button>
@@ -658,6 +738,29 @@ function TripsPage() {
           </div>
         )}
       </main>
+
+      {/* Passenger → Host ReviewModal */}
+      {reviewBooking && reviewTrip && user && (() => {
+        const hostProfile = hostProfileMap.get(reviewTrip.hostId);
+        const hostName = reviewTrip.hostDisplayName || hostProfile?.fullName || "Host";
+        return (
+          <ReviewModal
+            open={!!reviewBooking}
+            onClose={() => setReviewBooking(null)}
+            direction="guest_to_host"
+            tripId={reviewTrip.id}
+            bookingId={reviewBooking.id}
+            toUserId={reviewTrip.hostId}
+            toUserName={hostName}
+            toUserPhoto={hostProfile?.photoUrl}
+            fromUserId={user.$id}
+            onSuccess={() => {
+              void queryClient.invalidateQueries({ queryKey: ["existing-reviews-passenger"] });
+            }}
+          />
+        );
+      })()}
+
       <SiteFooter />
     </div>
   );

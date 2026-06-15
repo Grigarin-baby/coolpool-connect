@@ -22,6 +22,7 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminIndexRouteImport } from './routes/admin/index'
+import { Route as RideTripIdRouteImport } from './routes/ride/$tripId'
 import { Route as DriverOnboardingRouteImport } from './routes/driver/onboarding'
 import { Route as DriverLoginRouteImport } from './routes/driver/login'
 import { Route as DriverDashboardRouteImport } from './routes/driver/dashboard'
@@ -93,6 +94,11 @@ const AdminIndexRoute = AdminIndexRouteImport.update({
   path: '/admin/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const RideTripIdRoute = RideTripIdRouteImport.update({
+  id: '/ride/$tripId',
+  path: '/ride/$tripId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DriverOnboardingRoute = DriverOnboardingRouteImport.update({
   id: '/driver/onboarding',
   path: '/driver/onboarding',
@@ -137,6 +143,7 @@ export interface FileRoutesByFullPath {
   '/driver/dashboard': typeof DriverDashboardRoute
   '/driver/login': typeof DriverLoginRoute
   '/driver/onboarding': typeof DriverOnboardingRoute
+  '/ride/$tripId': typeof RideTripIdRoute
   '/admin/': typeof AdminIndexRoute
 }
 export interface FileRoutesByTo {
@@ -157,6 +164,7 @@ export interface FileRoutesByTo {
   '/driver/dashboard': typeof DriverDashboardRoute
   '/driver/login': typeof DriverLoginRoute
   '/driver/onboarding': typeof DriverOnboardingRoute
+  '/ride/$tripId': typeof RideTripIdRoute
   '/admin': typeof AdminIndexRoute
 }
 export interface FileRoutesById {
@@ -178,6 +186,7 @@ export interface FileRoutesById {
   '/driver/dashboard': typeof DriverDashboardRoute
   '/driver/login': typeof DriverLoginRoute
   '/driver/onboarding': typeof DriverOnboardingRoute
+  '/ride/$tripId': typeof RideTripIdRoute
   '/admin/': typeof AdminIndexRoute
 }
 export interface FileRouteTypes {
@@ -200,6 +209,7 @@ export interface FileRouteTypes {
     | '/driver/dashboard'
     | '/driver/login'
     | '/driver/onboarding'
+    | '/ride/$tripId'
     | '/admin/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -220,6 +230,7 @@ export interface FileRouteTypes {
     | '/driver/dashboard'
     | '/driver/login'
     | '/driver/onboarding'
+    | '/ride/$tripId'
     | '/admin'
   id:
     | '__root__'
@@ -240,6 +251,7 @@ export interface FileRouteTypes {
     | '/driver/dashboard'
     | '/driver/login'
     | '/driver/onboarding'
+    | '/ride/$tripId'
     | '/admin/'
   fileRoutesById: FileRoutesById
 }
@@ -261,6 +273,7 @@ export interface RootRouteChildren {
   DriverDashboardRoute: typeof DriverDashboardRoute
   DriverLoginRoute: typeof DriverLoginRoute
   DriverOnboardingRoute: typeof DriverOnboardingRoute
+  RideTripIdRoute: typeof RideTripIdRoute
   AdminIndexRoute: typeof AdminIndexRoute
 }
 
@@ -357,6 +370,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/ride/$tripId': {
+      id: '/ride/$tripId'
+      path: '/ride/$tripId'
+      fullPath: '/ride/$tripId'
+      preLoaderRoute: typeof RideTripIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/driver/onboarding': {
       id: '/driver/onboarding'
       path: '/driver/onboarding'
@@ -413,6 +433,7 @@ const rootRouteChildren: RootRouteChildren = {
   DriverDashboardRoute: DriverDashboardRoute,
   DriverLoginRoute: DriverLoginRoute,
   DriverOnboardingRoute: DriverOnboardingRoute,
+  RideTripIdRoute: RideTripIdRoute,
   AdminIndexRoute: AdminIndexRoute,
 }
 export const routeTree = rootRouteImport

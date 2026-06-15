@@ -1,4 +1,17 @@
 export type AppRole = "admin" | "driver" | "user";
+export type ReviewDirection = "guest_to_host" | "host_to_guest";
+
+export interface Review {
+  id: string;
+  tripId: string;
+  bookingId: string;
+  fromUserId: string;
+  toUserId: string;
+  direction: ReviewDirection;
+  stars: number;
+  tags: string[];
+  createdAt: string;
+}
 export type StopType = "pickup" | "drop" | "both";
 export type TripStatus = "scheduled" | "in_progress" | "completed" | "cancelled";
 export type BookingStatus = "pending" | "confirmed" | "cancelled" | "completed" | "no_show";
@@ -114,6 +127,8 @@ export interface DriverProfile {
   petsAllowed?: boolean;
   verificationStatus?: VerificationStatus;
   verificationNote?: string | null;
+  ratingAvg?: number;
+  ratingCount?: number;
 }
 
 /** One claimed seat on a trip — stored without traveler PII for public seat maps */

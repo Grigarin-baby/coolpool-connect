@@ -14,6 +14,8 @@ import type {
   PayoutRequest,
   PayoutStatus,
   PricingRule,
+  Review,
+  ReviewDirection,
   RidePreferences,
   StopType,
   Trip,
@@ -122,6 +124,8 @@ function toDriverProfile(doc: any): DriverProfile {
     petsAllowed: Boolean(doc.pets_allowed ?? false),
     verificationStatus: (doc.verification_status as VerificationStatus | undefined) ?? "approved",
     verificationNote: doc.verification_note ? String(doc.verification_note) : null,
+    ratingAvg: doc.rating_avg != null ? Number(doc.rating_avg) : undefined,
+    ratingCount: doc.rating_count != null ? Number(doc.rating_count) : undefined,
   };
 }
 
@@ -1471,4 +1475,90 @@ export async function updatePayoutRequestStatus(
       input.status === "paid" || input.status === "rejected" ? new Date().toISOString() : null,
   });
   return toPayoutRequest(doc);
+}
+
+// ── Reviews ──────────────────────────────────────────────────────────────────
+
+function toReview(doc: any): Review {
+  return {
+    id: doc.$id,
+    tripId: doc.trip_id,
+    bookingId: doc.booking_id,
+    fromUserId: doc.from_user_id,
+    toUserId: doc.to_user_id,
+    direction: doc.direction as ReviewDirection,
+    stars: doc.stars,
+    tags: doc.tags ?? [],
+    createdAt: doc.created_at,
+  };
+}
+
+export async function createReview(
+  data: Omit<Review, "id" | "createdAt">,
+): Promise<Review> {
+  const c = ids();
+  const doc = await databases.createDocument(
+    appwriteConfig.databaseId,
+    c.reviews,
+    ID.unique(),
+    {
+      trip_id: data.tripId,
+      booking_id: data.bookingId,
+      from_user_id: data.fromUserId,
+      to_user_id: data.toUserId,
+      direction: data.direction,
+      stars: data.stars,
+      tags: data.tags,
+      created_at: new Date().toISOString(),
+    },
+    [Permission.read(Role.any()), Permission.write(Role.users())],
+  );
+  return toReview(doc);
+}
+
+export async function listReviewsForUser(toUserId: string): Promise<Review[]> {
+  const c = ids();
+  const res = await databases.listDocuments(appwriteConfig.databaseId, c.reviews, [
+    Query.equal("to_user_id", toUserId),
+    Query.orderDesc("created_at"),
+    Query.limit(100),
+  ]);
+  return res.documents.map(toReview);
+}
+
+export async function getExistingReview(
+  bookingId: string,
+  direction: ReviewDirection,
+): Promise<Review | null> {
+  const c = ids();
+  const res = await databases.listDocuments(appwriteConfig.databaseId, c.reviews, [
+    Query.equal("booking_id", bookingId),
+    Query.equal("direction", direction),
+    Query.limit(1),
+  ]);
+  return res.documents.length > 0 ? toReview(res.documents[0]) : null;
+}
+
+export async function updateDriverRatingAggregate(hostUserId: string): Promise<void> {
+  const c = ids();
+  const res = await databases.listDocuments(appwriteConfig.databaseId, c.reviews, [
+    Query.equal("to_user_id", hostUserId),
+    Query.equal("direction", "guest_to_host"),
+    Query.limit(200),
+  ]);
+  const reviews = res.documents.map(toReview);
+  if (reviews.length === 0) return;
+  const avg = reviews.reduce((sum, r) => sum + r.stars, 0) / reviews.length;
+  // Find driver document to update
+  const driverRes = await databases.listDocuments(appwriteConfig.databaseId, c.drivers, [
+    Query.equal("user_id", hostUserId),
+    Query.limit(1),
+  ]);
+  if (driverRes.documents.length === 0) return;
+  await databases.updateDocument(
+    appwriteConfig.databaseId,
+    c.drivers,
+    driverRes.documents[0].$id,
+    { rating_avg: Math.round(avg * 10) / 10, rating_count: reviews.length },
+  );
 }

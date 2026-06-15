@@ -11,6 +11,11 @@ export interface AppwriteCollectionIds {
   heroBanners: string;
   bankAccounts: string;
   payoutRequests: string;
+  reviews: string;
+}
+
+function optionalCollectionId(value: string | undefined): string {
+  return value || "";
 }
 
 export interface AppwriteBucketIds {
@@ -72,15 +77,18 @@ export function getCollectionIds(): AppwriteCollectionIds {
         process.env.APPWRITE_COLLECTION_HERO_BANNERS,
       "VITE_APPWRITE_COLLECTION_HERO_BANNERS / APPWRITE_COLLECTION_HERO_BANNERS",
     ),
-    bankAccounts: requireCollectionId(
+    bankAccounts: optionalCollectionId(
       import.meta.env.VITE_APPWRITE_COLLECTION_BANK_ACCOUNTS ||
         process.env.APPWRITE_COLLECTION_BANK_ACCOUNTS,
-      "VITE_APPWRITE_COLLECTION_BANK_ACCOUNTS / APPWRITE_COLLECTION_BANK_ACCOUNTS",
     ),
-    payoutRequests: requireCollectionId(
+    payoutRequests: optionalCollectionId(
       import.meta.env.VITE_APPWRITE_COLLECTION_PAYOUT_REQUESTS ||
         process.env.APPWRITE_COLLECTION_PAYOUT_REQUESTS,
-      "VITE_APPWRITE_COLLECTION_PAYOUT_REQUESTS / APPWRITE_COLLECTION_PAYOUT_REQUESTS",
+    ),
+    reviews: requireCollectionId(
+      import.meta.env.VITE_APPWRITE_COLLECTION_REVIEWS ||
+        process.env.APPWRITE_COLLECTION_REVIEWS,
+      "VITE_APPWRITE_COLLECTION_REVIEWS / APPWRITE_COLLECTION_REVIEWS",
     ),
   };
 }

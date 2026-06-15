@@ -116,6 +116,7 @@ interface TripSearchContextValue {
   loading: boolean;
   searched: boolean;
   results: SearchResult[];
+  allScheduledTrips: TripRow[];
   fromOptions: { value: string; label: string }[];
   toOptions: { value: string; label: string }[];
   searchPlaces: (query: string, target: "from" | "to") => void;
@@ -280,6 +281,7 @@ function UpcomingDateButtons({
 export function TripSearchProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<SearchResult[]>([]);
+  const [allScheduledTrips, setAllScheduledTrips] = useState<TripRow[]>([]);
   const [searched, setSearched] = useState(false);
   const [fromOptions, setFromOptions] = useState<{ value: string; label: string }[]>([]);
   const [toOptions, setToOptions] = useState<{ value: string; label: string }[]>([]);
@@ -429,6 +431,13 @@ export function TripSearchProvider({ children }: { children: ReactNode }) {
     try {
       const allTrips = await listTrips(200);
 
+      // Store all scheduled+future trips for the "All available rides" section
+      setAllScheduledTrips(
+        allTrips
+          .filter((t) => t.status === "scheduled" && dayjs(t.departureAt).isAfter(dayjs()))
+          .sort((a, b) => new Date(a.departureAt).getTime() - new Date(b.departureAt).getTime()),
+      );
+
       const stopsByTrip = new Map<string, TripStop[]>();
       try {
         const allStops = await listTripStopsByTripIds(allTrips.map((t) => t.id));
@@ -541,13 +550,14 @@ export function TripSearchProvider({ children }: { children: ReactNode }) {
       loading,
       searched,
       results,
+      allScheduledTrips,
       fromOptions,
       toOptions,
       searchPlaces,
       onSearch,
       summary,
     }),
-    [loading, searched, results, fromOptions, toOptions, searchPlaces, onSearch, summary],
+    [loading, searched, results, allScheduledTrips, fromOptions, toOptions, searchPlaces, onSearch, summary],
   );
 
   return <TripSearchContext.Provider value={value}>{children}</TripSearchContext.Provider>;
@@ -1009,20 +1019,17 @@ export function TripSearchForm({ variant, id }: { variant: "landing" | "page"; i
 }
 
 export function TripSearchResults({ variant }: { variant: "landing" | "page" }) {
-  const { loading, searched, results } = useTripSearchContext();
+  const { loading, searched, results, allScheduledTrips } = useTripSearchContext();
   const { user, isDriver } = useAuth();
   const navigate = useNavigate();
   const resultsAnchorRef = useRef<HTMLDivElement>(null);
 
   const handleHostARide = () => {
     if (!user) {
-      // Not logged in → go to auth (host sign up) page
       void navigate({ to: "/auth" });
     } else if (isDriver) {
-      // Already a host → go straight to publish trip
       void navigate({ to: "/driver/dashboard", search: { module: "trips" } as any });
     } else {
-      // Logged in as traveler → go to become-a-host landing page
       void navigate({ to: "/host" });
     }
   };
@@ -1035,11 +1042,18 @@ export function TripSearchResults({ variant }: { variant: "landing" | "page" }) 
     staleTime: 1000 * 30,
   });
 
-  // Batch-fetch host ride preferences for all trips in results
+  // Batch-fetch host ride preferences for all trips (results + allScheduledTrips)
   const hostIds = useMemo(
-    () => [...new Set(results.map((t) => t.hostId).filter(Boolean))],
-    [results],
+    () => [
+      ...new Set(
+        [...results.map((t) => t.hostId), ...allScheduledTrips.map((t) => t.hostId)].filter(Boolean),
+      ),
+    ],
+    [results, allScheduledTrips],
   );
+
+  // IDs of trips already shown in matched results — used to exclude from "All rides"
+  const matchedTripIds = useMemo(() => new Set(results.map((t) => t.id)), [results]);
   const { data: hostPrefsMap } = useQuery({
     queryKey: ["host-preferences-batch", hostIds.join(",")],
     queryFn: () => getMultipleHostPreferences(hostIds),
@@ -1199,7 +1213,7 @@ export function TripSearchResults({ variant }: { variant: "landing" | "page" }) 
               return (
                 <Link
                   key={trip.id}
-                  to="/booking/$tripId"
+                  to="/ride/$tripId"
                   params={{ tripId: trip.id }}
                   search={{
                     fromStopIndex: segment.fromStopIndex,
@@ -1300,6 +1314,67 @@ export function TripSearchResults({ variant }: { variant: "landing" | "page" }) 
             })}
           </div>
 
+          {/* All available rides — every upcoming scheduled trip, excluding already-shown matches */}
+          {(() => {
+            const otherTrips = allScheduledTrips.filter((t) => !matchedTripIds.has(t.id));
+            if (otherTrips.length === 0) return null;
+            return (
+              <div className="mt-8">
+                <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3 px-1">
+                  All available rides
+                </h3>
+                <div className="space-y-2.5">
+                  {otherTrips.map((trip) => {
+                    const hostProfile = hostProfileMap.get(trip.hostId);
+                    const hostVehicle = hostVehiclesMap?.get(trip.hostId);
+                    const hostName = trip.hostDisplayName || hostProfile?.fullName || "Verified Host";
+                    const vehicleModel = trip.vehicleModel || hostVehicle?.modelName;
+                    const vehicleColor = trip.vehicleColor || hostVehicle?.color;
+                    const vehicleLabel = vehicleModel
+                      ? [vehicleModel, vehicleColor].filter(Boolean).join(" · ")
+                      : "Vehicle details pending";
+                    const departure = dayjs(trip.departureAt);
+                    return (
+                      <Link
+                        key={trip.id}
+                        to="/ride/$tripId"
+                        params={{ tripId: trip.id }}
+                        className="block group"
+                      >
+                        <Card className="rounded-2xl border border-gray-100 bg-white shadow-sm hover:shadow-md hover:border-primary transition-all duration-200 p-3 sm:p-4">
+                          <div className="mb-2 flex items-center gap-1.5 text-[11px] font-bold text-primary">
+                            <span className="truncate">{trip.fromLocation}</span>
+                            <ArrowRight size={11} className="shrink-0" />
+                            <span className="truncate">{trip.toLocation}</span>
+                          </div>
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <HostAvatar name={hostName} photoUrl={hostProfile?.photoUrl} size={32} />
+                              <div className="min-w-0">
+                                <p className="font-bold text-sm text-gray-900 truncate leading-tight">{hostName}</p>
+                                <p className="text-xs text-gray-500 truncate leading-tight">{vehicleLabel}</p>
+                              </div>
+                            </div>
+                            <div className="text-right shrink-0">
+                              {(trip.hostRatingCount ?? 0) > 0 ? (
+                                <div className="inline-flex items-center gap-0.5 text-xs font-bold text-gray-800">
+                                  <Star size={11} className="fill-amber-400 text-amber-400" />
+                                  {(trip.hostRating ?? 0).toFixed(1)}
+                                </div>
+                              ) : (
+                                <span className="text-[10px] font-semibold text-gray-400">New host</span>
+                              )}
+                              <p className="text-[11px] text-gray-500 mt-0.5">{departure.format("ddd, MMM D · HH:mm")}</p>
+                            </div>
+                          </div>
+                        </Card>
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
         </div>
       )}
     </div>

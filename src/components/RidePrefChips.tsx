@@ -45,12 +45,7 @@ export function RidePrefChips({
   className?: string;
 }) {
   const iconSize = SIZES[size].icon;
-  const musicLabel =
-    prefs.musicAllowed && prefs.musicType && prefs.musicType !== "any"
-      ? prefs.musicType.charAt(0).toUpperCase() + prefs.musicType.slice(1)
-      : prefs.musicAllowed
-        ? "Music"
-        : "Quiet ride";
+  const musicLabel = prefs.musicAllowed ? "Music" : "Quiet ride";
 
   return (
     <div className={`flex flex-wrap items-center gap-1.5 ${className}`}>

@@ -116,6 +116,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { appwriteConfig, getUserAvatarUrl } from "@/integrations/appwrite/client";
 import { SERVICE_CITY, BENGALURU_AIRPORTS, SOUTH_INDIA_CITY_SUGGESTIONS } from "@/lib/config";
 import { SeatPicker, type SeatId } from "@/components/SeatPicker";
+import { ReviewModal } from "@/components/ReviewModal";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import { getUserDisplayName } from "@/lib/user-display";
 import { TripWizard } from "@/components/trip-wizard/TripWizard";
@@ -1043,6 +1044,25 @@ function DriverDashboardPage() {
       }
     }
   }, [now, upcomingTrips]);
+
+  // Notify host to rate passengers when a trip's estimated end time passes
+  useEffect(() => {
+    for (const trip of trips) {
+      if (trip.status !== "in_progress") continue;
+      const estimatedEnd = dayjs(trip.arrivalAt ?? dayjs(trip.departureAt).add(2, "hour"));
+      if (now.isAfter(estimatedEnd)) {
+        const key = `coolpool-rate-passengers-${trip.id}`;
+        if (!localStorage.getItem(key)) {
+          localStorage.setItem(key, "1");
+          void showAppNotification("Rate your passengers!", {
+            body: `You've completed ${trip.fromLocation} → ${trip.toLocation}. Leave a review for your travelers.`,
+            url: "/driver/dashboard",
+            tag: `rate-passengers-${trip.id}`,
+          });
+        }
+      }
+    }
+  }, [now, trips]);
 
   const isVerifiedHost = vehicles.length > 0;
 
@@ -4319,112 +4339,26 @@ function DriverDashboardPage() {
                     )}
                   </div>
 
-                  <Modal
-                    title={
-                      <div className="flex items-center gap-3 pb-2 border-b border-gray-100">
-                        <div className="p-2 bg-amber-100 rounded-3xl text-amber-600">
-                          <Star size={20} fill="currentColor" />
-                        </div>
-                        <div>
-                          <Title level={4} className="m-0">
-                            Rate Passenger
-                          </Title>
-                          <Text type="secondary" className="text-xs">
-                            Your feedback helps the community stay safe.
-                          </Text>
-                        </div>
-                      </div>
-                    }
-                    open={ratingModalVisible}
-                    onCancel={() => setRatingModalVisible(false)}
-                    footer={null}
-                    centered
-                    width={500}
-                    className="rounded-3xl overflow-hidden"
-                  >
-                    <div className="py-6 space-y-8">
-                      <div className="text-center">
-                        <Text
-                          type="secondary"
-                          className="uppercase text-[10px] tracking-[0.2em] font-bold block mb-4"
-                        >
-                          Select Rating
-                        </Text>
-                        <div className="flex justify-center gap-2">
-                          {[1, 2, 3, 4, 5].map((val) => (
-                            <button
-                              key={val}
-                              onClick={() => setRatingValue(val)}
-                              className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all ${ratingValue >= val
-                                ? "bg-amber-400 text-white shadow-glow scale-110"
-                                : "bg-gray-100 text-gray-300 hover:bg-gray-200"
-                                }`}
-                            >
-                              <Star
-                                size={28}
-                                fill={ratingValue >= val ? "white" : "transparent"}
-                                strokeWidth={2.5}
-                              />
-                            </button>
-                          ))}
-                        </div>
-                        <div className="mt-4">
-                          <Title level={5} className="text-amber-600">
-                            {ratingValue === 5
-                              ? "Excellent Traveler"
-                              : ratingValue === 4
-                                ? "Very Good"
-                                : ratingValue === 3
-                                  ? "Good Experience"
-                                  : ratingValue === 2
-                                    ? "Below Average"
-                                    : "Poor Experience"}
-                          </Title>
-                        </div>
-                      </div>
-
-                      <div className="space-y-3">
-                        <Text strong className="text-gray-700">
-                          Write a quick note (Optional)
-                        </Text>
-                        <Input.TextArea
-                          rows={4}
-                          placeholder="e.g. Very punctual and friendly passenger!"
-                          value={ratingComment}
-                          onChange={(e) => setRatingComment(e.target.value)}
-                          className="rounded-2xl border-gray-200 p-4 focus:ring-2 focus:ring-purple-500/20"
-                        />
-                      </div>
-
-                      <div className="flex gap-4 pt-4">
-                        <Button
-                          block
-                          size="large"
-                          onClick={() => setRatingModalVisible(false)}
-                          className="h-14 rounded-2xl font-bold text-gray-500"
-                        >
-                          Cancel
-                        </Button>
-                        <Button
-                          type="primary"
-                          block
-                          size="large"
-                          loading={submittingRating}
-                          onClick={() => {
-                            if (!selectedBooking) return;
-                            submitRating({
-                              bookingId: selectedBooking.id,
-                              rating: ratingValue,
-                              comment: ratingComment,
-                            });
-                          }}
-                          className="h-14 rounded-2xl bg-gradient-primary border-none font-bold shadow-glow"
-                        >
-                          Submit Feedback
-                        </Button>
-                      </div>
-                    </div>
-                  </Modal>
+                  {/* Host → Passenger review modal */}
+                  {selectedBooking && user && (
+                    <ReviewModal
+                      open={ratingModalVisible}
+                      onClose={() => setRatingModalVisible(false)}
+                      direction="host_to_guest"
+                      tripId={selectedBooking.tripId}
+                      bookingId={selectedBooking.id}
+                      toUserId={selectedBooking.travelerId}
+                      toUserName={(() => {
+                        const raw = selectedBooking.passengerName?.split("|")[0] ?? "";
+                        const m = raw.match(/^Seat\s+[^:]+:\s*(.*)$/i);
+                        return (m ? m[1] : raw).trim() || "Passenger";
+                      })()}
+                      fromUserId={user.$id}
+                      onSuccess={() => {
+                        void queryClient.invalidateQueries({ queryKey: ["host-bookings"] });
+                      }}
+                    />
+                  )}
                 </div>
               )}
 

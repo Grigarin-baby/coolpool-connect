@@ -6,6 +6,10 @@ const TRENDING_ROUTES: { from: string; to: string }[] = [
   { from: "Bengaluru", to: "Chennai" },
   { from: "Bengaluru", to: "Mysore" },
   { from: "Bengaluru", to: "Ananthapur" },
+  { from: "Bengaluru", to: "Kurnool" },
+  { from: "Bengaluru", to: "Tirupati" },
+  { from: "Anantapur", to: "Kurnool" },
+  { from: "Anantapur", to: "Hyderabad" },
 ];
 
 export function DynamicTrendingRoutes() {
