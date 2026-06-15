@@ -349,6 +349,8 @@ async function run() {
   await ensureBooleanAttribute(COLLECTIONS.drivers, "alcohol_allowed", false, false);
   await ensureBooleanAttribute(COLLECTIONS.drivers, "music_allowed", false, false);
   await ensureStringAttribute(COLLECTIONS.drivers, "music_type", 40, false);
+  await ensureBooleanAttribute(COLLECTIONS.drivers, "music_only", false, false);
+  await ensureBooleanAttribute(COLLECTIONS.drivers, "pets_allowed", false, false);
 
   // vehicles
   await ensureStringAttribute(COLLECTIONS.vehicles, "driver_user_id", 64, true);

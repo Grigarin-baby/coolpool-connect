@@ -142,6 +142,7 @@ function toDriverProfile(doc: any): DriverProfile {
     alcoholAllowed: Boolean(doc.alcohol_allowed ?? false),
     musicAllowed: Boolean(doc.music_allowed ?? false),
     musicType: doc.music_type ? String(doc.music_type) : null,
+    musicOnly: Boolean(doc.music_only ?? false),
     petsAllowed: Boolean(doc.pets_allowed ?? false),
     verificationStatus: (doc.verification_status as VerificationStatus | undefined) ?? "approved",
     verificationNote: doc.verification_note ? String(doc.verification_note) : null,
@@ -1018,6 +1019,7 @@ export async function getHostPreferences(hostUserId: string): Promise<RidePrefer
     alcoholAllowed: Boolean(doc.alcohol_allowed ?? false),
     musicAllowed: Boolean(doc.music_allowed ?? false),
     musicType: (doc.music_type as MusicType | null) ?? null,
+    musicOnly: Boolean(doc.music_only ?? false),
     petsAllowed: Boolean(doc.pets_allowed ?? false),
   };
 }
@@ -1038,6 +1040,7 @@ export async function updateHostPreferences(
     alcohol_allowed: prefs.alcoholAllowed,
     music_allowed: prefs.musicAllowed,
     music_type: prefs.musicAllowed ? (prefs.musicType ?? null) : null,
+    music_only: prefs.musicAllowed ? prefs.musicOnly : false,
     pets_allowed: prefs.petsAllowed,
   });
 }
@@ -1086,6 +1089,7 @@ export async function getMultipleHostPreferences(
       alcoholAllowed: Boolean(doc.alcohol_allowed ?? false),
       musicAllowed: Boolean(doc.music_allowed ?? false),
       musicType: (doc.music_type as MusicType | null) ?? null,
+      musicOnly: Boolean(doc.music_only ?? false),
       petsAllowed: Boolean(doc.pets_allowed ?? false),
     });
   }

@@ -1,4 +1,5 @@
 export type AppRole = "admin" | "driver" | "user";
+
 export type ReviewDirection = "guest_to_host" | "host_to_guest";
 
 export interface Review {
@@ -112,6 +113,7 @@ export interface RidePreferences {
   alcoholAllowed: boolean;
   musicAllowed: boolean;
   musicType: MusicType | null;
+  musicOnly: boolean;
   petsAllowed: boolean;
 }
 
@@ -133,6 +135,7 @@ export interface DriverProfile {
   alcoholAllowed?: boolean;
   musicAllowed?: boolean;
   musicType?: string | null;
+  musicOnly?: boolean;
   petsAllowed?: boolean;
   verificationStatus?: VerificationStatus;
   verificationNote?: string | null;

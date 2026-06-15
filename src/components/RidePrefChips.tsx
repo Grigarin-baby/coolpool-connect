@@ -1,4 +1,4 @@
-import { Cigarette, Wine, Music2, VolumeX, PawPrint } from "lucide-react";
+import { Cigarette, Wine, Music2, VolumeX, PawPrint, Headphones } from "lucide-react";
 import type { ReactNode } from "react";
 import type { RidePreferences } from "@/lib/domain";
 
@@ -67,6 +67,14 @@ export function RidePrefChips({
         label={musicLabel}
         size={size}
       />
+      {prefs.musicAllowed && prefs.musicOnly && (
+        <Chip
+          allowed
+          icon={<Headphones size={iconSize} />}
+          label="Music only"
+          size={size}
+        />
+      )}
       <Chip
         allowed={prefs.petsAllowed}
         icon={<PawPrint size={iconSize} />}

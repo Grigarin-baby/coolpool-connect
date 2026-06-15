@@ -28,6 +28,7 @@ import {
   PawPrint,
   Wine,
   Music2,
+  Headphones,
   VolumeX,
   TriangleAlert,
   Navigation,
@@ -384,6 +385,7 @@ function DriverDashboardPage() {
     alcoholAllowed: false,
     musicAllowed: false,
     musicType: null,
+    musicOnly: false,
     petsAllowed: false,
   });
   const [otpInputs, setOtpInputs] = useState<Record<string, string>>({});
@@ -2121,6 +2123,7 @@ function DriverDashboardPage() {
                                         alcoholAllowed: false,
                                         musicAllowed: false,
                                         musicType: null,
+                                        musicOnly: false,
                                         petsAllowed: false,
                                       },
                                     );
@@ -2455,7 +2458,7 @@ function DriverDashboardPage() {
                           </div>
                           <Switch
                             checked={prefsLocal.musicAllowed}
-                            onChange={(v) => setPrefsLocal((p) => ({ ...p, musicAllowed: v, musicType: v ? (p.musicType ?? "any") : null }))}
+                            onChange={(v) => setPrefsLocal((p) => ({ ...p, musicAllowed: v, musicType: v ? (p.musicType ?? "any") : null, musicOnly: v ? p.musicOnly : false }))}
                           />
                         </div>
 
@@ -2476,6 +2479,27 @@ function DriverDashboardPage() {
                                 {genre === "any" ? "Any genre" : genre.charAt(0).toUpperCase() + genre.slice(1)}
                               </button>
                             ))}
+                          </div>
+                        )}
+
+                        {/* Music only (no chit-chat) — sub-toggle, only meaningful when music is on */}
+                        {prefsLocal.musicAllowed && (
+                          <div className="flex items-center justify-between p-4 rounded-2xl bg-gray-50 border border-gray-100">
+                            <div className="flex items-center gap-3">
+                              <div className={`p-2 rounded-xl ${prefsLocal.musicOnly ? "bg-indigo-100 text-indigo-600" : "bg-gray-100 text-gray-400"}`}>
+                                <Headphones size={20} />
+                              </div>
+                              <div>
+                                <div className="font-semibold text-gray-800 text-sm">Music only</div>
+                                <div className="text-xs text-gray-400 mt-0.5">
+                                  {prefsLocal.musicOnly ? "Quiet ride — no chit-chat" : "Chit-chat welcome"}
+                                </div>
+                              </div>
+                            </div>
+                            <Switch
+                              checked={prefsLocal.musicOnly}
+                              onChange={(v) => setPrefsLocal((p) => ({ ...p, musicOnly: v }))}
+                            />
                           </div>
                         )}
                       </div>
