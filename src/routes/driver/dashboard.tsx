@@ -335,8 +335,9 @@ function getRatingColorClasses(rating: number) {
 }
 
 export const Route = createFileRoute("/driver/dashboard")({
-  validateSearch: (search: Record<string, unknown>): { module: DashboardModule } => ({
+  validateSearch: (search: Record<string, unknown>): { module: DashboardModule; trip?: string } => ({
     module: normalizeModule(search.module),
+    trip: typeof search.trip === "string" ? search.trip : undefined,
   }),
   head: () => ({
     meta: [
@@ -673,6 +674,14 @@ function DriverDashboardPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search.module]);
 
+  // Auto-open trip panel when navigated from a notification (?trip=<id>).
+  useEffect(() => {
+    if (search.trip && trips.length > 0 && !managingTripId) {
+      setManagingTripId(search.trip);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search.trip, trips.length]);
+
   const [onboardingSubmitting, setOnboardingSubmitting] = useState(false);
   const [regFileList, setRegFileList] = useState<UploadFile[]>([]);
   const [insFileList, setInsFileList] = useState<UploadFile[]>([]);
@@ -954,7 +963,7 @@ function DriverDashboardPage() {
     newBookings.forEach((b) => {
       void showAppNotification("New booking received!", {
         body: `${b.seatsBooked} seat${b.seatsBooked === 1 ? "" : "s"} booked for your trip.`,
-        url: "/driver/dashboard",
+        url: `/driver/dashboard?module=trips&trip=${b.tripId}`,
         tag: `new-booking-${b.id}`,
       });
     });
@@ -1079,7 +1088,7 @@ function DriverDashboardPage() {
   );
 
   const sortedTrips = [...upcomingTrips].sort(
-    (a, b) => new Date(a.departureAt).getTime() - new Date(b.departureAt).getTime(),
+    (a, b) => new Date(b.departureAt).getTime() - new Date(a.departureAt).getTime(),
   );
 
   // Remind the host to start each scheduled trip: once at 15 minutes before
@@ -1096,7 +1105,7 @@ function DriverDashboardPage() {
           localStorage.setItem(key, "1");
           void showAppNotification("Time is up — start your trip!", {
             body: `${route} was due at ${departure.format("h:mm A")}. Passengers are waiting.`,
-            url: "/driver/dashboard",
+            url: `/driver/dashboard?module=trips&trip=${trip.id}`,
             tag: `trip-timeup-${trip.id}`,
           });
         }
@@ -1106,7 +1115,7 @@ function DriverDashboardPage() {
           localStorage.setItem(key, "1");
           void showAppNotification("Start your trip now", {
             body: `${route} departs at ${departure.format("h:mm A")} — get ready and start the trip.`,
-            url: "/driver/dashboard",
+            url: `/driver/dashboard?module=trips&trip=${trip.id}`,
             tag: `trip-reminder-${trip.id}`,
           });
         }
@@ -1125,7 +1134,7 @@ function DriverDashboardPage() {
           localStorage.setItem(key, "1");
           void showAppNotification("Rate your passengers!", {
             body: `You've completed ${trip.fromLocation} → ${trip.toLocation}. Leave a review for your travelers.`,
-            url: "/driver/dashboard",
+            url: `/driver/dashboard?module=history&trip=${trip.id}`,
             tag: `rate-passengers-${trip.id}`,
           });
         }
@@ -2509,65 +2518,22 @@ function DriverDashboardPage() {
                       </div>
 
                       {/* Music */}
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between p-4 rounded-2xl bg-gray-50 border border-gray-100">
-                          <div className="flex items-center gap-3">
-                            <div className={`p-2 rounded-xl ${prefsLocal.musicAllowed ? "bg-green-100 text-green-600" : "bg-gray-100 text-gray-400"}`}>
-                              {prefsLocal.musicAllowed ? <Music2 size={20} /> : <VolumeX size={20} />}
-                            </div>
-                            <div>
-                              <div className="font-semibold text-gray-800 text-sm">Music</div>
-                              <div className="text-xs text-gray-400 mt-0.5">
-                                {prefsLocal.musicAllowed ? "Playing during ride" : "Quiet ride"}
-                              </div>
+                      <div className="flex items-center justify-between p-4 rounded-2xl bg-gray-50 border border-gray-100">
+                        <div className="flex items-center gap-3">
+                          <div className={`p-2 rounded-xl ${prefsLocal.musicAllowed ? "bg-green-100 text-green-600" : "bg-gray-100 text-gray-400"}`}>
+                            {prefsLocal.musicAllowed ? <Music2 size={20} /> : <VolumeX size={20} />}
+                          </div>
+                          <div>
+                            <div className="font-semibold text-gray-800 text-sm">Music</div>
+                            <div className="text-xs text-gray-400 mt-0.5">
+                              {prefsLocal.musicAllowed ? "Allowed" : "Not allowed"}
                             </div>
                           </div>
-                          <Switch
-                            checked={prefsLocal.musicAllowed}
-                            onChange={(v) => setPrefsLocal((p) => ({ ...p, musicAllowed: v, musicType: v ? (p.musicType ?? "any") : null, musicOnly: v ? p.musicOnly : false }))}
-                          />
                         </div>
-
-                        {/* Music genre selector — slides in */}
-                        {prefsLocal.musicAllowed && (
-                          <div className="grid grid-cols-2 gap-2 px-1">
-                            {(["any", "bollywood", "regional", "pop", "classical", "electronic", "devotional"] as const).map((genre) => (
-                              <button
-                                key={genre}
-                                type="button"
-                                onClick={() => setPrefsLocal((p) => ({ ...p, musicType: genre }))}
-                                className={`py-2 px-3 rounded-xl text-sm font-medium border transition-all ${
-                                  prefsLocal.musicType === genre
-                                    ? "bg-green-600 text-white border-transparent"
-                                    : "bg-white text-gray-600 border-gray-200 hover:border-green-400"
-                                }`}
-                              >
-                                {genre === "any" ? "Any genre" : genre.charAt(0).toUpperCase() + genre.slice(1)}
-                              </button>
-                            ))}
-                          </div>
-                        )}
-
-                        {/* Music only (no chit-chat) — sub-toggle, only meaningful when music is on */}
-                        {prefsLocal.musicAllowed && (
-                          <div className="flex items-center justify-between p-4 rounded-2xl bg-gray-50 border border-gray-100">
-                            <div className="flex items-center gap-3">
-                              <div className={`p-2 rounded-xl ${prefsLocal.musicOnly ? "bg-indigo-100 text-indigo-600" : "bg-gray-100 text-gray-400"}`}>
-                                <Headphones size={20} />
-                              </div>
-                              <div>
-                                <div className="font-semibold text-gray-800 text-sm">Music only</div>
-                                <div className="text-xs text-gray-400 mt-0.5">
-                                  {prefsLocal.musicOnly ? "Quiet ride — no chit-chat" : "Chit-chat welcome"}
-                                </div>
-                              </div>
-                            </div>
-                            <Switch
-                              checked={prefsLocal.musicOnly}
-                              onChange={(v) => setPrefsLocal((p) => ({ ...p, musicOnly: v }))}
-                            />
-                          </div>
-                        )}
+                        <Switch
+                          checked={prefsLocal.musicAllowed}
+                          onChange={(v) => setPrefsLocal((p) => ({ ...p, musicAllowed: v, musicType: null, musicOnly: false }))}
+                        />
                       </div>
 
                       {/* Pets */}
@@ -2638,7 +2604,7 @@ function DriverDashboardPage() {
                         </div>
                       ) : (
                         <div className="space-y-4">
-                          {upcomingTrips.slice(0, 5).map((item) => (
+                          {sortedTrips.slice(0, 5).map((item) => (
                             <div
                               key={item.id}
                               className="bg-white/80 rounded-2xl border border-white shadow-soft p-5 hover:shadow-card transition-all duration-300 group"
@@ -3089,15 +3055,15 @@ function DriverDashboardPage() {
                               <div className="space-y-3">
                                 {/* Route */}
                                 <div>
-                                  <Text type="secondary" className="text-xs font-bold uppercase">
+                                  <Text className="text-xs font-bold uppercase text-gray-500">
                                     Route
                                   </Text>
                                   <div className="flex items-center gap-2 mt-1">
-                                    <Text strong className="flex-1 line-clamp-1">
+                                    <Text strong className="flex-1 line-clamp-1 text-gray-900">
                                       {trip.fromLocation}
                                     </Text>
                                     <ArrowRight size={16} className="text-gray-400" />
-                                    <Text strong className="flex-1 line-clamp-1">
+                                    <Text strong className="flex-1 line-clamp-1 text-gray-900">
                                       {trip.toLocation}
                                     </Text>
                                   </div>
@@ -3106,18 +3072,18 @@ function DriverDashboardPage() {
                                 {/* Departure & Price */}
                                 <div className="grid grid-cols-2 gap-4 py-3 border-y border-gray-100">
                                   <div>
-                                    <Text type="secondary" className="text-xs font-bold uppercase">
+                                    <Text className="text-xs font-bold uppercase text-gray-500">
                                       Departure
                                     </Text>
-                                    <Text className="text-sm font-semibold mt-1">
+                                    <Text className="text-sm font-semibold mt-1 text-gray-900">
                                       {dayjs(trip.departureAt).format("MMM D, YYYY")}
                                     </Text>
-                                    <Text type="secondary" className="text-xs">
+                                    <Text className="text-xs text-gray-500">
                                       {dayjs(trip.departureAt).format("h:mm A")}
                                     </Text>
                                   </div>
                                   <div>
-                                    <Text type="secondary" className="text-xs font-bold uppercase">
+                                    <Text className="text-xs font-bold uppercase text-gray-500">
                                       Price per Seat
                                     </Text>
                                     <Text strong className="text-emerald-600 text-lg mt-1">
@@ -3150,7 +3116,7 @@ function DriverDashboardPage() {
                                         {trip.status?.toUpperCase().replace("_", " ")}
                                       </Tag>
                                     )}
-                                    <Text type="secondary" className="text-xs">
+                                    <Text className="text-xs text-gray-500">
                                       {trip.totalSeats} seats
                                     </Text>
                                   </div>
@@ -4740,7 +4706,7 @@ function DriverDashboardPage() {
               open={!!managingTripId}
               closable={false}
               className="bg-gray-50"
-              styles={{ body: { padding: 0, overflowY: "auto" } }}
+              styles={{ body: { padding: 0, overflowY: "auto", background: "#f9fafb" } }}
             >
               {managingTrip && (
                 <div className="min-h-full">
@@ -4758,7 +4724,7 @@ function DriverDashboardPage() {
                     <div className="mt-4">
                       <Tag
                         color="purple"
-                        className="border-none bg-white/20 !text-white rounded-full px-3 py-1 mb-4"
+                        className="border-none bg-white/90 !text-gray-900 rounded-full px-3 py-1 mb-4"
                       >
                         {dayjs(managingTrip.departureAt).format("MMM D, YYYY • h:mm A")}
                       </Tag>
@@ -5531,7 +5497,7 @@ function DriverDashboardPage() {
             ) : (
               <>
                 <div className="space-y-3 max-h-96 overflow-y-auto">
-                  {upcomingTrips.map((item) => (
+                  {sortedTrips.map((item) => (
                     <div
                       key={item.id}
                       className="bg-gray-50 rounded-lg border border-gray-200 p-4 hover:shadow-sm transition-all"

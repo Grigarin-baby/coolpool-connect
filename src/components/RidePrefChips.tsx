@@ -1,4 +1,4 @@
-import { Cigarette, Wine, Music2, VolumeX, PawPrint, Headphones } from "lucide-react";
+import { Cigarette, Wine, Music2, VolumeX, PawPrint } from "lucide-react";
 import type { ReactNode } from "react";
 import type { RidePreferences } from "@/lib/domain";
 
@@ -45,8 +45,6 @@ export function RidePrefChips({
   className?: string;
 }) {
   const iconSize = SIZES[size].icon;
-  const musicLabel = prefs.musicAllowed ? "Music" : "Quiet ride";
-
   return (
     <div className={`flex flex-wrap items-center gap-1.5 ${className}`}>
       <Chip
@@ -64,13 +62,7 @@ export function RidePrefChips({
       <Chip
         allowed={prefs.musicAllowed}
         icon={prefs.musicAllowed ? <Music2 size={iconSize} /> : <VolumeX size={iconSize} />}
-        label={musicLabel}
-        size={size}
-      />
-      <Chip
-        allowed={prefs.musicOnly}
-        icon={<Headphones size={iconSize} />}
-        label={prefs.musicOnly ? "Music OK" : "No Music"}
+        label={prefs.musicAllowed ? "Music" : "No music"}
         size={size}
       />
       <Chip

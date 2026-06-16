@@ -38,19 +38,18 @@ self.addEventListener("push", (event) => {
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const url = (event.notification.data && event.notification.data.url) || "/";
+  const relativeUrl = (event.notification.data && event.notification.data.url) || "/";
+  const absoluteUrl = new URL(relativeUrl, self.location.origin).href;
 
   event.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
+      // Prefer a client already on the same origin
       for (const client of clientList) {
-        if ("focus" in client) {
-          client.navigate(url);
-          return client.focus();
+        if (client.url.startsWith(self.location.origin) && "focus" in client) {
+          return client.navigate(absoluteUrl).then(() => client.focus());
         }
       }
-      if (self.clients.openWindow) {
-        return self.clients.openWindow(url);
-      }
+      return self.clients.openWindow(absoluteUrl);
     }),
   );
 });

@@ -59,12 +59,12 @@ export function DynamicTrendingRoutes() {
                 the next line (card grows taller). Within each name,
                 break-words lets a single long word break instead of
                 overflowing the card. */}
-            <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
-              <span className="max-w-full text-3xl font-black leading-tight tracking-tight text-gray-900 break-words">
+            <div className="flex flex-wrap items-center justify-start gap-x-3 gap-y-1">
+              <span className="max-w-full text-2xl lg:text-3xl font-black leading-tight tracking-tight text-gray-900 break-words">
                 {route.from}
               </span>
               <ArrowRight className="h-7 w-7 shrink-0 text-primary" strokeWidth={3} />
-              <span className="trending-to-text max-w-full text-3xl font-black leading-tight tracking-tight break-words text-gradient-primary">
+              <span className="trending-to-text max-w-full text-2xl lg:text-3xl font-black leading-tight tracking-tight break-words text-gradient-primary">
                 {route.to}
               </span>
             </div>
