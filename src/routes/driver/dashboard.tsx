@@ -674,14 +674,6 @@ function DriverDashboardPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search.module]);
 
-  // Auto-open trip panel when navigated from a notification (?trip=<id>).
-  useEffect(() => {
-    if (search.trip && trips.length > 0 && !managingTripId) {
-      setManagingTripId(search.trip);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search.trip, trips.length]);
-
   const [onboardingSubmitting, setOnboardingSubmitting] = useState(false);
   const [regFileList, setRegFileList] = useState<UploadFile[]>([]);
   const [insFileList, setInsFileList] = useState<UploadFile[]>([]);
@@ -712,6 +704,14 @@ function DriverDashboardPage() {
     queryFn: () => (user ? listHostTrips(user.$id) : Promise.resolve([])),
     enabled: !!user,
   });
+
+  // Auto-open trip panel when navigated from a notification (?trip=<id>).
+  useEffect(() => {
+    if (search.trip && trips.length > 0 && !managingTripId) {
+      setManagingTripId(search.trip);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search.trip, trips.length]);
 
   // Ride preferences
   const { data: savedPrefs } = useQuery({
