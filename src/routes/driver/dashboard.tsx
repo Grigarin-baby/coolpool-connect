@@ -2607,27 +2607,19 @@ function DriverDashboardPage() {
                           {sortedTrips.slice(0, 5).map((item) => (
                             <div
                               key={item.id}
-                              className="bg-white/80 rounded-2xl border border-white shadow-soft p-5 hover:shadow-card transition-all duration-300 group"
+                              className="bg-white/80 rounded-2xl border border-white shadow-soft p-5 hover:shadow-card transition-all duration-300 group overflow-hidden"
                             >
-                              <div className="flex items-center justify-between mb-4">
-                                <Tag
-                                  color="purple"
-                                  className="rounded-full border-none px-3 py-1 font-semibold text-xs m-0"
-                                >
-                                  {dayjs(item.departureAt).format("MMM D, YYYY • h:mm A")}
-                                </Tag>
-                                {item.status === "scheduled" &&
-                                  now.isAfter(dayjs(item.departureAt)) && (
-                                    <Tag
-                                      color="error"
-                                      className="rounded-full px-3 py-1 font-semibold text-xs m-0 ml-2"
-                                    >
-                                      TIME IS UP — START NOW
-                                    </Tag>
-                                  )}
-                                <div className="flex items-center gap-2">
-                                  <Text strong className="text-lg text-emerald-600">
-                                    ₹{item.totalPrice}
+                              <div className="flex flex-col gap-1.5 mb-4">
+                                <div className="flex items-center justify-between gap-2">
+                                  <Tag
+                                    color="purple"
+                                    className="rounded-full border-none px-3 py-1 font-semibold text-xs m-0 shrink-0"
+                                  >
+                                    {dayjs(item.departureAt).format("MMM D, YYYY • h:mm A")}
+                                  </Tag>
+                                  <div className="flex items-center gap-2 shrink-0">
+                                    <Text strong className="text-lg text-emerald-600">
+                                      ₹{item.totalPrice}
                                   </Text>
                                   <Dropdown
                                     menu={{
@@ -2720,7 +2712,17 @@ function DriverDashboardPage() {
                                       className="text-gray-400 hover:text-gray-700"
                                     />
                                   </Dropdown>
+                                  </div>
                                 </div>
+                                {item.status === "scheduled" &&
+                                  now.isAfter(dayjs(item.departureAt)) && (
+                                    <Tag
+                                      color="error"
+                                      className="rounded-full px-3 py-1 font-semibold text-xs m-0 self-start"
+                                    >
+                                      TIME IS UP — START NOW
+                                    </Tag>
+                                  )}
                               </div>
 
                               <div className="flex items-stretch gap-4">
@@ -4673,11 +4675,11 @@ function DriverDashboardPage() {
             </button>
 
             <button
-              className={`flex flex-col items-center justify-center w-full h-full space-y-1 transition-colors ${activeModule === "settings" ? "text-primary" : "text-gray-400"}`}
-              onClick={() => setActiveModule("settings")}
+              className={`flex flex-col items-center justify-center w-full h-full space-y-1 transition-colors ${activeModule === "payouts" ? "text-primary" : "text-gray-400"}`}
+              onClick={() => setActiveModule("payouts")}
             >
-              <Car size={20} />
-              <span className="text-[10px] font-semibold">Fleet</span>
+              <Wallet size={20} />
+              <span className="text-[10px] font-semibold">Payouts</span>
             </button>
           </div>
         </div>

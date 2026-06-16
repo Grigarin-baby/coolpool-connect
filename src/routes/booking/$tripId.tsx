@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { ArrowLeft, Loader2 } from "lucide-react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { ArrowLeft, Loader2, CreditCard } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { SiteHeader } from "@/components/SiteHeader";
 import { SiteFooter } from "@/components/SiteFooter";
 import { SeatMap } from "@/components/SeatMap";
@@ -9,9 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Banknote } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import {
   createBookingWithSeatReservations,
@@ -24,6 +22,10 @@ import {
   listTravelerBookings,
 } from "@/data/appwrite-repository";
 import { account } from "@/integrations/appwrite/client";
+import {
+  createRazorpayOrder,
+  verifyRazorpayPayment,
+} from "@/integrations/razorpay/payment";
 import { formatCurrency } from "@/lib/pricing";
 import { getSegmentPrice } from "@/lib/segment-pricing";
 import { estimateSegmentTimes } from "@/lib/segment-times";
@@ -78,6 +80,17 @@ function BookingTripPage() {
   ]);
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [callConsentGiven, setCallConsentGiven] = useState(false);
+  const [paymentPending, setPaymentPending] = useState(false);
+
+  // Load Razorpay checkout script once on mount
+  useEffect(() => {
+    if (document.getElementById("razorpay-checkout-js")) return;
+    const script = document.createElement("script");
+    script.id = "razorpay-checkout-js";
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.async = true;
+    document.body.appendChild(script);
+  }, []);
 
   // Keep passengers array length in sync with number of selected seats (at least 1 row)
   useEffect(() => {
@@ -257,73 +270,137 @@ function BookingTripPage() {
     );
   }, [tripQuery.data, sortedStops, segment.fromStopIndex, segment.toStopIndex]);
 
-  const bookingMutation = useMutation({
-    mutationFn: async () => {
-      if (!user || !tripQuery.data) throw new Error("Not signed in.");
-      const codes = [...selected];
-      if (codes.length === 0) throw new Error("Select at least one seat.");
+  const buildBookingPayload = () => {
+    if (!user || !tripQuery.data) throw new Error("Not signed in.");
+    const codes = [...selected];
+    if (codes.length === 0) throw new Error("Select at least one seat.");
 
-      const trimmed = passengers.slice(0, codes.length).map((p) => ({
-        name: p.name.trim(),
-        phone: p.phone.trim(),
-        gender: p.gender,
-      }));
-      if (trimmed.some((p) => !p.name || !p.phone || !p.gender)) {
-        throw new Error("Enter name, phone, and gender for every passenger.");
+    const trimmed = passengers.slice(0, codes.length).map((p) => ({
+      name: p.name.trim(),
+      phone: p.phone.trim(),
+      gender: p.gender,
+    }));
+    if (trimmed.some((p) => !p.name || !p.phone || !p.gender)) {
+      throw new Error("Enter name, phone, and gender for every passenger.");
+    }
+
+    const primaryPhone = trimmed[0].phone;
+    return { codes, trimmed, primaryPhone };
+  };
+
+  const confirmBooking = async (razorpayPaymentId?: string) => {
+    if (!user || !tripQuery.data) throw new Error("Not signed in.");
+    const { codes, trimmed, primaryPhone } = buildBookingPayload();
+
+    if (!user.prefs?.defaultPhone || user.prefs.defaultPhone !== primaryPhone) {
+      try {
+        await account.updatePrefs({ ...(user.prefs || {}), defaultPhone: primaryPhone });
+      } catch (e) {
+        console.error("Failed to update user prefs", e);
+      }
+    }
+
+    const joinedName = trimmed
+      .map((p, i) => {
+        const label = seatLabelByCode[codes[i]] ?? codes[i];
+        return `Seat ${label}: ${p.name}`;
+      })
+      .join(" | ");
+    const joinedPhone = trimmed.map((p) => p.phone).join(" | ");
+    const structuredPassengers = trimmed.map((passenger, index) => ({
+      seatCode: codes[index],
+      name: passenger.name,
+      phone: passenger.phone,
+      gender: passenger.gender as PassengerGender,
+    }));
+
+    return createBookingWithSeatReservations({
+      tripId: tripQuery.data.id,
+      travelerId: user.$id,
+      hostId: tripQuery.data.hostId,
+      fromStopIndex: segment.fromStopIndex,
+      toStopIndex: segment.toStopIndex,
+      seatsBooked: codes.length,
+      segmentPrice: Math.round(pricePerSeat * codes.length * 100) / 100,
+      passengerName: joinedName,
+      passengerPhone: joinedPhone,
+      passengers: structuredPassengers,
+      status: "confirmed",
+      seatCodes: codes,
+      paymentMethod: "pay_online" as const,
+      paymentReference: razorpayPaymentId ?? null,
+    });
+  };
+
+  const handlePayOnline = async () => {
+    try {
+      buildBookingPayload(); // validate form before opening modal
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Please fill all details.");
+      return;
+    }
+
+    setPaymentPending(true);
+    try {
+      const amountPaise = Math.round(totalAmount * 100);
+      const order = await createRazorpayOrder({ data: { amountPaise, receipt: `coolpool_${Date.now()}` } });
+
+      const keyId = import.meta.env.VITE_RAZORPAY_KEY_ID as string;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const Razorpay = (window as any).Razorpay;
+      if (!Razorpay) {
+        toast.error("Payment gateway failed to load. Please refresh and try again.");
+        return;
       }
 
-      const primaryPhone = trimmed[0].phone;
-      // Save first passenger's phone to preferences if new
-      if (!user.prefs?.defaultPhone || user.prefs.defaultPhone !== primaryPhone) {
-        try {
-          await account.updatePrefs({ ...(user.prefs || {}), defaultPhone: primaryPhone });
-        } catch (e) {
-          console.error("Failed to update user prefs", e);
-        }
-      }
-
-      const joinedName = trimmed
-        .map((p, i) => {
-          const label = seatLabelByCode[codes[i]] ?? codes[i];
-          return `Seat ${label}: ${p.name}`;
-        })
-        .join(" | ");
-      const joinedPhone = trimmed.map((p) => p.phone).join(" | ");
-      const structuredPassengers = trimmed.map((passenger, index) => ({
-        seatCode: codes[index],
-        name: passenger.name,
-        phone: passenger.phone,
-        gender: passenger.gender as PassengerGender,
-      }));
-
-      return createBookingWithSeatReservations({
-        tripId: tripQuery.data.id,
-        travelerId: user.$id,
-        hostId: tripQuery.data.hostId,
-        fromStopIndex: segment.fromStopIndex,
-        toStopIndex: segment.toStopIndex,
-        seatsBooked: codes.length,
-        segmentPrice: Math.round(pricePerSeat * codes.length * 100) / 100,
-        passengerName: joinedName,
-        passengerPhone: joinedPhone,
-        passengers: structuredPassengers,
-        status: "confirmed",
-        seatCodes: codes,
+      const rzp = new Razorpay({
+        key: keyId,
+        amount: order.amount,
+        currency: order.currency,
+        order_id: order.order_id,
+        name: "Coolpool",
+        description: `Booking: ${segment.fromLabel} → ${segment.toLabel}`,
+        prefill: {
+          contact: user?.phone ?? "",
+        },
+        theme: { color: "#7C3AED" },
+        handler: async (response: {
+          razorpay_payment_id: string;
+          razorpay_order_id: string;
+          razorpay_signature: string;
+        }) => {
+          try {
+            await verifyRazorpayPayment({ data: response });
+            const booking = await confirmBooking(response.razorpay_payment_id);
+            toast.success("Payment successful! Booking confirmed.");
+            await queryClient.invalidateQueries({ queryKey: ["trip-seat-reservations", tripId] });
+            await queryClient.invalidateQueries({ queryKey: ["traveler-bookings"] });
+            navigate({ to: "/trips", search: { booking: booking.id } as any });
+          } catch (e) {
+            toast.error(e instanceof Error ? e.message : "Payment verification failed.");
+          } finally {
+            setPaymentPending(false);
+          }
+        },
+        modal: {
+          ondismiss: () => {
+            toast.info("Payment cancelled.");
+            setPaymentPending(false);
+          },
+        },
       });
-    },
-    onSuccess: async (booking) => {
-      toast.success("Booking confirmed.");
-      await queryClient.invalidateQueries({ queryKey: ["trip-seat-reservations", tripId] });
-      await queryClient.invalidateQueries({ queryKey: ["traveler-bookings"] });
-      navigate({
-        to: "/trips",
-        search: { booking: booking.id } as any,
+
+      rzp.on("payment.failed", (response: { error: { description: string } }) => {
+        toast.error(response.error?.description ?? "Payment failed. Please try again.");
+        setPaymentPending(false);
       });
-    },
-    onError: (e) => {
-      toast.error(e instanceof Error ? e.message : "Booking failed.");
-    },
-  });
+
+      rzp.open();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not initiate payment.");
+      setPaymentPending(false);
+    }
+  };
 
   useEffect(() => {
     if (authLoading) return;
@@ -525,7 +602,7 @@ function BookingTripPage() {
                   onTogglePassengerSeat={toggleSeat}
                   maxSelectable={remainingTripSeats}
                   seatConfig={trip.seatConfig}
-                  disabled={bookingMutation.isPending || reservationsQuery.isPending}
+                  disabled={paymentPending || reservationsQuery.isPending}
                 />
               </Card>
 
@@ -639,18 +716,10 @@ function BookingTripPage() {
                 <h2 className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-3">
                   Payment
                 </h2>
-                <RadioGroup defaultValue="pay_on_car">
-                  <div className="flex items-center gap-3 rounded-2xl border border-border/60 px-3 py-2.5 bg-card/50 cursor-pointer">
-                    <RadioGroupItem value="pay_on_car" id="pay_on_car" />
-                    <Label
-                      htmlFor="pay_on_car"
-                      className="flex items-center gap-2 cursor-pointer w-full text-sm font-semibold"
-                    >
-                      <Banknote className="h-4 w-4 text-primary" />
-                      Pay on car
-                    </Label>
-                  </div>
-                </RadioGroup>
+                <div className="flex items-center gap-3 rounded-2xl border border-primary/40 px-3 py-2.5 bg-primary/5">
+                  <CreditCard className="h-4 w-4 text-primary" />
+                  <span className="text-sm font-semibold">Pay online via Razorpay</span>
+                </div>
               </div>
 
               <div className="pt-3 border-t border-border/60 space-y-2">
@@ -714,22 +783,22 @@ function BookingTripPage() {
                 className="w-full rounded-2xl h-12 text-base"
                 style={{ color: "#fff" }}
                 disabled={
-                  bookingMutation.isPending ||
+                  paymentPending ||
                   selected.size === 0 ||
                   remainingTripSeats === 0 ||
                   !termsAccepted ||
                   !callConsentGiven ||
                   !passengerDetailsComplete
                 }
-                onClick={() => bookingMutation.mutate()}
+                onClick={() => void handlePayOnline()}
               >
-                {bookingMutation.isPending ? (
+                {paymentPending ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                    Confirming…
+                    Processing payment…
                   </>
                 ) : (
-                  `Confirm booking${selected.size > 0 ? ` • ${formatCurrency(totalAmount)}` : ""}`
+                  `Pay & book${selected.size > 0 ? ` • ${formatCurrency(totalAmount)}` : ""}`
                 )}
               </Button>
             </Card>

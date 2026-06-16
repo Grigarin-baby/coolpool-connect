@@ -258,6 +258,8 @@ export interface CreateBookingInput {
   passengerPhone: string;
   passengers?: BookingPassenger[];
   status?: BookingStatus;
+  paymentMethod?: "pay_on_car" | "pay_online";
+  paymentReference?: string | null;
 }
 
 export interface CreateDriverProfileInput {
@@ -492,6 +494,8 @@ export async function createBooking(
     verified: false,
   };
   if (input.passengers) payload.passengers_json = JSON.stringify(input.passengers);
+  if (input.paymentMethod) payload.payment_method = input.paymentMethod;
+  if (input.paymentReference) payload.payment_reference = input.paymentReference;
 
   let doc;
   try {
