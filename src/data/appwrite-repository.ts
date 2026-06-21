@@ -22,6 +22,7 @@ import type {
   StopType,
   Trip,
   TripSeatReservation,
+  TripShare,
   TripStatus,
   TripStop,
   VerificationStatus,
@@ -423,6 +424,101 @@ export async function updateTripLocation(
     current_lat: lat,
     current_lng: lng,
     location_updated_at: new Date().toISOString(),
+  });
+}
+
+// --- Trip share / "Track Ride" public links ---------------------------------
+
+function toTripShare(doc: any): TripShare {
+  return {
+    id: doc.$id,
+    token: String(doc.token),
+    tripId: String(doc.trip_id),
+    role: doc.role === "guest" ? "guest" : "host",
+    bookingId: doc.booking_id ? String(doc.booking_id) : undefined,
+    expiresAt: doc.expires_at ? String(doc.expires_at) : undefined,
+    revoked: Boolean(doc.revoked),
+  };
+}
+
+/** True when the trip_shares collection is configured for this environment. */
+export function isTripShareEnabled(): boolean {
+  return Boolean(ids().tripShares);
+}
+
+function randomShareToken(): string {
+  // URL-safe, unguessable token. crypto when available, ID.unique() as fallback.
+  const cryptoObj = globalThis.crypto;
+  if (cryptoObj?.getRandomValues) {
+    const bytes = new Uint8Array(16);
+    cryptoObj.getRandomValues(bytes);
+    return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+  }
+  return `${ID.unique()}${ID.unique()}`;
+}
+
+/**
+ * Mint a public "track this ride" link for a trip. Reuses an existing active
+ * share for the same trip+booking when one is present so we don't pile up
+ * tokens. Returns null when the trip_shares collection isn't set up yet.
+ */
+export async function createTripShare(input: {
+  tripId: string;
+  bookingId?: string;
+  role?: "host" | "guest";
+  /** ISO string; defaults to 12h from now. */
+  expiresAt?: string;
+}): Promise<TripShare | null> {
+  const c = ids();
+  if (!c.tripShares) return null;
+
+  // Reuse an existing, non-revoked share for this trip/booking if any.
+  try {
+    const filters = [Query.equal("trip_id", input.tripId), Query.limit(1)];
+    if (input.bookingId) filters.splice(1, 0, Query.equal("booking_id", input.bookingId));
+    const existing = await databases.listDocuments(appwriteConfig.databaseId, c.tripShares, filters);
+    const reusable = existing.documents.find((d) => !d.revoked);
+    if (reusable) return toTripShare(reusable);
+  } catch {
+    // Listing failed (e.g. missing index) — fall through and create a new one.
+  }
+
+  const expiresAt =
+    input.expiresAt ?? new Date(Date.now() + 12 * 60 * 60 * 1000).toISOString();
+  const doc = await databases.createDocument(
+    appwriteConfig.databaseId,
+    c.tripShares,
+    ID.unique(),
+    {
+      token: randomShareToken(),
+      trip_id: input.tripId,
+      role: input.role ?? "host",
+      booking_id: input.bookingId ?? null,
+      expires_at: expiresAt,
+      revoked: false,
+    },
+    // Anyone can read (the public track page); only the creator can mutate.
+    [Permission.read(Role.any())],
+  );
+  return toTripShare(doc);
+}
+
+export async function getTripShareByToken(token: string): Promise<TripShare | null> {
+  const c = ids();
+  if (!c.tripShares) return null;
+  const result = await databases.listDocuments(appwriteConfig.databaseId, c.tripShares, [
+    Query.equal("token", token),
+    Query.limit(1),
+  ]);
+  const doc = result.documents[0];
+  return doc ? toTripShare(doc) : null;
+}
+
+export async function revokeTripShare(shareId: string): Promise<void> {
+  const c = ids();
+  if (!c.tripShares) return;
+  await databases.updateDocument(appwriteConfig.databaseId, c.tripShares, shareId, {
+    revoked: true,
   });
 }
 

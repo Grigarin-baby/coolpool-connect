@@ -12,16 +12,25 @@ import {
   MapPin,
   MessageSquareText,
   ShieldCheck,
+  Share2,
   Star,
   Users,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
+import { toast } from "sonner";
 import { SiteHeader } from "@/components/SiteHeader";
 import { SiteFooter } from "@/components/SiteFooter";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { HostAvatar } from "@/components/HostAvatar";
 import { RidePrefChips } from "@/components/RidePrefChips";
 import { useAuth } from "@/hooks/useAuth";
@@ -37,6 +46,7 @@ import {
 } from "@/data/appwrite-repository";
 import { appwriteConfig } from "@/integrations/appwrite/client";
 import { formatCurrency } from "@/lib/pricing";
+import { shareTrip, getTripShareUrl } from "@/lib/share-trip";
 import { getSegmentPrice } from "@/lib/segment-pricing";
 
 dayjs.extend(relativeTime);
@@ -85,6 +95,9 @@ function RideInfoPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [carImageIdx, setCarImageIdx] = useState(0);
+  // Rider-selected segment for shared links with no preset segment (multi-stop trips).
+  const [pickedFromIndex, setPickedFromIndex] = useState<number | null>(null);
+  const [pickedToIndex, setPickedToIndex] = useState<number | null>(null);
 
   const tripQuery = useQuery({
     queryKey: ["trip", tripId],
@@ -179,19 +192,39 @@ function RideInfoPage() {
   const seatsLeft = Math.max(0, trip.totalSeats - (reservationsQuery.data?.length ?? 0));
   const carImages = vehicle?.carImages ?? [];
   const departure = dayjs(trip.departureAt);
-  const fromLabel = segmentSearch.fromLabel ?? trip.fromLocation;
-  const toLabel = segmentSearch.toLabel ?? trip.toLocation;
   const firstStopIndex = sortedStops[0]?.stopIndex ?? 0;
   const lastStopIndex = sortedStops.at(-1)?.stopIndex ?? firstStopIndex;
-  const fromStopIndex = segmentSearch.fromStopIndex ?? firstStopIndex;
-  const toStopIndex = segmentSearch.toStopIndex ?? lastStopIndex;
-  const displayPrice =
-    segmentSearch.segmentPrice ??
-    (sortedStops.length >= 2
+  // A link carries a preset segment when it came from search (has stop indices).
+  const hasPresetSegment =
+    segmentSearch.fromStopIndex !== undefined && segmentSearch.toStopIndex !== undefined;
+  // Show the rider a stop picker only on a plain shared link for a multi-stop trip.
+  const showStopPicker = !hasPresetSegment && sortedStops.length > 2;
+  const stopLabelByIndex = (idx: number) =>
+    sortedStops.find((s) => s.stopIndex === idx)?.location;
+
+  const fromStopIndex = hasPresetSegment
+    ? segmentSearch.fromStopIndex!
+    : (pickedFromIndex ?? firstStopIndex);
+  const toStopIndex = hasPresetSegment
+    ? segmentSearch.toStopIndex!
+    : (pickedToIndex ?? lastStopIndex);
+
+  const fromLabel = hasPresetSegment
+    ? (segmentSearch.fromLabel ?? trip.fromLocation)
+    : (stopLabelByIndex(fromStopIndex) ?? trip.fromLocation);
+  const toLabel = hasPresetSegment
+    ? (segmentSearch.toLabel ?? trip.toLocation)
+    : (stopLabelByIndex(toStopIndex) ?? trip.toLocation);
+
+  const computedSegmentPrice =
+    sortedStops.length >= 2
       ? getSegmentPrice(trip, sortedStops, fromStopIndex, toStopIndex)
       : trip.totalSeats > 0
         ? trip.totalPrice / trip.totalSeats
-        : 0);
+        : 0;
+  const displayPrice = hasPresetSegment
+    ? (segmentSearch.segmentPrice ?? computedSegmentPrice)
+    : computedSegmentPrice;
   const bookingSearchParams = {
     fromStopIndex,
     toStopIndex,
@@ -219,15 +252,34 @@ function RideInfoPage() {
       <SiteHeader />
 
       <main className="mx-auto w-full max-w-2xl flex-1 space-y-4 px-4 pb-32 pt-28 sm:pt-32">
-        <button
-          onClick={() =>
-            window.history.length > 1 ? window.history.back() : navigate({ to: "/" })
-          }
-          className="inline-flex items-center gap-1.5 text-sm font-bold text-gray-500 transition-colors hover:text-primary"
-        >
-          <ArrowLeft size={16} />
-          Back
-        </button>
+        <div className="flex items-center justify-between">
+          <button
+            onClick={() =>
+              window.history.length > 1 ? window.history.back() : navigate({ to: "/" })
+            }
+            className="inline-flex items-center gap-1.5 text-sm font-bold text-gray-500 transition-colors hover:text-primary"
+          >
+            <ArrowLeft size={16} />
+            Back
+          </button>
+          <button
+            onClick={async () => {
+              const result = await shareTrip(trip);
+              if (result === "copied") {
+                toast.success("Trip link copied to clipboard!");
+              } else if (result === "failed") {
+                toast.info("Copy this link to share", {
+                  description: getTripShareUrl(trip.id),
+                  duration: 8000,
+                });
+              }
+            }}
+            className="inline-flex items-center gap-1.5 text-sm font-bold text-gray-500 transition-colors hover:text-primary"
+          >
+            <Share2 size={16} />
+            Share
+          </button>
+        </div>
 
         <section className="relative overflow-hidden rounded-[2rem] border border-white bg-gradient-to-br from-fuchsia-50 via-white to-violet-50 px-5 py-7 text-center shadow-sm">
           <div className="absolute -right-12 -top-12 h-40 w-40 rounded-full bg-primary/10 blur-3xl" />
@@ -319,6 +371,63 @@ function RideInfoPage() {
               </span>
             )}
           </div>
+
+          {showStopPicker && (
+            <div className="mt-4 grid grid-cols-1 gap-3 border-t border-gray-100 pt-4 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                  Board at
+                </label>
+                <Select
+                  value={String(fromStopIndex)}
+                  onValueChange={(val) => {
+                    const next = Number(val);
+                    setPickedFromIndex(next);
+                    // Keep drop-off after the new boarding point.
+                    if (toStopIndex <= next) {
+                      const after = sortedStops.find((s) => s.stopIndex > next);
+                      setPickedToIndex(after?.stopIndex ?? lastStopIndex);
+                    }
+                  }}
+                >
+                  <SelectTrigger className="rounded-2xl">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {sortedStops
+                      .filter((s) => s.stopIndex < lastStopIndex)
+                      .map((s) => (
+                        <SelectItem key={s.stopIndex} value={String(s.stopIndex)}>
+                          {s.location}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                  Get off at
+                </label>
+                <Select
+                  value={String(toStopIndex)}
+                  onValueChange={(val) => setPickedToIndex(Number(val))}
+                >
+                  <SelectTrigger className="rounded-2xl">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {sortedStops
+                      .filter((s) => s.stopIndex > fromStopIndex)
+                      .map((s) => (
+                        <SelectItem key={s.stopIndex} value={String(s.stopIndex)}>
+                          {s.location}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          )}
         </Card>
 
         <Card className="overflow-hidden rounded-3xl border-gray-100 bg-white shadow-sm">

@@ -92,6 +92,16 @@ export interface Booking {
   verified?: boolean;
 }
 
+export interface TripShare {
+  id: string;
+  token: string;
+  tripId: string;
+  role: "host" | "guest";
+  bookingId?: string;
+  expiresAt?: string;
+  revoked: boolean;
+}
+
 export interface BookingPassenger {
   seatCode: string;
   name: string;
