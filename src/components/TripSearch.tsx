@@ -68,7 +68,7 @@ import {
   listDriverProfilesByUserIds,
 } from "@/data/appwrite-repository";
 import type { DriverProfile, RidePreferences, TripStop } from "@/lib/domain";
-import { routeCitySegmentsMatch, stripCountrySuffix } from "@/lib/geo";
+import { haversineKm, routeCitySegmentsMatch, stripCountrySuffix } from "@/lib/geo";
 import { formatCurrency } from "@/lib/pricing";
 import { getSegmentPrice } from "@/lib/segment-pricing";
 import { estimateSegmentTimes, type SegmentTimes } from "@/lib/segment-times";
@@ -112,10 +112,25 @@ export interface MatchedSegment {
 
 type SearchResult = TripRow & { matchedSegment: MatchedSegment };
 
+const NEARBY_THRESHOLD_KM = 40;
+
+type NearbyResult = TripRow & {
+  nearbySegment: {
+    fromStop: TripStop;
+    toStop: TripStop;
+    fromDevKm: number;
+    toDevKm: number;
+    price: number;
+    times: SegmentTimes;
+  };
+};
+
 interface TripSearchContextValue {
   loading: boolean;
   searched: boolean;
   results: SearchResult[];
+  nearbyResults: NearbyResult[];
+  closestResults: NearbyResult[];
   allScheduledTrips: TripRow[];
   fromOptions: { value: string; label: string }[];
   toOptions: { value: string; label: string }[];
@@ -207,6 +222,45 @@ function findMatchedSegment(
   return null;
 }
 
+/** Finds the closest pickup/drop-off pair to the given coordinates along a
+ *  trip's route. Used as a fallback when no exact text match is found. */
+function findNearbySegment(
+  route: TripStop[],
+  fromCoords: { lat: number; lng: number },
+  toCoords: { lat: number; lng: number },
+): { fromStop: TripStop; toStop: TripStop; fromDevKm: number; toDevKm: number } | null {
+  const sorted = [...route].sort((a, b) => a.stopIndex - b.stopIndex);
+  if (sorted.length < 2) return null;
+
+  let bestFrom: TripStop | null = null;
+  let bestFromDev = Infinity;
+  for (const stop of sorted) {
+    if (stop.stopType === "drop") continue;
+    const dev = haversineKm({ lat: stop.lat, lng: stop.lng }, fromCoords);
+    if (dev < bestFromDev) {
+      bestFromDev = dev;
+      bestFrom = stop;
+    }
+  }
+  if (!bestFrom) return null;
+
+  const fromStop = bestFrom;
+  let bestTo: TripStop | null = null;
+  let bestToDev = Infinity;
+  for (const stop of sorted) {
+    if (stop.stopType === "pickup") continue;
+    if (stop.stopIndex <= fromStop.stopIndex) continue;
+    const dev = haversineKm({ lat: stop.lat, lng: stop.lng }, toCoords);
+    if (dev < bestToDev) {
+      bestToDev = dev;
+      bestTo = stop;
+    }
+  }
+  if (!bestTo) return null;
+
+  return { fromStop, toStop: bestTo, fromDevKm: bestFromDev, toDevKm: bestToDev };
+}
+
 const SOUTH_INDIA_STATES = [
   "karnataka",
   "kerala",
@@ -281,6 +335,8 @@ function UpcomingDateButtons({
 export function TripSearchProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<SearchResult[]>([]);
+  const [nearbyResults, setNearbyResults] = useState<NearbyResult[]>([]);
+  const [closestResults, setClosestResults] = useState<NearbyResult[]>([]);
   const [allScheduledTrips, setAllScheduledTrips] = useState<TripRow[]>([]);
   const [searched, setSearched] = useState(false);
   const [fromOptions, setFromOptions] = useState<{ value: string; label: string }[]>([]);
@@ -431,7 +487,6 @@ export function TripSearchProvider({ children }: { children: ReactNode }) {
     try {
       const allTrips = await listTrips(200);
 
-      // Store all scheduled+future trips for the "All available rides" section
       setAllScheduledTrips(
         allTrips
           .filter((t) => t.status === "scheduled" && dayjs(t.departureAt).isAfter(dayjs()))
@@ -449,13 +504,68 @@ export function TripSearchProvider({ children }: { children: ReactNode }) {
         // If stops can't be loaded, fall back to matching main endpoints only.
       }
 
+      // Geocode both locations: validate South India AND extract coordinates for nearby search.
+      let fromCoords: { lat: number; lng: number } | null = null;
+      let toCoords: { lat: number; lng: number } | null = null;
+
+      if ((window as any).google && (window as any).google.maps) {
+        const geocoder = new (window as any).google.maps.Geocoder();
+        const geocodeLocation = (
+          address: string,
+        ): Promise<{ valid: boolean; coords: { lat: number; lng: number } | null }> => {
+          return new Promise((resolve) => {
+            let settled = false;
+            const settle = (v: { valid: boolean; coords: { lat: number; lng: number } | null }) => {
+              if (settled) return;
+              settled = true;
+              resolve(v);
+            };
+            // Fall back after 5 s if the geocoder stalls (bad/expired API key, network issue).
+            const timeoutId = setTimeout(() => settle({ valid: true, coords: null }), 5000);
+            geocoder.geocode({ address }, (geoResults: any, status: any) => {
+              clearTimeout(timeoutId);
+              if (status === "OK" && geoResults?.[0]) {
+                let state = "";
+                for (const component of geoResults[0].address_components) {
+                  if (component.types.includes("administrative_area_level_1")) {
+                    state = component.long_name.toLowerCase();
+                  }
+                }
+                const valid = SOUTH_INDIA_STATES.some((s) => state.includes(s));
+                const loc = geoResults[0].geometry?.location;
+                settle({ valid, coords: loc ? { lat: loc.lat(), lng: loc.lng() } : null });
+              } else {
+                settle({ valid: true, coords: null });
+              }
+            });
+          });
+        };
+
+        const [fromGeo, toGeo] = await Promise.all([
+          geocodeLocation(values.from),
+          geocodeLocation(values.to),
+        ]);
+
+        if (!fromGeo.valid || !toGeo.valid) {
+          import("sonner").then((m) =>
+            m.toast.error("We currently only operate in South India and Goa."),
+          );
+          return;
+        }
+
+        fromCoords = fromGeo.coords;
+        toCoords = toGeo.coords;
+      }
+
+      const activeFilter = (trip: TripRow) =>
+        (trip.status === "scheduled" || trip.status === "in_progress") &&
+        (trip.status === "in_progress" || dayjs(trip.departureAt).isAfter(dayjs()));
+      const dateFilter = (trip: TripRow) =>
+        !searchDate || dayjs(trip.departureAt).isSame(searchDate, "day");
+
       const filtered = allTrips
-        .filter((trip) => trip.status === "scheduled" || trip.status === "in_progress")
-        .filter((trip) => trip.status === "in_progress" || dayjs(trip.departureAt).isAfter(dayjs()))
-        .filter((trip) => {
-          if (!searchDate) return true;
-          return dayjs(trip.departureAt).isSame(searchDate, "day");
-        })
+        .filter(activeFilter)
+        .filter(dateFilter)
         .map((trip): SearchResult | null => {
           const route = stopsByTrip.get(trip.id);
           const fullRoute = route && route.length >= 2 ? route : fallbackStops(trip);
@@ -468,70 +578,63 @@ export function TripSearchProvider({ children }: { children: ReactNode }) {
               toStopIndex: segment.toStop.stopIndex,
               fromLabel: segment.fromStop.location,
               toLabel: segment.toStop.location,
-              price: getSegmentPrice(
-                trip,
-                fullRoute,
-                segment.fromStop.stopIndex,
-                segment.toStop.stopIndex,
-              ),
-              times: estimateSegmentTimes(
-                trip,
-                fullRoute,
-                segment.fromStop.stopIndex,
-                segment.toStop.stopIndex,
-              ),
+              price: getSegmentPrice(trip, fullRoute, segment.fromStop.stopIndex, segment.toStop.stopIndex),
+              times: estimateSegmentTimes(trip, fullRoute, segment.fromStop.stopIndex, segment.toStop.stopIndex),
             },
           };
         })
         .filter((trip): trip is SearchResult => trip !== null)
         .sort((a, b) => new Date(a.departureAt).getTime() - new Date(b.departureAt).getTime());
 
-      setResults(filtered);
+      // Nearby computation — only runs when exact search returned nothing and we have coordinates.
+      let nearbyArr: NearbyResult[] = [];
+      let closestArr: NearbyResult[] = [];
 
-      // Validate South India via Geocoder
-      if ((window as any).google && (window as any).google.maps) {
-        const geocoder = new (window as any).google.maps.Geocoder();
-        const validateLocation = async (address: string) => {
-          return new Promise<boolean>((resolve) => {
-            let settled = false;
-            const settle = (value: boolean) => {
-              if (settled) return;
-              settled = true;
-              resolve(value);
-            };
-            // Geocoder callback can hang indefinitely if the Maps API key is
-            // invalid/expired or the request is blocked, so fall back after a
-            // short timeout instead of leaving the search stuck on "Searching…".
-            const timeoutId = setTimeout(() => settle(true), 5000);
-            geocoder.geocode({ address }, (results: any, status: any) => {
-              clearTimeout(timeoutId);
-              if (status === "OK" && results && results[0]) {
-                let state = "";
-                for (const component of results[0].address_components) {
-                  if (component.types.includes("administrative_area_level_1")) {
-                    state = component.long_name.toLowerCase();
-                  }
-                }
-                settle(SOUTH_INDIA_STATES.some((s) => state.includes(s)));
-              } else {
-                settle(true); // Default pass if geocoding fails
-              }
-            });
+      if (filtered.length === 0 && fromCoords && toCoords) {
+        const fc = fromCoords;
+        const tc = toCoords;
+
+        const withNearby: NearbyResult[] = allTrips
+          .filter(activeFilter)
+          .filter(dateFilter)
+          .flatMap((trip) => {
+            const route = stopsByTrip.get(trip.id);
+            const fullRoute = route && route.length >= 2 ? route : fallbackStops(trip);
+            const seg = findNearbySegment(fullRoute, fc, tc);
+            if (!seg) return [];
+            return [
+              {
+                ...trip,
+                nearbySegment: {
+                  ...seg,
+                  price: getSegmentPrice(trip, fullRoute, seg.fromStop.stopIndex, seg.toStop.stopIndex),
+                  times: estimateSegmentTimes(trip, fullRoute, seg.fromStop.stopIndex, seg.toStop.stopIndex),
+                },
+              } as NearbyResult,
+            ];
           });
-        };
 
-        const isFromValid = await validateLocation(values.from);
-        const isToValid = await validateLocation(values.to);
+        withNearby.sort(
+          (a, b) =>
+            a.nearbySegment.fromDevKm + a.nearbySegment.toDevKm -
+            (b.nearbySegment.fromDevKm + b.nearbySegment.toDevKm),
+        );
 
-        if (!isFromValid || !isToValid) {
-          import("sonner").then((m) =>
-            m.toast.error("We currently only operate in South India and Goa."),
-          );
-          setLoading(false);
-          return;
+        nearbyArr = withNearby.filter(
+          (t) =>
+            t.nearbySegment.fromDevKm <= NEARBY_THRESHOLD_KM &&
+            t.nearbySegment.toDevKm <= NEARBY_THRESHOLD_KM,
+        );
+
+        // If nothing within 40 km, surface the closest 6 trips regardless of distance.
+        if (nearbyArr.length === 0) {
+          closestArr = withNearby.slice(0, 6);
         }
       }
 
+      setResults(filtered);
+      setNearbyResults(nearbyArr);
+      setClosestResults(closestArr);
       setSearched(true);
     } catch (error) {
       message.error(error instanceof Error ? error.message : "Unable to search trips.");
@@ -550,6 +653,8 @@ export function TripSearchProvider({ children }: { children: ReactNode }) {
       loading,
       searched,
       results,
+      nearbyResults,
+      closestResults,
       allScheduledTrips,
       fromOptions,
       toOptions,
@@ -557,7 +662,7 @@ export function TripSearchProvider({ children }: { children: ReactNode }) {
       onSearch,
       summary,
     }),
-    [loading, searched, results, allScheduledTrips, fromOptions, toOptions, searchPlaces, onSearch, summary],
+    [loading, searched, results, nearbyResults, closestResults, allScheduledTrips, fromOptions, toOptions, searchPlaces, onSearch, summary],
   );
 
   return <TripSearchContext.Provider value={value}>{children}</TripSearchContext.Provider>;
@@ -1019,7 +1124,7 @@ export function TripSearchForm({ variant, id }: { variant: "landing" | "page"; i
 }
 
 export function TripSearchResults({ variant }: { variant: "landing" | "page" }) {
-  const { loading, searched, results, allScheduledTrips } = useTripSearchContext();
+  const { loading, searched, results, nearbyResults, closestResults, allScheduledTrips } = useTripSearchContext();
   const { user, isDriver } = useAuth();
   const navigate = useNavigate();
   const resultsAnchorRef = useRef<HTMLDivElement>(null);
@@ -1034,7 +1139,16 @@ export function TripSearchResults({ variant }: { variant: "landing" | "page" }) 
     }
   };
 
-  const tripIds = useMemo(() => results.map((trip) => trip.id), [results]);
+  const tripIds = useMemo(
+    () => [
+      ...new Set([
+        ...results.map((t) => t.id),
+        ...nearbyResults.map((t) => t.id),
+        ...closestResults.map((t) => t.id),
+      ]),
+    ],
+    [results, nearbyResults, closestResults],
+  );
   const { data: seatReservations } = useQuery({
     queryKey: ["trip-seat-reservations", tripIds.join(",")],
     queryFn: () => listTripSeatReservationsByTripIds(tripIds),
@@ -1046,10 +1160,15 @@ export function TripSearchResults({ variant }: { variant: "landing" | "page" }) 
   const hostIds = useMemo(
     () => [
       ...new Set(
-        [...results.map((t) => t.hostId), ...allScheduledTrips.map((t) => t.hostId)].filter(Boolean),
+        [
+          ...results.map((t) => t.hostId),
+          ...nearbyResults.map((t) => t.hostId),
+          ...closestResults.map((t) => t.hostId),
+          ...allScheduledTrips.map((t) => t.hostId),
+        ].filter(Boolean),
       ),
     ],
-    [results, allScheduledTrips],
+    [results, nearbyResults, closestResults, allScheduledTrips],
   );
 
   // IDs of trips already shown in matched results — used to exclude from "All rides"
@@ -1133,10 +1252,10 @@ export function TripSearchResults({ variant }: { variant: "landing" | "page" }) 
         </Card>
       )}
 
-      {!loading && searched && results.length === 0 && (
+      {/* Sad-cat: only when no exact results AND no nearby trips within 40 km */}
+      {!loading && searched && results.length === 0 && nearbyResults.length === 0 && (
         <Card className="rounded-3xl border border-dashed border-destructive/40 bg-destructive/5 px-6 pb-8 pt-6 md:px-10 md:pb-12 text-center overflow-hidden">
           <div className="flex flex-col items-center">
-            {/* Sad kitten peeking over the message panel */}
             <img
               src="/sad-cat.png"
               alt="Sad kitten — no rides found"
@@ -1163,6 +1282,242 @@ export function TripSearchResults({ variant }: { variant: "landing" | "page" }) 
             </div>
           </div>
         </Card>
+      )}
+
+      {/* Nearby trips (within 40 km) — replaces sad-cat */}
+      {!loading && searched && results.length === 0 && nearbyResults.length > 0 && (
+        <div className="space-y-4 w-full max-w-xl mx-auto min-w-0 pb-20">
+          <div className="px-1">
+            <h3 className="text-lg sm:text-xl font-bold tracking-tight text-gray-900">
+              Nearest trips to your route
+            </h3>
+            <p className="text-sm text-gray-500 mt-0.5">
+              No exact match — showing rides within {NEARBY_THRESHOLD_KM} km of your locations
+            </p>
+          </div>
+          <div className="space-y-2.5">
+            {nearbyResults.map((trip) => {
+              const hostProfile = hostProfileMap.get(trip.hostId);
+              const hostVehicle = hostVehiclesMap?.get(trip.hostId);
+              const hostName = trip.hostDisplayName || hostProfile?.fullName || "Verified Host";
+              const vehicleModel = trip.vehicleModel || hostVehicle?.modelName;
+              const vehicleColor = trip.vehicleColor || hostVehicle?.color;
+              const vehicleLabel = vehicleModel
+                ? [vehicleModel, vehicleColor].filter(Boolean).join(" · ")
+                : "Vehicle details pending";
+              const seg = trip.nearbySegment;
+              const departure = dayjs(seg.times.departureAt);
+              const arrival = dayjs(seg.times.arrivalAt);
+              const durationMinutes = Math.max(1, seg.times.durationMinutes);
+              const durationLabel =
+                durationMinutes >= 60
+                  ? `${Math.floor(durationMinutes / 60)}h ${durationMinutes % 60}m`
+                  : `${durationMinutes}m`;
+              const seatsLeft = Math.max(
+                0,
+                trip.totalSeats - (reservedSeatsByTripId[trip.id]?.size ?? 0),
+              );
+              const prefs = hostPrefsMap?.get(trip.hostId);
+              const fromKm = Math.round(seg.fromDevKm);
+              const toKm = Math.round(seg.toDevKm);
+              return (
+                <Link
+                  key={trip.id}
+                  to="/ride/$tripId"
+                  params={{ tripId: trip.id }}
+                  search={{
+                    fromStopIndex: seg.fromStop.stopIndex,
+                    toStopIndex: seg.toStop.stopIndex,
+                    fromLabel: seg.fromStop.location,
+                    toLabel: seg.toStop.location,
+                    segmentPrice: seg.price,
+                  }}
+                  className="block group"
+                >
+                  <Card className="rounded-2xl border border-gray-100 bg-white shadow-sm hover:shadow-md hover:border-primary transition-all duration-200 p-3 sm:p-4">
+                    <div className="mb-1.5 flex items-center gap-1.5 text-[11px] font-bold text-primary">
+                      <span className="truncate">{seg.fromStop.location.split(",")[0]}</span>
+                      <ArrowRight size={11} className="shrink-0" />
+                      <span className="truncate">{seg.toStop.location.split(",")[0]}</span>
+                    </div>
+                    {/* Distance badges */}
+                    <div className="mb-2 flex flex-wrap gap-1.5">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-green-50 border border-green-200 px-2 py-0.5 text-[10px] font-semibold text-green-700">
+                        📍 Pickup ~{fromKm} km away
+                      </span>
+                      <span className="inline-flex items-center gap-1 rounded-full bg-green-50 border border-green-200 px-2 py-0.5 text-[10px] font-semibold text-green-700">
+                        🏁 Drop ~{toKm} km away
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-x-3 gap-y-2 sm:grid-cols-[minmax(0,1.5fr)_0.7fr_1.2fr_auto] sm:items-center sm:gap-x-4 sm:gap-y-0">
+                      <div className="min-w-0 order-1 sm:order-1 flex items-center gap-2.5">
+                        <HostAvatar name={hostName} photoUrl={hostProfile?.photoUrl} size={36} />
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1">
+                            <p className="font-bold text-sm text-gray-900 truncate leading-tight">{hostName}</p>
+                            <ShieldCheck size={13} className="text-blue-500 shrink-0 hidden sm:block" />
+                          </div>
+                          <p className="mt-0.5 text-xs text-gray-500 truncate leading-tight">{vehicleLabel}</p>
+                        </div>
+                      </div>
+                      <div className="text-right order-2 sm:order-4 self-start sm:self-center">
+                        <p className="text-lg sm:text-xl font-black text-gray-900 whitespace-nowrap leading-tight">
+                          {formatCurrency(seg.price)}
+                        </p>
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 leading-tight">
+                          per seat
+                        </p>
+                      </div>
+                      <div className="order-3 sm:order-2 sm:text-center">
+                        {(trip.hostRatingCount ?? 0) > 0 ? (
+                          <div className="inline-flex items-center gap-0.5 text-sm font-bold text-gray-800">
+                            <Star size={13} className="fill-amber-400 text-amber-400" />
+                            {(trip.hostRating ?? 0).toFixed(1)}
+                            <span className="text-gray-400 font-normal"> · {trip.hostRatingCount}</span>
+                          </div>
+                        ) : (
+                          <span className="text-xs font-semibold text-gray-400">New host</span>
+                        )}
+                      </div>
+                      <div className="min-w-0 order-4 sm:order-3 text-right sm:text-left">
+                        <p className="font-black text-sm sm:text-base text-gray-900 whitespace-nowrap leading-tight">
+                          {seg.times.isEstimated && <span className="text-gray-400 font-semibold">~</span>}
+                          {departure.format("HH:mm")}
+                          <span className="text-primary mx-1">→</span>
+                          {arrival.format("HH:mm")}
+                        </p>
+                        <p className="text-[11px] sm:text-xs font-medium text-gray-400 whitespace-nowrap leading-tight">
+                          {durationLabel} · {seatsLeft} {seatsLeft === 1 ? "seat" : "seats"} left
+                        </p>
+                      </div>
+                    </div>
+                    {prefs && (
+                      <RidePrefChips prefs={prefs} className="mt-2 pt-2 border-t border-gray-100" />
+                    )}
+                  </Card>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Closest trips (beyond 40 km) — shown below sad-cat as a last resort */}
+      {!loading && searched && results.length === 0 && nearbyResults.length === 0 && closestResults.length > 0 && (
+        <div className="space-y-4 w-full max-w-xl mx-auto min-w-0 pb-20">
+          <div className="px-1">
+            <h3 className="text-base font-bold tracking-tight text-gray-700">
+              Other available trips
+            </h3>
+            <p className="text-sm text-gray-400 mt-0.5">
+              No trips near your route — here are the closest rides we found
+            </p>
+          </div>
+          <div className="space-y-2.5">
+            {closestResults.map((trip) => {
+              const hostProfile = hostProfileMap.get(trip.hostId);
+              const hostVehicle = hostVehiclesMap?.get(trip.hostId);
+              const hostName = trip.hostDisplayName || hostProfile?.fullName || "Verified Host";
+              const vehicleModel = trip.vehicleModel || hostVehicle?.modelName;
+              const vehicleColor = trip.vehicleColor || hostVehicle?.color;
+              const vehicleLabel = vehicleModel
+                ? [vehicleModel, vehicleColor].filter(Boolean).join(" · ")
+                : "Vehicle details pending";
+              const seg = trip.nearbySegment;
+              const departure = dayjs(seg.times.departureAt);
+              const arrival = dayjs(seg.times.arrivalAt);
+              const durationMinutes = Math.max(1, seg.times.durationMinutes);
+              const durationLabel =
+                durationMinutes >= 60
+                  ? `${Math.floor(durationMinutes / 60)}h ${durationMinutes % 60}m`
+                  : `${durationMinutes}m`;
+              const seatsLeft = Math.max(
+                0,
+                trip.totalSeats - (reservedSeatsByTripId[trip.id]?.size ?? 0),
+              );
+              const prefs = hostPrefsMap?.get(trip.hostId);
+              const fromKm = Math.round(seg.fromDevKm);
+              const toKm = Math.round(seg.toDevKm);
+              return (
+                <Link
+                  key={trip.id}
+                  to="/ride/$tripId"
+                  params={{ tripId: trip.id }}
+                  search={{
+                    fromStopIndex: seg.fromStop.stopIndex,
+                    toStopIndex: seg.toStop.stopIndex,
+                    fromLabel: seg.fromStop.location,
+                    toLabel: seg.toStop.location,
+                    segmentPrice: seg.price,
+                  }}
+                  className="block group"
+                >
+                  <Card className="rounded-2xl border border-gray-100 bg-white shadow-sm hover:shadow-md hover:border-primary transition-all duration-200 p-3 sm:p-4">
+                    <div className="mb-1.5 flex items-center gap-1.5 text-[11px] font-bold text-primary">
+                      <span className="truncate">{seg.fromStop.location.split(",")[0]}</span>
+                      <ArrowRight size={11} className="shrink-0" />
+                      <span className="truncate">{seg.toStop.location.split(",")[0]}</span>
+                    </div>
+                    {/* Distance badges — amber for beyond 40 km */}
+                    <div className="mb-2 flex flex-wrap gap-1.5">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
+                        📍 Pickup ~{fromKm} km away
+                      </span>
+                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
+                        🏁 Drop ~{toKm} km away
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-x-3 gap-y-2 sm:grid-cols-[minmax(0,1.5fr)_0.7fr_1.2fr_auto] sm:items-center sm:gap-x-4 sm:gap-y-0">
+                      <div className="min-w-0 order-1 sm:order-1 flex items-center gap-2.5">
+                        <HostAvatar name={hostName} photoUrl={hostProfile?.photoUrl} size={36} />
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1">
+                            <p className="font-bold text-sm text-gray-900 truncate leading-tight">{hostName}</p>
+                            <ShieldCheck size={13} className="text-blue-500 shrink-0 hidden sm:block" />
+                          </div>
+                          <p className="mt-0.5 text-xs text-gray-500 truncate leading-tight">{vehicleLabel}</p>
+                        </div>
+                      </div>
+                      <div className="text-right order-2 sm:order-4 self-start sm:self-center">
+                        <p className="text-lg sm:text-xl font-black text-gray-900 whitespace-nowrap leading-tight">
+                          {formatCurrency(seg.price)}
+                        </p>
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 leading-tight">
+                          per seat
+                        </p>
+                      </div>
+                      <div className="order-3 sm:order-2 sm:text-center">
+                        {(trip.hostRatingCount ?? 0) > 0 ? (
+                          <div className="inline-flex items-center gap-0.5 text-sm font-bold text-gray-800">
+                            <Star size={13} className="fill-amber-400 text-amber-400" />
+                            {(trip.hostRating ?? 0).toFixed(1)}
+                            <span className="text-gray-400 font-normal"> · {trip.hostRatingCount}</span>
+                          </div>
+                        ) : (
+                          <span className="text-xs font-semibold text-gray-400">New host</span>
+                        )}
+                      </div>
+                      <div className="min-w-0 order-4 sm:order-3 text-right sm:text-left">
+                        <p className="font-black text-sm sm:text-base text-gray-900 whitespace-nowrap leading-tight">
+                          {seg.times.isEstimated && <span className="text-gray-400 font-semibold">~</span>}
+                          {departure.format("HH:mm")}
+                          <span className="text-primary mx-1">→</span>
+                          {arrival.format("HH:mm")}
+                        </p>
+                        <p className="text-[11px] sm:text-xs font-medium text-gray-400 whitespace-nowrap leading-tight">
+                          {durationLabel} · {seatsLeft} {seatsLeft === 1 ? "seat" : "seats"} left
+                        </p>
+                      </div>
+                    </div>
+                    {prefs && (
+                      <RidePrefChips prefs={prefs} className="mt-2 pt-2 border-t border-gray-100" />
+                    )}
+                  </Card>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
       )}
 
       {!loading && results.length > 0 && (
