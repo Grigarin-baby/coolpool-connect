@@ -91,12 +91,13 @@ export function getCollectionIds(): AppwriteCollectionIds {
         process.env.APPWRITE_COLLECTION_REVIEWS,
       "VITE_APPWRITE_COLLECTION_REVIEWS / APPWRITE_COLLECTION_REVIEWS",
     ),
-    // Optional: enables the public "Track Ride" share links. Until this
-    // collection exists, share buttons degrade gracefully.
-    tripShares: optionalCollectionId(
+    // Powers the public "Track Ride" share links. The collection is created
+    // with this fixed ID (see scripts/create-trip-shares-collection.mjs), so we
+    // default to it when no env override is set — no per-env config required.
+    tripShares:
       import.meta.env.VITE_APPWRITE_COLLECTION_TRIP_SHARES ||
-        process.env.APPWRITE_COLLECTION_TRIP_SHARES,
-    ),
+      process.env.APPWRITE_COLLECTION_TRIP_SHARES ||
+      "coolpool_trip_shares",
   };
 }
 
