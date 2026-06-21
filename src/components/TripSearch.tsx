@@ -1252,14 +1252,14 @@ export function TripSearchResults({ variant }: { variant: "landing" | "page" }) 
         </Card>
       )}
 
-      {/* Sad-cat: only when no exact results AND no nearby trips within 40 km */}
+      {/* Carousel horse: only when no exact results AND no nearby trips within 40 km */}
       {!loading && searched && results.length === 0 && nearbyResults.length === 0 && (
         <Card className="rounded-3xl border border-dashed border-destructive/40 bg-destructive/5 px-6 pb-8 pt-6 md:px-10 md:pb-12 text-center overflow-hidden">
           <div className="flex flex-col items-center">
             <img
-              src="/sad-cat.png"
-              alt="Sad kitten — no rides found"
-              className="w-36 sm:w-44 -mb-10 relative z-10 pointer-events-none select-none"
+              src="/carousel-horse.png"
+              alt="Carousel horse — no rides found"
+              className="w-32 sm:w-40 -mb-8 relative z-10 pointer-events-none select-none"
               loading="lazy"
             />
             <div className="w-full max-w-md rounded-3xl bg-white shadow-soft px-6 pt-12 pb-8 flex flex-col items-center gap-3">
