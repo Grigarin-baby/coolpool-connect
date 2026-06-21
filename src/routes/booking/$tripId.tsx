@@ -489,7 +489,7 @@ function BookingTripPage() {
       .slice(0, selected.size)
       .every((passenger) => passenger.name.trim() && passenger.phone.trim() && passenger.gender);
 
-  const SERVICE_FEE = 29;
+  const SERVICE_FEE = 20;
   const PAYMENT_GATEWAY_CHARGE = 5;
 
   const totalAmount =
@@ -725,7 +725,7 @@ function BookingTripPage() {
               <div className="pt-3 border-t border-border/60 space-y-2">
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">
-                    Tickets ({selected.size})
+                    Host charges ({selected.size} seat{selected.size === 1 ? "" : "s"})
                   </span>
                   <span className="font-semibold">
                     {formatCurrency(pricePerSeat * selected.size)}
@@ -736,6 +736,9 @@ function BookingTripPage() {
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">Service fee</span>
                       <span className="font-semibold">{formatCurrency(SERVICE_FEE)}</span>
+                    </div>
+                    <div className="flex justify-between text-xs">
+                      <span className="text-muted-foreground/80">Inclusive of 18% GST</span>
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">Payment gateway charge</span>

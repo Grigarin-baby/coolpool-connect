@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { Ticket, MapPin, Calendar, Users, Loader2, ShieldCheck, KeyRound, CheckCircle2, Radio, Bell, Star } from "lucide-react";
+import { Ticket, MapPin, Calendar, Users, Loader2, ShieldCheck, KeyRound, CheckCircle2, Radio, Bell, Star, Share2 } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
@@ -16,7 +16,11 @@ import {
   getExistingReview,
   listDriverProfilesByUserIds,
   listTripStopsByTripIds,
+  createTripShare,
+  isTripShareEnabled,
 } from "@/data/appwrite-repository";
+import { shareLink } from "@/lib/share-trip";
+import { toast } from "sonner";
 import { RideRouteMap } from "@/components/RideRouteMap";
 import { NotificationPermissionPrompt } from "@/components/NotificationPermissionPrompt";
 import { showAppNotification } from "@/lib/notifications";
@@ -91,6 +95,53 @@ function LiveTripTracker({ trip }: { trip: Trip }) {
         liveLocation={liveLocation}
       />
     </div>
+  );
+}
+
+function ShareLiveTripButton({ trip, bookingId }: { trip: Trip; bookingId: string }) {
+  const [busy, setBusy] = useState(false);
+
+  // Only useful while the trip is active (scheduled or in progress).
+  if (!isTripShareEnabled() || trip.status === "completed" || trip.status === "cancelled") {
+    return null;
+  }
+
+  const onShare = async () => {
+    setBusy(true);
+    try {
+      const share = await createTripShare({ tripId: trip.id, bookingId, role: "host" });
+      if (!share) {
+        toast.error("Live trip sharing isn't available yet.");
+        return;
+      }
+      const url = `${window.location.origin}/track/${share.token}`;
+      const result = await shareLink({
+        title: "Track my Coolpool ride",
+        text: `Follow my ride from ${trip.fromLocation} to ${trip.toLocation} live for safety.`,
+        url,
+      });
+      if (result === "copied") {
+        toast.success("Tracking link copied — send it to family or friends.");
+      } else if (result === "failed") {
+        toast.info("Copy this tracking link", { description: url, duration: 8000 });
+      }
+    } catch {
+      toast.error("Couldn't create a tracking link. Try again.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Button
+      variant="outline"
+      onClick={onShare}
+      disabled={busy}
+      className="h-11 w-full rounded-2xl border-primary/30 text-primary hover:bg-primary/5"
+    >
+      {busy ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Share2 className="mr-1.5 h-4 w-4" />}
+      Share live trip for safety
+    </Button>
   );
 }
 
@@ -386,6 +437,8 @@ function TripsPage() {
                       )}
 
                       {trip && <LiveTripTracker trip={trip} />}
+
+                      {trip && <ShareLiveTripButton trip={trip} bookingId={b.id} />}
 
                       {b.otp && (
                         <div className="rounded-2xl border-2 border-dashed border-primary/40 bg-primary/5 px-4 py-4 text-center">

@@ -12,6 +12,7 @@ export interface AppwriteCollectionIds {
   bankAccounts: string;
   payoutRequests: string;
   reviews: string;
+  tripShares: string;
 }
 
 function optionalCollectionId(value: string | undefined): string {
@@ -89,6 +90,12 @@ export function getCollectionIds(): AppwriteCollectionIds {
       import.meta.env.VITE_APPWRITE_COLLECTION_REVIEWS ||
         process.env.APPWRITE_COLLECTION_REVIEWS,
       "VITE_APPWRITE_COLLECTION_REVIEWS / APPWRITE_COLLECTION_REVIEWS",
+    ),
+    // Optional: enables the public "Track Ride" share links. Until this
+    // collection exists, share buttons degrade gracefully.
+    tripShares: optionalCollectionId(
+      import.meta.env.VITE_APPWRITE_COLLECTION_TRIP_SHARES ||
+        process.env.APPWRITE_COLLECTION_TRIP_SHARES,
     ),
   };
 }

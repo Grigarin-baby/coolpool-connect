@@ -39,6 +39,7 @@ import {
   Phone,
   MessageCircle,
   UserX,
+  Share2,
 } from "lucide-react";
 import {
   Layout,
@@ -109,6 +110,7 @@ import type { RidePreferences } from "@/lib/domain";
 import { storage } from "@/integrations/appwrite/client";
 import { ID } from "appwrite";
 import type { Trip, TripStop, DriverProfile, Booking, BookingStatus, Review } from "@/lib/domain";
+import { shareTrip, getTripShareUrl } from "@/lib/share-trip";
 import { APP_FONT_FAMILY } from "@/lib/fonts";
 import { calcPricePerKm } from "@/lib/pricing";
 import { stripCountrySuffix } from "@/lib/geo";
@@ -617,6 +619,21 @@ function DriverDashboardPage() {
     }
     setWizardResult(null);
     setWizardOpen(true);
+  };
+
+  const handleShareTrip = async (
+    trip: Pick<Trip, "id" | "fromLocation" | "toLocation">,
+  ) => {
+    const result = await shareTrip(trip);
+    if (result === "copied") {
+      message.success("Trip link copied to clipboard!");
+    } else if (result === "failed") {
+      // Clipboard/share blocked (e.g. inside an iframe) — show the link to copy manually.
+      message.info({
+        content: `Copy this link to share: ${getTripShareUrl(trip.id)}`,
+        duration: 8,
+      });
+    }
   };
 
   const handleNotifGateEnable = async () => {
@@ -1916,9 +1933,32 @@ function DriverDashboardPage() {
                 <p className="mt-3 text-sm leading-relaxed text-gray-600">
                   Notifications are currently <strong>blocked</strong> for coolpool.in in your
                   browser. To enable them, open your browser&apos;s site settings for coolpool.in,
-                  set Notifications to <strong>Allow</strong>, then come back and tap Host a Ride
-                  again.
+                  set Notifications to <strong>Allow</strong>, then tap “I&apos;ve allowed it”.
                 </p>
+                <div className="mt-6 flex gap-3">
+                  <Button
+                    size="large"
+                    block
+                    loading={notifGateRequesting}
+                    onClick={() => void handleNotifGateEnable()}
+                    className="rounded-3xl h-12 font-bold"
+                  >
+                    I&apos;ve allowed it
+                  </Button>
+                  <Button
+                    type="primary"
+                    size="large"
+                    block
+                    onClick={() => {
+                      setNotifGateOpen(false);
+                      setWizardResult(null);
+                      setWizardOpen(true);
+                    }}
+                    className="bg-gradient-primary border-none rounded-3xl h-12 font-bold"
+                  >
+                    Continue anyway
+                  </Button>
+                </div>
               </>
             ) : (
               <>
@@ -2624,10 +2664,15 @@ function DriverDashboardPage() {
                                   <Dropdown
                                     menu={{
                                       items: [
+                                        { key: "share", label: "Share trip" },
                                         { key: "edit", label: "Edit trip details" },
                                         { key: "cancel", label: "Cancel trip", danger: true },
                                       ],
                                       onClick: async ({ key }) => {
+                                        if (key === "share") {
+                                          await handleShareTrip(item);
+                                          return;
+                                        }
                                         if (key === "edit") {
                                           const hide = message.loading(
                                             "Fetching trip details...",
@@ -2756,13 +2801,24 @@ function DriverDashboardPage() {
                                   <User size={16} />
                                   <span>{item.totalSeats} seats total</span>
                                 </div>
-                                <Button
-                                  type="link"
-                                  className="p-0 text-primary font-medium group-hover:underline"
-                                  onClick={() => setManagingTripId(item.id)}
-                                >
-                                  Manage Passengers
-                                </Button>
+                                <div className="flex items-center gap-3">
+                                  <Button
+                                    type="text"
+                                    size="small"
+                                    icon={<Share2 size={15} />}
+                                    className="p-0 text-gray-500 hover:text-primary flex items-center gap-1"
+                                    onClick={() => handleShareTrip(item)}
+                                  >
+                                    Share
+                                  </Button>
+                                  <Button
+                                    type="link"
+                                    className="p-0 text-primary font-medium group-hover:underline"
+                                    onClick={() => setManagingTripId(item.id)}
+                                  >
+                                    Manage Passengers
+                                  </Button>
+                                </div>
                               </div>
                             </div>
                           ))}
@@ -2957,6 +3013,15 @@ function DriverDashboardPage() {
                                     >
                                       View
                                     </Button>
+                                    <Button
+                                      type="link"
+                                      size="small"
+                                      icon={<Share2 size={14} />}
+                                      className="text-gray-500 hover:text-primary font-medium p-0"
+                                      onClick={() => handleShareTrip(trip)}
+                                    >
+                                      Share
+                                    </Button>
                                     {seatsBooked === 0 && (
                                       <Popconfirm
                                         title="Cancel Trip"
@@ -3095,11 +3160,14 @@ function DriverDashboardPage() {
                                 </div>
 
                                 {/* Status & Seats */}
-                                <div className="flex items-center justify-between">
-                                  <div className="flex items-center gap-2">
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                  <div className="flex items-center gap-2 shrink-0 flex-wrap">
                                     {trip.status === "scheduled" &&
                                     now.isAfter(dayjs(trip.departureAt)) ? (
-                                      <Tag color="error" className="rounded-full m-0 font-semibold">
+                                      <Tag
+                                        color="error"
+                                        className="rounded-full m-0 font-semibold whitespace-nowrap"
+                                      >
                                         TIME IS UP — START NOW
                                       </Tag>
                                     ) : (
@@ -3113,54 +3181,67 @@ function DriverDashboardPage() {
                                                 ? "error"
                                                 : "blue"
                                         }
-                                        className="rounded-full m-0"
+                                        className="rounded-full m-0 whitespace-nowrap"
                                       >
                                         {trip.status?.toUpperCase().replace("_", " ")}
                                       </Tag>
                                     )}
-                                    <Text className="text-xs text-gray-500">
+                                    <Text className="text-xs text-gray-500 whitespace-nowrap">
                                       {trip.totalSeats} seats
                                     </Text>
                                   </div>
-                                  {seatsBooked === 0 && (
-                                    <Popconfirm
-                                      title="Cancel Trip"
-                                      description="Are you sure you want to cancel this trip?"
-                                      onConfirm={async () => {
-                                        try {
-                                          await updateTrip(trip.id, {
-                                            status: "cancelled",
-                                          });
-                                          message.success(
-                                            "Trip cancelled successfully",
-                                          );
-                                          queryClient.invalidateQueries({
-                                            queryKey: ["host-trips"],
-                                          });
-                                        } catch (err) {
-                                          console.error(
-                                            "[CancelTrip] Error:",
-                                            err,
-                                          );
-                                          message.error(
-                                            "Failed to cancel trip",
-                                          );
-                                        }
+                                  <div className="flex items-center gap-2 shrink-0">
+                                    <Button
+                                      size="small"
+                                      icon={<Share2 size={14} />}
+                                      className="rounded-xl"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleShareTrip(trip);
                                       }}
-                                      okText="Yes"
-                                      cancelText="No"
-                                      okButtonProps={{ danger: true }}
                                     >
-                                      <Button
-                                        size="small"
-                                        danger
-                                        className="rounded-xl"
-                                        onClick={(e) => e.stopPropagation()}
+                                      Share
+                                    </Button>
+                                    {seatsBooked === 0 && (
+                                      <Popconfirm
+                                        title="Cancel Trip"
+                                        description="Are you sure you want to cancel this trip?"
+                                        onConfirm={async () => {
+                                          try {
+                                            await updateTrip(trip.id, {
+                                              status: "cancelled",
+                                            });
+                                            message.success(
+                                              "Trip cancelled successfully",
+                                            );
+                                            queryClient.invalidateQueries({
+                                              queryKey: ["host-trips"],
+                                            });
+                                          } catch (err) {
+                                            console.error(
+                                              "[CancelTrip] Error:",
+                                              err,
+                                            );
+                                            message.error(
+                                              "Failed to cancel trip",
+                                            );
+                                          }
+                                        }}
+                                        okText="Yes"
+                                        cancelText="No"
+                                        okButtonProps={{ danger: true }}
                                       >
-                                        Cancel
-                                      </Button>
-                                    </Popconfirm>
-                                  )}
+                                        <Button
+                                          size="small"
+                                          danger
+                                          className="rounded-xl"
+                                          onClick={(e) => e.stopPropagation()}
+                                        >
+                                          Cancel
+                                        </Button>
+                                      </Popconfirm>
+                                    )}
+                                  </div>
                                 </div>
                               </div>
                             </Card>
