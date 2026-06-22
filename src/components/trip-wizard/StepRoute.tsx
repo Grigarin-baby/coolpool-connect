@@ -27,6 +27,36 @@ interface CityOption {
   lat?: number;
   lng?: number;
   placeId?: string;
+  isAirport?: boolean;
+  airportCode?: string;
+  airportName?: string;
+}
+
+/**
+ * Dropdown-only rendering for city/airport options. The option's `label` stays
+ * a plain string (so the selected display matches the input text and never
+ * overlaps); the ✈️ + airport-code styling lives here in the dropdown.
+ */
+function renderCityOption(option: any): React.ReactNode {
+  const d = option?.data ?? option;
+  if (d?.isAirport) {
+    return (
+      <div className="flex items-center gap-2">
+        <span>✈️</span>
+        <span className="font-medium text-gray-900">
+          {d.airportName} <span className="text-gray-400 font-normal">({d.airportCode})</span>
+        </span>
+      </div>
+    );
+  }
+  if (d?.value === "__out_of_area__") {
+    return (
+      <span className="text-xs text-gray-400">
+        🚫 Out of service area — South India &amp; Goa only
+      </span>
+    );
+  }
+  return d?.label ?? null;
 }
 
 const SOUTH_INDIA_STATES = [
@@ -120,17 +150,17 @@ export function StepRoute({
       if (isAirport) {
         const airportOptions: CityOption[] = BENGALURU_AIRPORTS.map((a) => ({
           value: `${a.name}, ${SERVICE_CITY}`,
-          label: (
-            <div className="flex items-center gap-2">
-              <span>✈️</span>
-              <span className="font-medium text-gray-900">
-                {a.name} <span className="text-gray-400 font-normal">({a.code})</span>
-              </span>
-            </div>
-          ),
+          // Keep the label a plain string equal to the value so antd's selected
+          // display matches the input text exactly (no overlapping garble). The
+          // ✈️ + airport-code styling is applied in the dropdown via the
+          // AutoComplete's `optionRender`, not here.
+          label: `${a.name}, ${SERVICE_CITY}`,
           lat: a.lat,
           lng: a.lng,
-        }));
+          isAirport: true,
+          airportCode: a.code,
+          airportName: a.name,
+        } as CityOption));
         [...airportOptions].reverse().forEach((ao) => {
           if (!options.find((o) => o.value === ao.value)) options.unshift(ao);
         });
@@ -312,6 +342,7 @@ export function StepRoute({
               onSearch={(v) => { setFromText(v); searchCities(v, "from"); }}
               onSelect={(v) => { if (v === "__out_of_area__") return; void handleSelect("from", v); }}
               onChange={(v) => setFromText(typeof v === "string" ? v : "")}
+              optionRender={renderCityOption}
               placeholder="Pickup city or area"
               className="w-full"
               variant="borderless"
@@ -401,6 +432,7 @@ export function StepRoute({
               onSearch={(v) => { setToText(v); searchCities(v, "to"); }}
               onSelect={(v) => { if (v === "__out_of_area__") return; void handleSelect("to", v); }}
               onChange={(v) => setToText(typeof v === "string" ? v : "")}
+              optionRender={renderCityOption}
               placeholder="Drop-off city or area"
               className="w-full"
               variant="borderless"

@@ -364,6 +364,21 @@ function BookingTripPage() {
           contact: user?.phone ?? "",
         },
         theme: { color: "#7C3AED" },
+        // Surface UPI as the first, prominent payment block, with all other
+        // enabled methods shown below it. (UPI must also be enabled for the
+        // account in the Razorpay dashboard for it to actually render.)
+        config: {
+          display: {
+            blocks: {
+              upi: {
+                name: "Pay via UPI",
+                instruments: [{ method: "upi" }],
+              },
+            },
+            sequence: ["block.upi", "block.other"],
+            preferences: { show_default_blocks: true },
+          },
+        },
         handler: async (response: {
           razorpay_payment_id: string;
           razorpay_order_id: string;

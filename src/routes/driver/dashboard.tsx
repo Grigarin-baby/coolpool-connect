@@ -18,7 +18,6 @@ import {
   Banknote,
   Users2,
   Plus,
-  Bell,
   Trash2,
   Pencil,
   Star,
@@ -129,12 +128,7 @@ import { TripWizard } from "@/components/trip-wizard/TripWizard";
 import type { WizardResult } from "@/components/trip-wizard/types";
 import { NotificationPermissionPrompt } from "@/components/NotificationPermissionPrompt";
 import { RidePrefChips } from "@/components/RidePrefChips";
-import {
-  getNotificationPermission,
-  isNotificationSupported,
-  requestNotificationPermission,
-  showAppNotification,
-} from "@/lib/notifications";
+import { showAppNotification } from "@/lib/notifications";
 
 import logo from "@/assets/logo.png";
 
@@ -609,14 +603,10 @@ function DriverDashboardPage() {
   // trip on time). Browsers that can't do web push at all (e.g. iPhone Safari
   // before the site is added to the Home Screen) are let through with the
   // softer in-page prompt instead of being locked out.
-  const [notifGateOpen, setNotifGateOpen] = useState(false);
-  const [notifGateRequesting, setNotifGateRequesting] = useState(false);
-
   const openWizard = () => {
-    if (isNotificationSupported() && getNotificationPermission() !== "granted") {
-      setNotifGateOpen(true);
-      return;
-    }
+    // Notifications are optional — hosting is never blocked on them. Users who
+    // haven't decided yet are nudged by the in-page NotificationPermissionPrompt
+    // banner (which shows a real Allow prompt only when the browser can prompt).
     setWizardResult(null);
     setWizardOpen(true);
   };
@@ -636,19 +626,6 @@ function DriverDashboardPage() {
     }
   };
 
-  const handleNotifGateEnable = async () => {
-    setNotifGateRequesting(true);
-    try {
-      const result = await requestNotificationPermission();
-      if (result === "granted") {
-        setNotifGateOpen(false);
-        setWizardResult(null);
-        setWizardOpen(true);
-      }
-    } finally {
-      setNotifGateRequesting(false);
-    }
-  };
 
   const handleDeleteAccount = async () => {
     if (!user?.$id) return;
@@ -1910,78 +1887,6 @@ function DriverDashboardPage() {
         )}
 
         <Modal
-          open={notifGateOpen}
-          onCancel={() => setNotifGateOpen(false)}
-          footer={null}
-          centered
-          width={460}
-          styles={{ content: { borderRadius: "1.5rem", padding: 0, overflow: "hidden" } }}
-        >
-          <div className="px-7 pt-7 pb-6">
-            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-purple-100">
-              <Bell className="text-purple-600" size={26} />
-            </div>
-            <h3 className="mt-5 text-2xl font-bold text-gray-900">
-              Enable notifications to host rides
-            </h3>
-            {getNotificationPermission() === "denied" ? (
-              <>
-                <p className="mt-2 text-sm leading-relaxed text-gray-600">
-                  Hosts must receive trip reminders — we notify you 15 minutes before departure so
-                  your passengers are never left waiting.
-                </p>
-                <p className="mt-3 text-sm leading-relaxed text-gray-600">
-                  Notifications are currently <strong>blocked</strong> for coolpool.in in your
-                  browser. To enable them, open your browser&apos;s site settings for coolpool.in,
-                  set Notifications to <strong>Allow</strong>, then tap “I&apos;ve allowed it”.
-                </p>
-                <div className="mt-6 flex gap-3">
-                  <Button
-                    size="large"
-                    block
-                    loading={notifGateRequesting}
-                    onClick={() => void handleNotifGateEnable()}
-                    className="rounded-3xl h-12 font-bold"
-                  >
-                    I&apos;ve allowed it
-                  </Button>
-                  <Button
-                    type="primary"
-                    size="large"
-                    block
-                    onClick={() => {
-                      setNotifGateOpen(false);
-                      setWizardResult(null);
-                      setWizardOpen(true);
-                    }}
-                    className="bg-gradient-primary border-none rounded-3xl h-12 font-bold"
-                  >
-                    Continue anyway
-                  </Button>
-                </div>
-              </>
-            ) : (
-              <>
-                <p className="mt-2 text-sm leading-relaxed text-gray-600">
-                  Hosts must receive trip reminders — we notify you 15 minutes before departure so
-                  your passengers are never left waiting. Please allow notifications to continue.
-                </p>
-                <Button
-                  type="primary"
-                  size="large"
-                  block
-                  loading={notifGateRequesting}
-                  onClick={() => void handleNotifGateEnable()}
-                  className="mt-6 bg-gradient-primary border-none rounded-3xl h-12 font-bold"
-                >
-                  Enable Notifications
-                </Button>
-              </>
-            )}
-          </div>
-        </Modal>
-
-        <Modal
           open={deleteAccountModalOpen}
           onCancel={() => {
             if (!deletingAccount) setDeleteAccountModalOpen(false);
@@ -3092,7 +2997,7 @@ function DriverDashboardPage() {
                       </Card>
 
                       {/* Mobile Card View */}
-                      <div className="lg:hidden space-y-4">
+                      <div className="lg:hidden space-y-3">
                         {tripsLoading ? (
                           <div className="flex justify-center py-12">
                             <Spin size="large" />
@@ -3117,46 +3022,33 @@ function DriverDashboardPage() {
                             <Card
                               key={trip.id}
                               onClick={() => setManagingTripId(trip.id)}
-                              className="rounded-2xl border border-white/60 shadow-card bg-white/80 backdrop-blur-md p-4 cursor-pointer transition-transform active:scale-[0.99]"
+                              className="rounded-2xl border border-white/60 shadow-card bg-white/80 backdrop-blur-md p-3 cursor-pointer transition-transform active:scale-[0.99]"
                             >
-                              <div className="space-y-3">
+                              <div className="space-y-2">
                                 {/* Route */}
-                                <div>
-                                  <Text className="text-xs font-bold uppercase text-gray-500">
-                                    Route
+                                <div className="flex items-center gap-2">
+                                  <Text strong className="flex-1 line-clamp-1 text-gray-900">
+                                    {trip.fromLocation}
                                   </Text>
-                                  <div className="flex items-center gap-2 mt-1">
-                                    <Text strong className="flex-1 line-clamp-1 text-gray-900">
-                                      {trip.fromLocation}
-                                    </Text>
-                                    <ArrowRight size={16} className="text-gray-400" />
-                                    <Text strong className="flex-1 line-clamp-1 text-gray-900">
-                                      {trip.toLocation}
-                                    </Text>
-                                  </div>
+                                  <ArrowRight size={16} className="text-gray-400" />
+                                  <Text strong className="flex-1 line-clamp-1 text-gray-900">
+                                    {trip.toLocation}
+                                  </Text>
                                 </div>
 
                                 {/* Departure & Price */}
-                                <div className="grid grid-cols-2 gap-4 py-3 border-y border-gray-100">
+                                <div className="flex items-center justify-between gap-4 py-2 border-y border-gray-100">
                                   <div>
-                                    <Text className="text-xs font-bold uppercase text-gray-500">
-                                      Departure
-                                    </Text>
-                                    <Text className="text-sm font-semibold mt-1 text-gray-900">
+                                    <Text className="text-sm font-semibold text-gray-900">
                                       {dayjs(trip.departureAt).format("MMM D, YYYY")}
                                     </Text>
-                                    <Text className="text-xs text-gray-500">
+                                    <Text className="block text-xs text-gray-500">
                                       {dayjs(trip.departureAt).format("h:mm A")}
                                     </Text>
                                   </div>
-                                  <div>
-                                    <Text className="text-xs font-bold uppercase text-gray-500">
-                                      Price per Seat
-                                    </Text>
-                                    <Text strong className="text-emerald-600 text-lg mt-1">
-                                      ₹{trip.totalPrice?.toLocaleString("en-IN")}
-                                    </Text>
-                                  </div>
+                                  <Text strong className="text-emerald-600 text-lg whitespace-nowrap">
+                                    ₹{trip.totalPrice?.toLocaleString("en-IN")}
+                                  </Text>
                                 </div>
 
                                 {/* Status & Seats */}
@@ -3186,9 +3078,15 @@ function DriverDashboardPage() {
                                         {trip.status?.toUpperCase().replace("_", " ")}
                                       </Tag>
                                     )}
-                                    <Text className="text-xs text-gray-500 whitespace-nowrap">
-                                      {trip.totalSeats} seats
-                                    </Text>
+                                    {trip.totalSeats - seatsBooked <= 0 ? (
+                                      <Text className="text-xs font-semibold text-red-500 whitespace-nowrap">
+                                        Sold out
+                                      </Text>
+                                    ) : (
+                                      <Text className="text-xs text-gray-500 whitespace-nowrap">
+                                        {trip.totalSeats - seatsBooked} seats left
+                                      </Text>
+                                    )}
                                   </div>
                                   <div className="flex items-center gap-2 shrink-0">
                                     <Button
