@@ -384,15 +384,38 @@ function BookingTripPage() {
           razorpay_order_id: string;
           razorpay_signature: string;
         }) => {
+          // Verify the signature first; then create the booking. We report which
+          // step failed so a captured-but-unconfirmed payment is never silent.
           try {
-            await verifyRazorpayPayment({ data: response });
-            const booking = await confirmBooking(response.razorpay_payment_id);
+            try {
+              await verifyRazorpayPayment({ data: response });
+            } catch (e) {
+              console.error("[payment] signature verification failed", e, response);
+              throw new Error(
+                "Payment couldn't be verified. If money was deducted it will be auto-refunded — please contact support with your payment ID: " +
+                  response.razorpay_payment_id,
+              );
+            }
+
+            let booking;
+            try {
+              booking = await confirmBooking(response.razorpay_payment_id);
+            } catch (e) {
+              console.error("[payment] booking creation failed after payment", e, response);
+              throw new Error(
+                (e instanceof Error ? e.message : "Couldn't confirm your booking") +
+                  ` — payment received (ID: ${response.razorpay_payment_id}). Please contact support to finalise or refund.`,
+              );
+            }
+
             toast.success("Payment successful! Booking confirmed.");
             await queryClient.invalidateQueries({ queryKey: ["trip-seat-reservations", tripId] });
             await queryClient.invalidateQueries({ queryKey: ["traveler-bookings"] });
             navigate({ to: "/trips", search: { booking: booking.id } as any });
           } catch (e) {
-            toast.error(e instanceof Error ? e.message : "Payment verification failed.");
+            toast.error(e instanceof Error ? e.message : "Something went wrong after payment.", {
+              duration: 12000,
+            });
           } finally {
             setPaymentPending(false);
           }

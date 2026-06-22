@@ -37,6 +37,7 @@ import { useAuth } from "@/hooks/useAuth";
 import {
   getHostPreferences,
   getTripById,
+  getVehicleById,
   getVehicleByDriverUserId,
   listDriverProfilesByUserIds,
   listHostTrips,
@@ -115,8 +116,17 @@ function RideInfoPage() {
   });
 
   const vehicleQuery = useQuery({
-    queryKey: ["vehicle-by-host", trip?.hostId],
-    queryFn: () => getVehicleByDriverUserId(trip!.hostId),
+    queryKey: ["trip-vehicle", trip?.id, trip?.vehicleId, trip?.hostId],
+    // Prefer the vehicle actually assigned to THIS trip (trip.vehicleId).
+    // Falling back to the host's first vehicle would show the wrong car for
+    // hosts who own more than one — that's the card/detail mismatch.
+    queryFn: async () => {
+      if (trip?.vehicleId) {
+        const assigned = await getVehicleById(trip.vehicleId);
+        if (assigned) return assigned;
+      }
+      return trip?.hostId ? getVehicleByDriverUserId(trip.hostId) : null;
+    },
     enabled: !!trip?.hostId,
   });
 

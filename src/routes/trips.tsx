@@ -575,6 +575,12 @@ function TripsPage() {
             toUserPhoto={hostProfile?.photoUrl}
             fromUserId={user.$id}
             onSuccess={() => {
+              // Optimistically mark reviewed so the prompt hides immediately
+              // (getExistingReview can lag right after the review is created).
+              queryClient.setQueriesData<Record<string, boolean>>(
+                { queryKey: ["existing-reviews-passenger"] },
+                (old) => (old ? { ...old, [reviewBooking.id]: true } : old),
+              );
               void queryClient.invalidateQueries({ queryKey: ["existing-reviews-passenger"] });
             }}
           />

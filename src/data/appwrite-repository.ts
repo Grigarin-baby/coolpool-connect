@@ -666,6 +666,17 @@ export async function getVehicleByDriverUserId(
   return doc ? toDriverVehicle(doc) : null;
 }
 
+/** Fetch the exact vehicle assigned to a trip by its document ID. */
+export async function getVehicleById(vehicleId: string): Promise<DriverVehicle | null> {
+  const c = ids();
+  try {
+    const doc = await databases.getDocument(appwriteConfig.databaseId, c.vehicles, vehicleId);
+    return toDriverVehicle(doc);
+  } catch {
+    return null;
+  }
+}
+
 export async function listVehiclesByDriverUserId(driverUserId: string): Promise<DriverVehicle[]> {
   const c = ids();
   const result = await databases.listDocuments(appwriteConfig.databaseId, c.vehicles, [
@@ -692,6 +703,22 @@ export async function getVehiclesByDriverUserIds(
     const vehicle = toDriverVehicle(doc);
     if (!map.has(vehicle.driverUserId)) map.set(vehicle.driverUserId, vehicle);
   }
+  return map;
+}
+
+/** Batch-fetch vehicles by their document IDs (keyed by vehicle id). */
+export async function getVehiclesByIds(
+  vehicleIds: string[],
+): Promise<Map<string, DriverVehicle>> {
+  const unique = [...new Set(vehicleIds.filter(Boolean))];
+  if (unique.length === 0) return new Map();
+  const c = ids();
+  const result = await databases.listDocuments(appwriteConfig.databaseId, c.vehicles, [
+    Query.equal("$id", unique),
+    Query.limit(100),
+  ]);
+  const map = new Map<string, DriverVehicle>();
+  for (const doc of result.documents) map.set(doc.$id, toDriverVehicle(doc));
   return map;
 }
 
@@ -829,12 +856,33 @@ async function createTripSeatReservation(input: {
   };
   if (input.gender) payload.gender = input.gender;
 
-  const doc = await databases.createDocument(
-    appwriteConfig.databaseId,
-    c.tripSeatReservations,
-    docId,
-    payload,
-  );
+  let doc;
+  try {
+    doc = await databases.createDocument(
+      appwriteConfig.databaseId,
+      c.tripSeatReservations,
+      docId,
+      payload,
+    );
+  } catch (err) {
+    // The `gender` attribute may not exist on the collection yet. Don't let a
+    // missing optional field fail the whole booking — retry without it.
+    if (payload.gender !== undefined) {
+      console.warn(
+        "[createTripSeatReservation] retry without gender — add a `gender` attribute to the trip_seat_reservations collection to store passenger gender.",
+        err,
+      );
+      delete payload.gender;
+      doc = await databases.createDocument(
+        appwriteConfig.databaseId,
+        c.tripSeatReservations,
+        docId,
+        payload,
+      );
+    } else {
+      throw err;
+    }
+  }
   return toTripSeatReservation(doc);
 }
 

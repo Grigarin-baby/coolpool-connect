@@ -107,7 +107,7 @@ import {
 import { PayoutsPanel } from "@/components/driver/PayoutsPanel";
 import type { RidePreferences } from "@/lib/domain";
 import { storage } from "@/integrations/appwrite/client";
-import { ID } from "appwrite";
+import { ID, Permission, Role } from "appwrite";
 import type { Trip, TripStop, DriverProfile, Booking, BookingStatus, Review } from "@/lib/domain";
 import { shareTrip, getTripShareUrl } from "@/lib/share-trip";
 import { APP_FONT_FAMILY } from "@/lib/fonts";
@@ -750,6 +750,9 @@ function DriverDashboardPage() {
         appwriteConfig.driverDocsBucketId,
         ID.unique(),
         file,
+        // Profile photos are shown on public pages (ride details, result cards),
+        // so they must be publicly readable.
+        [Permission.read(Role.any())],
       );
       const url = `${appwriteConfig.endpoint}/storage/buckets/${appwriteConfig.driverDocsBucketId}/files/${uploaded.$id}/view?project=${appwriteConfig.projectId}`;
       await updateDriverPhoto(user.$id, url);
@@ -805,6 +808,8 @@ function DriverDashboardPage() {
             appwriteConfig.driverDocsBucketId,
             ID.unique(),
             file.originFileObj as File,
+            // Car photos are shown on the public ride page — make them readable.
+            [Permission.read(Role.any())],
           );
           carImageIds.push(uploaded.$id);
         } else if (file.url) {
@@ -1048,18 +1053,28 @@ function DriverDashboardPage() {
 
   // Derived history stats from real trips
   const completedTrips = trips.filter((t) => t.status === "completed");
+
+  // A trip that's more than 5 hours past its departure and was never completed
+  // or cancelled is treated as "expired" — it drops out of the upcoming Trips
+  // tab and shows in History.
+  const TRIP_EXPIRY_HOURS = 5;
+  const isExpired = (t: Trip) =>
+    t.status !== "completed" &&
+    t.status !== "cancelled" &&
+    now.isAfter(dayjs(t.departureAt).add(TRIP_EXPIRY_HOURS, "hour"));
+
   // lifetimeEarnings computed after receivedByTrip is built (below)
-  // Past trips: only trips explicitly marked completed or cancelled move to
-  // history — trips that are merely "in progress" (departure passed but not
-  // yet completed) stay in the upcoming Trips tab.
+  // Past trips: completed, cancelled, or expired move to history.
   const pastTrips = trips.filter(
-    (t) => t.status === "completed" || t.status === "cancelled",
+    (t) => t.status === "completed" || t.status === "cancelled" || isExpired(t),
   );
   const filteredHistory =
     historyFilter === "all"
       ? pastTrips
       : pastTrips.filter((t) =>
-        historyFilter === "completed" ? t.status === "completed" : t.status === "cancelled",
+        historyFilter === "completed"
+          ? t.status === "completed"
+          : t.status === "cancelled" || isExpired(t),
       );
 
   // Actual received revenue per trip = sum of segmentPrice × seatsBooked
@@ -1078,7 +1093,7 @@ function DriverDashboardPage() {
   // Trips tab shows everything not yet completed/cancelled, including trips
   // currently in progress whose departure time has already passed.
   const upcomingTrips = trips.filter(
-    (t) => t.status !== "completed" && t.status !== "cancelled",
+    (t) => t.status !== "completed" && t.status !== "cancelled" && !isExpired(t),
   );
 
   const sortedTrips = [...upcomingTrips].sort(
@@ -2707,6 +2722,19 @@ function DriverDashboardPage() {
                                   <span>{item.totalSeats} seats total</span>
                                 </div>
                                 <div className="flex items-center gap-3">
+                                  {item.status === "scheduled" &&
+                                    now.isAfter(dayjs(item.departureAt).subtract(15, "minute")) && (
+                                      <Button
+                                        type="primary"
+                                        size="small"
+                                        icon={<PlayCircle size={14} />}
+                                        loading={tripActionLoading === item.id}
+                                        className="rounded-xl bg-emerald-500 border-none"
+                                        onClick={() => handleStartTrip(item.id)}
+                                      >
+                                        Start
+                                      </Button>
+                                    )}
                                   <Button
                                     type="text"
                                     size="small"
@@ -2997,7 +3025,7 @@ function DriverDashboardPage() {
                       </Card>
 
                       {/* Mobile Card View */}
-                      <div className="lg:hidden space-y-3">
+                      <div className="lg:hidden space-y-4">
                         {tripsLoading ? (
                           <div className="flex justify-center py-12">
                             <Spin size="large" />
@@ -3089,6 +3117,22 @@ function DriverDashboardPage() {
                                     )}
                                   </div>
                                   <div className="flex items-center gap-2 shrink-0">
+                                    {trip.status === "scheduled" &&
+                                      now.isAfter(dayjs(trip.departureAt).subtract(15, "minute")) && (
+                                        <Button
+                                          type="primary"
+                                          size="small"
+                                          icon={<PlayCircle size={14} />}
+                                          loading={tripActionLoading === trip.id}
+                                          className="rounded-xl bg-emerald-500 border-none"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleStartTrip(trip.id);
+                                          }}
+                                        >
+                                          Start
+                                        </Button>
+                                      )}
                                     <Button
                                       size="small"
                                       icon={<Share2 size={14} />}
@@ -3661,10 +3705,10 @@ function DriverDashboardPage() {
                                 ₹{(receivedByTrip.get(trip.id) ?? 0).toLocaleString("en-IN")}
                               </span>
                               <Tag
-                                color={trip.status === "completed" ? "success" : trip.status === "cancelled" ? "error" : "processing"}
+                                color={trip.status === "completed" ? "success" : trip.status === "cancelled" ? "error" : isExpired(trip) ? "warning" : "processing"}
                                 className="m-0 rounded-full border-none px-2 uppercase text-[9px] tracking-wider font-bold"
                               >
-                                {trip.status}
+                                {isExpired(trip) ? "expired" : trip.status}
                               </Tag>
                             </div>
                           </div>
@@ -5885,6 +5929,12 @@ function DriverDashboardPage() {
           })()}
           fromUserId={user.$id}
           onSuccess={() => {
+            // Optimistically mark this booking reviewed so the prompt hides
+            // immediately — getExistingReview can lag right after creation.
+            queryClient.setQueriesData<Record<string, boolean>>(
+              { queryKey: ["existing-reviews-host"] },
+              (old) => (old ? { ...old, [selectedBooking.id]: true } : old),
+            );
             void queryClient.invalidateQueries({ queryKey: ["host-bookings"] });
             void queryClient.invalidateQueries({ queryKey: ["existing-reviews-host"] });
             void queryClient.invalidateQueries({ queryKey: ["host-reviews-for-travelers"] });
