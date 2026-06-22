@@ -65,7 +65,7 @@ export function ContactEmailPrompt() {
         <div className="min-w-0 flex-1">
           <p className="text-sm font-bold text-gray-900">Add your email (optional)</p>
           <p className="mt-0.5 text-xs text-gray-500">
-            So we can send booking receipts and help you recover your account.
+            So we can send you booking receipts and ride updates.
           </p>
           <div className="mt-3 flex gap-2">
             <Input

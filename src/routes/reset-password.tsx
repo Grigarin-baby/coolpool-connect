@@ -26,9 +26,10 @@ export const Route = createFileRoute("/reset-password")({
 
 function ResetPasswordPage() {
   const { userId, secret } = Route.useSearch();
-  const { completePasswordRecovery } = useAuth();
+  const { completePasswordRecovery, deriveAccountSecret } = useAuth();
   const navigate = useNavigate();
-  const [password, setPassword] = useState("");
+  const [phone, setPhone] = useState("");
+  const [pin, setPin] = useState("");
   const [confirm, setConfirm] = useState("");
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
@@ -37,20 +38,27 @@ function ResetPasswordPage() {
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (password.length < 8) {
-      toast.error("Password must be at least 8 characters.");
+    const digits = phone.replace(/[^\d]/g, "");
+    if (digits.length < 10) {
+      toast.error("Enter your registered phone number.");
       return;
     }
-    if (password !== confirm) {
-      toast.error("Passwords don't match.");
+    if (!/^\d{4}$/.test(pin)) {
+      toast.error("New PIN must be exactly 4 digits.");
+      return;
+    }
+    if (pin !== confirm) {
+      toast.error("PINs don't match.");
       return;
     }
     setBusy(true);
     try {
-      await completePasswordRecovery(userId!, secret!, password);
+      const phoneE164 = digits.length === 10 ? `+91${digits}` : `+${digits}`;
+      const newSecret = await deriveAccountSecret(phoneE164, pin);
+      await completePasswordRecovery(userId!, secret!, newSecret);
       setDone(true);
-      toast.success("Password updated. You can now sign in.");
-      setTimeout(() => navigate({ to: "/auth" }), 1500);
+      toast.success("PIN updated. You can now sign in with your new PIN.");
+      setTimeout(() => navigate({ to: "/members", search: {} as never }), 1500);
     } catch (err) {
       toast.error(
         err instanceof Error ? err.message : "This reset link is invalid or has expired.",
@@ -78,29 +86,43 @@ function ResetPasswordPage() {
           ) : (
             <form onSubmit={onSubmit} className="mt-5 space-y-4">
               <div className="space-y-1.5">
-                <Label htmlFor="new-password">New password</Label>
+                <Label htmlFor="reset-phone">Registered phone number</Label>
                 <Input
-                  id="new-password"
-                  type="password"
-                  autoComplete="new-password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="At least 8 characters"
+                  id="reset-phone"
+                  type="tel"
+                  autoComplete="tel"
+                  inputMode="numeric"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="10-digit mobile number"
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="confirm-password">Confirm password</Label>
+                <Label htmlFor="new-pin">New 4-digit PIN</Label>
                 <Input
-                  id="confirm-password"
+                  id="new-pin"
                   type="password"
-                  autoComplete="new-password"
+                  inputMode="numeric"
+                  maxLength={4}
+                  value={pin}
+                  onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                  placeholder="••••"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="confirm-pin">Confirm new PIN</Label>
+                <Input
+                  id="confirm-pin"
+                  type="password"
+                  inputMode="numeric"
+                  maxLength={4}
                   value={confirm}
-                  onChange={(e) => setConfirm(e.target.value)}
-                  placeholder="Re-enter password"
+                  onChange={(e) => setConfirm(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                  placeholder="••••"
                 />
               </div>
               <Button type="submit" disabled={busy} className="h-12 w-full rounded-2xl">
-                {busy ? "Updating…" : "Update password"}
+                {busy ? "Updating…" : "Update PIN"}
               </Button>
             </form>
           )}

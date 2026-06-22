@@ -11,7 +11,6 @@ import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { parseTravelerResumeRedirectParam } from "@/lib/travelerResumeRedirect";
 import { GoogleLoginButton } from "@/components/GoogleLoginButton";
-import { PhoneOtpLogin } from "@/components/PhoneOtpLogin";
 
 export const Route = createFileRoute("/members")({
   validateSearch: (search: Record<string, unknown>) => ({
@@ -107,10 +106,10 @@ function PhoneField({
 function MembersPage() {
   const navigate = useNavigate();
   const { redirect, google_auth } = Route.useSearch();
-  const { user, loading, roles, signInWithPhonePassword, signUpWithPhonePassword } = useAuth();
+  const { user, loading, roles, signInWithPhonePassword, signUpWithPhonePassword, requestPasswordRecovery } =
+    useAuth();
   const [busy, setBusy] = useState(false);
   const [mode, setMode] = useState<"signin" | "signup">("signin");
-  const [otpMode, setOtpMode] = useState(false);
 
   const [siNumber, setSiNumber] = useState("");
   const [signInPassword, setSignInPassword] = useState("");
@@ -118,6 +117,29 @@ function MembersPage() {
   const [name, setName] = useState("");
   const [suNumber, setSuNumber] = useState("");
   const [signUpPassword, setSignUpPassword] = useState("");
+  const [suEmail, setSuEmail] = useState("");
+  const [recoverEmail, setRecoverEmail] = useState("");
+  const [showRecover, setShowRecover] = useState(false);
+
+  const handleForgotPassword = async () => {
+    const email = recoverEmail.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      toast.error("Enter the email you signed up with.");
+      return;
+    }
+    setBusy(true);
+    try {
+      await requestPasswordRecovery(email);
+      toast.success("Password reset link sent — check your email inbox.");
+      setShowRecover(false);
+    } catch (e) {
+      toast.error(
+        e instanceof Error ? e.message : "We couldn't find an account with that email.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
 
   useEffect(() => {
     if (!loading && user) {
@@ -163,7 +185,6 @@ function MembersPage() {
   useEffect(() => {
     if (
       mode !== "signin" ||
-      otpMode ||
       busy ||
       signInPassword.length !== 4 ||
       siNumber.replace(/[^\d]/g, "").length < 10
@@ -186,7 +207,7 @@ function MembersPage() {
     }
     setBusy(true);
     try {
-      await signUpWithPhonePassword(name, toE164(suNumber), signUpPassword);
+      await signUpWithPhonePassword(name, toE164(suNumber), signUpPassword, suEmail.trim() || undefined);
       toast.success("Welcome — you're ready to book.");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Unable to create account.");
@@ -313,7 +334,7 @@ function MembersPage() {
                       }`}
                     onClick={() => {
                       setMode("signin");
-                      setOtpMode(false);
+                      setShowRecover(false);
                     }}
                   >
                     Sign in
@@ -326,7 +347,7 @@ function MembersPage() {
                       }`}
                     onClick={() => {
                       setMode("signup");
-                      setOtpMode(false);
+                      setShowRecover(false);
                     }}
                   >
                     New traveler
@@ -334,68 +355,70 @@ function MembersPage() {
                 </div>
 
                 {mode === "signin" ? (
-                  otpMode ? (
-                    <div className="mt-6 animate-in fade-in duration-300">
-                      <PhoneOtpLogin
-                        idPrefix="members"
-                        submitClassName="bg-teal-600 text-white hover:bg-teal-700 dark:bg-teal-600 dark:hover:bg-teal-500"
+                  <>
+                    <form onSubmit={handleSignIn} className="mt-6 space-y-2">
+                      <PhoneField
+                        id="mem-si-phone"
+                        number={siNumber}
+                        onNumberChange={setSiNumber}
                       />
-                      <button
-                        type="button"
-                        className="mt-4 w-full text-center text-sm font-medium text-teal-700 dark:text-teal-400 hover:underline"
-                        onClick={() => setOtpMode(false)}
-                      >
-                        ← Sign in with password instead
-                      </button>
-                    </div>
-                  ) : (
-                    <>
-                      <form onSubmit={handleSignIn} className="mt-6 space-y-2">
-                        <PhoneField
-                          id="mem-si-phone"
-                          number={siNumber}
-                          onNumberChange={setSiNumber}
+                      <div className="space-y-2">
+                        <Label htmlFor="mem-si-password" className="text-base">
+                          Password
+                        </Label>
+                        <PinField
+                          id="mem-si-password"
+                          value={signInPassword}
+                          onChange={setSignInPassword}
                         />
-                        <div className="space-y-2">
-                          <Label htmlFor="mem-si-password" className="text-base">
-                            Password
-                          </Label>
-                          <PinField
-                            id="mem-si-password"
-                            value={signInPassword}
-                            onChange={setSignInPassword}
-                          />
-                          <button
-                            type="button"
-                            onClick={() => setOtpMode(true)}
-                            className="ml-auto block text-xs font-semibold text-teal-700 dark:text-teal-400 hover:underline"
-                          >
-                            Forgot PIN? Log in with OTP
-                          </button>
-                        </div>
-                        <Button
-                          type="submit"
-                          size="lg"
-                          style={{ color: "#fff" }}
-                          className="w-full rounded-3xl bg-teal-600 hover:bg-teal-700 dark:bg-teal-600 dark:hover:bg-teal-500"
-                          disabled={busy}
+                        <button
+                          type="button"
+                          onClick={() => setShowRecover((v) => !v)}
+                          className="ml-auto block text-xs font-semibold text-teal-700 dark:text-teal-400 hover:underline"
                         >
-                          {busy ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            "Continue as traveler"
-                          )}
-                        </Button>
-                      </form>
-                      <button
-                        type="button"
-                        className="mt-5 w-full text-center text-sm font-medium text-teal-700 dark:text-teal-400 hover:underline"
-                        onClick={() => setOtpMode(true)}
+                          Forgot password?
+                        </button>
+                      </div>
+                      <Button
+                        type="submit"
+                        size="lg"
+                        style={{ color: "#fff" }}
+                        className="w-full rounded-3xl bg-teal-600 hover:bg-teal-700 dark:bg-teal-600 dark:hover:bg-teal-500"
+                        disabled={busy}
                       >
-                        Log in with OTP instead?
-                      </button>
-                    </>
-                  )
+                        {busy ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          "Continue as traveler"
+                        )}
+                      </Button>
+                    </form>
+                    {showRecover && (
+                      <div className="mt-4 space-y-2 rounded-2xl border border-teal-200 bg-teal-50/60 p-4">
+                        <p className="text-sm font-semibold text-gray-800">Reset your password</p>
+                        <p className="text-xs text-gray-500">
+                          Enter the email you added at signup — we&apos;ll send a reset link.
+                        </p>
+                        <div className="flex gap-2">
+                          <Input
+                            type="email"
+                            value={recoverEmail}
+                            onChange={(e) => setRecoverEmail(e.target.value)}
+                            placeholder="you@example.com"
+                            className="h-11 rounded-xl"
+                          />
+                          <Button
+                            type="button"
+                            onClick={handleForgotPassword}
+                            disabled={busy}
+                            className="h-11 shrink-0 rounded-xl bg-teal-600 text-white hover:bg-teal-700"
+                          >
+                            Send
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </>
                 ) : (
                   <form onSubmit={handleSignUp} className="mt-6 space-y-2">
                     <div className="space-y-2">
@@ -427,7 +450,24 @@ function MembersPage() {
                         value={signUpPassword}
                         onChange={setSignUpPassword}
                       />
-
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="mem-su-email" className="text-base">
+                        Email{" "}
+                        <span className="text-sm font-normal text-muted-foreground">(optional)</span>
+                      </Label>
+                      <Input
+                        id="mem-su-email"
+                        type="email"
+                        autoComplete="email"
+                        value={suEmail}
+                        placeholder="you@example.com"
+                        onChange={(e) => setSuEmail(e.target.value)}
+                        className="h-12 rounded-3xl border-border/80 bg-background/80"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Optional, but your password can only be reset through this email.
+                      </p>
                     </div>
                     <Button
                       type="submit"
