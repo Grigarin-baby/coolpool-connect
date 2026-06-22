@@ -1065,9 +1065,10 @@ function DriverDashboardPage() {
 
   // lifetimeEarnings computed after receivedByTrip is built (below)
   // Past trips: completed, cancelled, or expired move to history.
-  const pastTrips = trips.filter(
-    (t) => t.status === "completed" || t.status === "cancelled" || isExpired(t),
-  );
+  const pastTrips = trips
+    .filter((t) => t.status === "completed" || t.status === "cancelled" || isExpired(t))
+    // Latest trips on top, oldest at the bottom.
+    .sort((a, b) => new Date(b.departureAt).getTime() - new Date(a.departureAt).getTime());
   const filteredHistory =
     historyFilter === "all"
       ? pastTrips
@@ -1098,6 +1099,15 @@ function DriverDashboardPage() {
 
   const sortedTrips = [...upcomingTrips].sort(
     (a, b) => new Date(b.departureAt).getTime() - new Date(a.departureAt).getTime(),
+  );
+
+  // An in-progress trip whose estimated end time has passed: the host likely
+  // forgot to end it, which keeps the vehicle + driver locked. We force them to
+  // END TRIP (release resources) before they can do anything else.
+  const tripEstimatedEnd = (t: Trip) =>
+    dayjs(t.arrivalAt ?? dayjs(t.departureAt).add(2, "hour"));
+  const overdueLiveTrip = trips.find(
+    (t) => t.status === "in_progress" && now.isAfter(tripEstimatedEnd(t)),
   );
 
   // Remind the host to start each scheduled trip: once at 15 minutes before
@@ -1837,6 +1847,36 @@ function DriverDashboardPage() {
         className="min-h-screen bg-fixed bg-gradient-to-br from-emerald-200 via-green-200 to-emerald-300"
         style={{ fontFamily: APP_FONT_FAMILY }}
       >
+        {/* Forced END TRIP — a trip is still "in progress" past its end time, so
+            the vehicle + driver are locked. Block the screen until the host ends
+            it (only one action: End Trip). */}
+        {overdueLiveTrip && (
+          <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-gray-900/80 px-6 backdrop-blur-sm">
+            <div className="w-full max-w-md rounded-3xl bg-white p-7 text-center shadow-2xl">
+              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-red-100 text-red-600">
+                <FlagTriangleRight size={30} />
+              </div>
+              <h2 className="mt-5 text-2xl font-black text-gray-900">End your ongoing trip</h2>
+              <p className="mt-2 text-sm leading-relaxed text-gray-600">
+                Your ride <strong>{stripCountrySuffix(overdueLiveTrip.fromLocation)} → {stripCountrySuffix(overdueLiveTrip.toLocation)}</strong> has
+                passed its expected end time. End it to release your vehicle and driver — you
+                can&apos;t host a new trip until this one is closed.
+              </p>
+              <Button
+                type="primary"
+                size="large"
+                block
+                danger
+                loading={tripActionLoading === overdueLiveTrip.id}
+                onClick={() => handleEndTrip(overdueLiveTrip.id)}
+                className="mt-6 h-12 rounded-2xl font-bold"
+              >
+                End Trip
+              </Button>
+            </div>
+          </div>
+        )}
+
         {tripPublishedSuccess && (
           <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-white/95 backdrop-blur-sm animate-in fade-in duration-200">
             <div className="flex flex-col items-center px-6 text-center">
@@ -2735,6 +2775,19 @@ function DriverDashboardPage() {
                                         Start
                                       </Button>
                                     )}
+                                  {item.status === "in_progress" && (
+                                    <Button
+                                      type="primary"
+                                      size="small"
+                                      danger
+                                      icon={<FlagTriangleRight size={14} />}
+                                      loading={tripActionLoading === item.id}
+                                      className="rounded-xl"
+                                      onClick={() => handleEndTrip(item.id)}
+                                    >
+                                      End Trip
+                                    </Button>
+                                  )}
                                   <Button
                                     type="text"
                                     size="small"
@@ -3133,6 +3186,22 @@ function DriverDashboardPage() {
                                           Start
                                         </Button>
                                       )}
+                                    {trip.status === "in_progress" && (
+                                      <Button
+                                        type="primary"
+                                        size="small"
+                                        danger
+                                        icon={<FlagTriangleRight size={14} />}
+                                        loading={tripActionLoading === trip.id}
+                                        className="rounded-xl"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleEndTrip(trip.id);
+                                        }}
+                                      >
+                                        End Trip
+                                      </Button>
+                                    )}
                                     <Button
                                       size="small"
                                       icon={<Share2 size={14} />}
