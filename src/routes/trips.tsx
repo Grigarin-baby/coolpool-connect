@@ -26,6 +26,7 @@ import { NotificationPermissionPrompt } from "@/components/NotificationPermissio
 import { showAppNotification } from "@/lib/notifications";
 import { useNotificationPermission } from "@/hooks/useNotificationPermission";
 import { ReviewModal } from "@/components/ReviewModal";
+import { ContactEmailPrompt } from "@/components/ContactEmailPrompt";
 import type { Booking, Trip } from "@/lib/domain";
 import { getBookingPassengers } from "@/lib/booking-passengers";
 
@@ -58,6 +59,21 @@ function statusColor(status: string) {
       return "bg-blue-100 text-blue-700 border-blue-200";
     default:
       return "bg-gray-100 text-gray-700 border-gray-200";
+  }
+}
+
+/** Traveller-facing status derived from the trip's lifecycle. */
+function tripStatusLabel(tripStatus?: string): { label: string; cls: string } {
+  switch (tripStatus) {
+    case "in_progress":
+      return { label: "Ongoing", cls: "bg-emerald-100 text-emerald-700 border-emerald-200" };
+    case "completed":
+      return { label: "Completed", cls: "bg-blue-100 text-blue-700 border-blue-200" };
+    case "cancelled":
+      return { label: "Cancelled", cls: "bg-rose-100 text-rose-700 border-rose-200" };
+    case "scheduled":
+    default:
+      return { label: "Yet to start", cls: "bg-amber-100 text-amber-700 border-amber-200" };
   }
 }
 
@@ -325,6 +341,12 @@ function TripsPage() {
           </div>
         </div>
 
+        {user && (
+          <div className="mb-4">
+            <ContactEmailPrompt />
+          </div>
+        )}
+
         {!user && !authLoading ? (
           <Card className="p-10 rounded-3xl text-center shadow-card border-border/60 bg-white/80">
             <p className="text-base text-muted-foreground mb-4">
@@ -378,9 +400,15 @@ function TripsPage() {
                 >
                   <div className="flex items-start justify-between gap-3 mb-4">
                     <div className="flex items-center gap-2">
-                      <Badge className={`rounded-full border ${statusColor(b.status)} capitalize`}>
-                        {b.status}
-                      </Badge>
+                      {b.status === "cancelled" ? (
+                        <Badge className={`rounded-full border ${statusColor("cancelled")} capitalize`}>
+                          Cancelled
+                        </Badge>
+                      ) : (
+                        <Badge className={`rounded-full border ${tripStatusLabel(trip?.status).cls}`}>
+                          {tripStatusLabel(trip?.status).label}
+                        </Badge>
+                      )}
                       {departure && (
                         <span className="text-xs text-muted-foreground flex items-center gap-1">
                           <Calendar className="h-3.5 w-3.5" />

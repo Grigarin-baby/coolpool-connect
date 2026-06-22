@@ -47,6 +47,12 @@ interface AuthContextValue {
   signOut: () => Promise<void>;
   refreshRoles: () => Promise<void>;
   becomeRideHost: (phone: string) => Promise<void>;
+  /** Sends a password-recovery email (for email/password accounts). */
+  requestPasswordRecovery: (email: string) => Promise<void>;
+  /** Completes recovery using the userId+secret from the email link. */
+  completePasswordRecovery: (userId: string, secret: string, password: string) => Promise<void>;
+  /** Saves the signed-in user's contact email to their profile prefs. */
+  saveContactEmail: (email: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -123,6 +129,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signIn = async (email: string, password: string) => {
     await account.createEmailPasswordSession(email, password);
+    await refreshSession();
+  };
+
+  const requestPasswordRecovery = async (email: string) => {
+    const envOrigin = import.meta.env.VITE_APP_ORIGIN?.replace(/\/$/, "");
+    const origin = envOrigin || window.location.origin;
+    await account.createRecovery(email, `${origin}/reset-password`);
+  };
+
+  const completePasswordRecovery = async (
+    userId: string,
+    secret: string,
+    password: string,
+  ) => {
+    await account.updateRecovery(userId, secret, password);
+  };
+
+  const saveContactEmail = async (email: string) => {
+    await account.updatePrefs({ ...(user?.prefs || {}), email });
     await refreshSession();
   };
 
@@ -279,6 +304,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         signOut,
         refreshRoles,
         becomeRideHost,
+        requestPasswordRecovery,
+        completePasswordRecovery,
+        saveContactEmail,
       }}
     >
       {children}

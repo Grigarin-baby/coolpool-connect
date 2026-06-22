@@ -527,13 +527,8 @@ function BookingTripPage() {
       .slice(0, selected.size)
       .every((passenger) => passenger.name.trim() && passenger.phone.trim() && passenger.gender);
 
-  const SERVICE_FEE = 20;
-  const PAYMENT_GATEWAY_CHARGE = 5;
-
-  const totalAmount =
-    selected.size > 0
-      ? pricePerSeat * selected.size + SERVICE_FEE + PAYMENT_GATEWAY_CHARGE
-      : 0;
+  // No platform fees — travellers pay exactly the host's price, nothing extra.
+  const totalAmount = selected.size > 0 ? pricePerSeat * selected.size : 0;
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-hero">
@@ -763,33 +758,21 @@ function BookingTripPage() {
               <div className="pt-3 border-t border-border/60 space-y-2">
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">
-                    Host charges ({selected.size} seat{selected.size === 1 ? "" : "s"})
+                    {selected.size} seat{selected.size === 1 ? "" : "s"} × {formatCurrency(pricePerSeat)}
                   </span>
                   <span className="font-semibold">
                     {formatCurrency(pricePerSeat * selected.size)}
                   </span>
                 </div>
-                {selected.size > 0 && (
-                  <>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Service fee</span>
-                      <span className="font-semibold">{formatCurrency(SERVICE_FEE)}</span>
-                    </div>
-                    <div className="flex justify-between text-xs">
-                      <span className="text-muted-foreground/80">Inclusive of 18% GST</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Payment gateway charge</span>
-                      <span className="font-semibold">{formatCurrency(PAYMENT_GATEWAY_CHARGE)}</span>
-                    </div>
-                  </>
-                )}
                 <div className="pt-2 border-t border-border/60 flex justify-between items-baseline">
                   <span className="font-bold">Total</span>
                   <span className="text-2xl font-extrabold text-primary">
                     {formatCurrency(totalAmount)}
                   </span>
                 </div>
+                <p className="text-[11px] text-muted-foreground">
+                  No booking or platform fees — you pay exactly the host's price.
+                </p>
               </div>
 
               <div className="space-y-3 pt-3 border-t border-border/60">

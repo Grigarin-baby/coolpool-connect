@@ -365,6 +365,13 @@ function MembersPage() {
                             value={signInPassword}
                             onChange={setSignInPassword}
                           />
+                          <button
+                            type="button"
+                            onClick={() => setOtpMode(true)}
+                            className="ml-auto block text-xs font-semibold text-teal-700 dark:text-teal-400 hover:underline"
+                          >
+                            Forgot PIN? Log in with OTP
+                          </button>
                         </div>
                         <Button
                           type="submit"
