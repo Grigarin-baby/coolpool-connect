@@ -175,7 +175,17 @@ function MembersPage() {
       await signInWithPhonePassword(toE164(siNumber), signInPassword);
       toast.success("Signed in — let's find your ride.");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Unable to sign in.");
+      // Wrong PIN, or the account no longer exists (e.g. it was deleted).
+      // Appwrite returns a 401 "Invalid credentials" in both cases — guide the
+      // user to create a fresh account.
+      const msg = error instanceof Error ? error.message : "";
+      if (/invalid credentials|user.*not.*found|missing|401/i.test(msg)) {
+        toast.error("No account found for these details. Please sign up to create a new account.");
+        setMode("signup");
+        setSuNumber(siNumber);
+      } else {
+        toast.error(msg || "Unable to sign in.");
+      }
     } finally {
       setBusy(false);
     }

@@ -25,6 +25,7 @@ import type {
   TripShare,
   TripStatus,
   TripStop,
+  DeletedAccount,
   VerificationStatus,
 } from "@/lib/domain";
 
@@ -544,6 +545,30 @@ export async function revokeTripShare(shareId: string): Promise<void> {
 export async function deleteTrip(tripId: string): Promise<void> {
   const c = ids();
   await databases.deleteDocument(appwriteConfig.databaseId, c.trips, tripId);
+}
+
+// --- Deleted-account archive (admin view) ------------------------------------
+
+function toDeletedAccount(doc: any): DeletedAccount {
+  return {
+    id: doc.$id,
+    userId: String(doc.user_id || ""),
+    fullName: String(doc.full_name || ""),
+    phone: String(doc.phone || ""),
+    email: String(doc.email || ""),
+    roles: String(doc.roles || ""),
+    deletedAt: String(doc.deleted_at || doc.$createdAt || ""),
+  };
+}
+
+export async function listDeletedAccounts(): Promise<DeletedAccount[]> {
+  const c = ids();
+  if (!c.deletedAccounts) return [];
+  const result = await databases.listDocuments(appwriteConfig.databaseId, c.deletedAccounts, [
+    Query.orderDesc("$createdAt"),
+    Query.limit(200),
+  ]);
+  return result.documents.map(toDeletedAccount);
 }
 
 export async function deleteTripStop(stopId: string): Promise<void> {

@@ -86,7 +86,6 @@ import {
   createTeamDriver,
   updateTeamDriver,
   deleteTeamDriver,
-  deleteDriverAccount,
   updateBookingRating,
   updateTrip,
   updateTripLocation,
@@ -348,7 +347,7 @@ export const Route = createFileRoute("/driver/dashboard")({
 });
 
 function DriverDashboardPage() {
-  const { isDriver, user, signOut, loading, refreshRoles, roles } = useAuth();
+  const { isDriver, user, signOut, loading, refreshRoles, roles, deleteAccount } = useAuth();
   const search = Route.useSearch();
   const navigate = Route.useNavigate();
   const [activeModule, setActiveModule] = useState<DashboardModule>(search.module);
@@ -661,13 +660,14 @@ function DriverDashboardPage() {
     if (!user?.$id) return;
     setDeletingAccount(true);
     try {
-      await deleteDriverAccount(user.$id);
+      // Truly deletes the login account (server-side, admin) and archives the
+      // record; the account's data is kept for admins, trips paused.
+      await deleteAccount();
       setDeleteAccountModalOpen(false);
       setAccountDeletedSuccess(true);
-      // Show the success animation for ~2.2s, then sign out + bounce home.
-      setTimeout(async () => {
-        await signOut();
-        void navigate({ to: "/", replace: true });
+      // Show the success animation for ~2.2s, then bounce home (session is gone).
+      setTimeout(() => {
+        if (typeof window !== "undefined") window.location.assign("/");
       }, 2200);
     } catch (err) {
       message.error(err instanceof Error ? err.message : "Failed to delete account.");

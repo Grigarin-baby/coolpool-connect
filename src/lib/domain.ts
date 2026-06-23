@@ -94,6 +94,16 @@ export interface Booking {
   verified?: boolean;
 }
 
+export interface DeletedAccount {
+  id: string;
+  userId: string;
+  fullName: string;
+  phone: string;
+  email: string;
+  roles: string;
+  deletedAt: string;
+}
+
 export interface TripShare {
   id: string;
   token: string;

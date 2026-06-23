@@ -13,6 +13,7 @@ export interface AppwriteCollectionIds {
   payoutRequests: string;
   reviews: string;
   tripShares: string;
+  deletedAccounts: string;
 }
 
 function optionalCollectionId(value: string | undefined): string {
@@ -98,6 +99,10 @@ export function getCollectionIds(): AppwriteCollectionIds {
       import.meta.env.VITE_APPWRITE_COLLECTION_TRIP_SHARES ||
       process.env.APPWRITE_COLLECTION_TRIP_SHARES ||
       "coolpool_trip_shares",
+    deletedAccounts:
+      import.meta.env.VITE_APPWRITE_COLLECTION_DELETED_ACCOUNTS ||
+      process.env.APPWRITE_COLLECTION_DELETED_ACCOUNTS ||
+      "coolpool_deleted_accounts",
   };
 }
 

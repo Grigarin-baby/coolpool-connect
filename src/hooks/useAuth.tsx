@@ -13,7 +13,7 @@ import { listUserRoles, assignRole, upsertDriverProfile } from "@/data/appwrite-
 import type { AppRole } from "@/lib/domain";
 import { parseTravelerResumeRedirectParam } from "@/lib/travelerResumeRedirect";
 import { sendMsg91Otp, verifyMsg91Otp } from "@/integrations/msg91/otp";
-import { lookupLoginEmail } from "@/integrations/appwrite/account-server";
+import { lookupLoginEmail, deleteOwnAccount } from "@/integrations/appwrite/account-server";
 
 export interface MemberGoogleOAuthOptions {
   resumeRedirect?: string;
@@ -49,6 +49,8 @@ interface AuthContextValue {
   /** Starts Appwrite Google OAuth (redirects away). Configure Google in Appwrite Auth settings. */
   signInWithGoogle: (opts?: MemberGoogleOAuthOptions) => void;
   signOut: () => Promise<void>;
+  /** Permanently deletes the caller's own account (data archived for admins). */
+  deleteAccount: () => Promise<void>;
   refreshRoles: () => Promise<void>;
   becomeRideHost: (phone: string) => Promise<void>;
   /** Sends a password-recovery email (for email/password accounts). */
@@ -319,6 +321,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  /**
+   * Permanently deletes the user's own login account via the admin server
+   * function (proven by a short-lived JWT). Their data is archived/kept for
+   * admins; here we just tear down the local session afterwards.
+   */
+  const deleteAccount = async () => {
+    const { jwt } = await account.createJWT();
+    await deleteOwnAccount({ data: { jwt } });
+    // The account no longer exists server-side; clear any local session state.
+    try {
+      await account.deleteSession("current");
+    } catch {
+      /* already invalid — fine */
+    }
+    setSession(null);
+    setRoles([]);
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -342,6 +362,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         completePasswordRecovery,
         saveContactEmail,
         deriveAccountSecret: derivePassword,
+        deleteAccount,
       }}
     >
       {children}
