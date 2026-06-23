@@ -50,6 +50,38 @@ interface BookingSearch {
   segmentPrice?: number;
 }
 
+const RAZORPAY_SCRIPT_SRC = "https://checkout.razorpay.com/v1/checkout.js";
+
+/**
+ * Ensures Razorpay's checkout.js is loaded and `window.Razorpay` is ready.
+ * Resolves true once available, false if the script can't load. Safe to call
+ * repeatedly — reuses an in-flight or already-loaded script.
+ */
+function ensureRazorpayLoaded(): Promise<boolean> {
+  if (typeof window === "undefined") return Promise.resolve(false);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  if ((window as any).Razorpay) return Promise.resolve(true);
+
+  return new Promise<boolean>((resolve) => {
+    const existing = document.getElementById("razorpay-checkout-js") as HTMLScriptElement | null;
+    const onReady = () => resolve(!!(window as any).Razorpay);
+    if (existing) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      if ((window as any).Razorpay) return resolve(true);
+      existing.addEventListener("load", onReady, { once: true });
+      existing.addEventListener("error", () => resolve(false), { once: true });
+      return;
+    }
+    const script = document.createElement("script");
+    script.id = "razorpay-checkout-js";
+    script.src = RAZORPAY_SCRIPT_SRC;
+    script.async = true;
+    script.addEventListener("load", onReady, { once: true });
+    script.addEventListener("error", () => resolve(false), { once: true });
+    document.body.appendChild(script);
+  });
+}
+
 export const Route = createFileRoute("/booking/$tripId")({
   validateSearch: (search: Record<string, unknown>): BookingSearch => ({
     fromStopIndex:
@@ -82,14 +114,9 @@ function BookingTripPage() {
   const [callConsentGiven, setCallConsentGiven] = useState(false);
   const [paymentPending, setPaymentPending] = useState(false);
 
-  // Load Razorpay checkout script once on mount
+  // Warm up Razorpay checkout.js on mount (best-effort; we also await it at pay time).
   useEffect(() => {
-    if (document.getElementById("razorpay-checkout-js")) return;
-    const script = document.createElement("script");
-    script.id = "razorpay-checkout-js";
-    script.src = "https://checkout.razorpay.com/v1/checkout.js";
-    script.async = true;
-    document.body.appendChild(script);
+    void ensureRazorpayLoaded();
   }, []);
 
   // Keep passengers array length in sync with number of selected seats (at least 1 row)
@@ -342,16 +369,19 @@ function BookingTripPage() {
 
     setPaymentPending(true);
     try {
-      const amountPaise = Math.round(totalAmount * 100);
-      const order = await createRazorpayOrder({ data: { amountPaise, receipt: `coolpool_${Date.now()}` } });
-
-      const keyId = import.meta.env.VITE_RAZORPAY_KEY_ID as string;
+      // Make sure checkout.js is actually loaded before we try to open it.
+      const ready = await ensureRazorpayLoaded();
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const Razorpay = (window as any).Razorpay;
-      if (!Razorpay) {
-        toast.error("Payment gateway failed to load. Please refresh and try again.");
+      if (!ready || !Razorpay) {
+        toast.error("Payment gateway couldn't load. Check your internet (or disable ad-blockers) and try again.");
+        setPaymentPending(false);
         return;
       }
+
+      const amountPaise = Math.round(totalAmount * 100);
+      const order = await createRazorpayOrder({ data: { amountPaise, receipt: `coolpool_${Date.now()}` } });
+      const keyId = import.meta.env.VITE_RAZORPAY_KEY_ID as string;
 
       const rzp = new Razorpay({
         key: keyId,
