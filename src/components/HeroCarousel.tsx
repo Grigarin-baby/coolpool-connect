@@ -75,7 +75,7 @@ export function HeroCarousel() {
     <section className="relative w-full h-[60vh] min-h-[55vh] max-h-[65vh] flex flex-col items-center justify-center overflow-hidden bg-black">
       <div className="absolute inset-0 overflow-hidden" ref={emblaRef}>
         <div className="flex w-full h-full touch-pan-y">
-          {activeBanners.map((banner) => (
+          {activeBanners.map((banner, bannerIdx) => (
             <div key={banner.id} className="relative flex-[0_0_100%] min-w-0 h-full">
               {banner.linkUrl ? (
                 <a
@@ -91,6 +91,9 @@ export function HeroCarousel() {
               <img
                 src={banner.imageUrl || ""}
                 alt={banner.title || "Hero banner"}
+                loading={bannerIdx === 0 ? "eager" : "lazy"}
+                decoding="async"
+                {...(bannerIdx === 0 ? { fetchPriority: "high" as const } : {})}
                 className="absolute inset-0 w-full h-full object-cover object-center"
                 style={{
                   backgroundSize: "cover",

@@ -4,8 +4,8 @@ import { cn } from "@/lib/utils";
 import { Check, Mars, Venus } from "lucide-react";
 import type { PassengerGender } from "@/lib/domain";
 import { Skeleton } from "@/components/ui/skeleton";
-import sedanInterior from "@/assets/sedan-interior-v3.png";
-import suvInterior from "@/assets/suv-interior.jpg";
+import sedanInterior from "@/assets/sedan-interior-v3.webp";
+import suvInterior from "@/assets/suv-interior.webp";
 
 interface SeatMapProps {
   slots: SeatSlot[];
@@ -64,6 +64,8 @@ export function SeatMap({
           <img
             src={isLargeVehicle ? suvInterior : sedanInterior}
             alt="Car Interior"
+            loading="lazy"
+            decoding="async"
             onLoad={() => setImageLoaded(true)}
             className={cn(
               "w-full h-full object-cover select-none pointer-events-none transition-all duration-700",

@@ -71,6 +71,10 @@ export const Route = createRootRoute({
       { rel: "apple-touch-icon", href: "/apple-touch-icon.png" },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
+      // Warm up connections to the third parties we hit early so maps/payments
+      // and font CSS start sooner.
+      { rel: "preconnect", href: "https://maps.googleapis.com" },
+      { rel: "dns-prefetch", href: "https://checkout.razorpay.com" },
       { rel: "stylesheet", href: GOOGLE_FONTS_CSS },
       { rel: "stylesheet", href: appCss },
     ],
