@@ -62,7 +62,24 @@ function toTrip(doc: any): Trip {
     currentLat: doc.current_lat != null ? Number(doc.current_lat) : undefined,
     currentLng: doc.current_lng != null ? Number(doc.current_lng) : undefined,
     locationUpdatedAt: doc.location_updated_at ? String(doc.location_updated_at) : undefined,
+    active: doc.active !== false,
   };
+}
+
+/** Toggle a vehicle / driver / trip in or out of service. */
+export async function setVehicleActive(vehicleId: string, active: boolean): Promise<void> {
+  const c = ids();
+  await databases.updateDocument(appwriteConfig.databaseId, c.vehicles, vehicleId, { active });
+}
+
+export async function setDriverActive(driverDocId: string, active: boolean): Promise<void> {
+  const c = ids();
+  await databases.updateDocument(appwriteConfig.databaseId, c.drivers, driverDocId, { active });
+}
+
+export async function setTripActive(tripId: string, active: boolean): Promise<void> {
+  const c = ids();
+  await databases.updateDocument(appwriteConfig.databaseId, c.trips, tripId, { active });
 }
 
 function toTripStop(doc: any): TripStop {
@@ -149,6 +166,7 @@ function toDriverProfile(doc: any): DriverProfile {
     verificationNote: doc.verification_note ? String(doc.verification_note) : null,
     ratingAvg: doc.rating_avg != null ? Number(doc.rating_avg) : undefined,
     ratingCount: doc.rating_count != null ? Number(doc.rating_count) : undefined,
+    active: doc.active !== false,
   };
 }
 
@@ -178,6 +196,7 @@ function toDriverVehicle(doc: any): DriverVehicle {
     carImages: doc.car_images && Array.isArray(doc.car_images) ? doc.car_images.map(String) : [],
     verificationStatus: (doc.verification_status as VerificationStatus | undefined) ?? "approved",
     verificationNote: doc.verification_note ? String(doc.verification_note) : null,
+    active: doc.active !== false,
   };
 }
 
@@ -1251,7 +1270,8 @@ export async function listActiveTrips(limit = 200): Promise<Trip[]> {
     Query.orderAsc("departure_at"),
     Query.limit(limit),
   ]);
-  return result.documents.map(toTrip);
+  // Hide trips the host has paused (active === false).
+  return result.documents.map(toTrip).filter((t) => t.active !== false);
 }
 
 export interface TrendingRoutesOptions {
@@ -1290,10 +1310,12 @@ export async function listTrendingRoutes(options?: TrendingRoutesOptions): Promi
     Query.limit(200),
   ]);
 
-  let rows = result.documents.map((d) => ({
-    trip: toTrip(d),
-    createdAt: String(d.$createdAt ?? ""),
-  }));
+  let rows = result.documents
+    .map((d) => ({
+      trip: toTrip(d),
+      createdAt: String(d.$createdAt ?? ""),
+    }))
+    .filter((r) => r.trip.active !== false);
 
   const city = options?.city?.trim();
   if (city) {

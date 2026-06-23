@@ -75,6 +75,9 @@ import { useAuth } from "@/hooks/useAuth";
 import {
   createTrip,
   listHostTrips,
+  setVehicleActive,
+  setDriverActive,
+  setTripActive,
   listVehiclesByDriverUserId,
   createDriverVehicle,
   deleteDriverVehicle,
@@ -480,6 +483,33 @@ function DriverDashboardPage() {
       message.error(err instanceof Error ? err.message : "Failed to complete trip.");
     } finally {
       setTripActionLoading(null);
+    }
+  };
+
+  const toggleVehicleActive = async (id: string, active: boolean) => {
+    try {
+      await setVehicleActive(id, active);
+      await queryClient.invalidateQueries({ queryKey: ["driver-vehicles", user?.$id] });
+    } catch {
+      message.error("Couldn't update vehicle status.");
+    }
+  };
+
+  const toggleDriverActive = async (id: string, active: boolean) => {
+    try {
+      await setDriverActive(id, active);
+      await queryClient.invalidateQueries({ queryKey: ["team-drivers"] });
+    } catch {
+      message.error("Couldn't update driver status.");
+    }
+  };
+
+  const toggleTripActive = async (id: string, active: boolean) => {
+    try {
+      await setTripActive(id, active);
+      await queryClient.invalidateQueries({ queryKey: ["host-trips"] });
+    } catch {
+      message.error("Couldn't update trip status.");
     }
   };
 
@@ -3106,6 +3136,22 @@ function DriverDashboardPage() {
                               className="rounded-2xl border border-white/60 shadow-card bg-white/80 backdrop-blur-md p-3 cursor-pointer transition-transform active:scale-[0.99]"
                             >
                               <div className="space-y-2">
+                                {/* Active toggle — pause a trip without cancelling it */}
+                                <div
+                                  className="flex items-center justify-between"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <span
+                                    className={`text-[11px] font-bold uppercase tracking-wider ${trip.active !== false ? "text-emerald-600" : "text-gray-400"}`}
+                                  >
+                                    {trip.active !== false ? "Active" : "Paused"}
+                                  </span>
+                                  <Switch
+                                    size="small"
+                                    checked={trip.active !== false}
+                                    onChange={(checked) => toggleTripActive(trip.id, checked)}
+                                  />
+                                </div>
                                 {/* Route */}
                                 <div className="flex items-center gap-2">
                                   <Text strong className="flex-1 line-clamp-1 text-gray-900">
@@ -4124,6 +4170,18 @@ function DriverDashboardPage() {
                               </div>
                             </div>
                             <div className="flex items-center gap-2 shrink-0">
+                              <div className="flex items-center gap-1.5">
+                                <Switch
+                                  size="small"
+                                  checked={d.active !== false}
+                                  onChange={(checked) => toggleDriverActive(d.id, checked)}
+                                />
+                                <span
+                                  className={`hidden sm:inline text-[11px] font-bold uppercase tracking-wider ${d.active !== false ? "text-emerald-600" : "text-gray-400"}`}
+                                >
+                                  {d.active !== false ? "Active" : "Off"}
+                                </span>
+                              </div>
                               <Button
                                 size="small"
                                 icon={<Pencil size={14} />}
@@ -4234,11 +4292,17 @@ function DriverDashboardPage() {
                               <p className="text-gray-400 text-[10px] uppercase tracking-widest font-bold">
                                 Registered Vehicle
                               </p>
-                              <div className="flex items-center gap-1.5 mt-1">
-                                <div className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                                <p className="text-emerald-400 text-xs font-bold uppercase tracking-wider">
-                                  Active
-                                </p>
+                              <div className="flex items-center gap-2 mt-1.5">
+                                <Switch
+                                  size="small"
+                                  checked={v.active}
+                                  onChange={(checked) => toggleVehicleActive(v.id, checked)}
+                                />
+                                <span
+                                  className={`text-xs font-bold uppercase tracking-wider ${v.active ? "text-emerald-400" : "text-gray-500"}`}
+                                >
+                                  {v.active ? "Active" : "Inactive"}
+                                </span>
                               </div>
                             </div>
                             <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
