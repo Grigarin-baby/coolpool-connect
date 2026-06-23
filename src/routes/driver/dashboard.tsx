@@ -2786,12 +2786,12 @@ function DriverDashboardPage() {
                                 </div>
                               </div>
 
-                              <div className="mt-5 pt-4 border-t border-gray-100 flex items-center justify-between">
-                                <div className="flex items-center gap-2 text-sm text-gray-600">
+                              <div className="mt-5 pt-4 border-t border-gray-100 flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+                                <div className="flex items-center gap-2 text-sm text-gray-600 shrink-0">
                                   <User size={16} />
-                                  <span>{item.totalSeats} seats total</span>
+                                  <span className="whitespace-nowrap">{item.totalSeats} seats total</span>
                                 </div>
-                                <div className="flex items-center gap-3">
+                                <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
                                   {item.status === "scheduled" &&
                                     now.isAfter(dayjs(item.departureAt).subtract(15, "minute")) && (
                                       <Button
