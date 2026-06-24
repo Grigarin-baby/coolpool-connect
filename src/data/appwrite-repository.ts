@@ -646,12 +646,18 @@ export async function createBooking(
       payload,
     );
   } catch (err) {
+    // A missing optional attribute on the bookings collection must NEVER cost a
+    // paid customer their booking. Strip every optional/metadata field and
+    // retry with only the core booking data so the seat is still secured.
     console.warn(
-      "[createBooking] retry without otp/verified — add these attributes to the bookings collection to enable OTP verification.",
+      "[createBooking] create failed — retrying without optional attributes (otp/verified/payment_*/passengers).",
       err,
     );
     delete payload.otp;
     delete payload.verified;
+    delete payload.payment_method;
+    delete payload.payment_reference;
+    delete payload.passengers_json;
     doc = await databases.createDocument(
       appwriteConfig.databaseId,
       c.bookings,
