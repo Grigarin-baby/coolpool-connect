@@ -28,8 +28,8 @@ self.addEventListener("push", (event) => {
   const title = data.title || "Coolpool";
   const options = {
     body: data.body || "",
-    icon: data.icon || "/notification-icon.png",
-    badge: data.badge || "/notification-icon.png",
+    icon: data.icon || "/icon-512.png",
+    badge: data.badge || "/icon-192.png",
     data: { url: data.url || "/" },
   };
 

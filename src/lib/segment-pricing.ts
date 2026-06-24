@@ -31,6 +31,10 @@ export function getSegmentPrice(
     return trip.totalSeats > 0 ? trip.totalPrice / trip.totalSeats : trip.totalPrice;
   }
 
-  const price = priceFromOrigin(trip, toStop, lastStop) - priceFromOrigin(trip, fromStop, lastStop);
-  return Math.round(Math.max(0, price));
+  const price = Math.max(0, priceFromOrigin(trip, toStop, lastStop) - priceFromOrigin(trip, fromStop, lastStop));
+  // A paid segment must never round down to ₹0 (a real ₹0.25–₹0.99 price was
+  // showing as "₹0" to riders). Keep genuinely free segments at ₹0, but floor
+  // any positive price at ₹1.
+  if (price === 0) return 0;
+  return Math.max(1, Math.round(price));
 }

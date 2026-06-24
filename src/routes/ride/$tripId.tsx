@@ -12,6 +12,7 @@ import {
   MapPin,
   MessageSquareText,
   ShieldCheck,
+  Award,
   Share2,
   Star,
   Users,
@@ -49,6 +50,7 @@ import { appwriteConfig } from "@/integrations/appwrite/client";
 import { formatCurrency } from "@/lib/pricing";
 import { shareTrip, getTripShareUrl } from "@/lib/share-trip";
 import { getSegmentPrice } from "@/lib/segment-pricing";
+import { getHostTier } from "@/lib/host-tier";
 
 dayjs.extend(relativeTime);
 
@@ -255,7 +257,18 @@ function RideInfoPage() {
     : null;
   const showHostNote =
     !!trip.notes && !trip.notes.toLowerCase().includes("created via routing wizard");
-  const isUnavailable = seatsLeft === 0 || trip.status !== "scheduled";
+  // Booking closes 30 minutes before departure.
+  const BOOKING_CUTOFF_MINUTES = 30;
+  const bookingClosed = dayjs().isAfter(departure.subtract(BOOKING_CUTOFF_MINUTES, "minute"));
+  const isUnavailable = seatsLeft === 0 || trip.status !== "scheduled" || bookingClosed;
+  const unavailableReason =
+    trip.status !== "scheduled"
+      ? "Ride unavailable"
+      : seatsLeft === 0
+        ? "Sold out"
+        : bookingClosed
+          ? "Booking closed"
+          : "Ride unavailable";
 
   return (
     <div className="flex min-h-screen flex-col bg-[#fffafd]">
@@ -312,6 +325,12 @@ function RideInfoPage() {
 
           <div className="relative mt-4">
             <h1 className="text-2xl font-black text-gray-950">{hostName}</h1>
+            <span
+              className={`mt-2 inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-bold ${getHostTier(completedTrips).badgeClass}`}
+            >
+              <Award size={13} />
+              {getHostTier(completedTrips).label}
+            </span>
             {ratingCount > 0 ? (
               <p className="mt-1 inline-flex items-center gap-1 text-sm font-bold text-gray-700">
                 <Star size={15} className="fill-amber-400 text-amber-400" />
@@ -320,9 +339,7 @@ function RideInfoPage() {
                   · {ratingCount} review{ratingCount === 1 ? "" : "s"}
                 </span>
               </p>
-            ) : (
-              <p className="mt-1 text-sm font-semibold text-gray-400">New host</p>
-            )}
+            ) : null}
             {hostProfile?.bio && (
               <p className="mx-auto mt-3 max-w-md text-sm italic leading-relaxed text-gray-500">
                 &ldquo;{hostProfile.bio}&rdquo;
@@ -486,7 +503,9 @@ function RideInfoPage() {
                 <p className="mt-0.5 text-sm text-gray-500">
                   {[
                     vehicle?.color ?? trip.vehicleColor,
-                    vehicle?.seatCapacity ? `${vehicle.seatCapacity} seats` : null,
+                    // Show passenger seats (capacity excludes the driver) so a
+                    // 5-capacity car reads as "4 seats", matching the bookable count.
+                    vehicle?.seatCapacity ? `${Math.max(1, vehicle.seatCapacity - 1)} seats` : null,
                   ]
                     .filter(Boolean)
                     .join(" · ")}
@@ -577,7 +596,7 @@ function RideInfoPage() {
           </div>
           {isUnavailable ? (
             <Button disabled size="lg" className="h-12 flex-1 rounded-2xl">
-              Ride unavailable
+              {unavailableReason}
             </Button>
           ) : user ? (
             <Button

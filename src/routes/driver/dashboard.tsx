@@ -39,6 +39,7 @@ import {
   MessageCircle,
   UserX,
   Share2,
+  Award,
 } from "lucide-react";
 import {
   Layout,
@@ -117,6 +118,9 @@ import { calcPricePerKm } from "@/lib/pricing";
 import { stripCountrySuffix } from "@/lib/geo";
 import { findDuplicateVehicle } from "@/lib/duplicateChecks";
 import { compressImage } from "@/lib/image-compression";
+import { RoleSwitch } from "@/components/RoleSwitch";
+import { seatCodeToLabel } from "@/lib/seatLayout";
+import { getHostTier } from "@/lib/host-tier";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -981,17 +985,46 @@ function DriverDashboardPage() {
   }, [travelerReviews]);
 
   // Notify the host when a new booking comes in.
+  //
+  // Seen booking IDs are persisted in localStorage so notifications never
+  // re-fire across page reloads or dashboard remounts (the previous in-memory
+  // ref reset every mount, which re-notified every existing booking — the host
+  // was getting the same "New booking" alert many times). A recency guard is a
+  // second safety net: only bookings created in the last few minutes ever fire.
   const seenBookingIdsRef = useRef<Set<string> | null>(null);
   useEffect(() => {
-    if (bookingsLoading) return;
-    const ids = new Set(bookings.map((b) => b.id));
+    if (bookingsLoading || !user) return;
+    const storageKey = `coolpool:seenBookings:${user.$id}`;
 
+    const persist = () => {
+      try {
+        localStorage.setItem(storageKey, JSON.stringify([...seenBookingIdsRef.current!]));
+      } catch {
+        // Storage unavailable — in-memory dedup still works for this session.
+      }
+    };
+
+    // First run: seed from storage + all current bookings, so nothing already
+    // on screen is treated as "new". No notifications fire on this pass.
     if (seenBookingIdsRef.current === null) {
-      seenBookingIdsRef.current = ids;
+      let persisted: string[] = [];
+      try {
+        persisted = JSON.parse(localStorage.getItem(storageKey) || "[]");
+      } catch {
+        persisted = [];
+      }
+      seenBookingIdsRef.current = new Set([...persisted, ...bookings.map((b) => b.id)]);
+      persist();
       return;
     }
 
-    const newBookings = bookings.filter((b) => !seenBookingIdsRef.current!.has(b.id));
+    const FRESH_WINDOW_MS = 10 * 60 * 1000;
+    const now = Date.now();
+    const newBookings = bookings.filter(
+      (b) =>
+        !seenBookingIdsRef.current!.has(b.id) &&
+        now - new Date(b.createdAt).getTime() < FRESH_WINDOW_MS,
+    );
     newBookings.forEach((b) => {
       void showAppNotification("New booking received!", {
         body: `${b.seatsBooked} seat${b.seatsBooked === 1 ? "" : "s"} booked for your trip.`,
@@ -1000,8 +1033,10 @@ function DriverDashboardPage() {
       });
     });
 
-    seenBookingIdsRef.current = ids;
-  }, [bookings, bookingsLoading]);
+    // Mark every current booking as seen (even non-fresh) so it never fires later.
+    for (const b of bookings) seenBookingIdsRef.current!.add(b.id);
+    persist();
+  }, [bookings, bookingsLoading, user]);
 
   // Stops for the history detail drawer
   const { data: historyDetailStops = [], isLoading: historyStopsLoading } = useQuery({
@@ -2331,12 +2366,22 @@ function DriverDashboardPage() {
                   )}
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div className="flex flex-col gap-1">
-                      <h1 className="m-0 text-2xl sm:text-3xl font-bold tracking-tight text-gray-900">
-                        Hi, {getUserDisplayName(user).split(" ")[0]}!
-                      </h1>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h1 className="m-0 text-2xl sm:text-3xl font-bold tracking-tight text-gray-900">
+                          Hi, {getUserDisplayName(user).split(" ")[0]}!
+                        </h1>
+                        <span
+                          className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-bold ${getHostTier(completedTrips.length).badgeClass}`}
+                        >
+                          <Award size={13} />
+                          {getHostTier(completedTrips.length).label}
+                        </span>
+                      </div>
                       <p className="m-0 text-sm font-medium text-gray-500">
                         Here's what's happening with your trips today.
                       </p>
+                      {/* Quick switch back to the rider experience */}
+                      <RoleSwitch className="mt-2 self-start" />
                     </div>
                     <Button
                       type="primary"
@@ -5023,7 +5068,7 @@ function DriverDashboardPage() {
                           const passengers = getBookingPassengers(b);
                           const primaryPassenger = passengers[0];
                           const primaryName = primaryPassenger?.name || "Passenger";
-                          const seatLabel = passengers.map((passenger) => passenger.seatCode).join(", ");
+                          const seatLabel = passengers.map((passenger) => seatCodeToLabel(passenger.seatCode)).join(", ");
                           const genderLabel = [
                             ...new Set(
                               passengers
