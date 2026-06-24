@@ -38,3 +38,36 @@ h5.font-normal,
 h6.font-normal {
   font-weight: 400;
 }
+
+/**
+ * Global app notifications (antd `message.*`): show them BIG and in the
+ * CENTER of the screen so users can't miss them, instead of a small toast
+ * tucked at the top. Applies to every message.success/error/info app-wide.
+ */
+.ant-message {
+  top: 50% !important;
+  transform: translateY(-50%);
+  pointer-events: none;
+  z-index: 2000;
+}
+
+.ant-message .ant-message-notice-content {
+  padding: 20px 32px;
+  border-radius: 18px;
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.4;
+  max-width: min(90vw, 460px);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.2);
+}
+
+.ant-message .ant-message-custom-content {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.ant-message .ant-message-custom-content > .anticon {
+  font-size: 24px;
+  line-height: 1;
+}

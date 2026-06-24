@@ -25,6 +25,7 @@ import {
 import { memberPortalLinkSearch } from "@/lib/travelerResumeRedirect";
 import { UserProfileDialog } from "@/components/UserProfileDialog";
 import { getUserDisplayName, getUserInitial } from "@/lib/user-display";
+import { RoleSwitch } from "@/components/RoleSwitch";
 
 const navLinks = [{ to: "/" as const, label: "Home" }];
 
@@ -55,6 +56,9 @@ export function SiteHeader() {
           </Link>
 
           <div className="hidden md:flex items-center gap-2">
+            {/* Host / Passenger switch — only renders for hosts */}
+            <RoleSwitch className="mr-1" />
+
             {/* My trips — always shown; routes to traveler login when signed out */}
             <Button asChild variant="ghost" className="rounded-3xl">
               {user ? (
@@ -195,6 +199,16 @@ export function SiteHeader() {
                   <p className="font-bold text-sm truncate">{getUserDisplayName(user)}</p>
                   <p className="text-xs text-muted-foreground truncate">{user.email}</p>
                 </div>
+              </div>
+            )}
+
+            {/* Host / Passenger switch (hosts only) */}
+            {(isDriver || isAdmin) && (
+              <div className="mb-3 flex items-center justify-between rounded-2xl bg-muted/50 px-4 py-3">
+                <span className="text-sm font-semibold text-muted-foreground">Switch role</span>
+                <span onClick={() => setOpen(false)}>
+                  <RoleSwitch />
+                </span>
               </div>
             )}
 

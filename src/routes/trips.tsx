@@ -29,6 +29,7 @@ import { ReviewModal } from "@/components/ReviewModal";
 import { ContactEmailPrompt } from "@/components/ContactEmailPrompt";
 import type { Booking, Trip } from "@/lib/domain";
 import { getBookingPassengers } from "@/lib/booking-passengers";
+import { seatCodeToLabel } from "@/lib/seatLayout";
 
 dayjs.extend(relativeTime);
 
@@ -506,7 +507,7 @@ function TripsPage() {
                                   <div className="text-xs text-muted-foreground truncate">{p.phone}</div>
                                 </div>
                                 <span className="shrink-0 rounded-full bg-primary/10 text-primary text-[10px] font-bold px-2 py-0.5">
-                                  Seat #{p.seatCode}
+                                  Seat #{seatCodeToLabel(p.seatCode)}
                                 </span>
                                 {p.gender && (
                                   <span

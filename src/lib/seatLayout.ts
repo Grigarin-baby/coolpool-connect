@@ -56,3 +56,19 @@ export function buildSeatLayout(seatCapacity: number): SeatSlot[] {
 
   return slots;
 }
+
+/**
+ * Convert a stored seat code (`R{row}-C{col}`) to the human-friendly label
+ * shown to riders and hosts (e.g. `R0-C0` → `A1`, `R1-C2` → `B3`). This mirrors
+ * the `displayLabel` produced by buildSeatLayout. Unknown formats are returned
+ * unchanged so nothing ever renders blank.
+ */
+export function seatCodeToLabel(seatCode: string): string {
+  const match = /^R(\d+)-C(\d+)$/.exec(seatCode);
+  if (!match) return seatCode;
+  const row = Number(match[1]);
+  const col = Number(match[2]);
+  // Row 0 / col 1 is the driver in buildSeatLayout — never a bookable seat.
+  if (row === 0 && col === 1) return "Drv";
+  return `${String.fromCharCode(65 + row)}${col + 1}`;
+}

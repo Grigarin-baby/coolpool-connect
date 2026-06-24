@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import dayjs from "dayjs";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { ArrowLeft, Loader2, CreditCard } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -533,6 +534,27 @@ function BookingTripPage() {
             <p className="font-semibold">This trip is not open for booking.</p>
             <Button asChild variant="outline">
               <Link to="/">Back to home</Link>
+            </Button>
+          </Card>
+        </main>
+        <SiteFooter />
+      </div>
+    );
+  }
+
+  // Booking closes 30 minutes before departure.
+  if (dayjs().isAfter(dayjs(trip.departureAt).subtract(30, "minute"))) {
+    return (
+      <div className="min-h-screen flex flex-col">
+        <SiteHeader />
+        <main className="container mx-auto px-4 py-16 max-w-lg flex-1">
+          <Card className="p-8 rounded-3xl text-center space-y-4">
+            <p className="font-semibold">Booking closed for this trip.</p>
+            <p className="text-sm text-muted-foreground">
+              Bookings close 30 minutes before departure. Please find another ride.
+            </p>
+            <Button asChild variant="outline">
+              <Link to="/">Find another ride</Link>
             </Button>
           </Card>
         </main>

@@ -41,8 +41,11 @@ export async function showAppNotification(
 
   const { url, data, ...rest } = options;
   const finalOptions: NotificationOptions = {
-    icon: "/notification-icon.png",
-    badge: "/notification-icon.png",
+    // Square brand icons — the old /notification-icon.png was the wide 816×306
+    // logotype, which browsers can't render as a notification (they fell back to
+    // the generic browser icon).
+    icon: "/icon-512.png",
+    badge: "/icon-192.png",
     ...rest,
     data: { url: url || "/", ...(data as Record<string, unknown> | undefined) },
   };
