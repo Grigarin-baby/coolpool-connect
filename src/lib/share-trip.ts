@@ -20,7 +20,12 @@ export async function shareLink(shareData: {
 }): Promise<"shared" | "copied" | "failed"> {
   const url = shareData.url;
 
-  if (navigator.share) {
+  // Only use the native share sheet on touch/mobile devices. On desktop,
+  // navigator.share exists in some browsers (e.g. Chrome on Windows) but
+  // frequently rejects immediately with AbortError when there are no share
+  // targets — which made "Share" silently do nothing. Desktop falls straight
+  // through to the clipboard copy so the user always gets feedback.
+  if (navigator.share && isLikelyMobile()) {
     try {
       await navigator.share(shareData);
       return "shared";
@@ -47,6 +52,15 @@ export async function shareLink(shareData: {
   }
 
   return "failed";
+}
+
+/** True on phones/tablets, where the native share sheet is the better UX. */
+function isLikelyMobile(): boolean {
+  if (typeof navigator === "undefined") return false;
+  const ua = navigator.userAgent || "";
+  if (/Android|iPhone|iPad|iPod|Mobile/i.test(ua)) return true;
+  // iPadOS reports a desktop UA but is touch-first.
+  return navigator.maxTouchPoints > 1 && /Macintosh/i.test(ua);
 }
 
 function copyWithExecCommand(text: string): boolean {

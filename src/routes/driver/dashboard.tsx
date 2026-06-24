@@ -116,6 +116,7 @@ import { APP_FONT_FAMILY } from "@/lib/fonts";
 import { calcPricePerKm } from "@/lib/pricing";
 import { stripCountrySuffix } from "@/lib/geo";
 import { findDuplicateVehicle } from "@/lib/duplicateChecks";
+import { compressImage } from "@/lib/image-compression";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -776,10 +777,11 @@ function DriverDashboardPage() {
       if (!user) throw new Error("Not logged in");
       if (!file.type.startsWith("image/")) throw new Error("Please choose an image file.");
       if (file.size > 5 * 1024 * 1024) throw new Error("Photo must be under 5 MB.");
+      const compressed = await compressImage(file);
       const uploaded = await storage.createFile(
         appwriteConfig.driverDocsBucketId,
         ID.unique(),
-        file,
+        compressed,
         // Profile photos are shown on public pages (ride details, result cards),
         // so they must be publicly readable.
         [Permission.read(Role.any())],
@@ -834,10 +836,11 @@ function DriverDashboardPage() {
       const carImageIds: string[] = [];
       for (const file of carImagesList) {
         if (file.originFileObj) {
+          const compressed = await compressImage(file.originFileObj as File);
           const uploaded = await storage.createFile(
             appwriteConfig.driverDocsBucketId,
             ID.unique(),
-            file.originFileObj as File,
+            compressed,
             // Car photos are shown on the public ride page — make them readable.
             [Permission.read(Role.any())],
           );
@@ -4612,7 +4615,7 @@ function DriverDashboardPage() {
                               const up = await storage.createFile(
                                 appwriteConfig.driverDocsBucketId,
                                 ID.unique(),
-                                regFileList[0].originFileObj as File,
+                                await compressImage(regFileList[0].originFileObj as File),
                               );
                               regDocId = up.$id;
                             } catch {
@@ -4624,7 +4627,7 @@ function DriverDashboardPage() {
                               const up = await storage.createFile(
                                 appwriteConfig.driverDocsBucketId,
                                 ID.unique(),
-                                insFileList[0].originFileObj as File,
+                                await compressImage(insFileList[0].originFileObj as File),
                               );
                               insDocId = up.$id;
                             } catch {
