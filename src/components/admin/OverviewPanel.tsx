@@ -36,7 +36,7 @@ export function OverviewPanel({ onNavigate }: { onNavigate: (key: string) => voi
   const activeTrips = trips.filter((t) => t.status === "scheduled" || t.status === "in_progress");
   const revenue = bookings
     .filter((b) => b.status === "confirmed" || b.status === "completed")
-    .reduce((sum, b) => sum + (b.segmentPrice || 0), 0);
+    .reduce((sum, b) => sum + (b.segmentPrice || 0) * (b.seatsBooked || 1), 0);
   const pendingDriverVerifications = drivers.filter(
     (d) => d.verificationStatus === "pending",
   ).length;
