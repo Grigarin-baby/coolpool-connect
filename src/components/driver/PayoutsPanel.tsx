@@ -108,13 +108,15 @@ export function PayoutsPanel() {
     onError: (error: any) => message.error(error.message || "Failed to request payout."),
   });
 
-  // Lifetime earnings = gross received from confirmed/completed bookings on
-  // this host's trips. Coolpool charges no platform fee — hosts keep 100% of
-  // the price riders pay, so this must match the dashboard's "Total Earnings".
+  // Lifetime earnings = gross from non-cancelled bookings on COMPLETED trips
+  // (a host earns once the ride actually happens). No platform fee is taken, so
+  // this matches the dashboard's "Total Earnings" exactly.
   const earnings = useMemo(() => {
-    const tripIds = new Set(trips.map((t) => t.id));
+    const completedTripIds = new Set(
+      trips.filter((t) => t.status === "completed").map((t) => t.id),
+    );
     const relevantBookings = bookings.filter(
-      (b) => tripIds.has(b.tripId) && (b.status === "confirmed" || b.status === "completed"),
+      (b) => completedTripIds.has(b.tripId) && b.status !== "cancelled",
     );
     const lifetime = relevantBookings.reduce((sum, b) => sum + b.segmentPrice * b.seatsBooked, 0);
 
