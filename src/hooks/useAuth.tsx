@@ -13,6 +13,7 @@ import { listUserRoles, assignRole, upsertDriverProfile } from "@/data/appwrite-
 import type { AppRole } from "@/lib/domain";
 import { parseTravelerResumeRedirectParam } from "@/lib/travelerResumeRedirect";
 import { sendMsg91Otp, verifyMsg91Otp } from "@/integrations/msg91/otp";
+import { lookupLoginEmail, deleteOwnAccount } from "@/integrations/appwrite/account-server";
 
 export interface MemberGoogleOAuthOptions {
   resumeRedirect?: string;
@@ -32,12 +33,15 @@ interface AuthContextValue {
   signUp: (name: string, email: string, password: string) => Promise<void>;
   /** Logs in with phone number + password (phone is the identity). */
   signInWithPhonePassword: (phoneE164: string, password: string) => Promise<void>;
-  /** Creates an account with name + phone number + password. */
+  /** Creates an account with name + phone number + password (+ optional email). */
   signUpWithPhonePassword: (
     name: string,
     phoneE164: string,
     password: string,
+    contactEmail?: string,
   ) => Promise<void>;
+  /** Derives the Appwrite secret from a phone + PIN (used for PIN reset). */
+  deriveAccountSecret: (phoneE164: string, password: string) => Promise<string>;
   /** Sends an SMS OTP via MSG91 to an E.164 phone number. */
   sendPhoneOtp: (phoneE164: string) => Promise<void>;
   /** Verifies the OTP (for the last number sent to) and signs the user into Appwrite. */
@@ -45,8 +49,16 @@ interface AuthContextValue {
   /** Starts Appwrite Google OAuth (redirects away). Configure Google in Appwrite Auth settings. */
   signInWithGoogle: (opts?: MemberGoogleOAuthOptions) => void;
   signOut: () => Promise<void>;
+  /** Permanently deletes the caller's own account (data archived for admins). */
+  deleteAccount: () => Promise<void>;
   refreshRoles: () => Promise<void>;
   becomeRideHost: (phone: string) => Promise<void>;
+  /** Sends a password-recovery email (for email/password accounts). */
+  requestPasswordRecovery: (email: string) => Promise<void>;
+  /** Completes recovery using the userId+secret from the email link. */
+  completePasswordRecovery: (userId: string, secret: string, password: string) => Promise<void>;
+  /** Saves the signed-in user's contact email to their profile prefs. */
+  saveContactEmail: (email: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -126,6 +138,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await refreshSession();
   };
 
+  const requestPasswordRecovery = async (email: string) => {
+    const envOrigin = import.meta.env.VITE_APP_ORIGIN?.replace(/\/$/, "");
+    const origin = envOrigin || window.location.origin;
+    await account.createRecovery(email, `${origin}/reset-password`);
+  };
+
+  const completePasswordRecovery = async (
+    userId: string,
+    secret: string,
+    password: string,
+  ) => {
+    await account.updateRecovery(userId, secret, password);
+  };
+
+  const saveContactEmail = async (email: string) => {
+    await account.updatePrefs({ ...(user?.prefs || {}), email });
+    await refreshSession();
+  };
+
   const signUp = async (name: string, email: string, password: string) => {
     await account.create(ID.unique(), email, password, name);
     await account.createEmailPasswordSession(email, password);
@@ -140,7 +171,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signInWithPhonePassword = async (phoneE164: string, password: string) => {
     const secret = await derivePassword(phoneE164, password);
-    await account.createEmailPasswordSession(phoneToEmail(phoneE164), secret);
+    try {
+      // Existing accounts (and new ones without an email) use the synthetic
+      // phone email — try it first so existing users are completely unaffected.
+      await account.createEmailPasswordSession(phoneToEmail(phoneE164), secret);
+    } catch (err) {
+      // Newer accounts that added a real email at signup use it as their login
+      // identity. Resolve the email by phone and retry.
+      let resolved: string | null = null;
+      try {
+        const res = await lookupLoginEmail({ data: { phone: phoneE164 } });
+        resolved = res.email;
+      } catch {
+        /* resolver unavailable — fall through to original error */
+      }
+      if (resolved && resolved !== phoneToEmail(phoneE164)) {
+        await account.createEmailPasswordSession(resolved, secret);
+      } else {
+        throw err;
+      }
+    }
     await refreshSession();
   };
 
@@ -148,8 +198,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     name: string,
     phoneE164: string,
     password: string,
+    contactEmail?: string,
   ) => {
-    const email = phoneToEmail(phoneE164);
+    const realEmail = contactEmail?.trim() || "";
+    // When the traveller provides a real email, use it as the login identity so
+    // password recovery emails actually reach them. Otherwise fall back to the
+    // synthetic phone email (recovery isn't available for those accounts).
+    const email = realEmail || phoneToEmail(phoneE164);
     const secret = await derivePassword(phoneE164, password);
     try {
       await account.create(ID.unique(), email, secret, name);
@@ -167,8 +222,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       throw error;
     }
     await account.createEmailPasswordSession(email, secret);
-    await account.updatePrefs({ roles: ["user"], fullName: name, phone: phoneE164 });
-    // Link the real phone so OTP login resolves to the same account. Best-effort.
+    await account.updatePrefs({
+      roles: ["user"],
+      fullName: name,
+      phone: phoneE164,
+      ...(realEmail ? { email: realEmail } : {}),
+    });
+    // Always set the phone field so phone+PIN login can resolve this account
+    // back from its (possibly real) email. Best-effort.
     try {
       await account.updatePhone(phoneE164, secret);
     } catch {
@@ -260,6 +321,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  /**
+   * Permanently deletes the user's own login account via the admin server
+   * function (proven by a short-lived JWT). Their data is archived/kept for
+   * admins; here we just tear down the local session afterwards.
+   */
+  const deleteAccount = async () => {
+    const { jwt } = await account.createJWT();
+    await deleteOwnAccount({ data: { jwt } });
+    // The account no longer exists server-side; clear any local session state.
+    try {
+      await account.deleteSession("current");
+    } catch {
+      /* already invalid — fine */
+    }
+    setSession(null);
+    setRoles([]);
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -279,6 +358,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         signOut,
         refreshRoles,
         becomeRideHost,
+        requestPasswordRecovery,
+        completePasswordRecovery,
+        saveContactEmail,
+        deriveAccountSecret: derivePassword,
+        deleteAccount,
       }}
     >
       {children}

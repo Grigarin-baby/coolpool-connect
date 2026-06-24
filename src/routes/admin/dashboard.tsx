@@ -25,10 +25,12 @@ import {
   Ticket,
   IndianRupee,
   Wallet,
+  UserX,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { listActiveTrips } from "@/data/appwrite-repository";
 import { BannersManager } from "@/components/admin/BannersManager";
+import { DeletedAccountsPanel } from "@/components/admin/DeletedAccountsPanel";
 import { OverviewPanel } from "@/components/admin/OverviewPanel";
 import { UsersPanel } from "@/components/admin/UsersPanel";
 import { DriversPanel } from "@/components/admin/DriversPanel";
@@ -186,6 +188,11 @@ function AdminDashboardPage() {
                 label: "Banners Manager",
               },
               {
+                key: "deleted",
+                icon: <UserX size={18} />,
+                label: "Deleted Accounts",
+              },
+              {
                 key: "settings",
                 icon: <Settings size={18} />,
                 label: "System Settings",
@@ -271,6 +278,7 @@ function AdminDashboardPage() {
             {activeModule === "pricing" && <PricingPanel />}
             {activeModule === "payouts" && <PayoutsPanel />}
             {activeModule === "banners" && <BannersManager />}
+            {activeModule === "deleted" && <DeletedAccountsPanel />}
           </Content>
         </Layout>
       </Layout>

@@ -50,6 +50,38 @@ interface BookingSearch {
   segmentPrice?: number;
 }
 
+const RAZORPAY_SCRIPT_SRC = "https://checkout.razorpay.com/v1/checkout.js";
+
+/**
+ * Ensures Razorpay's checkout.js is loaded and `window.Razorpay` is ready.
+ * Resolves true once available, false if the script can't load. Safe to call
+ * repeatedly — reuses an in-flight or already-loaded script.
+ */
+function ensureRazorpayLoaded(): Promise<boolean> {
+  if (typeof window === "undefined") return Promise.resolve(false);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  if ((window as any).Razorpay) return Promise.resolve(true);
+
+  return new Promise<boolean>((resolve) => {
+    const existing = document.getElementById("razorpay-checkout-js") as HTMLScriptElement | null;
+    const onReady = () => resolve(!!(window as any).Razorpay);
+    if (existing) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      if ((window as any).Razorpay) return resolve(true);
+      existing.addEventListener("load", onReady, { once: true });
+      existing.addEventListener("error", () => resolve(false), { once: true });
+      return;
+    }
+    const script = document.createElement("script");
+    script.id = "razorpay-checkout-js";
+    script.src = RAZORPAY_SCRIPT_SRC;
+    script.async = true;
+    script.addEventListener("load", onReady, { once: true });
+    script.addEventListener("error", () => resolve(false), { once: true });
+    document.body.appendChild(script);
+  });
+}
+
 export const Route = createFileRoute("/booking/$tripId")({
   validateSearch: (search: Record<string, unknown>): BookingSearch => ({
     fromStopIndex:
@@ -82,14 +114,9 @@ function BookingTripPage() {
   const [callConsentGiven, setCallConsentGiven] = useState(false);
   const [paymentPending, setPaymentPending] = useState(false);
 
-  // Load Razorpay checkout script once on mount
+  // Warm up Razorpay checkout.js on mount (best-effort; we also await it at pay time).
   useEffect(() => {
-    if (document.getElementById("razorpay-checkout-js")) return;
-    const script = document.createElement("script");
-    script.id = "razorpay-checkout-js";
-    script.src = "https://checkout.razorpay.com/v1/checkout.js";
-    script.async = true;
-    document.body.appendChild(script);
+    void ensureRazorpayLoaded();
   }, []);
 
   // Keep passengers array length in sync with number of selected seats (at least 1 row)
@@ -342,16 +369,19 @@ function BookingTripPage() {
 
     setPaymentPending(true);
     try {
-      const amountPaise = Math.round(totalAmount * 100);
-      const order = await createRazorpayOrder({ data: { amountPaise, receipt: `coolpool_${Date.now()}` } });
-
-      const keyId = import.meta.env.VITE_RAZORPAY_KEY_ID as string;
+      // Make sure checkout.js is actually loaded before we try to open it.
+      const ready = await ensureRazorpayLoaded();
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const Razorpay = (window as any).Razorpay;
-      if (!Razorpay) {
-        toast.error("Payment gateway failed to load. Please refresh and try again.");
+      if (!ready || !Razorpay) {
+        toast.error("Payment gateway couldn't load. Check your internet (or disable ad-blockers) and try again.");
+        setPaymentPending(false);
         return;
       }
+
+      const amountPaise = Math.round(totalAmount * 100);
+      const order = await createRazorpayOrder({ data: { amountPaise, receipt: `coolpool_${Date.now()}` } });
+      const keyId = import.meta.env.VITE_RAZORPAY_KEY_ID as string;
 
       const rzp = new Razorpay({
         key: keyId,
@@ -384,15 +414,38 @@ function BookingTripPage() {
           razorpay_order_id: string;
           razorpay_signature: string;
         }) => {
+          // Verify the signature first; then create the booking. We report which
+          // step failed so a captured-but-unconfirmed payment is never silent.
           try {
-            await verifyRazorpayPayment({ data: response });
-            const booking = await confirmBooking(response.razorpay_payment_id);
+            try {
+              await verifyRazorpayPayment({ data: response });
+            } catch (e) {
+              console.error("[payment] signature verification failed", e, response);
+              throw new Error(
+                "Payment couldn't be verified. If money was deducted it will be auto-refunded — please contact support with your payment ID: " +
+                  response.razorpay_payment_id,
+              );
+            }
+
+            let booking;
+            try {
+              booking = await confirmBooking(response.razorpay_payment_id);
+            } catch (e) {
+              console.error("[payment] booking creation failed after payment", e, response);
+              throw new Error(
+                (e instanceof Error ? e.message : "Couldn't confirm your booking") +
+                  ` — payment received (ID: ${response.razorpay_payment_id}). Please contact support to finalise or refund.`,
+              );
+            }
+
             toast.success("Payment successful! Booking confirmed.");
             await queryClient.invalidateQueries({ queryKey: ["trip-seat-reservations", tripId] });
             await queryClient.invalidateQueries({ queryKey: ["traveler-bookings"] });
             navigate({ to: "/trips", search: { booking: booking.id } as any });
           } catch (e) {
-            toast.error(e instanceof Error ? e.message : "Payment verification failed.");
+            toast.error(e instanceof Error ? e.message : "Something went wrong after payment.", {
+              duration: 12000,
+            });
           } finally {
             setPaymentPending(false);
           }
@@ -504,13 +557,8 @@ function BookingTripPage() {
       .slice(0, selected.size)
       .every((passenger) => passenger.name.trim() && passenger.phone.trim() && passenger.gender);
 
-  const SERVICE_FEE = 20;
-  const PAYMENT_GATEWAY_CHARGE = 5;
-
-  const totalAmount =
-    selected.size > 0
-      ? pricePerSeat * selected.size + SERVICE_FEE + PAYMENT_GATEWAY_CHARGE
-      : 0;
+  // No platform fees — travellers pay exactly the host's price, nothing extra.
+  const totalAmount = selected.size > 0 ? pricePerSeat * selected.size : 0;
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-hero">
@@ -740,33 +788,21 @@ function BookingTripPage() {
               <div className="pt-3 border-t border-border/60 space-y-2">
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">
-                    Host charges ({selected.size} seat{selected.size === 1 ? "" : "s"})
+                    {selected.size} seat{selected.size === 1 ? "" : "s"} × {formatCurrency(pricePerSeat)}
                   </span>
                   <span className="font-semibold">
                     {formatCurrency(pricePerSeat * selected.size)}
                   </span>
                 </div>
-                {selected.size > 0 && (
-                  <>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Service fee</span>
-                      <span className="font-semibold">{formatCurrency(SERVICE_FEE)}</span>
-                    </div>
-                    <div className="flex justify-between text-xs">
-                      <span className="text-muted-foreground/80">Inclusive of 18% GST</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Payment gateway charge</span>
-                      <span className="font-semibold">{formatCurrency(PAYMENT_GATEWAY_CHARGE)}</span>
-                    </div>
-                  </>
-                )}
                 <div className="pt-2 border-t border-border/60 flex justify-between items-baseline">
                   <span className="font-bold">Total</span>
                   <span className="text-2xl font-extrabold text-primary">
                     {formatCurrency(totalAmount)}
                   </span>
                 </div>
+                <p className="text-[11px] text-muted-foreground">
+                  No booking or platform fees — you pay exactly the host's price.
+                </p>
               </div>
 
               <div className="space-y-3 pt-3 border-t border-border/60">

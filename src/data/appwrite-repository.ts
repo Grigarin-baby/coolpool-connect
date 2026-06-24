@@ -25,6 +25,7 @@ import type {
   TripShare,
   TripStatus,
   TripStop,
+  DeletedAccount,
   VerificationStatus,
 } from "@/lib/domain";
 
@@ -62,7 +63,24 @@ function toTrip(doc: any): Trip {
     currentLat: doc.current_lat != null ? Number(doc.current_lat) : undefined,
     currentLng: doc.current_lng != null ? Number(doc.current_lng) : undefined,
     locationUpdatedAt: doc.location_updated_at ? String(doc.location_updated_at) : undefined,
+    active: doc.active !== false,
   };
+}
+
+/** Toggle a vehicle / driver / trip in or out of service. */
+export async function setVehicleActive(vehicleId: string, active: boolean): Promise<void> {
+  const c = ids();
+  await databases.updateDocument(appwriteConfig.databaseId, c.vehicles, vehicleId, { active });
+}
+
+export async function setDriverActive(driverDocId: string, active: boolean): Promise<void> {
+  const c = ids();
+  await databases.updateDocument(appwriteConfig.databaseId, c.drivers, driverDocId, { active });
+}
+
+export async function setTripActive(tripId: string, active: boolean): Promise<void> {
+  const c = ids();
+  await databases.updateDocument(appwriteConfig.databaseId, c.trips, tripId, { active });
 }
 
 function toTripStop(doc: any): TripStop {
@@ -149,6 +167,7 @@ function toDriverProfile(doc: any): DriverProfile {
     verificationNote: doc.verification_note ? String(doc.verification_note) : null,
     ratingAvg: doc.rating_avg != null ? Number(doc.rating_avg) : undefined,
     ratingCount: doc.rating_count != null ? Number(doc.rating_count) : undefined,
+    active: doc.active !== false,
   };
 }
 
@@ -178,6 +197,7 @@ function toDriverVehicle(doc: any): DriverVehicle {
     carImages: doc.car_images && Array.isArray(doc.car_images) ? doc.car_images.map(String) : [],
     verificationStatus: (doc.verification_status as VerificationStatus | undefined) ?? "approved",
     verificationNote: doc.verification_note ? String(doc.verification_note) : null,
+    active: doc.active !== false,
   };
 }
 
@@ -527,6 +547,30 @@ export async function deleteTrip(tripId: string): Promise<void> {
   await databases.deleteDocument(appwriteConfig.databaseId, c.trips, tripId);
 }
 
+// --- Deleted-account archive (admin view) ------------------------------------
+
+function toDeletedAccount(doc: any): DeletedAccount {
+  return {
+    id: doc.$id,
+    userId: String(doc.user_id || ""),
+    fullName: String(doc.full_name || ""),
+    phone: String(doc.phone || ""),
+    email: String(doc.email || ""),
+    roles: String(doc.roles || ""),
+    deletedAt: String(doc.deleted_at || doc.$createdAt || ""),
+  };
+}
+
+export async function listDeletedAccounts(): Promise<DeletedAccount[]> {
+  const c = ids();
+  if (!c.deletedAccounts) return [];
+  const result = await databases.listDocuments(appwriteConfig.databaseId, c.deletedAccounts, [
+    Query.orderDesc("$createdAt"),
+    Query.limit(200),
+  ]);
+  return result.documents.map(toDeletedAccount);
+}
+
 export async function deleteTripStop(stopId: string): Promise<void> {
   const c = ids();
   await databases.deleteDocument(appwriteConfig.databaseId, c.tripStops, stopId);
@@ -602,12 +646,18 @@ export async function createBooking(
       payload,
     );
   } catch (err) {
+    // A missing optional attribute on the bookings collection must NEVER cost a
+    // paid customer their booking. Strip every optional/metadata field and
+    // retry with only the core booking data so the seat is still secured.
     console.warn(
-      "[createBooking] retry without otp/verified — add these attributes to the bookings collection to enable OTP verification.",
+      "[createBooking] create failed — retrying without optional attributes (otp/verified/payment_*/passengers).",
       err,
     );
     delete payload.otp;
     delete payload.verified;
+    delete payload.payment_method;
+    delete payload.payment_reference;
+    delete payload.passengers_json;
     doc = await databases.createDocument(
       appwriteConfig.databaseId,
       c.bookings,
@@ -666,6 +716,17 @@ export async function getVehicleByDriverUserId(
   return doc ? toDriverVehicle(doc) : null;
 }
 
+/** Fetch the exact vehicle assigned to a trip by its document ID. */
+export async function getVehicleById(vehicleId: string): Promise<DriverVehicle | null> {
+  const c = ids();
+  try {
+    const doc = await databases.getDocument(appwriteConfig.databaseId, c.vehicles, vehicleId);
+    return toDriverVehicle(doc);
+  } catch {
+    return null;
+  }
+}
+
 export async function listVehiclesByDriverUserId(driverUserId: string): Promise<DriverVehicle[]> {
   const c = ids();
   const result = await databases.listDocuments(appwriteConfig.databaseId, c.vehicles, [
@@ -692,6 +753,22 @@ export async function getVehiclesByDriverUserIds(
     const vehicle = toDriverVehicle(doc);
     if (!map.has(vehicle.driverUserId)) map.set(vehicle.driverUserId, vehicle);
   }
+  return map;
+}
+
+/** Batch-fetch vehicles by their document IDs (keyed by vehicle id). */
+export async function getVehiclesByIds(
+  vehicleIds: string[],
+): Promise<Map<string, DriverVehicle>> {
+  const unique = [...new Set(vehicleIds.filter(Boolean))];
+  if (unique.length === 0) return new Map();
+  const c = ids();
+  const result = await databases.listDocuments(appwriteConfig.databaseId, c.vehicles, [
+    Query.equal("$id", unique),
+    Query.limit(100),
+  ]);
+  const map = new Map<string, DriverVehicle>();
+  for (const doc of result.documents) map.set(doc.$id, toDriverVehicle(doc));
   return map;
 }
 
@@ -829,12 +906,33 @@ async function createTripSeatReservation(input: {
   };
   if (input.gender) payload.gender = input.gender;
 
-  const doc = await databases.createDocument(
-    appwriteConfig.databaseId,
-    c.tripSeatReservations,
-    docId,
-    payload,
-  );
+  let doc;
+  try {
+    doc = await databases.createDocument(
+      appwriteConfig.databaseId,
+      c.tripSeatReservations,
+      docId,
+      payload,
+    );
+  } catch (err) {
+    // The `gender` attribute may not exist on the collection yet. Don't let a
+    // missing optional field fail the whole booking — retry without it.
+    if (payload.gender !== undefined) {
+      console.warn(
+        "[createTripSeatReservation] retry without gender — add a `gender` attribute to the trip_seat_reservations collection to store passenger gender.",
+        err,
+      );
+      delete payload.gender;
+      doc = await databases.createDocument(
+        appwriteConfig.databaseId,
+        c.tripSeatReservations,
+        docId,
+        payload,
+      );
+    } else {
+      throw err;
+    }
+  }
   return toTripSeatReservation(doc);
 }
 
@@ -1203,7 +1301,8 @@ export async function listActiveTrips(limit = 200): Promise<Trip[]> {
     Query.orderAsc("departure_at"),
     Query.limit(limit),
   ]);
-  return result.documents.map(toTrip);
+  // Hide trips the host has paused (active === false).
+  return result.documents.map(toTrip).filter((t) => t.active !== false);
 }
 
 export interface TrendingRoutesOptions {
@@ -1242,10 +1341,12 @@ export async function listTrendingRoutes(options?: TrendingRoutesOptions): Promi
     Query.limit(200),
   ]);
 
-  let rows = result.documents.map((d) => ({
-    trip: toTrip(d),
-    createdAt: String(d.$createdAt ?? ""),
-  }));
+  let rows = result.documents
+    .map((d) => ({
+      trip: toTrip(d),
+      createdAt: String(d.$createdAt ?? ""),
+    }))
+    .filter((r) => r.trip.active !== false);
 
   const city = options?.city?.trim();
   if (city) {

@@ -75,6 +75,9 @@ import { useAuth } from "@/hooks/useAuth";
 import {
   createTrip,
   listHostTrips,
+  setVehicleActive,
+  setDriverActive,
+  setTripActive,
   listVehiclesByDriverUserId,
   createDriverVehicle,
   deleteDriverVehicle,
@@ -83,7 +86,6 @@ import {
   createTeamDriver,
   updateTeamDriver,
   deleteTeamDriver,
-  deleteDriverAccount,
   updateBookingRating,
   updateTrip,
   updateTripLocation,
@@ -107,13 +109,14 @@ import {
 import { PayoutsPanel } from "@/components/driver/PayoutsPanel";
 import type { RidePreferences } from "@/lib/domain";
 import { storage } from "@/integrations/appwrite/client";
-import { ID } from "appwrite";
+import { ID, Permission, Role } from "appwrite";
 import type { Trip, TripStop, DriverProfile, Booking, BookingStatus, Review } from "@/lib/domain";
 import { shareTrip, getTripShareUrl } from "@/lib/share-trip";
 import { APP_FONT_FAMILY } from "@/lib/fonts";
 import { calcPricePerKm } from "@/lib/pricing";
 import { stripCountrySuffix } from "@/lib/geo";
 import { findDuplicateVehicle } from "@/lib/duplicateChecks";
+import { compressImage } from "@/lib/image-compression";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -345,7 +348,7 @@ export const Route = createFileRoute("/driver/dashboard")({
 });
 
 function DriverDashboardPage() {
-  const { isDriver, user, signOut, loading, refreshRoles, roles } = useAuth();
+  const { isDriver, user, signOut, loading, refreshRoles, roles, deleteAccount } = useAuth();
   const search = Route.useSearch();
   const navigate = Route.useNavigate();
   const [activeModule, setActiveModule] = useState<DashboardModule>(search.module);
@@ -480,6 +483,33 @@ function DriverDashboardPage() {
       message.error(err instanceof Error ? err.message : "Failed to complete trip.");
     } finally {
       setTripActionLoading(null);
+    }
+  };
+
+  const toggleVehicleActive = async (id: string, active: boolean) => {
+    try {
+      await setVehicleActive(id, active);
+      await queryClient.invalidateQueries({ queryKey: ["driver-vehicles", user?.$id] });
+    } catch {
+      message.error("Couldn't update vehicle status.");
+    }
+  };
+
+  const toggleDriverActive = async (id: string, active: boolean) => {
+    try {
+      await setDriverActive(id, active);
+      await queryClient.invalidateQueries({ queryKey: ["team-drivers"] });
+    } catch {
+      message.error("Couldn't update driver status.");
+    }
+  };
+
+  const toggleTripActive = async (id: string, active: boolean) => {
+    try {
+      await setTripActive(id, active);
+      await queryClient.invalidateQueries({ queryKey: ["host-trips"] });
+    } catch {
+      message.error("Couldn't update trip status.");
     }
   };
 
@@ -631,13 +661,14 @@ function DriverDashboardPage() {
     if (!user?.$id) return;
     setDeletingAccount(true);
     try {
-      await deleteDriverAccount(user.$id);
+      // Truly deletes the login account (server-side, admin) and archives the
+      // record; the account's data is kept for admins, trips paused.
+      await deleteAccount();
       setDeleteAccountModalOpen(false);
       setAccountDeletedSuccess(true);
-      // Show the success animation for ~2.2s, then sign out + bounce home.
-      setTimeout(async () => {
-        await signOut();
-        void navigate({ to: "/", replace: true });
+      // Show the success animation for ~2.2s, then bounce home (session is gone).
+      setTimeout(() => {
+        if (typeof window !== "undefined") window.location.assign("/");
       }, 2200);
     } catch (err) {
       message.error(err instanceof Error ? err.message : "Failed to delete account.");
@@ -746,10 +777,14 @@ function DriverDashboardPage() {
       if (!user) throw new Error("Not logged in");
       if (!file.type.startsWith("image/")) throw new Error("Please choose an image file.");
       if (file.size > 5 * 1024 * 1024) throw new Error("Photo must be under 5 MB.");
+      const compressed = await compressImage(file);
       const uploaded = await storage.createFile(
         appwriteConfig.driverDocsBucketId,
         ID.unique(),
-        file,
+        compressed,
+        // Profile photos are shown on public pages (ride details, result cards),
+        // so they must be publicly readable.
+        [Permission.read(Role.any())],
       );
       const url = `${appwriteConfig.endpoint}/storage/buckets/${appwriteConfig.driverDocsBucketId}/files/${uploaded.$id}/view?project=${appwriteConfig.projectId}`;
       await updateDriverPhoto(user.$id, url);
@@ -801,10 +836,13 @@ function DriverDashboardPage() {
       const carImageIds: string[] = [];
       for (const file of carImagesList) {
         if (file.originFileObj) {
+          const compressed = await compressImage(file.originFileObj as File);
           const uploaded = await storage.createFile(
             appwriteConfig.driverDocsBucketId,
             ID.unique(),
-            file.originFileObj as File,
+            compressed,
+            // Car photos are shown on the public ride page — make them readable.
+            [Permission.read(Role.any())],
           );
           carImageIds.push(uploaded.$id);
         } else if (file.url) {
@@ -1048,18 +1086,29 @@ function DriverDashboardPage() {
 
   // Derived history stats from real trips
   const completedTrips = trips.filter((t) => t.status === "completed");
+
+  // A trip that's more than 5 hours past its departure and was never completed
+  // or cancelled is treated as "expired" — it drops out of the upcoming Trips
+  // tab and shows in History.
+  const TRIP_EXPIRY_HOURS = 5;
+  const isExpired = (t: Trip) =>
+    t.status !== "completed" &&
+    t.status !== "cancelled" &&
+    now.isAfter(dayjs(t.departureAt).add(TRIP_EXPIRY_HOURS, "hour"));
+
   // lifetimeEarnings computed after receivedByTrip is built (below)
-  // Past trips: only trips explicitly marked completed or cancelled move to
-  // history — trips that are merely "in progress" (departure passed but not
-  // yet completed) stay in the upcoming Trips tab.
-  const pastTrips = trips.filter(
-    (t) => t.status === "completed" || t.status === "cancelled",
-  );
+  // Past trips: completed, cancelled, or expired move to history.
+  const pastTrips = trips
+    .filter((t) => t.status === "completed" || t.status === "cancelled" || isExpired(t))
+    // Latest trips on top, oldest at the bottom.
+    .sort((a, b) => new Date(b.departureAt).getTime() - new Date(a.departureAt).getTime());
   const filteredHistory =
     historyFilter === "all"
       ? pastTrips
       : pastTrips.filter((t) =>
-        historyFilter === "completed" ? t.status === "completed" : t.status === "cancelled",
+        historyFilter === "completed"
+          ? t.status === "completed"
+          : t.status === "cancelled" || isExpired(t),
       );
 
   // Actual received revenue per trip = sum of segmentPrice × seatsBooked
@@ -1078,11 +1127,20 @@ function DriverDashboardPage() {
   // Trips tab shows everything not yet completed/cancelled, including trips
   // currently in progress whose departure time has already passed.
   const upcomingTrips = trips.filter(
-    (t) => t.status !== "completed" && t.status !== "cancelled",
+    (t) => t.status !== "completed" && t.status !== "cancelled" && !isExpired(t),
   );
 
   const sortedTrips = [...upcomingTrips].sort(
     (a, b) => new Date(b.departureAt).getTime() - new Date(a.departureAt).getTime(),
+  );
+
+  // An in-progress trip whose estimated end time has passed: the host likely
+  // forgot to end it, which keeps the vehicle + driver locked. We force them to
+  // END TRIP (release resources) before they can do anything else.
+  const tripEstimatedEnd = (t: Trip) =>
+    dayjs(t.arrivalAt ?? dayjs(t.departureAt).add(2, "hour"));
+  const overdueLiveTrip = trips.find(
+    (t) => t.status === "in_progress" && now.isAfter(tripEstimatedEnd(t)),
   );
 
   // Remind the host to start each scheduled trip: once at 15 minutes before
@@ -1822,6 +1880,36 @@ function DriverDashboardPage() {
         className="min-h-screen bg-fixed bg-gradient-to-br from-emerald-200 via-green-200 to-emerald-300"
         style={{ fontFamily: APP_FONT_FAMILY }}
       >
+        {/* Forced END TRIP — a trip is still "in progress" past its end time, so
+            the vehicle + driver are locked. Block the screen until the host ends
+            it (only one action: End Trip). */}
+        {overdueLiveTrip && (
+          <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-gray-900/80 px-6 backdrop-blur-sm">
+            <div className="w-full max-w-md rounded-3xl bg-white p-7 text-center shadow-2xl">
+              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-red-100 text-red-600">
+                <FlagTriangleRight size={30} />
+              </div>
+              <h2 className="mt-5 text-2xl font-black text-gray-900">End your ongoing trip</h2>
+              <p className="mt-2 text-sm leading-relaxed text-gray-600">
+                Your ride <strong>{stripCountrySuffix(overdueLiveTrip.fromLocation)} → {stripCountrySuffix(overdueLiveTrip.toLocation)}</strong> has
+                passed its expected end time. End it to release your vehicle and driver — you
+                can&apos;t host a new trip until this one is closed.
+              </p>
+              <Button
+                type="primary"
+                size="large"
+                block
+                danger
+                loading={tripActionLoading === overdueLiveTrip.id}
+                onClick={() => handleEndTrip(overdueLiveTrip.id)}
+                className="mt-6 h-12 rounded-2xl font-bold"
+              >
+                End Trip
+              </Button>
+            </div>
+          </div>
+        )}
+
         {tripPublishedSuccess && (
           <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-white/95 backdrop-blur-sm animate-in fade-in duration-200">
             <div className="flex flex-col items-center px-6 text-center">
@@ -2701,12 +2789,38 @@ function DriverDashboardPage() {
                                 </div>
                               </div>
 
-                              <div className="mt-5 pt-4 border-t border-gray-100 flex items-center justify-between">
-                                <div className="flex items-center gap-2 text-sm text-gray-600">
+                              <div className="mt-5 pt-4 border-t border-gray-100 flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+                                <div className="flex items-center gap-2 text-sm text-gray-600 shrink-0">
                                   <User size={16} />
-                                  <span>{item.totalSeats} seats total</span>
+                                  <span className="whitespace-nowrap">{item.totalSeats} seats total</span>
                                 </div>
-                                <div className="flex items-center gap-3">
+                                <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                                  {item.status === "scheduled" &&
+                                    now.isAfter(dayjs(item.departureAt).subtract(15, "minute")) && (
+                                      <Button
+                                        type="primary"
+                                        size="small"
+                                        icon={<PlayCircle size={14} />}
+                                        loading={tripActionLoading === item.id}
+                                        className="rounded-xl bg-emerald-500 border-none"
+                                        onClick={() => handleStartTrip(item.id)}
+                                      >
+                                        Start
+                                      </Button>
+                                    )}
+                                  {item.status === "in_progress" && (
+                                    <Button
+                                      type="primary"
+                                      size="small"
+                                      danger
+                                      icon={<FlagTriangleRight size={14} />}
+                                      loading={tripActionLoading === item.id}
+                                      className="rounded-xl"
+                                      onClick={() => handleEndTrip(item.id)}
+                                    >
+                                      End Trip
+                                    </Button>
+                                  )}
                                   <Button
                                     type="text"
                                     size="small"
@@ -2997,7 +3111,7 @@ function DriverDashboardPage() {
                       </Card>
 
                       {/* Mobile Card View */}
-                      <div className="lg:hidden space-y-3">
+                      <div className="lg:hidden space-y-4">
                         {tripsLoading ? (
                           <div className="flex justify-center py-12">
                             <Spin size="large" />
@@ -3025,6 +3139,22 @@ function DriverDashboardPage() {
                               className="rounded-2xl border border-white/60 shadow-card bg-white/80 backdrop-blur-md p-3 cursor-pointer transition-transform active:scale-[0.99]"
                             >
                               <div className="space-y-2">
+                                {/* Active toggle — pause a trip without cancelling it */}
+                                <div
+                                  className="flex items-center justify-between"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <span
+                                    className={`text-[11px] font-bold uppercase tracking-wider ${trip.active !== false ? "text-emerald-600" : "text-gray-400"}`}
+                                  >
+                                    {trip.active !== false ? "Active" : "Paused"}
+                                  </span>
+                                  <Switch
+                                    size="small"
+                                    checked={trip.active !== false}
+                                    onChange={(checked) => toggleTripActive(trip.id, checked)}
+                                  />
+                                </div>
                                 {/* Route */}
                                 <div className="flex items-center gap-2">
                                   <Text strong className="flex-1 line-clamp-1 text-gray-900">
@@ -3089,6 +3219,38 @@ function DriverDashboardPage() {
                                     )}
                                   </div>
                                   <div className="flex items-center gap-2 shrink-0">
+                                    {trip.status === "scheduled" &&
+                                      now.isAfter(dayjs(trip.departureAt).subtract(15, "minute")) && (
+                                        <Button
+                                          type="primary"
+                                          size="small"
+                                          icon={<PlayCircle size={14} />}
+                                          loading={tripActionLoading === trip.id}
+                                          className="rounded-xl bg-emerald-500 border-none"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleStartTrip(trip.id);
+                                          }}
+                                        >
+                                          Start
+                                        </Button>
+                                      )}
+                                    {trip.status === "in_progress" && (
+                                      <Button
+                                        type="primary"
+                                        size="small"
+                                        danger
+                                        icon={<FlagTriangleRight size={14} />}
+                                        loading={tripActionLoading === trip.id}
+                                        className="rounded-xl"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleEndTrip(trip.id);
+                                        }}
+                                      >
+                                        End Trip
+                                      </Button>
+                                    )}
                                     <Button
                                       size="small"
                                       icon={<Share2 size={14} />}
@@ -3661,10 +3823,10 @@ function DriverDashboardPage() {
                                 ₹{(receivedByTrip.get(trip.id) ?? 0).toLocaleString("en-IN")}
                               </span>
                               <Tag
-                                color={trip.status === "completed" ? "success" : trip.status === "cancelled" ? "error" : "processing"}
+                                color={trip.status === "completed" ? "success" : trip.status === "cancelled" ? "error" : isExpired(trip) ? "warning" : "processing"}
                                 className="m-0 rounded-full border-none px-2 uppercase text-[9px] tracking-wider font-bold"
                               >
-                                {trip.status}
+                                {isExpired(trip) ? "expired" : trip.status}
                               </Tag>
                             </div>
                           </div>
@@ -4011,6 +4173,18 @@ function DriverDashboardPage() {
                               </div>
                             </div>
                             <div className="flex items-center gap-2 shrink-0">
+                              <div className="flex items-center gap-1.5">
+                                <Switch
+                                  size="small"
+                                  checked={d.active !== false}
+                                  onChange={(checked) => toggleDriverActive(d.id, checked)}
+                                />
+                                <span
+                                  className={`hidden sm:inline text-[11px] font-bold uppercase tracking-wider ${d.active !== false ? "text-emerald-600" : "text-gray-400"}`}
+                                >
+                                  {d.active !== false ? "Active" : "Off"}
+                                </span>
+                              </div>
                               <Button
                                 size="small"
                                 icon={<Pencil size={14} />}
@@ -4121,11 +4295,17 @@ function DriverDashboardPage() {
                               <p className="text-gray-400 text-[10px] uppercase tracking-widest font-bold">
                                 Registered Vehicle
                               </p>
-                              <div className="flex items-center gap-1.5 mt-1">
-                                <div className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                                <p className="text-emerald-400 text-xs font-bold uppercase tracking-wider">
-                                  Active
-                                </p>
+                              <div className="flex items-center gap-2 mt-1.5">
+                                <Switch
+                                  size="small"
+                                  checked={v.active}
+                                  onChange={(checked) => toggleVehicleActive(v.id, checked)}
+                                />
+                                <span
+                                  className={`text-xs font-bold uppercase tracking-wider ${v.active ? "text-emerald-400" : "text-gray-500"}`}
+                                >
+                                  {v.active ? "Active" : "Inactive"}
+                                </span>
                               </div>
                             </div>
                             <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -4435,7 +4615,7 @@ function DriverDashboardPage() {
                               const up = await storage.createFile(
                                 appwriteConfig.driverDocsBucketId,
                                 ID.unique(),
-                                regFileList[0].originFileObj as File,
+                                await compressImage(regFileList[0].originFileObj as File),
                               );
                               regDocId = up.$id;
                             } catch {
@@ -4447,7 +4627,7 @@ function DriverDashboardPage() {
                               const up = await storage.createFile(
                                 appwriteConfig.driverDocsBucketId,
                                 ID.unique(),
-                                insFileList[0].originFileObj as File,
+                                await compressImage(insFileList[0].originFileObj as File),
                               );
                               insDocId = up.$id;
                             } catch {
@@ -5885,6 +6065,12 @@ function DriverDashboardPage() {
           })()}
           fromUserId={user.$id}
           onSuccess={() => {
+            // Optimistically mark this booking reviewed so the prompt hides
+            // immediately — getExistingReview can lag right after creation.
+            queryClient.setQueriesData<Record<string, boolean>>(
+              { queryKey: ["existing-reviews-host"] },
+              (old) => (old ? { ...old, [selectedBooking.id]: true } : old),
+            );
             void queryClient.invalidateQueries({ queryKey: ["host-bookings"] });
             void queryClient.invalidateQueries({ queryKey: ["existing-reviews-host"] });
             void queryClient.invalidateQueries({ queryKey: ["host-reviews-for-travelers"] });

@@ -64,6 +64,7 @@ import {
   listTripSeatReservationsByTripIds,
   getMultipleHostPreferences,
   getVehiclesByDriverUserIds,
+  getVehiclesByIds,
   listDriverProfilesByUserIds,
 } from "@/data/appwrite-repository";
 import type { DriverProfile, RidePreferences, TripStop } from "@/lib/domain";
@@ -1276,6 +1277,29 @@ export function TripSearchResults({ variant }: { variant: "landing" | "page" }) 
     [results, nearbyResults, closestResults, allScheduledTrips],
   );
 
+  // The exact vehicle assigned to each trip (trip.vehicleId). Resolving by id —
+  // rather than the host's first vehicle — keeps the card and the ride-detail
+  // page showing the same car for hosts who own more than one.
+  const vehicleIds = useMemo(
+    () => [
+      ...new Set(
+        [
+          ...results.map((t) => t.vehicleId),
+          ...nearbyResults.map((t) => t.vehicleId),
+          ...closestResults.map((t) => t.vehicleId),
+          ...allScheduledTrips.map((t) => t.vehicleId),
+        ].filter((v): v is string => Boolean(v)),
+      ),
+    ],
+    [results, nearbyResults, closestResults, allScheduledTrips],
+  );
+  const { data: vehiclesByIdMap } = useQuery({
+    queryKey: ["trip-vehicles-by-id", vehicleIds.join(",")],
+    queryFn: () => getVehiclesByIds(vehicleIds),
+    enabled: vehicleIds.length > 0,
+    staleTime: 1000 * 60 * 5,
+  });
+
   // IDs of trips already shown in matched results — used to exclude from "All rides"
   const matchedTripIds = useMemo(() => new Set(results.map((t) => t.id)), [results]);
   const { data: hostPrefsMap } = useQuery({
@@ -1405,8 +1429,9 @@ export function TripSearchResults({ variant }: { variant: "landing" | "page" }) 
               const hostProfile = hostProfileMap.get(trip.hostId);
               const hostVehicle = hostVehiclesMap?.get(trip.hostId);
               const hostName = trip.hostDisplayName || hostProfile?.fullName || "Verified Host";
-              const vehicleModel = trip.vehicleModel || hostVehicle?.modelName;
-              const vehicleColor = trip.vehicleColor || hostVehicle?.color;
+              const tripVehicle = trip.vehicleId ? vehiclesByIdMap?.get(trip.vehicleId) : undefined;
+              const vehicleModel = tripVehicle?.modelName || trip.vehicleModel || hostVehicle?.modelName;
+              const vehicleColor = tripVehicle?.color || trip.vehicleColor || hostVehicle?.color;
               const vehicleLabel = vehicleModel
                 ? [vehicleModel, vehicleColor].filter(Boolean).join(" · ")
                 : "Vehicle details pending";
@@ -1488,8 +1513,9 @@ export function TripSearchResults({ variant }: { variant: "landing" | "page" }) 
               const hostProfile = hostProfileMap.get(trip.hostId);
               const hostVehicle = hostVehiclesMap?.get(trip.hostId);
               const hostName = trip.hostDisplayName || hostProfile?.fullName || "Verified Host";
-              const vehicleModel = trip.vehicleModel || hostVehicle?.modelName;
-              const vehicleColor = trip.vehicleColor || hostVehicle?.color;
+              const tripVehicle = trip.vehicleId ? vehiclesByIdMap?.get(trip.vehicleId) : undefined;
+              const vehicleModel = tripVehicle?.modelName || trip.vehicleModel || hostVehicle?.modelName;
+              const vehicleColor = tripVehicle?.color || trip.vehicleColor || hostVehicle?.color;
               const vehicleLabel = vehicleModel
                 ? [vehicleModel, vehicleColor].filter(Boolean).join(" · ")
                 : "Vehicle details pending";
@@ -1573,8 +1599,9 @@ export function TripSearchResults({ variant }: { variant: "landing" | "page" }) 
               const hostProfile = hostProfileMap.get(trip.hostId);
               const hostVehicle = hostVehiclesMap?.get(trip.hostId);
               const hostName = trip.hostDisplayName || hostProfile?.fullName || "Verified Host";
-              const vehicleModel = trip.vehicleModel || hostVehicle?.modelName;
-              const vehicleColor = trip.vehicleColor || hostVehicle?.color;
+              const tripVehicle = trip.vehicleId ? vehiclesByIdMap?.get(trip.vehicleId) : undefined;
+              const vehicleModel = tripVehicle?.modelName || trip.vehicleModel || hostVehicle?.modelName;
+              const vehicleColor = tripVehicle?.color || trip.vehicleColor || hostVehicle?.color;
               const vehicleLabel = vehicleModel
                 ? [vehicleModel, vehicleColor].filter(Boolean).join(" · ")
                 : "Vehicle details pending";
@@ -1649,8 +1676,9 @@ export function TripSearchResults({ variant }: { variant: "landing" | "page" }) 
                     const hostProfile = hostProfileMap.get(trip.hostId);
                     const hostVehicle = hostVehiclesMap?.get(trip.hostId);
                     const hostName = trip.hostDisplayName || hostProfile?.fullName || "Verified Host";
-                    const vehicleModel = trip.vehicleModel || hostVehicle?.modelName;
-                    const vehicleColor = trip.vehicleColor || hostVehicle?.color;
+                    const tripVehicle = trip.vehicleId ? vehiclesByIdMap?.get(trip.vehicleId) : undefined;
+                    const vehicleModel = tripVehicle?.modelName || trip.vehicleModel || hostVehicle?.modelName;
+                    const vehicleColor = tripVehicle?.color || trip.vehicleColor || hostVehicle?.color;
                     const vehicleLabel = vehicleModel
                       ? [vehicleModel, vehicleColor].filter(Boolean).join(" · ")
                       : "Vehicle details pending";

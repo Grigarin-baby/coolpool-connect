@@ -71,6 +71,8 @@ export interface Trip {
   currentLat?: number;
   currentLng?: number;
   locationUpdatedAt?: string;
+  /** Host can pause a trip (hidden from search) without cancelling it. */
+  active?: boolean;
 }
 
 export interface Booking {
@@ -90,6 +92,16 @@ export interface Booking {
   commentByHost?: string;
   otp?: string;
   verified?: boolean;
+}
+
+export interface DeletedAccount {
+  id: string;
+  userId: string;
+  fullName: string;
+  phone: string;
+  email: string;
+  roles: string;
+  deletedAt: string;
 }
 
 export interface TripShare {
@@ -151,6 +163,8 @@ export interface DriverProfile {
   verificationNote?: string | null;
   ratingAvg?: number;
   ratingCount?: number;
+  /** Host can toggle a driver out of service without deleting them. */
+  active?: boolean;
 }
 
 /** One claimed seat on a trip — stored without traveler PII for public seat maps */
@@ -174,6 +188,8 @@ export interface DriverVehicle {
   carImages?: string[];
   verificationStatus?: VerificationStatus;
   verificationNote?: string | null;
+  /** Host can toggle a vehicle out of service without deleting it. */
+  active: boolean;
 }
 
 export interface BankAccount {

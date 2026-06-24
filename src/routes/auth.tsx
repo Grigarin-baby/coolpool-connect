@@ -112,6 +112,7 @@ function AuthPage() {
     isAdmin,
     isDriver,
     becomeRideHost,
+    requestPasswordRecovery,
   } = useAuth();
   const [busy, setBusy] = useState(false);
   const [showPhoneStep, setShowPhoneStep] = useState(false);
@@ -240,6 +241,23 @@ function AuthPage() {
       toast.success("Logged in.");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Unable to log in.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    const email = adminEmail.trim();
+    if (!email) {
+      toast.error("Enter your email above, then tap “Forgot password?”.");
+      return;
+    }
+    setBusy(true);
+    try {
+      await requestPasswordRecovery(email);
+      toast.success("Password reset link sent — check your email inbox.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Couldn't send the reset email.");
     } finally {
       setBusy(false);
     }
@@ -534,6 +552,13 @@ function AuthPage() {
                         onChange={(e) => setAdminPassword(e.target.value)}
                         className="h-12 rounded-3xl border-border/80 bg-background/80 form-control-lg placeholder:text-sm"
                       />
+                      <button
+                        type="button"
+                        onClick={handleForgotPassword}
+                        className="ml-auto block text-xs font-semibold text-primary hover:underline"
+                      >
+                        Forgot password?
+                      </button>
                     </div>
                     <Button
                       type="submit"
