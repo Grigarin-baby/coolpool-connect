@@ -11,7 +11,6 @@ import {
   listHostTrips,
   listHostBookings,
 } from "@/data/appwrite-repository";
-import { PLATFORM_FEE_PER_BOOKING } from "@/lib/pricing";
 import type { PayoutStatus } from "@/lib/domain";
 
 const { Title, Text } = Typography;
@@ -110,15 +109,14 @@ export function PayoutsPanel() {
   });
 
   // Lifetime earnings = gross received from confirmed/completed bookings on
-  // this host's trips, minus a flat platform fee per booking.
+  // this host's trips. Coolpool charges no platform fee — hosts keep 100% of
+  // the price riders pay, so this must match the dashboard's "Total Earnings".
   const earnings = useMemo(() => {
     const tripIds = new Set(trips.map((t) => t.id));
     const relevantBookings = bookings.filter(
       (b) => tripIds.has(b.tripId) && (b.status === "confirmed" || b.status === "completed"),
     );
-    const gross = relevantBookings.reduce((sum, b) => sum + b.segmentPrice * b.seatsBooked, 0);
-    const fees = relevantBookings.length * PLATFORM_FEE_PER_BOOKING;
-    const lifetime = Math.max(0, gross - fees);
+    const lifetime = relevantBookings.reduce((sum, b) => sum + b.segmentPrice * b.seatsBooked, 0);
 
     const paidOut = payoutRequests
       .filter((r) => r.status === "paid")
