@@ -7,6 +7,7 @@ import {
   listAllVehicles,
   listDriverProfiles,
 } from "@/data/appwrite-repository";
+import { platformFee, PLATFORM_FEE_PERCENT } from "@/lib/pricing";
 
 const { Title, Text } = Typography;
 
@@ -84,6 +85,14 @@ export function OverviewPanel({ onNavigate }: { onNavigate: (key: string) => voi
       icon: <Wallet size={18} />,
       tag: "Confirmed + completed",
       tagColor: "success",
+      onClick: () => onNavigate("bookings"),
+    },
+    {
+      label: "Platform earnings",
+      value: `₹${platformFee(revenue).toLocaleString("en-IN")}`,
+      icon: <Wallet size={18} />,
+      tag: `${PLATFORM_FEE_PERCENT}% commission`,
+      tagColor: "gold",
       onClick: () => onNavigate("bookings"),
     },
     {

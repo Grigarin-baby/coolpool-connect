@@ -41,6 +41,8 @@ type PassengerForm = {
   name: string;
   phone: string;
   gender: PassengerGender | "";
+  /** When true, this seat is for someone else — don't auto-fill the booker's details. */
+  forSomeoneElse?: boolean;
 };
 
 interface BookingSearch {
@@ -197,6 +199,8 @@ function BookingTripPage() {
 
     setPassengers((prev) => {
       const first = prev[0] || { name: "", phone: "", gender: "" };
+      // Don't prefill the booker's details when this seat is for someone else.
+      if (first.forSomeoneElse) return prev;
       let { name, phone } = first;
       const recent =
         pastBookingsQuery.data && pastBookingsQuery.data.length > 0
@@ -738,6 +742,23 @@ function BookingTripPage() {
                             </span>
                           )}
                         </div>
+                        <label className="flex items-center gap-2 cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            checked={!!p.forSomeoneElse}
+                            onChange={(e) => {
+                              const on = e.target.checked;
+                              // Clear the prefilled booker details so the friend's go in.
+                              updatePassenger(idx, on
+                                ? { forSomeoneElse: true, name: "", phone: "", gender: "" }
+                                : { forSomeoneElse: false });
+                            }}
+                            className="h-4 w-4 rounded border-border accent-primary"
+                          />
+                          <span className="text-xs font-medium text-muted-foreground">
+                            Booking this seat for someone else (enter their details)
+                          </span>
+                        </label>
                         <div className="space-y-1.5">
                           <Label
                             htmlFor={`p-name-${idx}`}

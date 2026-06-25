@@ -1,7 +1,8 @@
 import { useEffect, useMemo } from "react";
 import dayjs, { type Dayjs } from "dayjs";
 import { cn } from "@/lib/utils";
-import { ClockFacePicker, type ClockTime } from "./ClockFacePicker";
+import { type ClockTime } from "./ClockFacePicker";
+import { DigitalTimePicker } from "./DigitalTimePicker";
 import { MIN_DEPARTURE_LEAD_MINUTES } from "./types";
 
 interface StepDateTimeProps {
@@ -25,13 +26,13 @@ export function StepDateTime({ date, time, onDateChange, onTimeChange }: StepDat
     if (!date) onDateChange(today);
   }, [date, today, onDateChange]);
 
-  // Keep the visible clock default and wizard state in sync. Trips must be
-  // postable at least MIN_DEPARTURE_LEAD_MINUTES out, so default to the next
-  // 5-minute slot after that so Continue is immediately available.
+  // Keep the time default and wizard state in sync. Trips must be postable at
+  // least MIN_DEPARTURE_LEAD_MINUTES out, so default to the next 15-minute slot
+  // after that so Continue is immediately available.
   useEffect(() => {
     if (time) return;
     const next = dayjs().add(MIN_DEPARTURE_LEAD_MINUTES, "minute");
-    const roundedMinute = Math.ceil(next.minute() / 5) * 5;
+    const roundedMinute = Math.ceil(next.minute() / 15) * 15;
     const defaultTime = next.minute(0).second(0).millisecond(0).add(roundedMinute, "minute");
     if (!defaultTime.isSame(today, "day")) onDateChange(defaultTime.startOf("day"));
     const hour24 = defaultTime.hour();
@@ -132,14 +133,12 @@ export function StepDateTime({ date, time, onDateChange, onTimeChange }: StepDat
         </div>
       </div>
 
-      {/* ── Time clock ── */}
+      {/* ── Time selector (digital, 15-min steps) ── */}
       <div>
         <p className="mb-3 text-xs font-bold uppercase tracking-widest text-gray-500">
           Departure time
         </p>
-        <div className="rounded-3xl border border-gray-100 bg-white p-5 shadow-sm">
-          <ClockFacePicker value={time} onChange={onTimeChange} size={260} />
-        </div>
+        <DigitalTimePicker value={time} onChange={onTimeChange} />
         {tooSoon && (
           <p className="mt-3 text-center text-sm font-semibold text-destructive">
             Trips must be scheduled at least {MIN_DEPARTURE_LEAD_MINUTES} minutes from now.

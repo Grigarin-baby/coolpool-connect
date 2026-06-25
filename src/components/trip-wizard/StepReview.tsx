@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import dayjs from "dayjs";
 import { Car, UserRound } from "lucide-react";
 import type { DriverVehicle } from "@/lib/domain";
@@ -125,17 +125,71 @@ export function StepReview({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const updatePrice = (key: string, raw: string) => {
-    const n = parseInt(raw, 10);
-    onSegmentPricesChange({ ...segmentPrices, [key]: isNaN(n) ? 0 : Math.max(0, n) });
+  const fullTripKey = `0-${lastIdx}`;
+
+  // "Same price for all segments" — every segment (full trip + intermediates)
+  // shares one price the host sets on the full-trip box.
+  const [sameForAll, setSameForAll] = useState(false);
+
+  const setAllSegments = (price: number) => {
+    const next: Record<string, number> = {};
+    segments.forEach((seg) => {
+      next[seg.key] = price;
+    });
+    onSegmentPricesChange(next);
   };
 
-  const fullTripKey = `0-${lastIdx}`;
+  const setProportional = (base: number) => {
+    const next: Record<string, number> = {};
+    segments.forEach((seg) => {
+      next[seg.key] = seg.isFullTrip ? base : Math.round((seg.distanceKm / totalKm) * base);
+    });
+    onSegmentPricesChange(next);
+  };
+
+  const toggleSameForAll = (on: boolean) => {
+    const base = segmentPrices[fullTripKey] ?? pricePerSeat;
+    if (on) setAllSegments(base);
+    else setProportional(base);
+    setSameForAll(on);
+  };
+
+  const updatePrice = (key: string, raw: string) => {
+    const n = parseInt(raw, 10);
+    const val = isNaN(n) ? 0 : Math.max(0, n);
+    // When flat pricing is on, editing the full-trip box applies to every segment.
+    if (sameForAll) {
+      setAllSegments(val);
+      return;
+    }
+    onSegmentPricesChange({ ...segmentPrices, [key]: val });
+  };
+
   const subSegments = segments.filter((s) => !s.isFullTrip);
   const fullSeg = segments.find((s) => s.isFullTrip);
 
   return (
     <div className="flex flex-col px-5 pb-6 pt-3">
+
+      {/* ── Same-price-for-all toggle ── */}
+      <label className="mb-3 flex items-center justify-between gap-3 rounded-2xl border border-gray-100 bg-gray-50 px-4 py-2.5 cursor-pointer select-none">
+        <span className="text-sm font-bold text-gray-700">Same price for all segments</span>
+        <span className="relative inline-flex">
+          <input
+            type="checkbox"
+            checked={sameForAll}
+            onChange={(e) => toggleSameForAll(e.target.checked)}
+            className="peer sr-only"
+          />
+          <span className="h-6 w-11 rounded-full bg-gray-300 transition-colors peer-checked:bg-primary" />
+          <span className="absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform peer-checked:translate-x-5" />
+        </span>
+      </label>
+      {sameForAll && (
+        <p className="-mt-1 mb-3 text-xs text-gray-400">
+          Every segment uses the full-trip price you set below.
+        </p>
+      )}
 
       {/* ── MAIN ROUTE (full trip) ── */}
       {fullSeg && (
@@ -192,6 +246,7 @@ export function StepReview({
                   <PriceInput
                     value={segmentPrices[seg.key]}
                     onChange={(v) => updatePrice(seg.key, v)}
+                    disabled={sameForAll}
                   />
                 </div>
               </div>
@@ -230,10 +285,12 @@ function PriceInput({
   value,
   onChange,
   highlight = false,
+  disabled = false,
 }: {
   value: number | undefined;
   onChange: (v: string) => void;
   highlight?: boolean;
+  disabled?: boolean;
 }) {
   return (
     <div
@@ -241,7 +298,7 @@ function PriceInput({
         highlight
           ? "border-primary/40 bg-primary/5"
           : "border-gray-200 bg-gray-50"
-      }`}
+      } ${disabled ? "opacity-50" : ""}`}
     >
       <span className="text-xs font-bold text-gray-400">₹</span>
       <input
@@ -249,8 +306,9 @@ function PriceInput({
         min={0}
         inputMode="numeric"
         value={value ?? ""}
+        disabled={disabled}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full text-sm font-black text-gray-900 bg-transparent outline-none tabular-nums"
+        className="w-full text-sm font-black text-gray-900 bg-transparent outline-none tabular-nums disabled:cursor-not-allowed"
       />
     </div>
   );

@@ -114,7 +114,7 @@ import { ID, Permission, Role } from "appwrite";
 import type { Trip, TripStop, DriverProfile, Booking, BookingStatus, Review } from "@/lib/domain";
 import { shareTrip, getTripShareUrl } from "@/lib/share-trip";
 import { APP_FONT_FAMILY } from "@/lib/fonts";
-import { calcPricePerKm } from "@/lib/pricing";
+import { calcPricePerKm, hostNetEarnings } from "@/lib/pricing";
 import { stripCountrySuffix } from "@/lib/geo";
 import { findDuplicateVehicle } from "@/lib/duplicateChecks";
 import { compressImage } from "@/lib/image-compression";
@@ -1168,9 +1168,10 @@ function DriverDashboardPage() {
     const prev = receivedByTrip.get(b.tripId) ?? 0;
     receivedByTrip.set(b.tripId, prev + b.segmentPrice * b.seatsBooked);
   });
-  const lifetimeEarnings = completedTrips.reduce(
-    (sum, t) => sum + (receivedByTrip.get(t.id) ?? 0),
-    0,
+  // Net of the platform commission — what the host actually keeps. Matches the
+  // Payouts panel's "Lifetime earnings".
+  const lifetimeEarnings = hostNetEarnings(
+    completedTrips.reduce((sum, t) => sum + (receivedByTrip.get(t.id) ?? 0), 0),
   );
 
   // Trips tab shows everything not yet completed/cancelled, including trips
@@ -2127,7 +2128,7 @@ function DriverDashboardPage() {
                   {
                     key: "customers",
                     icon: <UserCheck size={18} />,
-                    label: "Customers",
+                    label: "Guest",
                   },
                   {
                     key: "drivers",
@@ -3800,7 +3801,7 @@ function DriverDashboardPage() {
                         </div>
                         <div className="min-w-0">
                           <Text type="secondary" className="block text-xs font-medium text-emerald-800">
-                            Lifetime Earnings
+                            Earnings
                           </Text>
                           <p className="m-0 text-xl font-extrabold text-emerald-900 leading-tight">
                             ₹{lifetimeEarnings.toLocaleString("en-IN")}
@@ -3813,7 +3814,7 @@ function DriverDashboardPage() {
                         </div>
                         <div className="min-w-0">
                           <Text type="secondary" className="block text-xs font-medium text-purple-800">
-                            Completed Rides
+                            Rides
                           </Text>
                           <p className="m-0 text-xl font-extrabold text-purple-900 leading-tight">
                             {tripsLoading ? <Spin size="small" /> : completedTrips.length}
@@ -3878,7 +3879,7 @@ function DriverDashboardPage() {
                             {/* Right: price + status */}
                             <div className="flex flex-col items-end shrink-0 gap-1">
                               <span className={`text-sm font-black tabular-nums ${trip.status === "completed" ? "text-emerald-600" : "text-gray-400"}`}>
-                                ₹{(receivedByTrip.get(trip.id) ?? 0).toLocaleString("en-IN")}
+                                ₹{hostNetEarnings(receivedByTrip.get(trip.id) ?? 0).toLocaleString("en-IN")}
                               </span>
                               {(() => {
                                 const s = hostTripStatusDisplay(trip, isExpired(trip));
@@ -3908,9 +3909,11 @@ function DriverDashboardPage() {
                 const tripBookings = historyDetailTripId
                   ? bookings.filter((b) => b.tripId === historyDetailTripId)
                   : [];
-                const received = tripBookings
-                  .filter((b) => b.status !== "cancelled")
-                  .reduce((s, b) => s + b.segmentPrice * b.seatsBooked, 0);
+                const received = hostNetEarnings(
+                  tripBookings
+                    .filter((b) => b.status !== "cancelled")
+                    .reduce((s, b) => s + b.segmentPrice * b.seatsBooked, 0),
+                );
                 const seatsBooked = tripBookings
                   .filter((b) => b.status !== "cancelled")
                   .reduce((s, b) => s + b.seatsBooked, 0);
@@ -4035,7 +4038,7 @@ function DriverDashboardPage() {
                         {/* Revenue footer */}
                         <div className="border-t border-gray-100 px-5 py-4 flex items-center justify-between bg-white">
                           <div>
-                            <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Total received</p>
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Net earnings</p>
                             <p className="text-xl font-black text-emerald-600">₹{received.toLocaleString("en-IN")}</p>
                           </div>
                           <div className="text-right">
@@ -4890,7 +4893,7 @@ function DriverDashboardPage() {
               onClick={() => setActiveModule("customers")}
             >
               <UserCheck size={20} />
-              <span className="text-[10px] font-semibold">Users</span>
+              <span className="text-[10px] font-semibold">Guest</span>
             </button>
 
             <button

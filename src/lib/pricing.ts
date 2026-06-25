@@ -9,8 +9,22 @@
  * but DO NOT change segment_price on existing bookings.
  */
 
-/** Flat platform fee deducted from the host's earnings per booking. */
-export const PLATFORM_FEE_PER_BOOKING = 10;
+/**
+ * Platform commission, as a percentage of gross fare. Charged to the HOST:
+ * riders still pay exactly the host's price, the platform keeps this %, and the
+ * host receives the rest. Earnings shown to hosts are already net of this fee.
+ */
+export const PLATFORM_FEE_PERCENT = 5;
+
+/** Platform's cut of a gross amount (rounded to the rupee). */
+export function platformFee(gross: number): number {
+  return Math.round(Math.max(0, gross) * (PLATFORM_FEE_PERCENT / 100));
+}
+
+/** What the host keeps from a gross amount, after the platform commission. */
+export function hostNetEarnings(gross: number): number {
+  return Math.max(0, Math.round(gross) - platformFee(gross));
+}
 
 export function calcPricePerKm(totalPrice: number, totalDistanceKm: number): number {
   if (totalDistanceKm <= 0) return 0;
