@@ -254,6 +254,20 @@ function normalizeModule(value: unknown): DashboardModule {
 // Trips can only be scheduled within 7 days from today.
 const TRIP_DATE_WINDOW_DAYS = 7;
 
+// Single source of truth for how a host's trip status is shown — used by the
+// ledger row and the detail drawer so the same trip never reads differently in
+// two places (e.g. "Expired" in the list but "Scheduled" in the popup).
+function hostTripStatusDisplay(
+  trip: Trip,
+  expired: boolean,
+): { label: string; color: string } {
+  if (trip.status === "completed") return { label: "Completed", color: "success" };
+  if (trip.status === "cancelled") return { label: "Cancelled", color: "error" };
+  if (expired) return { label: "Expired", color: "warning" };
+  if (trip.status === "in_progress") return { label: "In progress", color: "processing" };
+  return { label: "Scheduled", color: "processing" };
+}
+
 function disabledTripDate(current: dayjs.Dayjs): boolean {
   if (!current) return false;
   const today = dayjs().startOf("day");
@@ -3774,41 +3788,40 @@ function DriverDashboardPage() {
                     </Text>
                   </div>
 
-                  <div className="grid gap-6 sm:grid-cols-2">
-                    <Card className="rounded-2xl border border-white/60 shadow-soft backdrop-blur-md group overflow-hidden relative bg-emerald-50/50">
-                      <div className="absolute -right-6 -bottom-6 w-24 h-24 bg-emerald-500/20 rounded-full blur-xl"></div>
-                      <div className="flex items-center gap-3 mb-2">
-                        <div className="p-2 bg-emerald-100 rounded-3xl text-emerald-600">
-                          <Banknote size={20} />
+                  {/* Compact two-stat strip — saves vertical space vs. two tall cards. */}
+                  <Card
+                    className="rounded-2xl border border-white/60 shadow-soft backdrop-blur-md overflow-hidden"
+                    styles={{ body: { padding: 0 } }}
+                  >
+                    <div className="grid grid-cols-2 divide-x divide-gray-100">
+                      <div className="flex items-center gap-3 px-4 py-3.5">
+                        <div className="p-2 bg-emerald-100 rounded-2xl text-emerald-600 shrink-0">
+                          <Banknote size={18} />
                         </div>
-                        <Text type="secondary" className="font-medium text-emerald-800">
-                          Lifetime Earnings
-                        </Text>
-                      </div>
-                      <Title
-                        level={2}
-                        style={{ margin: "12px 0 0 0" }}
-                        className="text-emerald-900"
-                      >
-                        ₹{lifetimeEarnings.toLocaleString("en-IN")}
-                      </Title>
-                    </Card>
-
-                    <Card className="rounded-2xl border border-white/60 shadow-soft backdrop-blur-md group overflow-hidden relative bg-purple-50/50">
-                      <div className="absolute -right-6 -bottom-6 w-24 h-24 bg-purple-500/20 rounded-full blur-xl"></div>
-                      <div className="flex items-center gap-3 mb-2">
-                        <div className="p-2 bg-purple-100 rounded-3xl text-purple-600">
-                          <CheckCircle size={20} />
+                        <div className="min-w-0">
+                          <Text type="secondary" className="block text-xs font-medium text-emerald-800">
+                            Lifetime Earnings
+                          </Text>
+                          <p className="m-0 text-xl font-extrabold text-emerald-900 leading-tight">
+                            ₹{lifetimeEarnings.toLocaleString("en-IN")}
+                          </p>
                         </div>
-                        <Text type="secondary" className="font-medium text-purple-800">
-                          Total Completed Rides
-                        </Text>
                       </div>
-                      <Title level={2} style={{ margin: "12px 0 0 0" }} className="text-purple-900">
-                        {tripsLoading ? <Spin size="small" /> : completedTrips.length}
-                      </Title>
-                    </Card>
-                  </div>
+                      <div className="flex items-center gap-3 px-4 py-3.5">
+                        <div className="p-2 bg-purple-100 rounded-2xl text-purple-600 shrink-0">
+                          <CheckCircle size={18} />
+                        </div>
+                        <div className="min-w-0">
+                          <Text type="secondary" className="block text-xs font-medium text-purple-800">
+                            Completed Rides
+                          </Text>
+                          <p className="m-0 text-xl font-extrabold text-purple-900 leading-tight">
+                            {tripsLoading ? <Spin size="small" /> : completedTrips.length}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </Card>
 
                   <Card className="rounded-2xl border border-white/60 shadow-card bg-white/80 backdrop-blur-md overflow-hidden">
                     {/* Header — stacks on mobile, row on sm+ */}
@@ -3867,12 +3880,17 @@ function DriverDashboardPage() {
                               <span className={`text-sm font-black tabular-nums ${trip.status === "completed" ? "text-emerald-600" : "text-gray-400"}`}>
                                 ₹{(receivedByTrip.get(trip.id) ?? 0).toLocaleString("en-IN")}
                               </span>
-                              <Tag
-                                color={trip.status === "completed" ? "success" : trip.status === "cancelled" ? "error" : isExpired(trip) ? "warning" : "processing"}
-                                className="m-0 rounded-full border-none px-2 uppercase text-[9px] tracking-wider font-bold"
-                              >
-                                {isExpired(trip) ? "expired" : trip.status}
-                              </Tag>
+                              {(() => {
+                                const s = hostTripStatusDisplay(trip, isExpired(trip));
+                                return (
+                                  <Tag
+                                    color={s.color}
+                                    className="m-0 rounded-full border-none px-2 uppercase text-[9px] tracking-wider font-bold"
+                                  >
+                                    {s.label}
+                                  </Tag>
+                                );
+                              })()}
                             </div>
                           </div>
                         </List.Item>
@@ -3920,12 +3938,17 @@ function DriverDashboardPage() {
                             </p>
                           </div>
                           <div className="flex items-center gap-2 shrink-0">
-                            <Tag
-                              color={detailTrip.status === "completed" ? "success" : detailTrip.status === "cancelled" ? "error" : "processing"}
-                              className="m-0 rounded-full border-none capitalize text-xs font-bold px-3"
-                            >
-                              {detailTrip.status}
-                            </Tag>
+                            {(() => {
+                              const s = hostTripStatusDisplay(detailTrip, isExpired(detailTrip));
+                              return (
+                                <Tag
+                                  color={s.color}
+                                  className="m-0 rounded-full border-none capitalize text-xs font-bold px-3"
+                                >
+                                  {s.label}
+                                </Tag>
+                              );
+                            })()}
                             <button
                               onClick={() => { setHistoryDetailTripId(null); setHistoryDetailPassenger(null); }}
                               className="grid h-8 w-8 place-items-center rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200"

@@ -76,6 +76,14 @@ export interface WizardResult {
   segmentPrices: Record<string, number>;
 }
 
+/**
+ * A trip must depart at least this many minutes from "now" to be published.
+ * It is deliberately larger than the 30-minute booking cutoff so a freshly
+ * hosted trip always has a real booking window (otherwise it can show
+ * "Booking closed" almost immediately).
+ */
+export const MIN_DEPARTURE_LEAD_MINUTES = 45;
+
 export const STOP_TYPE_LABELS: Record<IntermediatePoint["stopType"], string> = {
   pickup: "Pick-up only",
   drop: "Drop-off only",

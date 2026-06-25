@@ -2,6 +2,7 @@ import { useEffect, useMemo } from "react";
 import dayjs, { type Dayjs } from "dayjs";
 import { cn } from "@/lib/utils";
 import { ClockFacePicker, type ClockTime } from "./ClockFacePicker";
+import { MIN_DEPARTURE_LEAD_MINUTES } from "./types";
 
 interface StepDateTimeProps {
   date: Dayjs | null;
@@ -25,11 +26,11 @@ export function StepDateTime({ date, time, onDateChange, onTimeChange }: StepDat
   }, [date, today, onDateChange]);
 
   // Keep the visible clock default and wizard state in sync. Trips must be
-  // postable at least 30 minutes out, so default to the next 5-minute slot
-  // after that so Continue is immediately available.
+  // postable at least MIN_DEPARTURE_LEAD_MINUTES out, so default to the next
+  // 5-minute slot after that so Continue is immediately available.
   useEffect(() => {
     if (time) return;
-    const next = dayjs().add(30, "minute");
+    const next = dayjs().add(MIN_DEPARTURE_LEAD_MINUTES, "minute");
     const roundedMinute = Math.ceil(next.minute() / 5) * 5;
     const defaultTime = next.minute(0).second(0).millisecond(0).add(roundedMinute, "minute");
     if (!defaultTime.isSame(today, "day")) onDateChange(defaultTime.startOf("day"));
@@ -51,7 +52,9 @@ export function StepDateTime({ date, time, onDateChange, onTimeChange }: StepDat
     if (!date || !time) return null;
     return date.hour(time.hour24).minute(time.minute).second(0).millisecond(0);
   }, [date, time]);
-  const tooSoon = !!selectedDeparture && !selectedDeparture.isAfter(dayjs().add(30, "minute"));
+  const tooSoon =
+    !!selectedDeparture &&
+    !selectedDeparture.isAfter(dayjs().add(MIN_DEPARTURE_LEAD_MINUTES, "minute"));
 
   return (
     <div className="flex flex-col gap-6 px-4 pb-6">
@@ -139,7 +142,7 @@ export function StepDateTime({ date, time, onDateChange, onTimeChange }: StepDat
         </div>
         {tooSoon && (
           <p className="mt-3 text-center text-sm font-semibold text-destructive">
-            Trips must be scheduled at least 30 minutes from now.
+            Trips must be scheduled at least {MIN_DEPARTURE_LEAD_MINUTES} minutes from now.
           </p>
         )}
       </div>

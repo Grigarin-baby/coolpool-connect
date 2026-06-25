@@ -298,7 +298,7 @@ function TripsPage() {
   }, [tripsQuery.data]);
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-br from-emerald-50 via-green-50 to-emerald-100 bg-fixed">
+    <div className="min-h-screen flex flex-col bg-gradient-to-br from-pink-50 via-rose-50 to-pink-100 bg-fixed">
       <SiteHeader />
       {showNotifAsk && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 px-4">
@@ -455,7 +455,7 @@ function TripsPage() {
                   </div>
 
                   {isExpanded && (
-                    <div className="mt-4 space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
+                    <div className="mt-4 space-y-6 animate-in fade-in slide-in-from-top-2 duration-200">
                       {isJustBooked && (
                         <div className="flex items-center gap-2 rounded-2xl bg-emerald-50 border border-emerald-200 px-4 py-3">
                           <CheckCircle2 className="h-5 w-5 text-emerald-600" />
@@ -506,8 +506,11 @@ function TripsPage() {
                                   <div className="font-semibold truncate">{p.name}</div>
                                   <div className="text-xs text-muted-foreground truncate">{p.phone}</div>
                                 </div>
-                                <span className="shrink-0 rounded-full bg-primary/10 text-primary text-[10px] font-bold px-2 py-0.5">
-                                  Seat #{seatCodeToLabel(p.seatCode)}
+                                <span className="shrink-0 inline-flex items-baseline gap-1.5 rounded-2xl bg-primary/10 text-primary px-3 py-1.5">
+                                  <span className="text-[10px] font-bold uppercase tracking-wide">Seat</span>
+                                  <span className="text-2xl font-extrabold leading-none">
+                                    {seatCodeToLabel(p.seatCode)}
+                                  </span>
                                 </span>
                                 {p.gender && (
                                   <span
