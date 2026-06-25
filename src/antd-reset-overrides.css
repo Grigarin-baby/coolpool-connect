@@ -44,30 +44,47 @@ h6.font-normal {
  * CENTER of the screen so users can't miss them, instead of a small toast
  * tucked at the top. Applies to every message.success/error/info app-wide.
  */
-.ant-message {
-  top: 50% !important;
-  transform: translateY(-50%);
-  pointer-events: none;
-  z-index: 2000;
+/*
+ * Make the message container a full-viewport flex overlay so notices sit dead
+ * CENTER both axes, regardless of the inline `top` antd sets at runtime. This
+ * is far more robust than overriding `top` (which antd's CSS-in-JS kept
+ * winning). pointer-events:none keeps it from blocking the page.
+ */
+div.ant-message {
+  position: fixed !important;
+  inset: 0 !important;
+  top: 0 !important;
+  bottom: 0 !important;
+  transform: none !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 12px !important;
+  pointer-events: none !important;
+  z-index: 3000 !important;
 }
 
-.ant-message .ant-message-notice-content {
-  padding: 20px 32px;
-  border-radius: 18px;
-  font-size: 18px;
-  font-weight: 600;
-  line-height: 1.4;
-  max-width: min(90vw, 460px);
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.2);
+div.ant-message .ant-message-notice {
+  padding: 0 !important;
+  text-align: center !important;
 }
 
-.ant-message .ant-message-custom-content {
-  display: inline-flex;
-  align-items: center;
-  gap: 12px;
+div.ant-message .ant-message-notice-content {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  padding: 22px 34px !important;
+  border-radius: 20px !important;
+  font-size: 19px !important;
+  font-weight: 700 !important;
+  line-height: 1.4 !important;
+  max-width: min(90vw, 460px) !important;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.22) !important;
+  pointer-events: auto !important;
 }
 
-.ant-message .ant-message-custom-content > .anticon {
-  font-size: 24px;
-  line-height: 1;
+div.ant-message .anticon {
+  font-size: 26px !important;
+  line-height: 1 !important;
 }

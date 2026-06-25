@@ -295,6 +295,13 @@ export function StepRoute({
         destination: { lat: to.lat, lng: to.lng },
         waypoints,
         travelMode: (window as any).google.maps.TravelMode.DRIVING,
+        // Traffic-aware "best guess" gives realistic ETAs (the default duration
+        // was overestimating, e.g. showing 4.5h for a ~3h route). departureTime
+        // must be in the future, so use now + a minute.
+        drivingOptions: {
+          departureTime: new Date(Date.now() + 60 * 1000),
+          trafficModel: (window as any).google.maps.TrafficModel.BEST_GUESS,
+        },
         // Google doesn't return alternatives when waypoints are present
         provideRouteAlternatives: waypoints.length === 0,
       },
@@ -306,7 +313,11 @@ export function StepRoute({
         }
         const alts: RouteAlternative[] = result.routes.map((r: any, idx: number) => {
           const totalDistM = r.legs.reduce((s: number, l: any) => s + (l.distance?.value ?? 0), 0);
-          const totalDurS = r.legs.reduce((s: number, l: any) => s + (l.duration?.value ?? 0), 0);
+          // Prefer the traffic-aware duration when Google returns it.
+          const totalDurS = r.legs.reduce(
+            (s: number, l: any) => s + (l.duration_in_traffic?.value ?? l.duration?.value ?? 0),
+            0,
+          );
           return {
             id: idx,
             polyline: r.overview_polyline,

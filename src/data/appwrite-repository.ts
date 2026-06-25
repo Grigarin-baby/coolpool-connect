@@ -2,6 +2,7 @@ import { ID, Permission, Query, Role, type Models } from "appwrite";
 import { databases, storage, appwriteConfig } from "@/integrations/appwrite/client";
 import { getCollectionIds } from "@/integrations/appwrite/schema";
 import { routeCitySegmentsMatch } from "@/lib/geo";
+import { getBookingPassengers } from "@/lib/booking-passengers";
 import type {
   AppRole,
   BankAccount,
@@ -941,6 +942,12 @@ async function deleteTripSeatReservation(documentId: string): Promise<void> {
   await databases.deleteDocument(appwriteConfig.databaseId, c.tripSeatReservations, documentId);
 }
 
+/** Last 10 digits of a phone, for duplicate comparison across formats. */
+function normalizePhone(raw: string): string {
+  const digits = (raw || "").replace(/\D/g, "");
+  return digits.length > 10 ? digits.slice(-10) : digits;
+}
+
 export async function createBookingWithSeatReservations(
   input: CreateBookingInput & { seatCodes: string[]; hostId: string },
 ): Promise<Booking> {
@@ -948,6 +955,28 @@ export async function createBookingWithSeatReservations(
   for (const code of input.seatCodes) {
     if (occupied.has(code)) {
       throw new Error(`Seat ${code} is no longer available. Refresh and try again.`);
+    }
+  }
+
+  // One mobile number can't hold two active seats on the same trip. Cancelled
+  // bookings are ignored, so a passenger can cancel and rebook.
+  const newPhones = (input.passengers ?? [])
+    .map((p) => normalizePhone(p.phone))
+    .filter(Boolean);
+  if (newPhones.length) {
+    const existingPhones = new Set<string>();
+    for (const b of await listTripBookings(input.tripId)) {
+      if (b.status === "cancelled") continue;
+      for (const p of getBookingPassengers(b)) {
+        const norm = normalizePhone(p.phone);
+        if (norm) existingPhones.add(norm);
+      }
+    }
+    const dup = newPhones.find((p) => existingPhones.has(p));
+    if (dup) {
+      throw new Error(
+        "This mobile number already has a booking on this trip. Cancel that booking first to rebook.",
+      );
     }
   }
 
@@ -1513,6 +1542,34 @@ export async function updateBookingStatus(
     status,
   });
   return toBooking(doc);
+}
+
+/**
+ * Cancel a booking and release its seats so the slot reopens and the mobile
+ * number can book again (used by passengers from My Trips).
+ */
+export async function cancelBooking(bookingId: string): Promise<void> {
+  const c = ids();
+  const bookingDoc = await databases.getDocument(appwriteConfig.databaseId, c.bookings, bookingId);
+  const booking = toBooking(bookingDoc);
+  try {
+    const reservations = await listTripSeatReservations(booking.tripId);
+    for (const r of reservations) {
+      if (r.bookingId !== bookingId) continue;
+      try {
+        await deleteTripSeatReservation(
+          tripSeatReservationDocumentId(booking.tripId, r.seatCode),
+        );
+      } catch {
+        /* seat already gone — ignore */
+      }
+    }
+  } catch {
+    /* couldn't list reservations — still cancel the booking below */
+  }
+  await databases.updateDocument(appwriteConfig.databaseId, c.bookings, bookingId, {
+    status: "cancelled",
+  });
 }
 
 /** All vehicles across all drivers — for admin Vehicle Manager. */

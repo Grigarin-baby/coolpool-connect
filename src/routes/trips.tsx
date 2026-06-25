@@ -18,6 +18,7 @@ import {
   listTripStopsByTripIds,
   createTripShare,
   isTripShareEnabled,
+  cancelBooking,
 } from "@/data/appwrite-repository";
 import { shareLink } from "@/lib/share-trip";
 import { toast } from "sonner";
@@ -172,6 +173,24 @@ function TripsPage() {
   // Review modal state
   const [reviewBooking, setReviewBooking] = useState<Booking | null>(null);
   const [reviewTrip, setReviewTrip] = useState<Trip | undefined>(undefined);
+
+  // Cancel a booking (releases the seat so the number can rebook).
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
+  const handleCancelBooking = async (bookingId: string) => {
+    if (!window.confirm("Cancel this booking? Your seat will be released and you can book again.")) {
+      return;
+    }
+    setCancellingId(bookingId);
+    try {
+      await cancelBooking(bookingId);
+      toast.success("Booking cancelled — your seat has been released.");
+      await queryClient.invalidateQueries({ queryKey: ["traveler-bookings", user?.$id] });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Couldn't cancel the booking.");
+    } finally {
+      setCancellingId(null);
+    }
+  };
 
   // Right after a booking, ask the traveler to enable notifications so they
   // get live updates (driver started, etc.). Optional for travelers.
@@ -506,21 +525,19 @@ function TripsPage() {
                                   <div className="font-semibold truncate">{p.name}</div>
                                   <div className="text-xs text-muted-foreground truncate">{p.phone}</div>
                                 </div>
-                                <span className="shrink-0 inline-flex items-baseline gap-1.5 rounded-2xl bg-primary/10 text-primary px-3 py-1.5">
-                                  <span className="text-[10px] font-bold uppercase tracking-wide">Seat</span>
-                                  <span className="text-2xl font-extrabold leading-none">
-                                    {seatCodeToLabel(p.seatCode)}
-                                  </span>
+                                <span className="shrink-0 inline-flex items-center justify-center rounded-2xl bg-primary/10 text-primary px-3 py-1.5 text-2xl font-extrabold leading-none">
+                                  {seatCodeToLabel(p.seatCode)}
                                 </span>
                                 {p.gender && (
                                   <span
-                                    className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold capitalize ${
+                                    className={`shrink-0 grid h-7 w-7 place-items-center rounded-full text-sm font-extrabold ${
                                       p.gender === "male"
                                         ? "bg-blue-50 text-blue-700"
                                         : "bg-pink-50 text-pink-700"
                                     }`}
+                                    title={p.gender}
                                   >
-                                    {p.gender}
+                                    {p.gender === "male" ? "M" : "F"}
                                   </span>
                                 )}
                               </div>
@@ -580,6 +597,24 @@ function TripsPage() {
                           <Link to="/ride/$tripId" params={{ tripId: trip.id }}>
                             Open ride page
                           </Link>
+                        </Button>
+                      )}
+
+                      {b.status === "confirmed" && trip?.status === "scheduled" && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          disabled={cancellingId === b.id}
+                          className="w-full rounded-2xl text-destructive hover:bg-destructive/5 hover:text-destructive"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            void handleCancelBooking(b.id);
+                          }}
+                        >
+                          {cancellingId === b.id ? (
+                            <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                          ) : null}
+                          Cancel booking
                         </Button>
                       )}
                     </div>

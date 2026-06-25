@@ -11,6 +11,7 @@ import {
   listHostTrips,
   listHostBookings,
 } from "@/data/appwrite-repository";
+import { hostNetEarnings, PLATFORM_FEE_PERCENT } from "@/lib/pricing";
 import type { PayoutStatus } from "@/lib/domain";
 
 const { Title, Text } = Typography;
@@ -109,8 +110,8 @@ export function PayoutsPanel() {
   });
 
   // Lifetime earnings = gross from non-cancelled bookings on COMPLETED trips
-  // (a host earns once the ride actually happens). No platform fee is taken, so
-  // this matches the dashboard's "Total Earnings" exactly.
+  // (a host earns once the ride actually happens), NET of the platform
+  // commission. Matches the dashboard's "Total Earnings" exactly.
   const earnings = useMemo(() => {
     const completedTripIds = new Set(
       trips.filter((t) => t.status === "completed").map((t) => t.id),
@@ -118,7 +119,8 @@ export function PayoutsPanel() {
     const relevantBookings = bookings.filter(
       (b) => completedTripIds.has(b.tripId) && b.status !== "cancelled",
     );
-    const lifetime = relevantBookings.reduce((sum, b) => sum + b.segmentPrice * b.seatsBooked, 0);
+    const gross = relevantBookings.reduce((sum, b) => sum + b.segmentPrice * b.seatsBooked, 0);
+    const lifetime = hostNetEarnings(gross);
 
     const paidOut = payoutRequests
       .filter((r) => r.status === "paid")
@@ -141,7 +143,10 @@ export function PayoutsPanel() {
         <Title level={2} style={{ margin: 0 }}>
           Payouts
         </Title>
-        <Text type="secondary">Track your earnings and request withdrawals to your bank.</Text>
+        <Text type="secondary">
+          Track your earnings and request withdrawals to your bank. Amounts shown are net of the{" "}
+          {PLATFORM_FEE_PERCENT}% platform fee.
+        </Text>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
