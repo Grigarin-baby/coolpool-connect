@@ -10,7 +10,7 @@ import { StepVehicle } from "./StepVehicle";
 import { StepDriver } from "./StepDriver";
 import { StepReview } from "./StepReview";
 import type { IntermediatePoint, RouteAlternative, WizardData, WizardResult, WizardStop } from "./types";
-import { EMPTY_WIZARD_DATA } from "./types";
+import { EMPTY_WIZARD_DATA, MIN_DEPARTURE_LEAD_MINUTES } from "./types";
 import { APP_FONT_FAMILY } from "@/lib/fonts";
 import { closestPolylineIndex, decodePolyline, distanceAlongPolylineKm } from "@/lib/geo";
 import type { DriverVehicle, Trip } from "@/lib/domain";
@@ -250,7 +250,10 @@ export function TripWizard({
       case "route":
         return !!data.from && !!data.to && !!selectedAlt;
       case "when":
-        return !!selectedDeparture && selectedDeparture.isAfter(dayjs().add(30, "minute"));
+        return (
+          !!selectedDeparture &&
+          selectedDeparture.isAfter(dayjs().add(MIN_DEPARTURE_LEAD_MINUTES, "minute"))
+        );
       case "seats":
         return data.seatConfig.length > 0 && typeof data.pricePerSeat === "number" && data.pricePerSeat > 0;
       case "vehicle":
@@ -263,7 +266,7 @@ export function TripWizard({
           data.to &&
           data.date &&
           data.time &&
-          selectedDeparture?.isAfter(dayjs().add(30, "minute")) &&
+          selectedDeparture?.isAfter(dayjs().add(MIN_DEPARTURE_LEAD_MINUTES, "minute")) &&
           selectedAlt &&
           data.pricePerSeat &&
           data.seatConfig.length > 0 &&
@@ -307,6 +310,14 @@ export function TripWizard({
       .minute(data.time.minute)
       .second(0)
       .millisecond(0);
+    // Re-validate at publish: time may have passed while the host filled in the
+    // wizard, so a trip that was far enough out at the "when" step can become
+    // too soon by now. Bounce back to the date step (which shows the reason)
+    // rather than publishing a ride that's already inside the booking cutoff.
+    if (!departure.isAfter(dayjs().add(MIN_DEPARTURE_LEAD_MINUTES, "minute"))) {
+      setStep("when");
+      return;
+    }
     const result: WizardResult = {
       from: data.from,
       to: data.to,
