@@ -13,7 +13,6 @@ import {
   Dropdown,
 } from "antd";
 import {
-  Users,
   Route as RouteIcon,
   LogOut,
   LayoutDashboard,
@@ -33,7 +32,6 @@ import { DeletedAccountsPanel } from "@/components/admin/DeletedAccountsPanel";
 import { OverviewPanel } from "@/components/admin/OverviewPanel";
 import { GuestManagementPanel } from "@/components/admin/GuestManagementPanel";
 import { HostManagementPanel } from "@/components/admin/HostManagementPanel";
-import { DriversPanel } from "@/components/admin/DriversPanel";
 import { TripsPanel } from "@/components/admin/TripsPanel";
 import { BookingsPanel } from "@/components/admin/BookingsPanel";
 import { PayoutsPanel } from "@/components/admin/PayoutsPanel";
@@ -48,7 +46,6 @@ const { Title, Text } = Typography;
 const MODULE_TITLES: Record<string, string> = {
   overview: "Dashboard Overview",
   users: "User Management",
-  drivers: "Driver Directory",
   vehicles: "Vehicle Manager",
   trips: "Trip Manager",
   bookings: "Booking Manager",
@@ -156,11 +153,6 @@ function AdminDashboardPage() {
                 label: "Host Management",
               },
               {
-                key: "drivers",
-                icon: <Users size={18} />,
-                label: "Driver Directory",
-              },
-              {
                 key: "trips",
                 icon: <RouteIcon size={18} />,
                 label: "Trip Manager",
@@ -259,7 +251,6 @@ function AdminDashboardPage() {
             {activeModule === "overview" && <OverviewPanel onNavigate={setActiveModule} />}
             {activeModule === "guests" && <GuestManagementPanel />}
             {activeModule === "hosts" && <HostManagementPanel />}
-            {activeModule === "drivers" && <DriversPanel />}
             {activeModule === "trips" && <TripsPanel />}
             {activeModule === "bookings" && <BookingsPanel />}
             {activeModule === "payouts" && <PayoutsPanel />}

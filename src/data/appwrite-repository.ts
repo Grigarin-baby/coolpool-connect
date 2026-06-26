@@ -3,6 +3,7 @@ import { databases, storage, appwriteConfig } from "@/integrations/appwrite/clie
 import { getCollectionIds } from "@/integrations/appwrite/schema";
 import { routeCitySegmentsMatch } from "@/lib/geo";
 import { getBookingPassengers } from "@/lib/booking-passengers";
+import { normalizeEmail, normalizeLicense, normalizePhone } from "@/lib/identity-normalizers";
 import type {
   AppRole,
   BankAccount,
@@ -435,11 +436,7 @@ export async function updateTrip(tripId: string, input: Partial<CreateTripInput>
   return toTrip(doc);
 }
 
-export async function updateTripLocation(
-  tripId: string,
-  lat: number,
-  lng: number,
-): Promise<void> {
+export async function updateTripLocation(tripId: string, lat: number, lng: number): Promise<void> {
   const c = ids();
   await databases.updateDocument(appwriteConfig.databaseId, c.trips, tripId, {
     current_lat: lat,
@@ -497,15 +494,18 @@ export async function createTripShare(input: {
   try {
     const filters = [Query.equal("trip_id", input.tripId), Query.limit(1)];
     if (input.bookingId) filters.splice(1, 0, Query.equal("booking_id", input.bookingId));
-    const existing = await databases.listDocuments(appwriteConfig.databaseId, c.tripShares, filters);
+    const existing = await databases.listDocuments(
+      appwriteConfig.databaseId,
+      c.tripShares,
+      filters,
+    );
     const reusable = existing.documents.find((d) => !d.revoked);
     if (reusable) return toTripShare(reusable);
   } catch {
     // Listing failed (e.g. missing index) — fall through and create a new one.
   }
 
-  const expiresAt =
-    input.expiresAt ?? new Date(Date.now() + 12 * 60 * 60 * 1000).toISOString();
+  const expiresAt = input.expiresAt ?? new Date(Date.now() + 12 * 60 * 60 * 1000).toISOString();
   const doc = await databases.createDocument(
     appwriteConfig.databaseId,
     c.tripShares,
@@ -671,11 +671,7 @@ export async function createBooking(
 
 export async function verifyBookingOtp(bookingId: string, otp: string): Promise<Booking> {
   const c = ids();
-  const existing = await databases.getDocument(
-    appwriteConfig.databaseId,
-    c.bookings,
-    bookingId,
-  );
+  const existing = await databases.getDocument(appwriteConfig.databaseId, c.bookings, bookingId);
   const storedOtp = existing.otp ? String(existing.otp) : "";
   if (!storedOtp) {
     throw new Error("No OTP on file for this booking.");
@@ -683,12 +679,9 @@ export async function verifyBookingOtp(bookingId: string, otp: string): Promise<
   if (storedOtp !== otp.trim()) {
     throw new Error("Incorrect OTP.");
   }
-  const updated = await databases.updateDocument(
-    appwriteConfig.databaseId,
-    c.bookings,
-    bookingId,
-    { verified: true },
-  );
+  const updated = await databases.updateDocument(appwriteConfig.databaseId, c.bookings, bookingId, {
+    verified: true,
+  });
   return toBooking(updated);
 }
 
@@ -758,9 +751,7 @@ export async function getVehiclesByDriverUserIds(
 }
 
 /** Batch-fetch vehicles by their document IDs (keyed by vehicle id). */
-export async function getVehiclesByIds(
-  vehicleIds: string[],
-): Promise<Map<string, DriverVehicle>> {
+export async function getVehiclesByIds(vehicleIds: string[]): Promise<Map<string, DriverVehicle>> {
   const unique = [...new Set(vehicleIds.filter(Boolean))];
   if (unique.length === 0) return new Map();
   const c = ids();
@@ -829,8 +820,44 @@ export interface CreateTeamDriverInput {
   city: string;
 }
 
+function duplicateDriverMessage(
+  kind: "phone" | "email" | "license",
+  driver: DriverProfile,
+): string {
+  const value =
+    kind === "phone" ? driver.phone : kind === "email" ? driver.email : driver.licenseNumber;
+  return `A host/driver with this ${kind} already exists: ${driver.fullName || "Existing driver"} (${value || driver.userId}).`;
+}
+
+async function assertNoDuplicateDriverIdentity(input: {
+  phone?: string;
+  email?: string;
+  licenseNumber?: string;
+  allowedDriverProfileId?: string;
+}): Promise<void> {
+  const phone = normalizePhone(input.phone);
+  const email = normalizeEmail(input.email);
+  const license = normalizeLicense(input.licenseNumber);
+  if (!phone && !email && !license) return;
+
+  const drivers = await listDriverProfiles();
+  for (const driver of drivers) {
+    if (input.allowedDriverProfileId && driver.id === input.allowedDriverProfileId) continue;
+    if (phone && normalizePhone(driver.phone) === phone) {
+      throw new Error(duplicateDriverMessage("phone", driver));
+    }
+    if (email && normalizeEmail(driver.email) === email) {
+      throw new Error(duplicateDriverMessage("email", driver));
+    }
+    if (license && normalizeLicense(driver.licenseNumber) === license) {
+      throw new Error(duplicateDriverMessage("license", driver));
+    }
+  }
+}
+
 export async function createTeamDriver(input: CreateTeamDriverInput): Promise<DriverProfile> {
   const c = ids();
+  await assertNoDuplicateDriverIdentity(input);
   const doc = await databases.createDocument(appwriteConfig.databaseId, c.drivers, ID.unique(), {
     user_id: `team_${ID.unique()}`,
     owner_user_id: input.ownerUserId,
@@ -848,6 +875,7 @@ export async function updateTeamDriver(
   input: Omit<CreateTeamDriverInput, "ownerUserId">,
 ): Promise<DriverProfile> {
   const c = ids();
+  await assertNoDuplicateDriverIdentity({ ...input, allowedDriverProfileId: driverProfileId });
   const doc = await databases.updateDocument(
     appwriteConfig.databaseId,
     c.drivers,
@@ -942,12 +970,6 @@ async function deleteTripSeatReservation(documentId: string): Promise<void> {
   await databases.deleteDocument(appwriteConfig.databaseId, c.tripSeatReservations, documentId);
 }
 
-/** Last 10 digits of a phone, for duplicate comparison across formats. */
-function normalizePhone(raw: string): string {
-  const digits = (raw || "").replace(/\D/g, "");
-  return digits.length > 10 ? digits.slice(-10) : digits;
-}
-
 export async function createBookingWithSeatReservations(
   input: CreateBookingInput & { seatCodes: string[]; hostId: string },
 ): Promise<Booking> {
@@ -960,9 +982,7 @@ export async function createBookingWithSeatReservations(
 
   // One mobile number can't hold two active seats on the same trip. Cancelled
   // bookings are ignored, so a passenger can cancel and rebook.
-  const newPhones = (input.passengers ?? [])
-    .map((p) => normalizePhone(p.phone))
-    .filter(Boolean);
+  const newPhones = (input.passengers ?? []).map((p) => normalizePhone(p.phone)).filter(Boolean);
   if (newPhones.length) {
     const existingPhones = new Set<string>();
     for (const b of await listTripBookings(input.tripId)) {
@@ -1219,9 +1239,7 @@ export async function listDriverProfiles(): Promise<DriverProfile[]> {
 }
 
 /** Resolve host display info for a set of host user ids (used by trip cards). */
-export async function listDriverProfilesByUserIds(
-  userIds: string[],
-): Promise<DriverProfile[]> {
+export async function listDriverProfilesByUserIds(userIds: string[]): Promise<DriverProfile[]> {
   const unique = [...new Set(userIds.filter(Boolean))];
   if (unique.length === 0) return [];
   const c = ids();
@@ -1273,7 +1291,10 @@ export async function updateHostPreferences(
 }
 
 /** Update just the profile photo for a host (lightweight patch). */
-export async function updateDriverPhoto(hostUserId: string, photoUrl: string | null): Promise<void> {
+export async function updateDriverPhoto(
+  hostUserId: string,
+  photoUrl: string | null,
+): Promise<void> {
   const c = ids();
   const result = await databases.listDocuments(appwriteConfig.databaseId, c.drivers, [
     Query.equal("user_id", hostUserId),
@@ -1342,11 +1363,7 @@ export interface TrendingRoutesOptions {
 }
 
 function tripRouteSegment(value: string): string {
-  return value
-    .toLowerCase()
-    .split(",")[0]
-    .replace(/\s+/g, " ")
-    .trim();
+  return value.toLowerCase().split(",")[0].replace(/\s+/g, " ").trim();
 }
 
 /**
@@ -1557,9 +1574,7 @@ export async function cancelBooking(bookingId: string): Promise<void> {
     for (const r of reservations) {
       if (r.bookingId !== bookingId) continue;
       try {
-        await deleteTripSeatReservation(
-          tripSeatReservationDocumentId(booking.tripId, r.seatCode),
-        );
+        await deleteTripSeatReservation(tripSeatReservationDocumentId(booking.tripId, r.seatCode));
       } catch {
         /* seat already gone — ignore */
       }
@@ -1762,13 +1777,18 @@ export async function updatePayoutRequestStatus(
   input: UpdatePayoutRequestInput,
 ): Promise<PayoutRequest> {
   const c = ids();
-  const doc = await databases.updateDocument(appwriteConfig.databaseId, c.payoutRequests, requestId, {
-    status: input.status,
-    payment_reference: input.paymentReference ?? null,
-    admin_note: input.adminNote ?? null,
-    processed_at:
-      input.status === "paid" || input.status === "rejected" ? new Date().toISOString() : null,
-  });
+  const doc = await databases.updateDocument(
+    appwriteConfig.databaseId,
+    c.payoutRequests,
+    requestId,
+    {
+      status: input.status,
+      payment_reference: input.paymentReference ?? null,
+      admin_note: input.adminNote ?? null,
+      processed_at:
+        input.status === "paid" || input.status === "rejected" ? new Date().toISOString() : null,
+    },
+  );
   return toPayoutRequest(doc);
 }
 
@@ -1788,9 +1808,7 @@ function toReview(doc: any): Review {
   };
 }
 
-export async function createReview(
-  data: Omit<Review, "id" | "createdAt">,
-): Promise<Review> {
+export async function createReview(data: Omit<Review, "id" | "createdAt">): Promise<Review> {
   const c = ids();
   const doc = await databases.createDocument(
     appwriteConfig.databaseId,
@@ -1850,10 +1868,8 @@ export async function updateDriverRatingAggregate(hostUserId: string): Promise<v
     Query.limit(1),
   ]);
   if (driverRes.documents.length === 0) return;
-  await databases.updateDocument(
-    appwriteConfig.databaseId,
-    c.drivers,
-    driverRes.documents[0].$id,
-    { rating_avg: Math.round(avg * 10) / 10, rating_count: reviews.length },
-  );
+  await databases.updateDocument(appwriteConfig.databaseId, c.drivers, driverRes.documents[0].$id, {
+    rating_avg: Math.round(avg * 10) / 10,
+    rating_count: reviews.length,
+  });
 }

@@ -1,6 +1,14 @@
 import { useQuery } from "@tanstack/react-query";
 import { Card, Typography, Tag, Spin, List, Avatar } from "antd";
-import { Activity, AlertTriangle, Car, Route as RouteIcon, Ticket, Users, Wallet } from "lucide-react";
+import {
+  Activity,
+  AlertTriangle,
+  Car,
+  Route as RouteIcon,
+  Ticket,
+  Users,
+  Wallet,
+} from "lucide-react";
 import {
   listAllBookings,
   listAllTrips,
@@ -48,12 +56,12 @@ export function OverviewPanel({ onNavigate }: { onNavigate: (key: string) => voi
 
   const stats = [
     {
-      label: "Total Drivers",
+      label: "Hosts + Drivers",
       value: drivers.length,
       icon: <Users size={18} />,
       tag: "Active network",
       tagColor: "purple",
-      onClick: () => onNavigate("drivers"),
+      onClick: () => onNavigate("hosts"),
     },
     {
       label: "Total Vehicles",
@@ -101,7 +109,7 @@ export function OverviewPanel({ onNavigate }: { onNavigate: (key: string) => voi
       icon: <AlertTriangle size={18} />,
       tag: pendingVerifications > 0 ? "Needs review" : "All clear",
       tagColor: pendingVerifications > 0 ? "warning" : "success",
-      onClick: () => onNavigate("drivers"),
+      onClick: () => onNavigate("hosts"),
     },
   ];
 
@@ -153,7 +161,10 @@ export function OverviewPanel({ onNavigate }: { onNavigate: (key: string) => voi
             <Title level={5} style={{ margin: 0 }}>
               Recent Bookings
             </Title>
-            <a className="text-sm text-primary cursor-pointer" onClick={() => onNavigate("bookings")}>
+            <a
+              className="text-sm text-primary cursor-pointer"
+              onClick={() => onNavigate("bookings")}
+            >
               View all
             </a>
           </div>

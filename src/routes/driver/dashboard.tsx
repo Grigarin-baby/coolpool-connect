@@ -119,7 +119,6 @@ import { stripCountrySuffix } from "@/lib/geo";
 import { findDuplicateVehicle } from "@/lib/duplicateChecks";
 import { compressImage } from "@/lib/image-compression";
 import { RoleSwitch } from "@/components/RoleSwitch";
-import { seatCodeToLabel } from "@/lib/seatLayout";
 import { getHostTier } from "@/lib/host-tier";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
@@ -131,6 +130,7 @@ import { ReviewModal } from "@/components/ReviewModal";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import { getUserDisplayName } from "@/lib/user-display";
 import { getBookingPassengers } from "@/lib/booking-passengers";
+import { passengerGenderLabel, passengerGenderTone, passengerSeatLabel } from "@/lib/passenger-display";
 import { TripWizard } from "@/components/trip-wizard/TripWizard";
 import type { WizardResult } from "@/components/trip-wizard/types";
 import { NotificationPermissionPrompt } from "@/components/NotificationPermissionPrompt";
@@ -4092,19 +4092,19 @@ function DriverDashboardPage() {
                                     </div>
                                     <div className="flex flex-col items-end gap-1">
                                       <span className="text-xs font-bold text-primary bg-primary/10 rounded-full px-2 py-0.5 shrink-0">
-                                        Seat {p.seatCode}
+                                        {passengerSeatLabel(p.seatCode)}
                                       </span>
-                                      {p.gender && (
-                                        <span
-                                          className={`rounded-full px-2 py-0.5 text-[10px] font-bold capitalize ${
-                                            p.gender === "male"
-                                              ? "bg-blue-50 text-blue-700"
-                                              : "bg-pink-50 text-pink-700"
-                                          }`}
-                                        >
-                                          {p.gender}
-                                        </span>
-                                      )}
+                                      <span
+                                        className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                                          passengerGenderTone(p.gender) === "male"
+                                            ? "bg-blue-50 text-blue-700"
+                                            : passengerGenderTone(p.gender) === "female"
+                                              ? "bg-pink-50 text-pink-700"
+                                              : "bg-gray-100 text-gray-500"
+                                        }`}
+                                      >
+                                        {passengerGenderLabel(p.gender)}
+                                      </span>
                                     </div>
                                   </div>
                                 ))}
@@ -5094,13 +5094,12 @@ function DriverDashboardPage() {
                           const passengers = getBookingPassengers(b);
                           const primaryPassenger = passengers[0];
                           const primaryName = primaryPassenger?.name || "Passenger";
-                          const seatLabel = passengers.map((passenger) => seatCodeToLabel(passenger.seatCode)).join(", ");
+                          const seatLabel = passengers.map((passenger) => passengerSeatLabel(passenger.seatCode)).join(", ");
                           const genderLabel = [
                             ...new Set(
                               passengers
                                 .map((passenger) => passenger.gender)
-                                .filter((gender): gender is "male" | "female" => !!gender)
-                                .map((gender) => gender.charAt(0).toUpperCase() + gender.slice(1)),
+                                .map(passengerGenderLabel),
                             ),
                           ].join(" · ");
                           const reviews = travelerReviewsByUser[b.travelerId] ?? [];
@@ -5129,7 +5128,7 @@ function DriverDashboardPage() {
                                     {passengers.length > 1 ? ` +${passengers.length - 1}` : ""}
                                   </Text>
                                   <Text type="secondary" className="block text-xs mt-0.5">
-                                    {genderLabel || "Gender not provided"} · Seat {seatLabel || "—"}
+                                    {genderLabel || "—"} · {seatLabel || "—"}
                                   </Text>
                                   <div className="mt-1.5 flex items-center gap-1 text-xs">
                                     <Star
@@ -5406,19 +5405,19 @@ function DriverDashboardPage() {
                           <p className="text-xs text-gray-400">{passenger.phone}</p>
                         </div>
                         <div className="flex items-center gap-1.5">
-                          {passenger.gender && (
-                            <span
-                              className={`rounded-full px-2 py-1 text-[10px] font-bold capitalize ${
-                                passenger.gender === "male"
-                                  ? "bg-blue-50 text-blue-700"
-                                  : "bg-pink-50 text-pink-700"
-                              }`}
-                            >
-                              {passenger.gender}
-                            </span>
-                          )}
+                          <span
+                            className={`rounded-full px-2 py-1 text-[10px] font-bold ${
+                              passengerGenderTone(passenger.gender) === "male"
+                                ? "bg-blue-50 text-blue-700"
+                                : passengerGenderTone(passenger.gender) === "female"
+                                  ? "bg-pink-50 text-pink-700"
+                                  : "bg-gray-100 text-gray-500"
+                            }`}
+                          >
+                            {passengerGenderLabel(passenger.gender)}
+                          </span>
                           <span className="rounded-full bg-purple-50 px-2 py-1 text-[10px] font-bold text-purple-700">
-                            Seat {passenger.seatCode}
+                            {passengerSeatLabel(passenger.seatCode)}
                           </span>
                         </div>
                       </div>
@@ -5443,11 +5442,11 @@ function DriverDashboardPage() {
                     </Tag>
                   </div>
                   <div className="mt-4 grid grid-cols-2 gap-2">
-                    <Button href={contact.tel} disabled={!contact.tel} className="h-10 rounded-xl">
+                    <Button href={contact.tel ?? undefined} disabled={!contact.tel} className="h-10 rounded-xl">
                       <Phone size={15} /> Call
                     </Button>
                     <Button
-                      href={contact.whatsapp}
+                      href={contact.whatsapp ?? undefined}
                       target="_blank"
                       disabled={!contact.whatsapp}
                       className="h-10 rounded-xl"

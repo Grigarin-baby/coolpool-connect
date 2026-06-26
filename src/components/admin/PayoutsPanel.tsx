@@ -1,16 +1,15 @@
 import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Card, Typography, Table, Tag, Space, Button, Select, Modal, Form, Input, message } from "antd";
-import { CheckCircle2, XCircle, Clock3 } from "lucide-react";
+import { Card, Typography, Table, Tag, Space, Button, Select, Modal, Form, Input, message, Drawer } from "antd";
+import { CheckCircle2, XCircle, Clock3, WalletCards } from "lucide-react";
 import {
-  listAllPayoutRequests,
   listDriverProfiles,
   listAllTrips,
   listAllBookings,
-  updatePayoutRequestStatus,
 } from "@/data/appwrite-repository";
 import { hostNetEarnings } from "@/lib/pricing";
 import type { PayoutRequest, PayoutStatus } from "@/lib/domain";
+import { listPayoutRequestsAsAdmin, updatePayoutRequestAsAdmin } from "./adminUserApi";
 
 const { Title, Text } = Typography;
 
@@ -26,16 +25,27 @@ function maskAccountNumber(accountNumber: string): string {
   return `••••${accountNumber.slice(-4)}`;
 }
 
+function formatMoney(amount: number): string {
+  return `₹${amount.toLocaleString("en-IN")}`;
+}
+
+function formatDateTime(date: string | null | undefined): string {
+  if (!date) return "—";
+  return new Date(date).toLocaleString("en-IN");
+}
+
 export function PayoutsPanel() {
   const queryClient = useQueryClient();
-  const [statusFilter, setStatusFilter] = useState<PayoutStatus | "all">("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | "pending" | "processing" | "rejected">("all");
   const [actionRequest, setActionRequest] = useState<PayoutRequest | null>(null);
   const [actionType, setActionType] = useState<"paid" | "rejected" | null>(null);
+  const [detailHostId, setDetailHostId] = useState<string | null>(null);
+  const [detailRequestId, setDetailRequestId] = useState<string | null>(null);
   const [form] = Form.useForm<{ paymentReference?: string; adminNote?: string }>();
 
   const { data: requests = [], isLoading: requestsLoading } = useQuery({
     queryKey: ["admin-payout-requests"],
-    queryFn: () => listAllPayoutRequests(500),
+    queryFn: () => listPayoutRequestsAsAdmin(500),
   });
 
   const { data: drivers = [], isLoading: driversLoading } = useQuery({
@@ -96,6 +106,8 @@ export function PayoutsPanel() {
 
   const availableFor = (userId: string) =>
     Math.max(0, (earnedByHost.get(userId) ?? 0) - (paidByHost.get(userId) ?? 0) - (openByHost.get(userId) ?? 0));
+  const rawAvailableFor = (userId: string) =>
+    (earnedByHost.get(userId) ?? 0) - (paidByHost.get(userId) ?? 0) - (openByHost.get(userId) ?? 0);
 
   // Ledger: one row per host who has earned or transacted.
   const ledger = useMemo(() => {
@@ -125,7 +137,7 @@ export function PayoutsPanel() {
       paymentReference?: string;
       adminNote?: string;
     }) =>
-      updatePayoutRequestStatus(vars.id, {
+      updatePayoutRequestAsAdmin(vars.id, {
         status: vars.status,
         paymentReference: vars.paymentReference,
         adminNote: vars.adminNote,
@@ -141,7 +153,7 @@ export function PayoutsPanel() {
   });
 
   const processingMutation = useMutation({
-    mutationFn: (id: string) => updatePayoutRequestStatus(id, { status: "processing" }),
+    mutationFn: (id: string) => updatePayoutRequestAsAdmin(id, { status: "processing" }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["admin-payout-requests"] });
       message.success("Marked as processing.");
@@ -149,8 +161,18 @@ export function PayoutsPanel() {
     onError: (error: any) => message.error(error.message || "Failed to update payout request."),
   });
 
+  const activeRequests = useMemo(
+    () => requests.filter((r) => r.status !== "paid"),
+    [requests],
+  );
+
+  const paidRequests = useMemo(
+    () => requests.filter((r) => r.status === "paid"),
+    [requests],
+  );
+
   const filteredRequests =
-    statusFilter === "all" ? requests : requests.filter((r) => r.status === statusFilter);
+    statusFilter === "all" ? activeRequests : activeRequests.filter((r) => r.status === statusFilter);
 
   const totalPending = requests
     .filter((r) => r.status === "pending" || r.status === "processing")
@@ -160,7 +182,9 @@ export function PayoutsPanel() {
     .filter((r) => r.status === "paid")
     .reduce((sum, r) => sum + r.amount, 0);
 
-  const pendingCount = requests.filter((r) => r.status === "pending").length;
+  const openRequestCount = requests.filter(
+    (r) => r.status === "pending" || r.status === "processing",
+  ).length;
 
   const openAction = (record: PayoutRequest, type: "paid" | "rejected") => {
     setActionRequest(record);
@@ -168,8 +192,25 @@ export function PayoutsPanel() {
     form.resetFields();
   };
 
+  const openDetails = (record: PayoutRequest) => {
+    setDetailHostId(record.driverUserId);
+    setDetailRequestId(record.id);
+  };
+
   const submitAction = (values: { paymentReference?: string; adminNote?: string }) => {
     if (!actionRequest || !actionType) return;
+    if (actionType === "paid") {
+      const payableHeadroom = rawAvailableFor(actionRequest.driverUserId) + actionRequest.amount;
+      if (actionRequest.amount > payableHeadroom) {
+        message.error(
+          `Cannot pay ${formatMoney(actionRequest.amount)}. Only ${formatMoney(Math.max(0, payableHeadroom))} is payable after earlier payouts.`,
+        );
+        setActionRequest(null);
+        setActionType(null);
+        form.resetFields();
+        return;
+      }
+    }
     updateMutation.mutate({
       id: actionRequest.id,
       status: actionType,
@@ -177,6 +218,95 @@ export function PayoutsPanel() {
       adminNote: values.adminNote,
     });
   };
+
+  const detailRequests = useMemo(
+    () => requests.filter((r) => r.driverUserId === detailHostId),
+    [requests, detailHostId],
+  );
+
+  const detailRequest =
+    detailRequests.find((r) => r.id === detailRequestId) ?? detailRequests[0] ?? null;
+  const detailHostName = detailHostId ? driverNameByUserId.get(detailHostId) || "Unknown" : "";
+  const detailOpenRequests = detailRequests.filter(
+    (r) => r.status === "pending" || r.status === "processing",
+  );
+  const detailPaidRequests = detailRequests.filter((r) => r.status === "paid");
+  const detailRejectedRequests = detailRequests.filter((r) => r.status === "rejected");
+  const detailEarned = detailHostId ? earnedByHost.get(detailHostId) ?? 0 : 0;
+  const detailPaid = detailHostId ? paidByHost.get(detailHostId) ?? 0 : 0;
+  const detailOpen = detailHostId ? openByHost.get(detailHostId) ?? 0 : 0;
+  const detailAvailable = detailHostId ? availableFor(detailHostId) : 0;
+
+  const renderPayoutActions = (record: PayoutRequest) =>
+    {
+      if (record.status !== "pending" && record.status !== "processing") {
+        return (
+          <Text type="secondary">
+            {record.processedAt ? new Date(record.processedAt).toLocaleDateString("en-IN") : "—"}
+          </Text>
+        );
+      }
+
+      const payableHeadroom = rawAvailableFor(record.driverUserId) + record.amount;
+      const canPay = record.amount <= payableHeadroom;
+
+      return (
+        <Space direction="vertical" size="small">
+          {record.status === "pending" && (
+            <Button
+              size="small"
+              icon={<Clock3 size={14} />}
+              loading={processingMutation.isPending}
+              onClick={(event) => {
+                event.stopPropagation();
+                processingMutation.mutate(record.id);
+              }}
+            >
+              Mark Processing
+            </Button>
+          )}
+          <Button
+            type="primary"
+            size="small"
+            icon={<CheckCircle2 size={14} />}
+            disabled={!canPay}
+            title={
+              canPay
+                ? undefined
+                : `Only ${formatMoney(Math.max(0, payableHeadroom))} is payable after earlier payouts`
+            }
+            onClick={(event) => {
+              event.stopPropagation();
+              if (!canPay) {
+                message.error(
+                  `Cannot pay ${formatMoney(record.amount)}. Only ${formatMoney(Math.max(0, payableHeadroom))} is payable after earlier payouts.`,
+                );
+                return;
+              }
+              openAction(record, "paid");
+            }}
+          >
+            Mark Paid
+          </Button>
+          {!canPay && (
+            <Text type="danger" className="text-xs">
+              Over request by {formatMoney(record.amount - Math.max(0, payableHeadroom))}
+            </Text>
+          )}
+          <Button
+            danger
+            size="small"
+            icon={<XCircle size={14} />}
+            onClick={(event) => {
+              event.stopPropagation();
+              openAction(record, "rejected");
+            }}
+          >
+            Reject
+          </Button>
+        </Space>
+      );
+    };
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
@@ -198,9 +328,9 @@ export function PayoutsPanel() {
           </Title>
         </Card>
         <Card className="rounded-3xl border-none shadow-card bg-white/90 backdrop-blur-md">
-          <Text type="secondary">Pending requests</Text>
+          <Text type="secondary">Open requests</Text>
           <Title level={3} style={{ margin: "4px 0" }}>
-            {pendingCount}
+            {openRequestCount}
           </Title>
         </Card>
         <Card className="rounded-3xl border-none shadow-card bg-white/90 backdrop-blur-md">
@@ -225,10 +355,9 @@ export function PayoutsPanel() {
             onChange={setStatusFilter}
             style={{ width: 180 }}
             options={[
-              { value: "all", label: "All statuses" },
+              { value: "all", label: "All requests" },
               { value: "pending", label: "Pending" },
               { value: "processing", label: "Processing" },
-              { value: "paid", label: "Paid" },
               { value: "rejected", label: "Rejected" },
             ]}
           />
@@ -239,17 +368,22 @@ export function PayoutsPanel() {
           dataSource={filteredRequests}
           locale={{ emptyText: "No payout requests yet." }}
           pagination={{ pageSize: 10 }}
+          onRow={(record) => ({
+            onClick: () => openDetails(record),
+            className: "cursor-pointer",
+          })}
           columns={[
             {
               title: "Driver/Host",
               key: "driver",
               render: (_, r) => {
                 const earned = earnedByHost.get(r.driverUserId) ?? 0;
-                const available = availableFor(r.driverUserId);
-                // For an open request, "available" excludes it — so the check is
-                // whether the requested amount fits within earned-minus-paid.
+                const rawAvailable = rawAvailableFor(r.driverUserId);
+                // For an open request, availability excludes all open requests.
+                // Add this one back without clamping negatives, otherwise prior
+                // overpayments look payable.
                 const headroom =
-                  available + (r.status === "pending" || r.status === "processing" ? r.amount : 0);
+                  rawAvailable + (r.status === "pending" || r.status === "processing" ? r.amount : 0);
                 const ok = r.amount <= headroom;
                 return (
                   <div>
@@ -261,7 +395,7 @@ export function PayoutsPanel() {
                       <div className={`text-xs font-semibold ${ok ? "text-emerald-600" : "text-rose-600"}`}>
                         {ok
                           ? `✓ ₹${r.amount} of ₹${headroom.toLocaleString("en-IN")} available`
-                          : `⚠ ₹${r.amount} > ₹${headroom.toLocaleString("en-IN")} available`}
+                          : `⚠ ₹${r.amount} > ₹${Math.max(0, headroom).toLocaleString("en-IN")} payable`}
                       </div>
                     )}
                   </div>
@@ -272,7 +406,7 @@ export function PayoutsPanel() {
               title: "Amount",
               dataIndex: "amount",
               key: "amount",
-              render: (amount: number) => `₹${amount.toLocaleString("en-IN")}`,
+              render: (amount: number) => formatMoney(amount),
             },
             {
               title: "Bank details",
@@ -291,7 +425,7 @@ export function PayoutsPanel() {
               title: "Requested",
               dataIndex: "requestedAt",
               key: "requestedAt",
-              render: (date: string) => new Date(date).toLocaleString("en-IN"),
+              render: (date: string) => formatDateTime(date),
             },
             {
               title: "Status",
@@ -317,41 +451,75 @@ export function PayoutsPanel() {
             {
               title: "Actions",
               key: "actions",
-              render: (_, r) =>
-                r.status === "pending" || r.status === "processing" ? (
-                  <Space direction="vertical" size="small">
-                    {r.status === "pending" && (
-                      <Button
-                        size="small"
-                        icon={<Clock3 size={14} />}
-                        loading={processingMutation.isPending}
-                        onClick={() => processingMutation.mutate(r.id)}
-                      >
-                        Mark Processing
-                      </Button>
-                    )}
-                    <Button
-                      type="primary"
-                      size="small"
-                      icon={<CheckCircle2 size={14} />}
-                      onClick={() => openAction(r, "paid")}
-                    >
-                      Mark Paid
-                    </Button>
-                    <Button
-                      danger
-                      size="small"
-                      icon={<XCircle size={14} />}
-                      onClick={() => openAction(r, "rejected")}
-                    >
-                      Reject
-                    </Button>
-                  </Space>
-                ) : (
-                  <Text type="secondary">
-                    {r.processedAt ? new Date(r.processedAt).toLocaleDateString("en-IN") : "—"}
-                  </Text>
-                ),
+              render: (_, r) => renderPayoutActions(r),
+            },
+          ]}
+        />
+      </Card>
+
+      <Card className="rounded-3xl border-none shadow-card bg-white/90 backdrop-blur-md p-2 overflow-hidden">
+        <div className="p-4">
+          <Text strong>Paid payouts</Text>
+          <div className="text-xs text-muted-foreground">
+            Completed transfers are kept here, away from active payout requests.
+          </div>
+        </div>
+        <Table
+          rowKey="id"
+          loading={requestsLoading || driversLoading}
+          dataSource={paidRequests}
+          locale={{ emptyText: "No paid payouts yet." }}
+          pagination={{ pageSize: 10 }}
+          onRow={(record) => ({
+            onClick: () => openDetails(record),
+            className: "cursor-pointer",
+          })}
+          columns={[
+            {
+              title: "Driver/Host",
+              key: "driver",
+              render: (_, r) => (
+                <div>
+                  <Text strong>{driverNameByUserId.get(r.driverUserId) || "Unknown"}</Text>
+                  <div className="text-xs text-muted-foreground">
+                    Paid from request dated {new Date(r.requestedAt).toLocaleDateString("en-IN")}
+                  </div>
+                </div>
+              ),
+            },
+            {
+              title: "Amount",
+              dataIndex: "amount",
+              key: "amount",
+              render: (amount: number) => formatMoney(amount),
+            },
+            {
+              title: "Bank snapshot",
+              key: "bank",
+              render: (_, r) => (
+                <div className="text-sm">
+                  <div>{r.accountHolderName}</div>
+                  <div className="text-muted-foreground">
+                    {maskAccountNumber(r.accountNumber)} · {r.ifscCode}
+                  </div>
+                  {r.upiId && <div className="text-muted-foreground">UPI: {r.upiId}</div>}
+                </div>
+              ),
+            },
+            {
+              title: "Paid on",
+              key: "processedAt",
+              render: (_, r) => formatDateTime(r.processedAt),
+            },
+            {
+              title: "Reference",
+              key: "reference",
+              render: (_, r) => (
+                <div className="text-sm">
+                  <Text strong>{r.paymentReference || "—"}</Text>
+                  {r.adminNote && <div className="text-muted-foreground">Note: {r.adminNote}</div>}
+                </div>
+              ),
             },
           ]}
         />
@@ -370,23 +538,231 @@ export function PayoutsPanel() {
           dataSource={ledger}
           locale={{ emptyText: "No host earnings yet." }}
           pagination={{ pageSize: 10 }}
+          onRow={(record) => ({
+            onClick: () => {
+              setDetailHostId(record.userId);
+              setDetailRequestId(null);
+            },
+            className: "cursor-pointer",
+          })}
           columns={[
             { title: "Host", dataIndex: "name", key: "name", render: (v: string) => <Text strong>{v}</Text> },
-            { title: "Earned (net)", key: "earned", render: (_, r) => `₹${r.earned.toLocaleString("en-IN")}` },
-            { title: "Paid out", key: "paid", render: (_, r) => `₹${r.paid.toLocaleString("en-IN")}` },
-            { title: "Pending", key: "pending", render: (_, r) => `₹${r.pending.toLocaleString("en-IN")}` },
+            { title: "Earned (net)", key: "earned", render: (_, r) => formatMoney(r.earned) },
+            { title: "Paid out", key: "paid", render: (_, r) => formatMoney(r.paid) },
+            { title: "Pending", key: "pending", render: (_, r) => formatMoney(r.pending) },
             {
               title: "Available",
               key: "available",
               render: (_, r) => (
                 <Text strong className="!text-emerald-600">
-                  ₹{r.available.toLocaleString("en-IN")}
+                  {formatMoney(r.available)}
                 </Text>
               ),
             },
           ]}
         />
       </Card>
+
+      <Drawer
+        open={!!detailHostId}
+        width={620}
+        title={
+          <div className="flex items-center gap-2">
+            <WalletCards size={18} />
+            <span>{detailHostName} payout details</span>
+          </div>
+        }
+        onClose={() => {
+          setDetailHostId(null);
+          setDetailRequestId(null);
+        }}
+      >
+        {detailHostId && (
+          <div className="space-y-5">
+            <div className="grid grid-cols-2 gap-3">
+              {[
+                ["Earned", detailEarned],
+                ["Open", detailOpen],
+                ["Paid", detailPaid],
+                ["Available", detailAvailable],
+              ].map(([label, value]) => (
+                <div key={String(label)} className="rounded-2xl bg-slate-50 p-4">
+                  <div className="text-xs text-muted-foreground">{label}</div>
+                  <div className="text-xl font-bold">{formatMoney(Number(value))}</div>
+                </div>
+              ))}
+            </div>
+
+            {detailRequest && (
+              <section className="rounded-3xl border border-border p-4">
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <div>
+                    <Text strong>Selected request</Text>
+                    <div className="text-xs text-muted-foreground">
+                      Requested {formatDateTime(detailRequest.requestedAt)}
+                    </div>
+                  </div>
+                  <Tag color={STATUS_COLORS[detailRequest.status]} bordered={false} className="capitalize">
+                    {detailRequest.status}
+                  </Tag>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <div className="text-xs text-muted-foreground">Amount</div>
+                    <div className="font-bold">{formatMoney(detailRequest.amount)}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-muted-foreground">Processed</div>
+                    <div className="font-semibold">{formatDateTime(detailRequest.processedAt)}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-muted-foreground">Account holder</div>
+                    <div className="font-semibold">{detailRequest.accountHolderName || "—"}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-muted-foreground">Account number</div>
+                    <div className="font-semibold">{detailRequest.accountNumber || "—"}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-muted-foreground">IFSC</div>
+                    <div className="font-semibold">{detailRequest.ifscCode || "—"}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-muted-foreground">UPI ID</div>
+                    <div className="font-semibold">{detailRequest.upiId || "—"}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-muted-foreground">Payment reference</div>
+                    <div className="font-semibold">{detailRequest.paymentReference || "—"}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-muted-foreground">Admin note</div>
+                    <div className="font-semibold">{detailRequest.adminNote || "—"}</div>
+                  </div>
+                </div>
+                <div className="mt-4">{renderPayoutActions(detailRequest)}</div>
+              </section>
+            )}
+
+            <section className="space-y-3">
+              <div>
+                <Text strong>Pending payments</Text>
+                <div className="text-xs text-muted-foreground">
+                  Requests waiting for processing or manual transfer.
+                </div>
+              </div>
+              {detailOpenRequests.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-border p-4 text-sm text-muted-foreground">
+                  No pending payouts for this host.
+                </div>
+              ) : (
+                detailOpenRequests.map((request) => (
+                  <button
+                    key={request.id}
+                    type="button"
+                    className="w-full rounded-2xl border border-border bg-white p-4 text-left transition hover:border-primary/60"
+                    onClick={() => setDetailRequestId(request.id)}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="font-bold">{formatMoney(request.amount)}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {formatDateTime(request.requestedAt)}
+                        </div>
+                        <div className="mt-2 text-sm text-muted-foreground">
+                          {request.accountHolderName} · {request.accountNumber || "No account"} ·{" "}
+                          {request.ifscCode || "No IFSC"}
+                        </div>
+                        {request.upiId && (
+                          <div className="text-sm text-muted-foreground">UPI: {request.upiId}</div>
+                        )}
+                      </div>
+                      <Tag color={STATUS_COLORS[request.status]} bordered={false} className="capitalize">
+                        {request.status}
+                      </Tag>
+                    </div>
+                  </button>
+                ))
+              )}
+            </section>
+
+            <section className="space-y-3">
+              <div>
+                <Text strong>Paid history</Text>
+                <div className="text-xs text-muted-foreground">
+                  Completed manual transfers and their references.
+                </div>
+              </div>
+              {detailPaidRequests.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-border p-4 text-sm text-muted-foreground">
+                  No paid payout history yet.
+                </div>
+              ) : (
+                detailPaidRequests.map((request) => (
+                  <button
+                    key={request.id}
+                    type="button"
+                    className="w-full rounded-2xl border border-border bg-white p-4 text-left transition hover:border-primary/60"
+                    onClick={() => setDetailRequestId(request.id)}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="font-bold">{formatMoney(request.amount)}</div>
+                        <div className="text-xs text-muted-foreground">
+                          Requested {formatDateTime(request.requestedAt)}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          Paid {formatDateTime(request.processedAt)}
+                        </div>
+                        <div className="mt-2 text-sm">
+                          Ref: <span className="font-semibold">{request.paymentReference || "—"}</span>
+                        </div>
+                        {request.adminNote && (
+                          <div className="text-sm text-muted-foreground">Note: {request.adminNote}</div>
+                        )}
+                      </div>
+                      <Tag color="success" bordered={false}>
+                        Paid
+                      </Tag>
+                    </div>
+                  </button>
+                ))
+              )}
+            </section>
+
+            {detailRejectedRequests.length > 0 && (
+              <section className="space-y-3">
+                <Text strong>Rejected history</Text>
+                {detailRejectedRequests.map((request) => (
+                  <button
+                    key={request.id}
+                    type="button"
+                    className="w-full rounded-2xl border border-border bg-white p-4 text-left transition hover:border-primary/60"
+                    onClick={() => setDetailRequestId(request.id)}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="font-bold">{formatMoney(request.amount)}</div>
+                        <div className="text-xs text-muted-foreground">
+                          Rejected {formatDateTime(request.processedAt)}
+                        </div>
+                        {request.adminNote && (
+                          <div className="mt-2 text-sm text-muted-foreground">
+                            Note: {request.adminNote}
+                          </div>
+                        )}
+                      </div>
+                      <Tag color="error" bordered={false}>
+                        Rejected
+                      </Tag>
+                    </div>
+                  </button>
+                ))}
+              </section>
+            )}
+          </div>
+        )}
+      </Drawer>
 
       <Modal
         open={!!actionRequest}

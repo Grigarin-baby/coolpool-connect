@@ -30,7 +30,7 @@ import { ReviewModal } from "@/components/ReviewModal";
 import { ContactEmailPrompt } from "@/components/ContactEmailPrompt";
 import type { Booking, Trip } from "@/lib/domain";
 import { getBookingPassengers } from "@/lib/booking-passengers";
-import { seatCodeToLabel } from "@/lib/seatLayout";
+import { passengerGenderLabel, passengerGenderTone, passengerSeatLabel } from "@/lib/passenger-display";
 
 dayjs.extend(relativeTime);
 
@@ -526,20 +526,20 @@ function TripsPage() {
                                   <div className="text-xs text-muted-foreground truncate">{p.phone}</div>
                                 </div>
                                 <span className="shrink-0 inline-flex items-center justify-center rounded-2xl bg-primary/10 text-primary px-3 py-1.5 text-2xl font-extrabold leading-none">
-                                  {seatCodeToLabel(p.seatCode)}
+                                  {passengerSeatLabel(p.seatCode)}
                                 </span>
-                                {p.gender && (
-                                  <span
-                                    className={`shrink-0 grid h-7 w-7 place-items-center rounded-full text-sm font-extrabold ${
-                                      p.gender === "male"
-                                        ? "bg-blue-50 text-blue-700"
-                                        : "bg-pink-50 text-pink-700"
-                                    }`}
-                                    title={p.gender}
-                                  >
-                                    {p.gender === "male" ? "M" : "F"}
-                                  </span>
-                                )}
+                                <span
+                                  className={`shrink-0 grid h-7 w-7 place-items-center rounded-full text-sm font-extrabold ${
+                                    passengerGenderTone(p.gender) === "male"
+                                      ? "bg-blue-50 text-blue-700"
+                                      : passengerGenderTone(p.gender) === "female"
+                                        ? "bg-pink-50 text-pink-700"
+                                        : "bg-gray-100 text-gray-500"
+                                  }`}
+                                  title={passengerGenderLabel(p.gender)}
+                                >
+                                  {passengerGenderLabel(p.gender)}
+                                </span>
                               </div>
                             ))}
                           </div>

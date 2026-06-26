@@ -8,7 +8,7 @@ import {
   updateBookingStatus,
 } from "@/data/appwrite-repository";
 import { getBookingPassengers } from "@/lib/booking-passengers";
-import { seatCodeToLabel } from "@/lib/seatLayout";
+import { passengerGenderLabel, passengerSeatLabel } from "@/lib/passenger-display";
 import type { Booking, BookingStatus } from "@/lib/domain";
 
 const { Title, Text } = Typography;
@@ -221,9 +221,10 @@ export function BookingsPanel() {
                   <div key={i} className="flex items-center justify-between rounded-xl border border-gray-100 px-3 py-2">
                     <span>
                       {p.name}
-                      {p.gender ? ` (${p.gender === "male" ? "M" : "F"})` : ""} · {p.phone}
+                      {" "}
+                      ({passengerGenderLabel(p.gender)}) · {p.phone}
                     </span>
-                    <span className="text-muted-foreground">{seatCodeToLabel(p.seatCode)}</span>
+                    <span className="text-muted-foreground">{passengerSeatLabel(p.seatCode)}</span>
                   </div>
                 ))}
               </div>

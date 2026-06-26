@@ -122,15 +122,16 @@ export function PayoutsPanel() {
     const gross = relevantBookings.reduce((sum, b) => sum + b.segmentPrice * b.seatsBooked, 0);
     const lifetime = hostNetEarnings(gross);
 
-    const paidOut = payoutRequests
+    const paidOutRaw = payoutRequests
       .filter((r) => r.status === "paid")
       .reduce((sum, r) => sum + r.amount, 0);
     const pending = payoutRequests
       .filter((r) => r.status === "pending" || r.status === "processing")
       .reduce((sum, r) => sum + r.amount, 0);
-    const available = Math.max(0, lifetime - paidOut - pending);
+    const overpaid = Math.max(0, paidOutRaw - lifetime);
+    const available = Math.max(0, lifetime - paidOutRaw - pending);
 
-    return { lifetime, paidOut, pending, available };
+    return { lifetime, paidOut: paidOutRaw, pending, available, overpaid };
   }, [trips, bookings, payoutRequests]);
 
   const loading = bankLoading || tripsLoading || bookingsLoading || requestsLoading;
@@ -173,8 +174,26 @@ export function PayoutsPanel() {
           <Title level={3} style={{ margin: "4px 0" }}>
             {loading ? <Spin size="small" /> : `₹${earnings.paidOut.toLocaleString("en-IN")}`}
           </Title>
+          {!loading && earnings.overpaid > 0 && (
+            <Text type="danger" className="text-xs font-semibold">
+              Overpaid by ₹{earnings.overpaid.toLocaleString("en-IN")}
+            </Text>
+          )}
         </Card>
       </div>
+
+      {!loading && earnings.overpaid > 0 && (
+        <Card className="rounded-2xl border border-rose-200 bg-rose-50 text-rose-700 shadow-soft">
+          <Text type="danger" strong>
+            Paid payouts exceed completed-trip earnings by ₹
+            {earnings.overpaid.toLocaleString("en-IN")}.
+          </Text>
+          <div className="text-sm text-rose-700/80">
+            New payout requests are locked until the ledger is corrected or more completed earnings
+            are added.
+          </div>
+        </Card>
+      )}
 
       <Card className="rounded-2xl border-none shadow-soft bg-white/80">
         <div className="flex items-center justify-between mb-4">
