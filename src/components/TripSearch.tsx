@@ -811,7 +811,9 @@ export function TripSearchForm({ variant, id }: { variant: "landing" | "page"; i
       form.setFieldsValue({
         from: detail.from,
         to: detail.to,
-        date: detail.date ?? dayjs(),
+        // Undefined date = show all upcoming trips on this route (don't pin to
+        // a single calendar day, which hides near-future rides past midnight).
+        date: detail.date,
       });
       form.submit();
       requestAnimationFrame(() => {

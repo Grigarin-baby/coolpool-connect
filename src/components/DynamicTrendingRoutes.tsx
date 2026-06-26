@@ -1,5 +1,4 @@
 import { TrendingUp, ArrowRight } from "lucide-react";
-import dayjs from "dayjs";
 
 const TRENDING_ROUTES: { from: string; to: string }[] = [
   { from: "Bengaluru", to: "Hyderabad" },
@@ -14,9 +13,11 @@ const TRENDING_ROUTES: { from: string; to: string }[] = [
 
 export function DynamicTrendingRoutes() {
   const triggerSearch = (from: string, to: string) => {
+    // No date — search all upcoming trips on this route (a near-future ride
+    // past midnight shouldn't be hidden by a single-day "Today" filter).
     window.dispatchEvent(
       new CustomEvent("coolpool:setSearch", {
-        detail: { from, to, date: dayjs() },
+        detail: { from, to },
       }),
     );
   };
@@ -49,7 +50,7 @@ export function DynamicTrendingRoutes() {
             <div className="mb-3 flex items-center justify-between">
               <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-2.5 py-1 text-[0.65rem] font-bold uppercase tracking-widest text-primary">
                 <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
-                Today
+                Popular
               </span>
               <ArrowRight className="h-4 w-4 text-gray-300 transition-all duration-300 group-hover:translate-x-1 group-hover:text-primary" />
             </div>
