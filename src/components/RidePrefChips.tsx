@@ -1,23 +1,29 @@
-import { Cigarette, Wine, Music2, VolumeX, PawPrint } from "lucide-react";
-import type { ReactNode } from "react";
 import type { RidePreferences } from "@/lib/domain";
 
-// Color-coded ride preference pills: green = allowed, red = not allowed.
-// Shown on search result cards, the booking page, and the host dashboard.
+// Color-coded ride preference pills using the brand indication icons
+// (green = allowed, red = not allowed). Shown on search result cards, the
+// booking page, and the host dashboard.
 
 const SIZES = {
-  sm: { chip: "gap-1 px-2 py-0.5 text-[10px]", icon: 11 },
-  md: { chip: "gap-1.5 px-2.5 py-1 text-xs", icon: 13 },
+  sm: { chip: "gap-1 pl-1 pr-2 py-0.5 text-[10px]", icon: 18 },
+  md: { chip: "gap-1.5 pl-1.5 pr-2.5 py-1 text-xs", icon: 22 },
+} as const;
+
+const PREF_ICONS = {
+  smoking: { ok: "/prefs/smoking-ok.png", no: "/prefs/no-smoking.png" },
+  alcohol: { ok: "/prefs/alcohol-ok.png", no: "/prefs/no-alcohol.png" },
+  music: { ok: "/prefs/music-ok.png", no: "/prefs/no-music.png" },
+  pets: { ok: "/prefs/pets-ok.png", no: "/prefs/no-pets.png" },
 } as const;
 
 function Chip({
   allowed,
-  icon,
+  iconSrc,
   label,
   size,
 }: {
   allowed: boolean;
-  icon: ReactNode;
+  iconSrc: string;
   label: string;
   size: keyof typeof SIZES;
 }) {
@@ -29,7 +35,15 @@ function Chip({
           : "bg-rose-50 text-rose-600 border-rose-200"
       }`}
     >
-      {icon}
+      <img
+        src={iconSrc}
+        alt=""
+        aria-hidden="true"
+        width={SIZES[size].icon}
+        height={SIZES[size].icon}
+        className="shrink-0 object-contain"
+        style={{ width: SIZES[size].icon, height: SIZES[size].icon }}
+      />
       {label}
     </span>
   );
@@ -44,30 +58,29 @@ export function RidePrefChips({
   size?: keyof typeof SIZES;
   className?: string;
 }) {
-  const iconSize = SIZES[size].icon;
   return (
     <div className={`flex flex-wrap items-center gap-1.5 ${className}`}>
       <Chip
         allowed={prefs.smokingAllowed}
-        icon={<Cigarette size={iconSize} />}
+        iconSrc={prefs.smokingAllowed ? PREF_ICONS.smoking.ok : PREF_ICONS.smoking.no}
         label={prefs.smokingAllowed ? "Smoking OK" : "No smoking"}
         size={size}
       />
       <Chip
         allowed={prefs.alcoholAllowed}
-        icon={<Wine size={iconSize} />}
+        iconSrc={prefs.alcoholAllowed ? PREF_ICONS.alcohol.ok : PREF_ICONS.alcohol.no}
         label={prefs.alcoholAllowed ? "Alcohol OK" : "No alcohol"}
         size={size}
       />
       <Chip
         allowed={prefs.musicAllowed}
-        icon={prefs.musicAllowed ? <Music2 size={iconSize} /> : <VolumeX size={iconSize} />}
+        iconSrc={prefs.musicAllowed ? PREF_ICONS.music.ok : PREF_ICONS.music.no}
         label={prefs.musicAllowed ? "Music" : "No music"}
         size={size}
       />
       <Chip
         allowed={prefs.petsAllowed}
-        icon={<PawPrint size={iconSize} />}
+        iconSrc={prefs.petsAllowed ? PREF_ICONS.pets.ok : PREF_ICONS.pets.no}
         label={prefs.petsAllowed ? "Pets OK" : "No pets"}
         size={size}
       />
