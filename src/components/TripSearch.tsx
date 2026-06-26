@@ -1168,16 +1168,20 @@ function TripResultRowBody({
     <Card className="rounded-2xl border border-gray-100 bg-white shadow-sm hover:shadow-md hover:border-primary transition-all duration-200 p-4 sm:p-5">
       {topSlot}
       <div className="flex items-stretch gap-4 sm:gap-5">
-        {/* Departure time — left */}
-        <div className="flex w-[56px] shrink-0 flex-col justify-center text-left sm:w-[72px]">
-          <p className="text-xl font-black leading-none text-gray-900 sm:text-2xl">
+        {/* Times — left: green departure, red arrival */}
+        <div className="flex w-[60px] shrink-0 flex-col justify-center text-left sm:w-[76px]">
+          <p className="text-2xl font-black leading-none text-emerald-600 sm:text-3xl">
             {isEstimated && <span className="text-base font-semibold text-gray-400">~</span>}
             {departure.format("H:mm")}
           </p>
+          {durationLabel && (
+            <p className="my-1 whitespace-nowrap text-[11px] font-medium leading-tight text-gray-400">
+              {durationLabel}
+            </p>
+          )}
           {arrival && (
-            <p className="mt-1 whitespace-nowrap text-[11px] font-medium leading-tight text-gray-400">
-              → {arrival.format("H:mm")}
-              {durationLabel ? ` · ${durationLabel}` : ""}
+            <p className="text-xl font-black leading-none text-rose-500 sm:text-2xl">
+              {arrival.format("H:mm")}
             </p>
           )}
         </div>
@@ -1196,15 +1200,7 @@ function TripResultRowBody({
               </span>
             )}
           </p>
-          <p className="truncate text-xs leading-tight text-gray-500">
-            {vehicleLabel}
-            {" · "}
-            {soldOut ? (
-              <span className="font-semibold text-destructive">Sold out</span>
-            ) : (
-              `${seatsLeft} ${seatsLeft === 1 ? "seat" : "seats"} left`
-            )}
-          </p>
+          <p className="truncate text-xs leading-tight text-gray-500">{vehicleLabel}</p>
           <div className="mt-0.5 flex min-w-0 items-center gap-1.5">
             <HostAvatar name={hostName} photoUrl={hostPhotoUrl} size={20} />
             <span className="truncate text-[11px] font-semibold text-gray-600">{hostName}</span>
@@ -1217,10 +1213,19 @@ function TripResultRowBody({
           </div>
         </div>
 
-        {/* Price — right */}
-        <div className="shrink-0 self-center text-right">
-          <p className="whitespace-nowrap text-xl font-black leading-none text-gray-900 sm:text-2xl">
+        {/* Price + seats — right */}
+        <div className="flex shrink-0 flex-col items-end justify-center text-right">
+          <p className="whitespace-nowrap text-2xl font-black leading-none text-gradient-primary sm:text-3xl">
             {formatCurrency(price)}
+          </p>
+          <p className="mt-1.5 whitespace-nowrap text-xs font-bold">
+            {soldOut ? (
+              <span className="text-destructive">Sold out</span>
+            ) : (
+              <span className="text-primary">
+                {seatsLeft} {seatsLeft === 1 ? "seat" : "seats"} left
+              </span>
+            )}
           </p>
         </div>
       </div>

@@ -35,7 +35,7 @@ export function DigitalTimePicker({ value, onChange, className }: DigitalTimePic
 
   const pill = (active: boolean) =>
     cn(
-      "h-11 min-w-[3rem] rounded-2xl border text-base font-bold transition-all",
+      "h-14 w-full rounded-2xl border text-lg font-bold transition-all",
       active
         ? "bg-gradient-primary !text-white border-transparent shadow-glow-sm"
         : "bg-white text-gray-600 border-gray-200 hover:border-primary/50 hover:text-primary",
@@ -43,11 +43,11 @@ export function DigitalTimePicker({ value, onChange, className }: DigitalTimePic
 
   return (
     <div className={cn("rounded-3xl border border-gray-100 bg-white p-5 shadow-sm", className)}>
-      <div className="flex items-start gap-4">
+      <div className="flex items-start gap-7">
         {/* Hour */}
         <div className="flex-1">
-          <p className="mb-2 text-[10px] font-extrabold uppercase tracking-widest text-gray-400">Hour</p>
-          <div className="grid grid-cols-4 gap-1.5">
+          <p className="mb-2.5 text-[11px] font-extrabold uppercase tracking-widest text-gray-400">Hour</p>
+          <div className="grid grid-cols-4 gap-2">
             {HOURS.map((h) => (
               <button
                 key={h}
@@ -62,9 +62,9 @@ export function DigitalTimePicker({ value, onChange, className }: DigitalTimePic
         </div>
 
         {/* Minute + AM/PM */}
-        <div className="w-28 shrink-0">
-          <p className="mb-2 text-[10px] font-extrabold uppercase tracking-widest text-gray-400">Minute</p>
-          <div className="grid grid-cols-2 gap-1.5">
+        <div className="w-36 shrink-0">
+          <p className="mb-2.5 text-[11px] font-extrabold uppercase tracking-widest text-gray-400">Minute</p>
+          <div className="grid grid-cols-2 gap-2">
             {MINUTES.map((m) => (
               <button
                 key={m}
@@ -76,7 +76,7 @@ export function DigitalTimePicker({ value, onChange, className }: DigitalTimePic
               </button>
             ))}
           </div>
-          <div className="mt-3 grid grid-cols-2 gap-1.5">
+          <div className="mt-3 grid grid-cols-2 gap-2">
             {(["AM", "PM"] as const).map((p) => (
               <button
                 key={p}
@@ -91,9 +91,9 @@ export function DigitalTimePicker({ value, onChange, className }: DigitalTimePic
         </div>
       </div>
 
-      <div className="mt-4 text-center text-3xl font-black tabular-nums text-gray-900">
+      <div className="mt-5 text-center text-5xl font-black tabular-nums text-gray-900">
         {current.hour12}:{String(snappedMinute).padStart(2, "0")}{" "}
-        <span className="text-xl text-primary">{current.period}</span>
+        <span className="text-2xl text-primary">{current.period}</span>
       </div>
     </div>
   );

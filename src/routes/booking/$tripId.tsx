@@ -315,6 +315,9 @@ function BookingTripPage() {
     if (trimmed.some((p) => !p.name || !p.phone || !p.gender)) {
       throw new Error("Enter name, phone, and gender for every passenger.");
     }
+    if (trimmed.some((p) => p.phone.replace(/\D/g, "").length !== 10)) {
+      throw new Error("Each mobile number must be exactly 10 digits.");
+    }
 
     const primaryPhone = trimmed[0].phone;
     return { codes, trimmed, primaryPhone };
@@ -737,8 +740,8 @@ function BookingTripPage() {
                             Passenger {idx + 1}
                           </span>
                           {seatCode && (
-                            <span className="text-[10px] font-semibold rounded-full bg-primary/10 text-primary px-2 py-0.5">
-                              Seat #{seatLabelByCode[seatCode] ?? seatCode}
+                            <span className="inline-flex items-center justify-center rounded-2xl bg-primary/10 text-primary px-3 py-1.5 text-2xl font-extrabold leading-none">
+                              {seatLabelByCode[seatCode] ?? seatCode}
                             </span>
                           )}
                         </div>
@@ -807,8 +810,15 @@ function BookingTripPage() {
                           <Input
                             id={`p-phone-${idx}`}
                             value={p.phone}
-                            onChange={(e) => updatePassenger(idx, { phone: e.target.value })}
-                            placeholder="Mobile number"
+                            inputMode="numeric"
+                            maxLength={10}
+                            onChange={(e) =>
+                              updatePassenger(idx, {
+                                // Digits only, capped at 10.
+                                phone: e.target.value.replace(/\D/g, "").slice(0, 10),
+                              })
+                            }
+                            placeholder="10-digit mobile number"
                             className="rounded-xl h-10"
                           />
                         </div>
