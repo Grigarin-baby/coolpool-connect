@@ -61,7 +61,7 @@ export function OverviewPanel({ onNavigate }: { onNavigate: (key: string) => voi
       icon: <Car size={18} />,
       tag: "Registered fleet",
       tagColor: "geekblue",
-      onClick: () => onNavigate("vehicles"),
+      onClick: () => onNavigate("hosts"),
     },
     {
       label: "Total Trips",

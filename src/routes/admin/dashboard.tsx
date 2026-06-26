@@ -23,7 +23,6 @@ import {
   Image as ImageIcon,
   Car,
   Ticket,
-  IndianRupee,
   Wallet,
   UserX,
 } from "lucide-react";
@@ -32,12 +31,11 @@ import { listActiveTrips } from "@/data/appwrite-repository";
 import { BannersManager } from "@/components/admin/BannersManager";
 import { DeletedAccountsPanel } from "@/components/admin/DeletedAccountsPanel";
 import { OverviewPanel } from "@/components/admin/OverviewPanel";
-import { UsersPanel } from "@/components/admin/UsersPanel";
+import { GuestManagementPanel } from "@/components/admin/GuestManagementPanel";
+import { HostManagementPanel } from "@/components/admin/HostManagementPanel";
 import { DriversPanel } from "@/components/admin/DriversPanel";
-import { VehiclesPanel } from "@/components/admin/VehiclesPanel";
 import { TripsPanel } from "@/components/admin/TripsPanel";
 import { BookingsPanel } from "@/components/admin/BookingsPanel";
-import { PricingPanel } from "@/components/admin/PricingPanel";
 import { PayoutsPanel } from "@/components/admin/PayoutsPanel";
 import { UserProfileModal } from "@/components/UserProfileModal";
 import { getUserDisplayName } from "@/lib/user-display";
@@ -148,19 +146,19 @@ function AdminDashboardPage() {
                 label: "Overview",
               },
               {
-                key: "users",
-                icon: <Users size={18} />,
-                label: "User Management",
+                key: "guests",
+                icon: <Ticket size={18} />,
+                label: "Guest Management",
+              },
+              {
+                key: "hosts",
+                icon: <Car size={18} />,
+                label: "Host Management",
               },
               {
                 key: "drivers",
                 icon: <Users size={18} />,
                 label: "Driver Directory",
-              },
-              {
-                key: "vehicles",
-                icon: <Car size={18} />,
-                label: "Vehicle Manager",
               },
               {
                 key: "trips",
@@ -171,11 +169,6 @@ function AdminDashboardPage() {
                 key: "bookings",
                 icon: <Ticket size={18} />,
                 label: "Booking Manager",
-              },
-              {
-                key: "pricing",
-                icon: <IndianRupee size={18} />,
-                label: "Pricing Rules",
               },
               {
                 key: "payouts",
@@ -191,12 +184,6 @@ function AdminDashboardPage() {
                 key: "deleted",
                 icon: <UserX size={18} />,
                 label: "Deleted Accounts",
-              },
-              {
-                key: "settings",
-                icon: <Settings size={18} />,
-                label: "System Settings",
-                disabled: true,
               },
             ]}
           />
@@ -270,12 +257,11 @@ function AdminDashboardPage() {
 
           <Content className="p-6 md:p-10 max-w-7xl mx-auto w-full">
             {activeModule === "overview" && <OverviewPanel onNavigate={setActiveModule} />}
-            {activeModule === "users" && <UsersPanel />}
+            {activeModule === "guests" && <GuestManagementPanel />}
+            {activeModule === "hosts" && <HostManagementPanel />}
             {activeModule === "drivers" && <DriversPanel />}
-            {activeModule === "vehicles" && <VehiclesPanel />}
             {activeModule === "trips" && <TripsPanel />}
             {activeModule === "bookings" && <BookingsPanel />}
-            {activeModule === "pricing" && <PricingPanel />}
             {activeModule === "payouts" && <PayoutsPanel />}
             {activeModule === "banners" && <BannersManager />}
             {activeModule === "deleted" && <DeletedAccountsPanel />}
