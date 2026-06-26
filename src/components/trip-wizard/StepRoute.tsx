@@ -205,6 +205,10 @@ export function StepRoute({
   // ── Intermediate stop helpers ────────────────────────────────────────────
 
   const addStop = useCallback(() => {
+    // Don't pile up blank rows — require the previous stop to have a real
+    // location chosen before adding another (avoids dangling empty stops).
+    const last = intermediatePoints[intermediatePoints.length - 1];
+    if (last && last.lat === 0 && last.lng === 0) return;
     setStopTexts((prev) => [...prev, ""]);
     setStopOptions((prev) => [...prev, []]);
     setStopSearching((prev) => [...prev, false]);

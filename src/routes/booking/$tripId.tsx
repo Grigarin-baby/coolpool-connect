@@ -774,7 +774,7 @@ function BookingTripPage() {
                             value={p.name}
                             onChange={(e) => updatePassenger(idx, { name: e.target.value })}
                             placeholder="Full name"
-                            className="rounded-xl h-10"
+                            className="h-14 rounded-2xl border-border/80 bg-background/80 font-semibold placeholder:text-muted-foreground/40"
                           />
                         </div>
                         <div className="space-y-1.5">
@@ -787,7 +787,7 @@ function BookingTripPage() {
                                 key={gender}
                                 type="button"
                                 onClick={() => updatePassenger(idx, { gender })}
-                                className={`h-10 rounded-xl border text-sm font-bold capitalize transition-colors ${
+                                className={`h-14 rounded-2xl border text-base font-bold capitalize transition-colors ${
                                   p.gender === gender
                                     ? gender === "male"
                                       ? "border-blue-500 bg-blue-50 text-blue-700"
@@ -819,7 +819,7 @@ function BookingTripPage() {
                               })
                             }
                             placeholder="10-digit mobile number"
-                            className="rounded-xl h-10"
+                            className="h-14 rounded-2xl border-border/80 bg-background/80 font-semibold placeholder:text-muted-foreground/40"
                           />
                         </div>
                       </div>
