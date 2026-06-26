@@ -1,13 +1,8 @@
 import { useMemo, useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Card, Typography, Table, Tag, Button, Input, Drawer, message, Popconfirm } from "antd";
-import { ShieldCheck, User as UserIcon } from "lucide-react";
-import {
-  listAllBookings,
-  listAllTrips,
-  listDriverProfiles,
-  assignRole,
-} from "@/data/appwrite-repository";
+import { useQuery } from "@tanstack/react-query";
+import { Card, Typography, Table, Tag, Input, Drawer } from "antd";
+import { User as UserIcon } from "lucide-react";
+import { listAllBookings, listAllTrips, listDriverProfiles } from "@/data/appwrite-repository";
 import { getBookingPassengers } from "@/lib/booking-passengers";
 import { seatCodeToLabel } from "@/lib/seatLayout";
 import { CreateUserButton, ResetPasswordButton } from "./AdminUserActions";
@@ -33,7 +28,6 @@ const BOOKING_STATUS_COLOR: Record<string, string> = {
 };
 
 export function GuestManagementPanel() {
-  const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<GuestRow | null>(null);
 
@@ -93,15 +87,6 @@ export function GuestManagementPanel() {
     );
   }, [guests, search]);
 
-  const makeAdmin = useMutation({
-    mutationFn: (userId: string) => assignRole(userId, "admin"),
-    onSuccess: () => {
-      message.success("Admin role granted");
-      void queryClient.invalidateQueries({ queryKey: ["admin-drivers"] });
-    },
-    onError: (e: any) => message.error(e?.message || "Failed to grant admin"),
-  });
-
   const hostNameForTrip = (trip?: Trip) =>
     trip ? trip.hostDisplayName || hostNameByUserId.get(trip.hostId) || "Host" : "—";
 
@@ -151,29 +136,6 @@ export function GuestManagementPanel() {
               title: "Last booking",
               key: "last",
               render: (_, g) => new Date(g.lastAt).toLocaleDateString("en-IN"),
-            },
-            {
-              title: "Actions",
-              key: "actions",
-              render: (_, g) => (
-                <Popconfirm
-                  title="Grant admin access to this guest?"
-                  onConfirm={(e) => {
-                    e?.stopPropagation();
-                    makeAdmin.mutate(g.userId);
-                  }}
-                  onCancel={(e) => e?.stopPropagation()}
-                >
-                  <Button
-                    type="text"
-                    size="small"
-                    icon={<ShieldCheck size={14} />}
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    Make Admin
-                  </Button>
-                </Popconfirm>
-              ),
             },
           ]}
         />
@@ -247,14 +209,6 @@ export function GuestManagementPanel() {
 
             <div className="space-y-2">
               <ResetPasswordButton userId={selected.userId} block />
-              <Popconfirm
-                title="Grant admin access to this guest?"
-                onConfirm={() => makeAdmin.mutate(selected.userId)}
-              >
-                <Button icon={<ShieldCheck size={14} />} block>
-                  Make Admin
-                </Button>
-              </Popconfirm>
             </div>
           </div>
         )}
