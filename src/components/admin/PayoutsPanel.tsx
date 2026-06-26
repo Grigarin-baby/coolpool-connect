@@ -5,8 +5,11 @@ import { CheckCircle2, XCircle, Clock3 } from "lucide-react";
 import {
   listAllPayoutRequests,
   listDriverProfiles,
+  listAllTrips,
+  listAllBookings,
   updatePayoutRequestStatus,
 } from "@/data/appwrite-repository";
+import { hostNetEarnings } from "@/lib/pricing";
 import type { PayoutRequest, PayoutStatus } from "@/lib/domain";
 
 const { Title, Text } = Typography;
@@ -40,11 +43,80 @@ export function PayoutsPanel() {
     queryFn: listDriverProfiles,
   });
 
+  const { data: trips = [] } = useQuery({
+    queryKey: ["admin-all-trips"],
+    queryFn: () => listAllTrips(1000),
+  });
+  const { data: bookings = [] } = useQuery({
+    queryKey: ["admin-all-bookings"],
+    queryFn: () => listAllBookings(1000),
+  });
+
   const driverNameByUserId = useMemo(() => {
     const map = new Map<string, string>();
     drivers.forEach((d) => map.set(d.userId, d.fullName));
     return map;
   }, [drivers]);
+
+  // Net earnings per host = 95% of (price × seats) for non-cancelled bookings
+  // on their COMPLETED trips — same rule as the host dashboard/payout panel.
+  const earnedByHost = useMemo(() => {
+    const grossByHost = new Map<string, number>();
+    const completedTripHost = new Map<string, string>();
+    for (const t of trips) {
+      if (t.status === "completed") completedTripHost.set(t.id, t.hostId);
+    }
+    for (const b of bookings) {
+      if (b.status === "cancelled") continue;
+      const host = completedTripHost.get(b.tripId);
+      if (!host) continue;
+      grossByHost.set(host, (grossByHost.get(host) ?? 0) + b.segmentPrice * b.seatsBooked);
+    }
+    const net = new Map<string, number>();
+    for (const [host, gross] of grossByHost) net.set(host, hostNetEarnings(gross));
+    return net;
+  }, [trips, bookings]);
+
+  const paidByHost = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const r of requests) {
+      if (r.status === "paid") m.set(r.driverUserId, (m.get(r.driverUserId) ?? 0) + r.amount);
+    }
+    return m;
+  }, [requests]);
+
+  const openByHost = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const r of requests) {
+      if (r.status === "pending" || r.status === "processing")
+        m.set(r.driverUserId, (m.get(r.driverUserId) ?? 0) + r.amount);
+    }
+    return m;
+  }, [requests]);
+
+  const availableFor = (userId: string) =>
+    Math.max(0, (earnedByHost.get(userId) ?? 0) - (paidByHost.get(userId) ?? 0) - (openByHost.get(userId) ?? 0));
+
+  // Ledger: one row per host who has earned or transacted.
+  const ledger = useMemo(() => {
+    const ids = new Set<string>([...earnedByHost.keys(), ...paidByHost.keys(), ...openByHost.keys()]);
+    return [...ids]
+      .map((userId) => ({
+        userId,
+        name: driverNameByUserId.get(userId) || "Unknown",
+        earned: earnedByHost.get(userId) ?? 0,
+        paid: paidByHost.get(userId) ?? 0,
+        pending: openByHost.get(userId) ?? 0,
+        available: availableFor(userId),
+      }))
+      .sort((a, b) => b.earned - a.earned);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [earnedByHost, paidByHost, openByHost, driverNameByUserId]);
+
+  const totalEarnings = useMemo(
+    () => [...earnedByHost.values()].reduce((s, v) => s + v, 0),
+    [earnedByHost],
+  );
 
   const updateMutation = useMutation({
     mutationFn: (vars: {
@@ -118,7 +190,13 @@ export function PayoutsPanel() {
         </Text>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <Card className="rounded-3xl border-none shadow-card bg-white/90 backdrop-blur-md">
+          <Text type="secondary">Total host earnings</Text>
+          <Title level={3} style={{ margin: "4px 0" }} className="!text-emerald-600">
+            ₹{totalEarnings.toLocaleString("en-IN")}
+          </Title>
+        </Card>
         <Card className="rounded-3xl border-none shadow-card bg-white/90 backdrop-blur-md">
           <Text type="secondary">Pending requests</Text>
           <Title level={3} style={{ margin: "4px 0" }}>
@@ -165,9 +243,30 @@ export function PayoutsPanel() {
             {
               title: "Driver/Host",
               key: "driver",
-              render: (_, r) => (
-                <Text strong>{driverNameByUserId.get(r.driverUserId) || "Unknown"}</Text>
-              ),
+              render: (_, r) => {
+                const earned = earnedByHost.get(r.driverUserId) ?? 0;
+                const available = availableFor(r.driverUserId);
+                // For an open request, "available" excludes it — so the check is
+                // whether the requested amount fits within earned-minus-paid.
+                const headroom =
+                  available + (r.status === "pending" || r.status === "processing" ? r.amount : 0);
+                const ok = r.amount <= headroom;
+                return (
+                  <div>
+                    <Text strong>{driverNameByUserId.get(r.driverUserId) || "Unknown"}</Text>
+                    <div className="text-xs text-muted-foreground">
+                      Earned ₹{earned.toLocaleString("en-IN")}
+                    </div>
+                    {(r.status === "pending" || r.status === "processing") && (
+                      <div className={`text-xs font-semibold ${ok ? "text-emerald-600" : "text-rose-600"}`}>
+                        {ok
+                          ? `✓ ₹${r.amount} of ₹${headroom.toLocaleString("en-IN")} available`
+                          : `⚠ ₹${r.amount} > ₹${headroom.toLocaleString("en-IN")} available`}
+                      </div>
+                    )}
+                  </div>
+                );
+              },
             },
             {
               title: "Amount",
@@ -253,6 +352,37 @@ export function PayoutsPanel() {
                     {r.processedAt ? new Date(r.processedAt).toLocaleDateString("en-IN") : "—"}
                   </Text>
                 ),
+            },
+          ]}
+        />
+      </Card>
+
+      <Card className="rounded-3xl border-none shadow-card bg-white/90 backdrop-blur-md p-2 overflow-hidden">
+        <div className="p-4">
+          <Text strong>Earnings by host</Text>
+          <div className="text-xs text-muted-foreground">
+            Net earnings from completed trips, what's been paid, and what's available to withdraw.
+          </div>
+        </div>
+        <Table
+          rowKey="userId"
+          loading={requestsLoading || driversLoading}
+          dataSource={ledger}
+          locale={{ emptyText: "No host earnings yet." }}
+          pagination={{ pageSize: 10 }}
+          columns={[
+            { title: "Host", dataIndex: "name", key: "name", render: (v: string) => <Text strong>{v}</Text> },
+            { title: "Earned (net)", key: "earned", render: (_, r) => `₹${r.earned.toLocaleString("en-IN")}` },
+            { title: "Paid out", key: "paid", render: (_, r) => `₹${r.paid.toLocaleString("en-IN")}` },
+            { title: "Pending", key: "pending", render: (_, r) => `₹${r.pending.toLocaleString("en-IN")}` },
+            {
+              title: "Available",
+              key: "available",
+              render: (_, r) => (
+                <Text strong className="!text-emerald-600">
+                  ₹{r.available.toLocaleString("en-IN")}
+                </Text>
+              ),
             },
           ]}
         />

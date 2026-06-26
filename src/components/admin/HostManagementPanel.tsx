@@ -14,6 +14,7 @@ import {
 import { getBookingPassengers } from "@/lib/booking-passengers";
 import { seatCodeToLabel } from "@/lib/seatLayout";
 import { hostNetEarnings } from "@/lib/pricing";
+import { CreateUserButton, ResetPasswordButton } from "./AdminUserActions";
 import type { DriverProfile } from "@/lib/domain";
 
 const { Title, Text } = Typography;
@@ -135,7 +136,7 @@ export function HostManagementPanel() {
       </div>
 
       <Card className="rounded-3xl border-none shadow-card bg-white/90 backdrop-blur-md p-2 overflow-hidden">
-        <div className="p-4">
+        <div className="p-4 flex flex-wrap items-center justify-between gap-3">
           <Input.Search
             allowClear
             placeholder="Search hosts by name, email, phone, or user ID…"
@@ -143,6 +144,7 @@ export function HostManagementPanel() {
             onChange={(e) => setSearch(e.target.value)}
             style={{ maxWidth: 420 }}
           />
+          <CreateUserButton role="host" />
         </div>
         <Table
           rowKey="id"
@@ -223,6 +225,7 @@ export function HostManagementPanel() {
               <Popconfirm title="Grant admin access?" onConfirm={() => makeAdmin.mutate(selected.userId)}>
                 <Button size="small" icon={<ShieldCheck size={14} />}>Make Admin</Button>
               </Popconfirm>
+              <ResetPasswordButton userId={selected.userId} />
             </Space>
 
             {/* Vehicles */}

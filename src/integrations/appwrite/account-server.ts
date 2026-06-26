@@ -105,3 +105,102 @@ export const deleteOwnAccount = createServerFn({ method: "POST" })
 
     return { ok: true };
   });
+
+/** Verify the JWT belongs to an admin; throws otherwise. */
+async function assertAdmin(jwt: string): Promise<void> {
+  if (!jwt) throw new Error("Missing authentication.");
+  const { endpoint, project } = appwriteEnv();
+  const jwtClient = new Client().setEndpoint(endpoint).setProject(project).setJWT(jwt);
+  const me = await new Account(jwtClient).get();
+  const roles = (me.prefs as Record<string, unknown> | undefined)?.roles;
+  if (!Array.isArray(roles) || !roles.includes("admin")) {
+    throw new Error("Admin access required.");
+  }
+}
+
+/** Admin sets a new password for any user. */
+export const adminResetPassword = createServerFn({ method: "POST" })
+  .inputValidator((input: { jwt: string; userId: string; newPassword: string }) => ({
+    jwt: String(input?.jwt ?? "").trim(),
+    userId: String(input?.userId ?? "").trim(),
+    newPassword: String(input?.newPassword ?? ""),
+  }))
+  .handler(async ({ data }): Promise<{ ok: boolean }> => {
+    await assertAdmin(data.jwt);
+    if (!data.userId) throw new Error("Missing user.");
+    if (data.newPassword.length < 8) throw new Error("Password must be at least 8 characters.");
+    await new Users(adminClient()).updatePassword(data.userId, data.newPassword);
+    return { ok: true };
+  });
+
+/** Admin creates a new host or guest account. */
+export const adminCreateUser = createServerFn({ method: "POST" })
+  .inputValidator((input: {
+    jwt: string;
+    name: string;
+    email: string;
+    phone?: string;
+    password: string;
+    role: "host" | "guest";
+    gender?: string;
+  }) => ({
+    jwt: String(input?.jwt ?? "").trim(),
+    name: String(input?.name ?? "").trim(),
+    email: String(input?.email ?? "").trim(),
+    phone: String(input?.phone ?? "").trim(),
+    password: String(input?.password ?? ""),
+    role: input?.role === "host" ? ("host" as const) : ("guest" as const),
+    gender: String(input?.gender ?? "").trim(),
+  }))
+  .handler(async ({ data }): Promise<{ ok: boolean; userId: string }> => {
+    await assertAdmin(data.jwt);
+    if (!data.email || !data.name) throw new Error("Name and email are required.");
+    if (data.password.length < 8) throw new Error("Password must be at least 8 characters.");
+
+    const users = new Users(adminClient());
+    // Reuse an existing account with this email if present.
+    const existing = await users.list([Query.equal("email", data.email), Query.limit(1)]);
+    let userId = existing.users[0]?.$id;
+    if (userId) {
+      await users.updatePassword(userId, data.password);
+    } else {
+      const created = await users.create(ID.unique(), data.email, undefined, data.password, data.name);
+      userId = created.$id;
+    }
+
+    const roles = data.role === "host" ? ["driver", "user"] : ["user"];
+    await users.updatePrefs(userId, {
+      roles,
+      fullName: data.name,
+      phone: data.phone || undefined,
+      gender: data.gender || undefined,
+    });
+
+    // A host needs a driver profile to appear in Host Management.
+    if (data.role === "host") {
+      const db = readEnv("VITE_APPWRITE_DATABASE_ID") || readEnv("APPWRITE_DATABASE_ID");
+      const driversCol = readEnv("VITE_APPWRITE_COLLECTION_DRIVERS") || "coolpool_drivers";
+      const databases = new Databases(adminClient());
+      try {
+        const found = await databases.listDocuments(db, driversCol, [
+          Query.equal("user_id", userId),
+          Query.limit(1),
+        ]);
+        if (found.total === 0) {
+          await databases.createDocument(db, driversCol, ID.unique(), {
+            user_id: userId,
+            full_name: data.name,
+            email: data.email,
+            phone: data.phone || "",
+            license_number: "",
+            city: "",
+            verification_status: "approved",
+          });
+        }
+      } catch {
+        /* profile creation best-effort — account + roles already set */
+      }
+    }
+
+    return { ok: true, userId };
+  });

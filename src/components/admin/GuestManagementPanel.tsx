@@ -10,6 +10,7 @@ import {
 } from "@/data/appwrite-repository";
 import { getBookingPassengers } from "@/lib/booking-passengers";
 import { seatCodeToLabel } from "@/lib/seatLayout";
+import { CreateUserButton, ResetPasswordButton } from "./AdminUserActions";
 import type { Booking, Trip } from "@/lib/domain";
 
 const { Title, Text } = Typography;
@@ -114,7 +115,7 @@ export function GuestManagementPanel() {
       </div>
 
       <Card className="rounded-3xl border-none shadow-card bg-white/90 backdrop-blur-md p-2 overflow-hidden">
-        <div className="p-4">
+        <div className="p-4 flex flex-wrap items-center justify-between gap-3">
           <Input.Search
             allowClear
             placeholder="Search guests by name, phone, or user ID…"
@@ -122,6 +123,7 @@ export function GuestManagementPanel() {
             onChange={(e) => setSearch(e.target.value)}
             style={{ maxWidth: 420 }}
           />
+          <CreateUserButton role="guest" />
         </div>
         <Table
           rowKey="userId"
@@ -243,14 +245,17 @@ export function GuestManagementPanel() {
               </div>
             </div>
 
-            <Popconfirm
-              title="Grant admin access to this guest?"
-              onConfirm={() => makeAdmin.mutate(selected.userId)}
-            >
-              <Button icon={<ShieldCheck size={14} />} block>
-                Make Admin
-              </Button>
-            </Popconfirm>
+            <div className="space-y-2">
+              <ResetPasswordButton userId={selected.userId} block />
+              <Popconfirm
+                title="Grant admin access to this guest?"
+                onConfirm={() => makeAdmin.mutate(selected.userId)}
+              >
+                <Button icon={<ShieldCheck size={14} />} block>
+                  Make Admin
+                </Button>
+              </Popconfirm>
+            </div>
           </div>
         )}
       </Drawer>

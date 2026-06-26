@@ -1,5 +1,6 @@
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Card, Typography, Table, Tag, Empty } from "antd";
+import { Card, Typography, Table, Tag, Empty, Input } from "antd";
 import dayjs from "dayjs";
 import { listDeletedAccounts } from "@/data/appwrite-repository";
 import type { DeletedAccount } from "@/lib/domain";
@@ -7,10 +8,23 @@ import type { DeletedAccount } from "@/lib/domain";
 const { Title, Text } = Typography;
 
 export function DeletedAccountsPanel() {
+  const [search, setSearch] = useState("");
   const { data: accounts = [], isLoading } = useQuery({
     queryKey: ["admin-deleted-accounts"],
     queryFn: listDeletedAccounts,
   });
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return accounts;
+    return accounts.filter(
+      (a) =>
+        (a.fullName || "").toLowerCase().includes(q) ||
+        (a.email || "").toLowerCase().includes(q) ||
+        (a.phone || "").toLowerCase().includes(q) ||
+        (a.userId || "").toLowerCase().includes(q),
+    );
+  }, [accounts, search]);
 
   const columns = [
     {
@@ -61,10 +75,19 @@ export function DeletedAccountsPanel() {
       </div>
 
       <Card className="rounded-3xl border-none shadow-card bg-white/90 backdrop-blur-md overflow-hidden">
+        <div className="p-4">
+          <Input.Search
+            allowClear
+            placeholder="Search by name, email, phone, or user ID…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            style={{ maxWidth: 420 }}
+          />
+        </div>
         <Table<DeletedAccount>
           rowKey="id"
           loading={isLoading}
-          dataSource={accounts}
+          dataSource={filtered}
           columns={columns}
           scroll={{ x: 720 }}
           pagination={{ pageSize: 20, showTotal: (t) => `${t} deleted account${t === 1 ? "" : "s"}` }}
