@@ -1,9 +1,12 @@
 import { useEffect } from "react";
 import { Outlet, createRootRoute, HeadContent, Scripts } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
 import { AuthProvider } from "@/hooks/useAuth";
 import { Toaster } from "@/components/ui/sonner";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { registerServiceWorker } from "@/lib/notifications";
+import { getSiteLockStatus } from "@/integrations/site-lock/site-lock-server";
+import { SiteLockScreen } from "@/components/SiteLockScreen";
 import "antd/dist/reset.css";
 import "../antd-reset-overrides.css";
 
@@ -42,6 +45,10 @@ function NotFoundComponent() {
 }
 
 export const Route = createRootRoute({
+  // Runs server-side on every fresh request (new tab, reload, crawler) so the
+  // lockout is enforced before any page content is ever produced — not just
+  // hidden client-side after the fact.
+  loader: () => getSiteLockStatus(),
   head: () => ({
     meta: [
       { charSet: "utf-8" },
@@ -98,6 +105,31 @@ function RootShell({ children }: { children: React.ReactNode }) {
   );
 }
 
+function RootGate() {
+  const initialLock = Route.useLoaderData();
+  // Polls so an already-open tab gets locked out within ~30s of the switch
+  // being flipped, without needing the SSR loader (which only runs once per
+  // fresh navigation) or a full page reload.
+  const { data: lock } = useQuery({
+    queryKey: ["site-lock-status"],
+    queryFn: () => getSiteLockStatus(),
+    initialData: initialLock,
+    refetchInterval: 30_000,
+    refetchOnWindowFocus: true,
+  });
+
+  if (lock?.locked) {
+    return <SiteLockScreen message={lock.message} />;
+  }
+
+  return (
+    <AuthProvider>
+      <Outlet />
+      <Toaster />
+    </AuthProvider>
+  );
+}
+
 function RootComponent() {
   useEffect(() => {
     void registerServiceWorker();
@@ -105,10 +137,7 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <Outlet />
-        <Toaster />
-      </AuthProvider>
+      <RootGate />
     </QueryClientProvider>
   );
 }
