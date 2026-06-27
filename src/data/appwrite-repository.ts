@@ -4,6 +4,7 @@ import { getCollectionIds } from "@/integrations/appwrite/schema";
 import { routeCitySegmentsMatch } from "@/lib/geo";
 import { getBookingPassengers } from "@/lib/booking-passengers";
 import { normalizeEmail, normalizeLicense, normalizePhone } from "@/lib/identity-normalizers";
+import { platformFee } from "@/lib/pricing";
 import type {
   AppRole,
   BankAccount,
@@ -219,6 +220,8 @@ function toPayoutRequest(doc: any): PayoutRequest {
     id: doc.$id,
     driverUserId: String(doc.driver_user_id || ""),
     amount: Number(doc.amount || 0),
+    grossAmount: doc.gross_amount != null ? Number(doc.gross_amount) : null,
+    platformFee: doc.platform_fee != null ? Number(doc.platform_fee) : null,
     status: String(doc.status || "pending") as PayoutStatus,
     requestedAt: String(doc.requested_at || doc.$createdAt),
     processedAt: doc.processed_at ? String(doc.processed_at) : null,
@@ -1730,11 +1733,19 @@ export async function listPayoutRequestsByDriver(driverUserId: string): Promise<
 
 export interface CreatePayoutRequestInput {
   driverUserId: string;
+  /** Net amount the host is withdrawing. */
   amount: number;
+  /**
+   * Gross amount this withdrawal is drawn from — the proportional slice of
+   * the host's unclaimed gross earnings that funds this net `amount`. The
+   * platform's 5% fee is derived from this and snapshotted alongside it so
+   * the commission never has to be reverse-estimated later.
+   */
+  grossAmount: number;
   bankAccount: BankAccount;
 }
 
-/** Create a payout request, snapshotting the bank account details at request time. */
+/** Create a payout request, snapshotting the bank account details and the gross/fee split at request time. */
 export async function createPayoutRequest(input: CreatePayoutRequestInput): Promise<PayoutRequest> {
   const c = ids();
   const doc = await databases.createDocument(
@@ -1744,6 +1755,8 @@ export async function createPayoutRequest(input: CreatePayoutRequestInput): Prom
     {
       driver_user_id: input.driverUserId,
       amount: input.amount,
+      gross_amount: input.grossAmount,
+      platform_fee: platformFee(input.grossAmount),
       status: "pending",
       requested_at: new Date().toISOString(),
       account_holder_name: input.bankAccount.accountHolderName,

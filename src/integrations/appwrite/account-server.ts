@@ -49,6 +49,8 @@ function toPayoutRequest(doc: any): PayoutRequest {
     id: String(doc.$id || ""),
     driverUserId: String(doc.driver_user_id || ""),
     amount: Number(doc.amount || 0),
+    grossAmount: doc.gross_amount != null ? Number(doc.gross_amount) : null,
+    platformFee: doc.platform_fee != null ? Number(doc.platform_fee) : null,
     status: String(doc.status || "pending") as PayoutStatus,
     requestedAt: String(doc.requested_at || doc.$createdAt || ""),
     processedAt: doc.processed_at ? String(doc.processed_at) : null,

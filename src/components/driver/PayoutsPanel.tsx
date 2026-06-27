@@ -1,6 +1,18 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Card, Typography, Form, Input, InputNumber, Button, Table, Tag, message, Spin, Modal } from "antd";
+import {
+  Card,
+  Typography,
+  Form,
+  Input,
+  InputNumber,
+  Button,
+  Table,
+  Tag,
+  message,
+  Spin,
+  Modal,
+} from "antd";
 import { Wallet, Banknote, History as HistoryIcon } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import {
@@ -11,7 +23,12 @@ import {
   listHostTrips,
   listHostBookings,
 } from "@/data/appwrite-repository";
-import { hostNetEarnings, PLATFORM_FEE_PERCENT } from "@/lib/pricing";
+import {
+  hostNetEarnings,
+  PLATFORM_FEE_PERCENT,
+  estimateGrossFromNet,
+  estimateFeeFromNet,
+} from "@/lib/pricing";
 import type { PayoutStatus } from "@/lib/domain";
 
 const { Title, Text } = Typography;
@@ -98,7 +115,11 @@ export function PayoutsPanel() {
   const requestPayoutMutation = useMutation({
     mutationFn: (amount: number) => {
       if (!userId || !bankAccount) throw new Error("Add your bank details first.");
-      return createPayoutRequest({ driverUserId: userId, amount, bankAccount });
+      // The 5% fee is a flat percentage, so the gross behind any net amount
+      // the host chooses to withdraw is exactly amount / 0.95 — snapshot it
+      // now so the commission never has to be reverse-estimated later.
+      const grossAmount = estimateGrossFromNet(amount);
+      return createPayoutRequest({ driverUserId: userId, amount, grossAmount, bankAccount });
     },
     onSuccess: () => {
       message.success("Payout requested. We'll process it soon.");
@@ -121,6 +142,7 @@ export function PayoutsPanel() {
     );
     const gross = relevantBookings.reduce((sum, b) => sum + b.segmentPrice * b.seatsBooked, 0);
     const lifetime = hostNetEarnings(gross);
+    const lifetimeCommission = Math.max(0, gross - lifetime);
 
     const paidOutRaw = payoutRequests
       .filter((r) => r.status === "paid")
@@ -131,7 +153,7 @@ export function PayoutsPanel() {
     const overpaid = Math.max(0, paidOutRaw - lifetime);
     const available = Math.max(0, lifetime - paidOutRaw - pending);
 
-    return { lifetime, paidOut: paidOutRaw, pending, available, overpaid };
+    return { lifetime, lifetimeCommission, paidOut: paidOutRaw, pending, available, overpaid };
   }, [trips, bookings, payoutRequests]);
 
   const loading = bankLoading || tripsLoading || bookingsLoading || requestsLoading;
@@ -147,14 +169,31 @@ export function PayoutsPanel() {
         <Text type="secondary">
           Track your earnings and request withdrawals to your bank. Amounts shown are net of the{" "}
           {PLATFORM_FEE_PERCENT}% platform fee.
+          {!loading && earnings.lifetimeCommission > 0 && (
+            <>
+              {" "}
+              You've paid ₹{earnings.lifetimeCommission.toLocaleString("en-IN")} in platform fees so
+              far.
+            </>
+          )}
         </Text>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <Card className="rounded-2xl border-none shadow-soft bg-white/80">
           <Text type="secondary">Lifetime earnings</Text>
           <Title level={3} style={{ margin: "4px 0" }}>
             {loading ? <Spin size="small" /> : `₹${earnings.lifetime.toLocaleString("en-IN")}`}
+          </Title>
+        </Card>
+        <Card className="rounded-2xl border-none shadow-soft bg-white/80">
+          <Text type="secondary">Platform commission paid ({PLATFORM_FEE_PERCENT}%)</Text>
+          <Title level={3} style={{ margin: "4px 0" }} className="!text-amber-600">
+            {loading ? (
+              <Spin size="small" />
+            ) : (
+              `₹${earnings.lifetimeCommission.toLocaleString("en-IN")}`
+            )}
           </Title>
         </Card>
         <Card className="rounded-2xl border-none shadow-soft bg-white/80">
@@ -289,9 +328,7 @@ export function PayoutsPanel() {
               <Button type="primary" htmlType="submit" loading={saveBankMutation.isPending}>
                 Save bank details
               </Button>
-              {bankAccount && (
-                <Button onClick={() => setEditingBankDetails(false)}>Cancel</Button>
-              )}
+              {bankAccount && <Button onClick={() => setEditingBankDetails(false)}>Cancel</Button>}
             </div>
           </Form>
         )}
@@ -341,10 +378,23 @@ export function PayoutsPanel() {
               render: (date: string) => new Date(date).toLocaleDateString("en-IN"),
             },
             {
-              title: "Amount",
+              title: "Amount (net)",
               dataIndex: "amount",
               key: "amount",
               render: (amount: number) => `₹${amount.toLocaleString("en-IN")}`,
+            },
+            {
+              title: "Platform commission",
+              key: "platformFee",
+              render: (_, r) => {
+                const fee = r.platformFee ?? estimateFeeFromNet(r.amount);
+                const isEstimate = r.platformFee == null;
+                return (
+                  <Text type="secondary" italic={isEstimate}>
+                    {isEstimate ? "≈" : ""}₹{fee.toLocaleString("en-IN")}
+                  </Text>
+                );
+              },
             },
             {
               title: "Status",
@@ -392,6 +442,21 @@ export function PayoutsPanel() {
             ]}
           >
             <InputNumber min={1} max={earnings.available} className="w-full" prefix="₹" />
+          </Form.Item>
+          <Form.Item noStyle shouldUpdate>
+            {({ getFieldValue }) => {
+              const amount = Number(getFieldValue("amount")) || 0;
+              if (amount <= 0) return null;
+              const fee = estimateFeeFromNet(amount);
+              const gross = amount + fee;
+              return (
+                <Text type="secondary" className="block mb-4 text-xs">
+                  Gross ₹{gross.toLocaleString("en-IN")} → platform commission ₹
+                  {fee.toLocaleString("en-IN")} ({PLATFORM_FEE_PERCENT}%) → you receive ₹
+                  {amount.toLocaleString("en-IN")}.
+                </Text>
+              );
+            }}
           </Form.Item>
           <Button type="primary" htmlType="submit" loading={requestPayoutMutation.isPending} block>
             Submit request

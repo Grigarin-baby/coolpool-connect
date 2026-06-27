@@ -26,6 +26,21 @@ export function hostNetEarnings(gross: number): number {
   return Math.max(0, Math.round(gross) - platformFee(gross));
 }
 
+/**
+ * Reverse-estimates the gross amount and commission that funded a net
+ * payout, for payout requests created before gross/fee were snapshotted at
+ * request time. Approximate — the real fee was rounded per-booking, not on
+ * the lump net total — so callers should label this as an estimate.
+ */
+export function estimateGrossFromNet(net: number): number {
+  return Math.round(Math.max(0, net) / (1 - PLATFORM_FEE_PERCENT / 100));
+}
+
+/** Estimated commission behind a net payout amount (see estimateGrossFromNet). */
+export function estimateFeeFromNet(net: number): number {
+  return Math.max(0, estimateGrossFromNet(net) - Math.max(0, net));
+}
+
 export function calcPricePerKm(totalPrice: number, totalDistanceKm: number): number {
   if (totalDistanceKm <= 0) return 0;
   return totalPrice / totalDistanceKm;

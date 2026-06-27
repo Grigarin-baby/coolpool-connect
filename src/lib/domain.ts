@@ -204,7 +204,12 @@ export interface BankAccount {
 export interface PayoutRequest {
   id: string;
   driverUserId: string;
+  /** Net amount the host receives — what they actually requested to withdraw. */
   amount: number;
+  /** Gross amount this withdrawal is drawn from. Null on requests created before this was tracked. */
+  grossAmount?: number | null;
+  /** Platform's 5% commission on grossAmount (grossAmount - amount). Null on legacy requests. */
+  platformFee?: number | null;
   status: PayoutStatus;
   requestedAt: string;
   processedAt?: string | null;

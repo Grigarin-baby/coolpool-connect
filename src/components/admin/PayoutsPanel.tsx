@@ -1,13 +1,22 @@
 import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Card, Typography, Table, Tag, Space, Button, Select, Modal, Form, Input, message, Drawer } from "antd";
-import { CheckCircle2, XCircle, Clock3, WalletCards } from "lucide-react";
 import {
-  listDriverProfiles,
-  listAllTrips,
-  listAllBookings,
-} from "@/data/appwrite-repository";
-import { hostNetEarnings } from "@/lib/pricing";
+  Card,
+  Typography,
+  Table,
+  Tag,
+  Space,
+  Button,
+  Select,
+  Modal,
+  Form,
+  Input,
+  message,
+  Drawer,
+} from "antd";
+import { CheckCircle2, XCircle, Clock3, WalletCards } from "lucide-react";
+import { listDriverProfiles, listAllTrips, listAllBookings } from "@/data/appwrite-repository";
+import { hostNetEarnings, estimateFeeFromNet, PLATFORM_FEE_PERCENT } from "@/lib/pricing";
 import type { PayoutRequest, PayoutStatus } from "@/lib/domain";
 import { listPayoutRequestsAsAdmin, updatePayoutRequestAsAdmin } from "./adminUserApi";
 
@@ -34,9 +43,27 @@ function formatDateTime(date: string | null | undefined): string {
   return new Date(date).toLocaleString("en-IN");
 }
 
+/** Platform commission for a request: stored at request time, or estimated for legacy rows. */
+function feeFor(r: PayoutRequest): { fee: number; isEstimate: boolean } {
+  if (r.platformFee != null) return { fee: r.platformFee, isEstimate: false };
+  return { fee: estimateFeeFromNet(r.amount), isEstimate: true };
+}
+
+function CommissionCell({ request }: { request: PayoutRequest }) {
+  const { fee, isEstimate } = feeFor(request);
+  return (
+    <Text type="secondary" italic={isEstimate}>
+      {isEstimate ? "≈" : ""}
+      {formatMoney(fee)}
+    </Text>
+  );
+}
+
 export function PayoutsPanel() {
   const queryClient = useQueryClient();
-  const [statusFilter, setStatusFilter] = useState<"all" | "pending" | "processing" | "rejected">("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | "pending" | "processing" | "rejected">(
+    "all",
+  );
   const [actionRequest, setActionRequest] = useState<PayoutRequest | null>(null);
   const [actionType, setActionType] = useState<"paid" | "rejected" | null>(null);
   const [detailHostId, setDetailHostId] = useState<string | null>(null);
@@ -95,6 +122,20 @@ export function PayoutsPanel() {
     return m;
   }, [requests]);
 
+  // Platform commission per host, split by whether it's already realized
+  // (paid payouts) or still open (pending/processing requests).
+  const commissionByHost = useMemo(() => {
+    const paid = new Map<string, number>();
+    const open = new Map<string, number>();
+    for (const r of requests) {
+      const { fee } = feeFor(r);
+      if (r.status === "paid") paid.set(r.driverUserId, (paid.get(r.driverUserId) ?? 0) + fee);
+      else if (r.status === "pending" || r.status === "processing")
+        open.set(r.driverUserId, (open.get(r.driverUserId) ?? 0) + fee);
+    }
+    return { paid, open };
+  }, [requests]);
+
   const openByHost = useMemo(() => {
     const m = new Map<string, number>();
     for (const r of requests) {
@@ -105,13 +146,22 @@ export function PayoutsPanel() {
   }, [requests]);
 
   const availableFor = (userId: string) =>
-    Math.max(0, (earnedByHost.get(userId) ?? 0) - (paidByHost.get(userId) ?? 0) - (openByHost.get(userId) ?? 0));
+    Math.max(
+      0,
+      (earnedByHost.get(userId) ?? 0) -
+        (paidByHost.get(userId) ?? 0) -
+        (openByHost.get(userId) ?? 0),
+    );
   const rawAvailableFor = (userId: string) =>
     (earnedByHost.get(userId) ?? 0) - (paidByHost.get(userId) ?? 0) - (openByHost.get(userId) ?? 0);
 
   // Ledger: one row per host who has earned or transacted.
   const ledger = useMemo(() => {
-    const ids = new Set<string>([...earnedByHost.keys(), ...paidByHost.keys(), ...openByHost.keys()]);
+    const ids = new Set<string>([
+      ...earnedByHost.keys(),
+      ...paidByHost.keys(),
+      ...openByHost.keys(),
+    ]);
     return [...ids]
       .map((userId) => ({
         userId,
@@ -120,10 +170,12 @@ export function PayoutsPanel() {
         paid: paidByHost.get(userId) ?? 0,
         pending: openByHost.get(userId) ?? 0,
         available: availableFor(userId),
+        commission:
+          (commissionByHost.paid.get(userId) ?? 0) + (commissionByHost.open.get(userId) ?? 0),
       }))
       .sort((a, b) => b.earned - a.earned);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [earnedByHost, paidByHost, openByHost, driverNameByUserId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [earnedByHost, paidByHost, openByHost, commissionByHost, driverNameByUserId]);
 
   const totalEarnings = useMemo(
     () => [...earnedByHost.values()].reduce((s, v) => s + v, 0),
@@ -161,18 +213,14 @@ export function PayoutsPanel() {
     onError: (error: any) => message.error(error.message || "Failed to update payout request."),
   });
 
-  const activeRequests = useMemo(
-    () => requests.filter((r) => r.status !== "paid"),
-    [requests],
-  );
+  const activeRequests = useMemo(() => requests.filter((r) => r.status !== "paid"), [requests]);
 
-  const paidRequests = useMemo(
-    () => requests.filter((r) => r.status === "paid"),
-    [requests],
-  );
+  const paidRequests = useMemo(() => requests.filter((r) => r.status === "paid"), [requests]);
 
   const filteredRequests =
-    statusFilter === "all" ? activeRequests : activeRequests.filter((r) => r.status === statusFilter);
+    statusFilter === "all"
+      ? activeRequests
+      : activeRequests.filter((r) => r.status === statusFilter);
 
   const totalPending = requests
     .filter((r) => r.status === "pending" || r.status === "processing")
@@ -181,6 +229,14 @@ export function PayoutsPanel() {
   const totalPaid = requests
     .filter((r) => r.status === "paid")
     .reduce((sum, r) => sum + r.amount, 0);
+
+  const totalCommissionOpen = requests
+    .filter((r) => r.status === "pending" || r.status === "processing")
+    .reduce((sum, r) => sum + feeFor(r).fee, 0);
+
+  const totalCommissionPaid = requests
+    .filter((r) => r.status === "paid")
+    .reduce((sum, r) => sum + feeFor(r).fee, 0);
 
   const openRequestCount = requests.filter(
     (r) => r.status === "pending" || r.status === "processing",
@@ -232,81 +288,80 @@ export function PayoutsPanel() {
   );
   const detailPaidRequests = detailRequests.filter((r) => r.status === "paid");
   const detailRejectedRequests = detailRequests.filter((r) => r.status === "rejected");
-  const detailEarned = detailHostId ? earnedByHost.get(detailHostId) ?? 0 : 0;
-  const detailPaid = detailHostId ? paidByHost.get(detailHostId) ?? 0 : 0;
-  const detailOpen = detailHostId ? openByHost.get(detailHostId) ?? 0 : 0;
+  const detailEarned = detailHostId ? (earnedByHost.get(detailHostId) ?? 0) : 0;
+  const detailPaid = detailHostId ? (paidByHost.get(detailHostId) ?? 0) : 0;
+  const detailOpen = detailHostId ? (openByHost.get(detailHostId) ?? 0) : 0;
   const detailAvailable = detailHostId ? availableFor(detailHostId) : 0;
 
-  const renderPayoutActions = (record: PayoutRequest) =>
-    {
-      if (record.status !== "pending" && record.status !== "processing") {
-        return (
-          <Text type="secondary">
-            {record.processedAt ? new Date(record.processedAt).toLocaleDateString("en-IN") : "—"}
-          </Text>
-        );
-      }
-
-      const payableHeadroom = rawAvailableFor(record.driverUserId) + record.amount;
-      const canPay = record.amount <= payableHeadroom;
-
+  const renderPayoutActions = (record: PayoutRequest) => {
+    if (record.status !== "pending" && record.status !== "processing") {
       return (
-        <Space direction="vertical" size="small">
-          {record.status === "pending" && (
-            <Button
-              size="small"
-              icon={<Clock3 size={14} />}
-              loading={processingMutation.isPending}
-              onClick={(event) => {
-                event.stopPropagation();
-                processingMutation.mutate(record.id);
-              }}
-            >
-              Mark Processing
-            </Button>
-          )}
-          <Button
-            type="primary"
-            size="small"
-            icon={<CheckCircle2 size={14} />}
-            disabled={!canPay}
-            title={
-              canPay
-                ? undefined
-                : `Only ${formatMoney(Math.max(0, payableHeadroom))} is payable after earlier payouts`
-            }
-            onClick={(event) => {
-              event.stopPropagation();
-              if (!canPay) {
-                message.error(
-                  `Cannot pay ${formatMoney(record.amount)}. Only ${formatMoney(Math.max(0, payableHeadroom))} is payable after earlier payouts.`,
-                );
-                return;
-              }
-              openAction(record, "paid");
-            }}
-          >
-            Mark Paid
-          </Button>
-          {!canPay && (
-            <Text type="danger" className="text-xs">
-              Over request by {formatMoney(record.amount - Math.max(0, payableHeadroom))}
-            </Text>
-          )}
-          <Button
-            danger
-            size="small"
-            icon={<XCircle size={14} />}
-            onClick={(event) => {
-              event.stopPropagation();
-              openAction(record, "rejected");
-            }}
-          >
-            Reject
-          </Button>
-        </Space>
+        <Text type="secondary">
+          {record.processedAt ? new Date(record.processedAt).toLocaleDateString("en-IN") : "—"}
+        </Text>
       );
-    };
+    }
+
+    const payableHeadroom = rawAvailableFor(record.driverUserId) + record.amount;
+    const canPay = record.amount <= payableHeadroom;
+
+    return (
+      <Space direction="vertical" size="small">
+        {record.status === "pending" && (
+          <Button
+            size="small"
+            icon={<Clock3 size={14} />}
+            loading={processingMutation.isPending}
+            onClick={(event) => {
+              event.stopPropagation();
+              processingMutation.mutate(record.id);
+            }}
+          >
+            Mark Processing
+          </Button>
+        )}
+        <Button
+          type="primary"
+          size="small"
+          icon={<CheckCircle2 size={14} />}
+          disabled={!canPay}
+          title={
+            canPay
+              ? undefined
+              : `Only ${formatMoney(Math.max(0, payableHeadroom))} is payable after earlier payouts`
+          }
+          onClick={(event) => {
+            event.stopPropagation();
+            if (!canPay) {
+              message.error(
+                `Cannot pay ${formatMoney(record.amount)}. Only ${formatMoney(Math.max(0, payableHeadroom))} is payable after earlier payouts.`,
+              );
+              return;
+            }
+            openAction(record, "paid");
+          }}
+        >
+          Mark Paid
+        </Button>
+        {!canPay && (
+          <Text type="danger" className="text-xs">
+            Over request by {formatMoney(record.amount - Math.max(0, payableHeadroom))}
+          </Text>
+        )}
+        <Button
+          danger
+          size="small"
+          icon={<XCircle size={14} />}
+          onClick={(event) => {
+            event.stopPropagation();
+            openAction(record, "rejected");
+          }}
+        >
+          Reject
+        </Button>
+      </Space>
+    );
+  };
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
@@ -315,8 +370,8 @@ export function PayoutsPanel() {
           Payouts
         </Title>
         <Text type="secondary">
-          Review payout requests from hosts/drivers and mark them as paid once you've sent the
-          money manually.
+          Review payout requests from hosts/drivers and mark them as paid once you've sent the money
+          manually.
         </Text>
       </div>
 
@@ -344,6 +399,28 @@ export function PayoutsPanel() {
           <Title level={3} style={{ margin: "4px 0" }}>
             ₹{totalPaid.toLocaleString("en-IN")}
           </Title>
+        </Card>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Card className="rounded-3xl border-none shadow-card bg-white/90 backdrop-blur-md">
+          <Text type="secondary">Platform commission — open ({PLATFORM_FEE_PERCENT}%)</Text>
+          <Title level={3} style={{ margin: "4px 0" }} className="!text-amber-600">
+            ₹{totalCommissionOpen.toLocaleString("en-IN")}
+          </Title>
+          <Text type="secondary" className="text-xs">
+            Across pending/processing requests
+          </Text>
+        </Card>
+        <Card className="rounded-3xl border-none shadow-card bg-white/90 backdrop-blur-md">
+          <Text type="secondary">Platform commission — realized ({PLATFORM_FEE_PERCENT}%)</Text>
+          <Title level={3} style={{ margin: "4px 0" }} className="!text-amber-600">
+            ₹{totalCommissionPaid.toLocaleString("en-IN")}
+          </Title>
+          <Text type="secondary" className="text-xs">
+            Across paid payouts. Compare against Overview → Platform earnings, which counts every
+            completed-trip booking (incl. earnings not yet withdrawn).
+          </Text>
         </Card>
       </div>
 
@@ -383,7 +460,8 @@ export function PayoutsPanel() {
                 // Add this one back without clamping negatives, otherwise prior
                 // overpayments look payable.
                 const headroom =
-                  rawAvailable + (r.status === "pending" || r.status === "processing" ? r.amount : 0);
+                  rawAvailable +
+                  (r.status === "pending" || r.status === "processing" ? r.amount : 0);
                 const ok = r.amount <= headroom;
                 return (
                   <div>
@@ -392,7 +470,9 @@ export function PayoutsPanel() {
                       Earned ₹{earned.toLocaleString("en-IN")}
                     </div>
                     {(r.status === "pending" || r.status === "processing") && (
-                      <div className={`text-xs font-semibold ${ok ? "text-emerald-600" : "text-rose-600"}`}>
+                      <div
+                        className={`text-xs font-semibold ${ok ? "text-emerald-600" : "text-rose-600"}`}
+                      >
                         {ok
                           ? `✓ ₹${r.amount} of ₹${headroom.toLocaleString("en-IN")} available`
                           : `⚠ ₹${r.amount} > ₹${Math.max(0, headroom).toLocaleString("en-IN")} payable`}
@@ -407,6 +487,11 @@ export function PayoutsPanel() {
               dataIndex: "amount",
               key: "amount",
               render: (amount: number) => formatMoney(amount),
+            },
+            {
+              title: "Platform commission",
+              key: "platformFee",
+              render: (_, r) => <CommissionCell request={r} />,
             },
             {
               title: "Bank details",
@@ -432,7 +517,11 @@ export function PayoutsPanel() {
               key: "status",
               render: (_, r) => (
                 <div className="flex flex-col gap-1">
-                  <Tag color={STATUS_COLORS[r.status]} bordered={false} className="capitalize w-fit">
+                  <Tag
+                    color={STATUS_COLORS[r.status]}
+                    bordered={false}
+                    className="capitalize w-fit"
+                  >
                     {r.status}
                   </Tag>
                   {r.paymentReference && (
@@ -494,6 +583,11 @@ export function PayoutsPanel() {
               render: (amount: number) => formatMoney(amount),
             },
             {
+              title: "Platform commission",
+              key: "platformFee",
+              render: (_, r) => <CommissionCell request={r} />,
+            },
+            {
               title: "Bank snapshot",
               key: "bank",
               render: (_, r) => (
@@ -546,10 +640,20 @@ export function PayoutsPanel() {
             className: "cursor-pointer",
           })}
           columns={[
-            { title: "Host", dataIndex: "name", key: "name", render: (v: string) => <Text strong>{v}</Text> },
+            {
+              title: "Host",
+              dataIndex: "name",
+              key: "name",
+              render: (v: string) => <Text strong>{v}</Text>,
+            },
             { title: "Earned (net)", key: "earned", render: (_, r) => formatMoney(r.earned) },
             { title: "Paid out", key: "paid", render: (_, r) => formatMoney(r.paid) },
             { title: "Pending", key: "pending", render: (_, r) => formatMoney(r.pending) },
+            {
+              title: "Commission generated",
+              key: "commission",
+              render: (_, r) => <Text type="secondary">{formatMoney(r.commission)}</Text>,
+            },
             {
               title: "Available",
               key: "available",
@@ -602,14 +706,34 @@ export function PayoutsPanel() {
                       Requested {formatDateTime(detailRequest.requestedAt)}
                     </div>
                   </div>
-                  <Tag color={STATUS_COLORS[detailRequest.status]} bordered={false} className="capitalize">
+                  <Tag
+                    color={STATUS_COLORS[detailRequest.status]}
+                    bordered={false}
+                    className="capitalize"
+                  >
                     {detailRequest.status}
                   </Tag>
                 </div>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div>
-                    <div className="text-xs text-muted-foreground">Amount</div>
+                    <div className="text-xs text-muted-foreground">Amount (net to host)</div>
                     <div className="font-bold">{formatMoney(detailRequest.amount)}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-muted-foreground">
+                      Platform commission ({PLATFORM_FEE_PERCENT}%)
+                    </div>
+                    <div className="font-semibold">
+                      <CommissionCell request={detailRequest} />
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-muted-foreground">Gross amount</div>
+                    <div className="font-semibold">
+                      {detailRequest.grossAmount != null
+                        ? formatMoney(detailRequest.grossAmount)
+                        : `≈${formatMoney(detailRequest.amount + feeFor(detailRequest).fee)}`}
+                    </div>
                   </div>
                   <div>
                     <div className="text-xs text-muted-foreground">Processed</div>
@@ -677,7 +801,11 @@ export function PayoutsPanel() {
                           <div className="text-sm text-muted-foreground">UPI: {request.upiId}</div>
                         )}
                       </div>
-                      <Tag color={STATUS_COLORS[request.status]} bordered={false} className="capitalize">
+                      <Tag
+                        color={STATUS_COLORS[request.status]}
+                        bordered={false}
+                        className="capitalize"
+                      >
                         {request.status}
                       </Tag>
                     </div>
@@ -715,10 +843,13 @@ export function PayoutsPanel() {
                           Paid {formatDateTime(request.processedAt)}
                         </div>
                         <div className="mt-2 text-sm">
-                          Ref: <span className="font-semibold">{request.paymentReference || "—"}</span>
+                          Ref:{" "}
+                          <span className="font-semibold">{request.paymentReference || "—"}</span>
                         </div>
                         {request.adminNote && (
-                          <div className="text-sm text-muted-foreground">Note: {request.adminNote}</div>
+                          <div className="text-sm text-muted-foreground">
+                            Note: {request.adminNote}
+                          </div>
                         )}
                       </div>
                       <Tag color="success" bordered={false}>
