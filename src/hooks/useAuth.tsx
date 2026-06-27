@@ -14,6 +14,11 @@ import type { AppRole } from "@/lib/domain";
 import { parseTravelerResumeRedirectParam } from "@/lib/travelerResumeRedirect";
 import { sendMsg91Otp, verifyMsg91Otp } from "@/integrations/msg91/otp";
 import { lookupLoginEmail, deleteOwnAccount } from "@/integrations/appwrite/account-server";
+import {
+  sendPowerstextOtp,
+  verifyPowerstextOtp,
+  resetPasswordWithPowerstextOtp,
+} from "@/integrations/powerstext/otp";
 
 export interface MemberGoogleOAuthOptions {
   resumeRedirect?: string;
@@ -59,6 +64,14 @@ interface AuthContextValue {
   completePasswordRecovery: (userId: string, secret: string, password: string) => Promise<void>;
   /** Saves the signed-in user's contact email to their profile prefs. */
   saveContactEmail: (email: string) => Promise<void>;
+  /** Sends an SMS OTP (via PowersText) to prove phone ownership before signup. */
+  sendSignupOtp: (phoneE164: string) => Promise<void>;
+  /** Verifies the signup OTP. Does not create the account — call signUpWithPhonePassword after. */
+  verifySignupOtp: (phoneE164: string, code: string) => Promise<void>;
+  /** Sends an SMS OTP (via PowersText) to a registered phone, to authorize a PIN reset. */
+  sendPasswordResetOtp: (phoneE164: string) => Promise<void>;
+  /** Verifies the reset OTP and sets a new PIN for the account with this phone. */
+  resetPasswordWithOtp: (phoneE164: string, code: string, newPin: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -144,11 +157,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await account.createRecovery(email, `${origin}/reset-password`);
   };
 
-  const completePasswordRecovery = async (
-    userId: string,
-    secret: string,
-    password: string,
-  ) => {
+  const completePasswordRecovery = async (userId: string, secret: string, password: string) => {
     await account.updateRecovery(userId, secret, password);
   };
 
@@ -215,9 +224,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         appwriteError?.type === "user_already_exists" ||
         /already exists/i.test(appwriteError?.message ?? "");
       if (alreadyExists) {
-        throw new Error(
-          "An account with this phone number already exists. Please log in instead.",
-        );
+        throw new Error("An account with this phone number already exists. Please log in instead.");
       }
       throw error;
     }
@@ -258,6 +265,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await account.createSession(userId, secret);
     otpPhone.current = null;
     await refreshSession();
+  };
+
+  const sendSignupOtp = async (phoneE164: string) => {
+    await sendPowerstextOtp({ data: { phone: phoneE164, purpose: "signup" } });
+  };
+
+  const verifySignupOtp = async (phoneE164: string, code: string) => {
+    await verifyPowerstextOtp({ data: { phone: phoneE164, code, purpose: "signup" } });
+  };
+
+  const sendPasswordResetOtp = async (phoneE164: string) => {
+    await sendPowerstextOtp({ data: { phone: phoneE164, purpose: "password_reset" } });
+  };
+
+  const resetPasswordWithOtp = async (phoneE164: string, code: string, newPin: string) => {
+    const secret = await derivePassword(phoneE164, newPin);
+    await resetPasswordWithPowerstextOtp({ data: { phone: phoneE164, code, secret } });
   };
 
   const signInWithGoogle = useCallback((opts?: MemberGoogleOAuthOptions) => {
@@ -363,6 +387,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         saveContactEmail,
         deriveAccountSecret: derivePassword,
         deleteAccount,
+        sendSignupOtp,
+        verifySignupOtp,
+        sendPasswordResetOtp,
+        resetPasswordWithOtp,
       }}
     >
       {children}

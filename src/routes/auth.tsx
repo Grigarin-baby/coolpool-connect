@@ -113,6 +113,10 @@ function AuthPage() {
     isDriver,
     becomeRideHost,
     requestPasswordRecovery,
+    sendSignupOtp,
+    verifySignupOtp,
+    sendPasswordResetOtp,
+    resetPasswordWithOtp,
   } = useAuth();
   const [busy, setBusy] = useState(false);
   const [showPhoneStep, setShowPhoneStep] = useState(false);
@@ -127,9 +131,18 @@ function AuthPage() {
   const [name, setName] = useState("");
   const [suNumber, setSuNumber] = useState("");
   const [signUpPassword, setSignUpPassword] = useState("");
+  const [suOtpStep, setSuOtpStep] = useState<"form" | "otp">("form");
+  const [suOtpCode, setSuOtpCode] = useState("");
 
   const [adminEmail, setAdminEmail] = useState("");
   const [adminPassword, setAdminPassword] = useState("");
+
+  const [forgotMode, setForgotMode] = useState(false);
+  const [forgotStep, setForgotStep] = useState<"phone" | "reset">("phone");
+  const [forgotNumber, setForgotNumber] = useState("");
+  const [forgotOtp, setForgotOtp] = useState("");
+  const [forgotNewPin, setForgotNewPin] = useState("");
+  const [forgotConfirmPin, setForgotConfirmPin] = useState("");
 
   useEffect(() => {
     if (loading || !user) return;
@@ -208,6 +221,10 @@ function AuthPage() {
 
   const handleSignUp = async (e: FormEvent) => {
     e.preventDefault();
+    if (!name.trim()) {
+      toast.error("Enter your full name.");
+      return;
+    }
     if (suNumber.replace(/[^\d]/g, "").length < 6) {
       toast.error("Enter a valid phone number.");
       return;
@@ -218,12 +235,35 @@ function AuthPage() {
     }
     setBusy(true);
     try {
+      // Prove phone ownership with an SMS OTP before creating the account.
+      await sendSignupOtp(toE164(suNumber));
+      setSuOtpStep("otp");
+      toast.success(`OTP sent to ${toE164(suNumber)}`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not send the OTP.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleVerifySignUpOtp = async (e: FormEvent) => {
+    e.preventDefault();
+    if (suOtpCode.length !== 6) {
+      toast.error("Enter the 6-digit code.");
+      return;
+    }
+    setBusy(true);
+    try {
+      await verifySignupOtp(toE164(suNumber), suOtpCode);
       await signUpWithPhonePassword(name, toE164(suNumber), signUpPassword);
       toast.success("Account created.");
+      setSuOtpStep("form");
+      setSuOtpCode("");
       // Phone was already captured during signup and saved to prefs — the
       // useEffect picks it up and auto-onboards the host. No extra step.
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Unable to create account.");
+      toast.error(error instanceof Error ? error.message : "Invalid OTP.");
+      setSuOtpCode("");
     } finally {
       setBusy(false);
     }
@@ -258,6 +298,57 @@ function AuthPage() {
       toast.success("Password reset link sent — check your email inbox.");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Couldn't send the reset email.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleSendForgotOtp = async (e: FormEvent) => {
+    e.preventDefault();
+    if (forgotNumber.replace(/[^\d]/g, "").length < 6) {
+      toast.error("Enter your registered phone number.");
+      return;
+    }
+    setBusy(true);
+    try {
+      await sendPasswordResetOtp(toE164(forgotNumber));
+      setForgotStep("reset");
+      toast.success(`OTP sent to ${toE164(forgotNumber)}`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not send the OTP.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleResetPasswordWithOtp = async (e: FormEvent) => {
+    e.preventDefault();
+    if (forgotOtp.length !== 6) {
+      toast.error("Enter the 6-digit code.");
+      return;
+    }
+    if (!/^\d{4}$/.test(forgotNewPin)) {
+      toast.error("New PIN must be exactly 4 digits.");
+      return;
+    }
+    if (forgotNewPin !== forgotConfirmPin) {
+      toast.error("PINs don't match.");
+      return;
+    }
+    setBusy(true);
+    try {
+      await resetPasswordWithOtp(toE164(forgotNumber), forgotOtp, forgotNewPin);
+      toast.success("PIN updated. You can now log in with your new PIN.");
+      setSiNumber(forgotNumber);
+      setSignInPassword("");
+      setForgotMode(false);
+      setForgotStep("phone");
+      setForgotOtp("");
+      setForgotNewPin("");
+      setForgotConfirmPin("");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not reset your password.");
+      setForgotOtp("");
     } finally {
       setBusy(false);
     }
@@ -414,14 +505,109 @@ function AuthPage() {
                     <span className="w-full border-t border-border" />
                   </div>
                   <div className="relative flex justify-center text-[10px] font-semibold uppercase tracking-wider">
-                    <span className="bg-card px-2 text-muted-foreground">
-                      OR
-                    </span>
+                    <span className="bg-card px-2 text-muted-foreground">OR</span>
                   </div>
                 </div>
 
                 <TabsContent value="login" className="mt-0 outline-none">
-                  {otpMode ? (
+                  {forgotMode ? (
+                    <div className="animate-in fade-in duration-300">
+                      {forgotStep === "phone" ? (
+                        <form onSubmit={handleSendForgotOtp} className="space-y-2">
+                          <PhoneField
+                            id="forgot-phone"
+                            number={forgotNumber}
+                            onNumberChange={setForgotNumber}
+                          />
+                          <Button
+                            type="submit"
+                            variant="hero"
+                            size="lg"
+                            style={{ color: "#fff" }}
+                            className="w-full rounded-3xl h-11 font-semibold shadow-glow mt-1"
+                            disabled={busy}
+                          >
+                            {busy ? <Loader2 className="h-5 w-5 animate-spin" /> : "Send OTP"}
+                          </Button>
+                        </form>
+                      ) : (
+                        <form onSubmit={handleResetPasswordWithOtp} className="space-y-4">
+                          <div className="space-y-2 text-center">
+                            <Label className="text-base font-medium">Enter the 6-digit code</Label>
+                            <p className="text-sm text-muted-foreground">
+                              Sent to <span className="font-semibold">{toE164(forgotNumber)}</span>
+                            </p>
+                            <div className="flex justify-center pt-1">
+                              <InputOTP
+                                maxLength={6}
+                                value={forgotOtp}
+                                onChange={setForgotOtp}
+                                containerClassName="justify-center"
+                              >
+                                <InputOTPGroup>
+                                  {[0, 1, 2, 3, 4, 5].map((i) => (
+                                    <InputOTPSlot key={i} index={i} className="h-12 w-9 text-lg" />
+                                  ))}
+                                </InputOTPGroup>
+                              </InputOTP>
+                            </div>
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="forgot-new-pin" className="text-base font-medium">
+                              New 4-digit PIN
+                            </Label>
+                            <PinField
+                              id="forgot-new-pin"
+                              value={forgotNewPin}
+                              onChange={setForgotNewPin}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="forgot-confirm-pin" className="text-base font-medium">
+                              Confirm new PIN
+                            </Label>
+                            <PinField
+                              id="forgot-confirm-pin"
+                              value={forgotConfirmPin}
+                              onChange={setForgotConfirmPin}
+                            />
+                          </div>
+                          <Button
+                            type="submit"
+                            variant="hero"
+                            size="lg"
+                            style={{ color: "#fff" }}
+                            className="w-full rounded-3xl h-11 font-semibold shadow-glow mt-1"
+                            disabled={busy}
+                          >
+                            {busy ? <Loader2 className="h-5 w-5 animate-spin" /> : "Update PIN"}
+                          </Button>
+                          <button
+                            type="button"
+                            className="w-full text-center text-xs font-medium text-muted-foreground hover:underline"
+                            disabled={busy}
+                            onClick={() => {
+                              setForgotStep("phone");
+                              setForgotOtp("");
+                            }}
+                          >
+                            Change number
+                          </button>
+                        </form>
+                      )}
+                      <button
+                        type="button"
+                        className="mt-4 w-full text-center text-sm font-medium text-primary hover:underline"
+                        onClick={() => {
+                          setForgotMode(false);
+                          setForgotStep("phone");
+                          setForgotOtp("");
+                        }}
+                      >
+                        Back to login
+                      </button>
+                    </div>
+                  ) : otpMode ? (
                     <div className="animate-in fade-in duration-300">
                       <PhoneOtpLogin
                         idPrefix="auth"
@@ -438,11 +624,7 @@ function AuthPage() {
                   ) : (
                     <>
                       <form onSubmit={handleSignIn} className="space-y-2">
-                        <PhoneField
-                          id="si-phone"
-                          number={siNumber}
-                          onNumberChange={setSiNumber}
-                        />
+                        <PhoneField id="si-phone" number={siNumber} onNumberChange={setSiNumber} />
                         <div className="space-y-2">
                           <Label htmlFor="si-password" className="text-base font-medium">
                             Password
@@ -452,6 +634,16 @@ function AuthPage() {
                             value={signInPassword}
                             onChange={setSignInPassword}
                           />
+                          <button
+                            type="button"
+                            className="ml-auto block text-xs font-semibold text-primary hover:underline"
+                            onClick={() => {
+                              setForgotNumber(siNumber);
+                              setForgotMode(true);
+                            }}
+                          >
+                            Forgot password?
+                          </button>
                         </div>
                         <Button
                           type="submit"
@@ -476,49 +668,94 @@ function AuthPage() {
                 </TabsContent>
 
                 <TabsContent value="signup" className="mt-6 outline-none">
-                  <form onSubmit={handleSignUp} className="space-y-2">
-                    <div className="space-y-2">
-                      <Label htmlFor="su-name" className="text-base font-medium">
-                        Full name
-                      </Label>
-                      <Input
-                        id="su-name"
-                        autoComplete="name"
-                        required
-                        value={name}
-                        placeholder="Kiran Kumar"
-                        onChange={(e) => setName(e.target.value)}
-                        style={{ fontSize: "2rem", lineHeight: 1.1 }}
-                        className="h-16 w-full rounded-3xl border-border/80 bg-background/80 font-bold placeholder:text-muted-foreground/40"
-                      />
-                    </div>
-                    <PhoneField
-                      id="su-phone"
-                      number={suNumber}
-                      onNumberChange={setSuNumber}
-                    />
-                    <div className="space-y-2">
-                      <Label htmlFor="su-password" className="text-base font-medium">
-                        Password
-                      </Label>
-                      <PinField
-                        id="su-password"
-                        value={signUpPassword}
-                        onChange={setSignUpPassword}
-                      />
-
-                    </div>
-                    <Button
-                      type="submit"
-                      variant="hero"
-                      size="lg"
-                      style={{ color: "#fff" }}
-                      className="w-full rounded-3xl h-11 font-semibold shadow-glow mt-1"
-                      disabled={busy}
-                    >
-                      {busy ? <Loader2 className="h-5 w-5 animate-spin" /> : "Create Account"}
-                    </Button>
-                  </form>
+                  {suOtpStep === "otp" ? (
+                    <form onSubmit={handleVerifySignUpOtp} className="space-y-4">
+                      <div className="space-y-2 text-center">
+                        <Label className="text-base font-medium">Enter the 6-digit code</Label>
+                        <p className="text-sm text-muted-foreground">
+                          Sent to <span className="font-semibold">{toE164(suNumber)}</span>
+                        </p>
+                        <div className="flex justify-center pt-1">
+                          <InputOTP
+                            maxLength={6}
+                            value={suOtpCode}
+                            onChange={setSuOtpCode}
+                            containerClassName="justify-center"
+                          >
+                            <InputOTPGroup>
+                              {[0, 1, 2, 3, 4, 5].map((i) => (
+                                <InputOTPSlot key={i} index={i} className="h-12 w-9 text-lg" />
+                              ))}
+                            </InputOTPGroup>
+                          </InputOTP>
+                        </div>
+                      </div>
+                      <Button
+                        type="submit"
+                        variant="hero"
+                        size="lg"
+                        style={{ color: "#fff" }}
+                        className="w-full rounded-3xl h-11 font-semibold shadow-glow mt-1"
+                        disabled={busy}
+                      >
+                        {busy ? (
+                          <Loader2 className="h-5 w-5 animate-spin" />
+                        ) : (
+                          "Verify & create account"
+                        )}
+                      </Button>
+                      <button
+                        type="button"
+                        className="w-full text-center text-xs font-medium text-muted-foreground hover:underline"
+                        disabled={busy}
+                        onClick={() => {
+                          setSuOtpStep("form");
+                          setSuOtpCode("");
+                        }}
+                      >
+                        Change number
+                      </button>
+                    </form>
+                  ) : (
+                    <form onSubmit={handleSignUp} className="space-y-2">
+                      <div className="space-y-2">
+                        <Label htmlFor="su-name" className="text-base font-medium">
+                          Full name
+                        </Label>
+                        <Input
+                          id="su-name"
+                          autoComplete="name"
+                          required
+                          value={name}
+                          placeholder="Kiran Kumar"
+                          onChange={(e) => setName(e.target.value)}
+                          style={{ fontSize: "2rem", lineHeight: 1.1 }}
+                          className="h-16 w-full rounded-3xl border-border/80 bg-background/80 font-bold placeholder:text-muted-foreground/40"
+                        />
+                      </div>
+                      <PhoneField id="su-phone" number={suNumber} onNumberChange={setSuNumber} />
+                      <div className="space-y-2">
+                        <Label htmlFor="su-password" className="text-base font-medium">
+                          Password
+                        </Label>
+                        <PinField
+                          id="su-password"
+                          value={signUpPassword}
+                          onChange={setSignUpPassword}
+                        />
+                      </div>
+                      <Button
+                        type="submit"
+                        variant="hero"
+                        size="lg"
+                        style={{ color: "#fff" }}
+                        className="w-full rounded-3xl h-11 font-semibold shadow-glow mt-1"
+                        disabled={busy}
+                      >
+                        {busy ? <Loader2 className="h-5 w-5 animate-spin" /> : "Send OTP"}
+                      </Button>
+                    </form>
+                  )}
                 </TabsContent>
 
                 <TabsContent value="admin" className="mt-0 outline-none">
