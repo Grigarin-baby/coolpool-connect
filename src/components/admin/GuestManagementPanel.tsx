@@ -12,6 +12,7 @@ import { getBookingPassengers } from "@/lib/booking-passengers";
 import { hostNetEarnings } from "@/lib/pricing";
 import { passengerGenderLabel, passengerSeatLabel } from "@/lib/passenger-display";
 import { CreateUserButton, ResetPasswordButton } from "./AdminUserActions";
+import { getUserCodesAsAdmin } from "./adminUserApi";
 import type { Booking, Trip } from "@/lib/domain";
 
 const { Title, Text } = Typography;
@@ -21,6 +22,7 @@ interface GuestRow {
   name: string;
   phone: string;
   gender?: string;
+  memberCode?: string | null;
   bookings: Booking[];
   lastAt: number;
 }
@@ -98,16 +100,34 @@ export function GuestManagementPanel() {
     return [...byUser.values()].sort((a, b) => b.lastAt - a.lastAt);
   }, [bookings]);
 
+  const guestUserIds = useMemo(() => guests.map((g) => g.userId), [guests]);
+  const { data: userCodes = [] } = useQuery({
+    queryKey: ["admin-user-codes", "guests", guestUserIds],
+    queryFn: () => getUserCodesAsAdmin(guestUserIds),
+    enabled: guestUserIds.length > 0,
+  });
+  const codeByUserId = useMemo(() => {
+    const m = new Map<string, string | null>();
+    for (const c of userCodes) m.set(c.userId, c.memberCode);
+    return m;
+  }, [userCodes]);
+
+  const guestsWithCodes = useMemo(
+    () => guests.map((g) => ({ ...g, memberCode: codeByUserId.get(g.userId) ?? null })),
+    [guests, codeByUserId],
+  );
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return guests;
-    return guests.filter(
+    if (!q) return guestsWithCodes;
+    return guestsWithCodes.filter(
       (g) =>
         g.name.toLowerCase().includes(q) ||
         g.phone.toLowerCase().includes(q) ||
-        g.userId.toLowerCase().includes(q),
+        g.userId.toLowerCase().includes(q) ||
+        (g.memberCode ?? "").toLowerCase().includes(q),
     );
-  }, [guests, search]);
+  }, [guestsWithCodes, search]);
 
   const hostNameForTrip = (trip?: Trip) =>
     trip ? trip.hostDisplayName || hostNameByUserId.get(trip.hostId) || "Host" : "—";
@@ -190,6 +210,15 @@ export function GuestManagementPanel() {
           pagination={{ pageSize: 10 }}
           onRow={(g) => ({ onClick: () => setSelected(g), style: { cursor: "pointer" } })}
           columns={[
+            {
+              title: "Member ID",
+              key: "memberCode",
+              render: (_, g) => (
+                <Text type="secondary" className="font-mono text-xs">
+                  {g.memberCode || "—"}
+                </Text>
+              ),
+            },
             {
               title: "Name",
               key: "name",
@@ -397,8 +426,7 @@ export function GuestManagementPanel() {
                       <div>
                         <div className="font-semibold">{p.name}</div>
                         <div className="text-muted-foreground">
-                          {passengerGenderLabel(p.gender)} ·{" "}
-                          {p.phone || "—"}
+                          {passengerGenderLabel(p.gender)} · {p.phone || "—"}
                         </div>
                       </div>
                       <div>
@@ -439,8 +467,7 @@ export function GuestManagementPanel() {
                       <div>
                         <div className="font-semibold">{p.name}</div>
                         <div className="text-muted-foreground">
-                          {passengerGenderLabel(p.gender)} ·{" "}
-                          {p.phone || "—"}
+                          {passengerGenderLabel(p.gender)} · {p.phone || "—"}
                         </div>
                       </div>
                       <div>

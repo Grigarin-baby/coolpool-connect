@@ -13,7 +13,11 @@ import { listUserRoles, assignRole, upsertDriverProfile } from "@/data/appwrite-
 import type { AppRole } from "@/lib/domain";
 import { parseTravelerResumeRedirectParam } from "@/lib/travelerResumeRedirect";
 import { sendMsg91Otp, verifyMsg91Otp } from "@/integrations/msg91/otp";
-import { lookupLoginEmail, deleteOwnAccount } from "@/integrations/appwrite/account-server";
+import {
+  lookupLoginEmail,
+  deleteOwnAccount,
+  mintMemberCode,
+} from "@/integrations/appwrite/account-server";
 import {
   sendPowerstextOtp,
   verifyPowerstextOtp,
@@ -38,12 +42,13 @@ interface AuthContextValue {
   signUp: (name: string, email: string, password: string) => Promise<void>;
   /** Logs in with phone number + password (phone is the identity). */
   signInWithPhonePassword: (phoneE164: string, password: string) => Promise<void>;
-  /** Creates an account with name + phone number + password (+ optional email). */
+  /** Creates an account with name + phone number + password (+ optional email/gender). */
   signUpWithPhonePassword: (
     name: string,
     phoneE164: string,
     password: string,
     contactEmail?: string,
+    gender?: string,
   ) => Promise<void>;
   /** Derives the Appwrite secret from a phone + PIN (used for PIN reset). */
   deriveAccountSecret: (phoneE164: string, password: string) => Promise<string>;
@@ -208,6 +213,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     phoneE164: string,
     password: string,
     contactEmail?: string,
+    gender?: string,
   ) => {
     const realEmail = contactEmail?.trim() || "";
     // When the traveller provides a real email, use it as the login identity so
@@ -215,6 +221,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // synthetic phone email (recovery isn't available for those accounts).
     const email = realEmail || phoneToEmail(phoneE164);
     const secret = await derivePassword(phoneE164, password);
+    // Mint the human-readable member ID before creating the account — cheap
+    // and harmless to do even if account creation fails right after.
+    const { code: memberCode } = await mintMemberCode({ data: { role: "guest", gender } });
     try {
       await account.create(ID.unique(), email, secret, name);
     } catch (error) {
@@ -233,6 +242,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       roles: ["user"],
       fullName: name,
       phone: phoneE164,
+      memberCode,
+      ...(gender ? { gender } : {}),
       ...(realEmail ? { email: realEmail } : {}),
     });
     // Always set the phone field so phone+PIN login can resolve this account
@@ -317,6 +328,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const becomeRideHost = async (phone: string) => {
     if (!user) throw new Error("Not logged in");
+    const prefs = (user.prefs ?? {}) as Record<string, unknown>;
     await upsertDriverProfile({
       userId: user.$id,
       fullName: user.name,
@@ -324,6 +336,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       phone,
       licenseNumber: "",
       city: "",
+      // Carry over the existing member code/gender — becoming a host doesn't
+      // mint a new ID, the account keeps the one assigned at signup.
+      memberCode: typeof prefs.memberCode === "string" ? prefs.memberCode : null,
+      gender: typeof prefs.gender === "string" ? prefs.gender : null,
     });
     await assignRole(user.$id, "driver");
     const existingRoles = Array.isArray(user.prefs?.roles) ? user.prefs.roles : [];

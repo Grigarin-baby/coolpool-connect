@@ -131,6 +131,7 @@ function AuthPage() {
   const [name, setName] = useState("");
   const [suNumber, setSuNumber] = useState("");
   const [signUpPassword, setSignUpPassword] = useState("");
+  const [suGender, setSuGender] = useState<"male" | "female" | "">("");
   const [suOtpStep, setSuOtpStep] = useState<"form" | "otp">("form");
   const [suOtpCode, setSuOtpCode] = useState("");
 
@@ -255,7 +256,13 @@ function AuthPage() {
     setBusy(true);
     try {
       await verifySignupOtp(toE164(suNumber), suOtpCode);
-      await signUpWithPhonePassword(name, toE164(suNumber), signUpPassword);
+      await signUpWithPhonePassword(
+        name,
+        toE164(suNumber),
+        signUpPassword,
+        undefined,
+        suGender || undefined,
+      );
       toast.success("Account created.");
       setSuOtpStep("form");
       setSuOtpCode("");
@@ -734,6 +741,25 @@ function AuthPage() {
                         />
                       </div>
                       <PhoneField id="su-phone" number={suNumber} onNumberChange={setSuNumber} />
+                      <div className="space-y-2">
+                        <Label className="text-base font-medium">Gender (optional)</Label>
+                        <div className="grid grid-cols-2 gap-2">
+                          {(["male", "female"] as const).map((g) => (
+                            <button
+                              key={g}
+                              type="button"
+                              onClick={() => setSuGender((prev) => (prev === g ? "" : g))}
+                              className={`h-11 rounded-2xl border text-sm font-semibold capitalize transition ${
+                                suGender === g
+                                  ? "border-primary bg-primary/10 text-primary"
+                                  : "border-border/80 bg-background/80 text-muted-foreground"
+                              }`}
+                            >
+                              {g}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
                       <div className="space-y-2">
                         <Label htmlFor="su-password" className="text-base font-medium">
                           Password

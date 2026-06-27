@@ -171,6 +171,8 @@ function toDriverProfile(doc: any): DriverProfile {
     ratingAvg: doc.rating_avg != null ? Number(doc.rating_avg) : undefined,
     ratingCount: doc.rating_count != null ? Number(doc.rating_count) : undefined,
     active: doc.active !== false,
+    memberCode: doc.member_code ? String(doc.member_code) : null,
+    gender: doc.gender ? String(doc.gender) : null,
   };
 }
 
@@ -295,6 +297,9 @@ export interface CreateDriverProfileInput {
   phone: string;
   licenseNumber: string;
   city: string;
+  /** Carried over from the account's existing member code/gender (e.g. when a guest becomes a host). */
+  memberCode?: string | null;
+  gender?: string | null;
 }
 
 export interface CreateDriverVehicleInput {
@@ -1174,6 +1179,11 @@ export async function upsertDriverProfile(input: CreateDriverProfileInput): Prom
         phone: input.phone,
         license_number: input.licenseNumber,
         city: input.city,
+        // Backfill onto legacy docs without clobbering an existing value.
+        ...(input.memberCode && !existing.documents[0].member_code
+          ? { member_code: input.memberCode }
+          : {}),
+        ...(input.gender && !existing.documents[0].gender ? { gender: input.gender } : {}),
       },
     );
     return toDriverProfile(updated);
@@ -1190,6 +1200,8 @@ export async function upsertDriverProfile(input: CreateDriverProfileInput): Prom
       phone: input.phone,
       license_number: input.licenseNumber,
       city: input.city,
+      member_code: input.memberCode ?? null,
+      gender: input.gender ?? null,
     },
   );
   return toDriverProfile(created);

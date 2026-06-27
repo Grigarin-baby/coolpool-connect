@@ -103,7 +103,8 @@ export function HostManagementPanel() {
         h.fullName.toLowerCase().includes(q) ||
         (h.email || "").toLowerCase().includes(q) ||
         (h.phone || "").toLowerCase().includes(q) ||
-        h.userId.toLowerCase().includes(q),
+        h.userId.toLowerCase().includes(q) ||
+        (h.memberCode || "").toLowerCase().includes(q),
     );
   }, [hosts, search]);
 
@@ -258,6 +259,15 @@ export function HostManagementPanel() {
           pagination={{ pageSize: 10 }}
           onRow={(h) => ({ onClick: () => setSelected(h), style: { cursor: "pointer" } })}
           columns={[
+            {
+              title: "Member ID",
+              key: "memberCode",
+              render: (_, h) => (
+                <Text type="secondary" className="font-mono text-xs">
+                  {h.memberCode || "—"}
+                </Text>
+              ),
+            },
             {
               title: "Name",
               key: "name",
@@ -512,10 +522,7 @@ export function HostManagementPanel() {
                           {passengers.map((p, i) => (
                             <div key={i} className="flex items-center justify-between text-xs">
                               <span>
-                                {p.name}
-                                {" "}
-                                ({passengerGenderLabel(p.gender)}) ·{" "}
-                                {p.phone}
+                                {p.name} ({passengerGenderLabel(p.gender)}) · {p.phone}
                               </span>
                               <span className="text-muted-foreground">
                                 {passengerSeatLabel(p.seatCode)}
@@ -623,8 +630,7 @@ export function HostManagementPanel() {
                     <div>
                       <div className="font-semibold">{p.name}</div>
                       <div className="text-muted-foreground">
-                        {passengerGenderLabel(p.gender)} ·{" "}
-                        {p.phone || "—"}
+                        {passengerGenderLabel(p.gender)} · {p.phone || "—"}
                       </div>
                     </div>
                     <div>

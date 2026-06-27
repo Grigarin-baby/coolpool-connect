@@ -1,6 +1,7 @@
 import { account } from "@/integrations/appwrite/client";
 import {
   adminCreateUser,
+  adminGetUserCodes,
   adminListPayoutRequests,
   adminResetPassword,
   adminUpdatePayoutRequestStatus,
@@ -48,6 +49,15 @@ export async function createUserAsAdmin(input: {
 export async function listPayoutRequestsAsAdmin(limit = 500): Promise<PayoutRequest[]> {
   const { jwt } = await account.createJWT();
   return adminListPayoutRequests({ data: { jwt, limit } });
+}
+
+/** Batch lookup of member codes/gender for a list of user ids (e.g. for the admin tables). */
+export async function getUserCodesAsAdmin(
+  userIds: string[],
+): Promise<Array<{ userId: string; memberCode: string | null; gender: string | null }>> {
+  if (userIds.length === 0) return [];
+  const { jwt } = await account.createJWT();
+  return adminGetUserCodes({ data: { jwt, userIds } });
 }
 
 export async function updatePayoutRequestAsAdmin(

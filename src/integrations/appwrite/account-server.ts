@@ -7,6 +7,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { Client, Users, Account, Databases, Query, ID } from "node-appwrite";
 import { normalizeEmail, normalizeLicense, normalizePhone } from "@/lib/identity-normalizers";
+import { formatMemberCode, type MemberCodeRole } from "@/lib/memberCode";
 import type { PayoutRequest, PayoutStatus } from "@/lib/domain";
 
 function readEnv(name: string): string {
@@ -335,7 +336,8 @@ export const adminCreateUser = createServerFn({ method: "POST" })
     const users = new Users(adminClient());
     // Reuse an existing account with this email if present.
     const existing = await users.list([Query.equal("email", data.email), Query.limit(1)]);
-    let userId = existing.users[0]?.$id;
+    const existingUser = existing.users[0];
+    let userId = existingUser?.$id;
     if (data.role === "host") {
       const db = readEnv("VITE_APPWRITE_DATABASE_ID") || readEnv("APPWRITE_DATABASE_ID");
       const driversCol = readEnv("VITE_APPWRITE_COLLECTION_DRIVERS") || "coolpool_drivers";
@@ -359,12 +361,27 @@ export const adminCreateUser = createServerFn({ method: "POST" })
       userId = created.$id;
     }
 
+    // Keep a reused account's existing member code; mint a fresh one only for
+    // a genuinely new account.
+    const existingPrefs = (existingUser?.prefs ?? {}) as Record<string, unknown>;
+    let memberCode = typeof existingPrefs.memberCode === "string" ? existingPrefs.memberCode : null;
+    if (!memberCode) {
+      const sequence = await nextMemberCodeSequence(new Databases(adminClient()));
+      memberCode = formatMemberCode({
+        createdAt: new Date(),
+        role: data.role,
+        gender: data.gender,
+        sequence,
+      });
+    }
+
     const roles = data.role === "host" ? ["driver", "user"] : ["user"];
     await users.updatePrefs(userId, {
       roles,
       fullName: data.name,
       phone: data.phone || undefined,
       gender: data.gender || undefined,
+      memberCode,
     });
 
     // A host needs a driver profile to appear in Host Management.
@@ -386,7 +403,16 @@ export const adminCreateUser = createServerFn({ method: "POST" })
             license_number: "",
             city: "",
             verification_status: "approved",
+            member_code: memberCode,
+            gender: data.gender || undefined,
           });
+        } else {
+          await databases
+            .updateDocument(db, driversCol, found.documents[0].$id, {
+              member_code: memberCode,
+              gender: data.gender || undefined,
+            })
+            .catch(() => {});
         }
       } catch {
         /* profile creation best-effort — account + roles already set */
@@ -395,3 +421,100 @@ export const adminCreateUser = createServerFn({ method: "POST" })
 
     return { ok: true, userId };
   });
+
+function countersEnv() {
+  const db = readEnv("VITE_APPWRITE_DATABASE_ID") || readEnv("APPWRITE_DATABASE_ID");
+  const countersCol = readEnv("VITE_APPWRITE_COLLECTION_COUNTERS") || "coolpool_counters";
+  if (!db) throw new Error("Appwrite database is not configured on the server.");
+  return { db, countersCol };
+}
+
+const MEMBER_CODE_COUNTER_DOC_ID = "member_code_seq";
+
+/** Atomically reserves the next member-code sequence number, creating the counter doc on first use. */
+async function nextMemberCodeSequence(databases: Databases): Promise<number> {
+  const { db, countersCol } = countersEnv();
+  try {
+    const doc = await databases.incrementDocumentAttribute(
+      db,
+      countersCol,
+      MEMBER_CODE_COUNTER_DOC_ID,
+      "value",
+      1,
+    );
+    return Number((doc as unknown as { value: number }).value);
+  } catch {
+    // First call ever (or doc missing) — seed it. A rare double-create race
+    // here just means two users land on sequence 1; harmless cosmetically.
+    try {
+      await databases.createDocument(db, countersCol, MEMBER_CODE_COUNTER_DOC_ID, { value: 1 });
+      return 1;
+    } catch {
+      const doc = await databases.incrementDocumentAttribute(
+        db,
+        countersCol,
+        MEMBER_CODE_COUNTER_DOC_ID,
+        "value",
+        1,
+      );
+      return Number((doc as unknown as { value: number }).value);
+    }
+  }
+}
+
+/**
+ * Mints a globally-unique, human-readable member code (e.g. "2606cpgm0001")
+ * for a brand-new account. Not auth-gated — it runs before a session exists
+ * (during signup) and only burns a sequence number, never exposes or
+ * mutates anything sensitive.
+ */
+export const mintMemberCode = createServerFn({ method: "POST" })
+  .inputValidator((input: { role: MemberCodeRole; gender?: string }) => ({
+    role: input?.role === "host" ? ("host" as const) : ("guest" as const),
+    gender: input?.gender ? String(input.gender) : undefined,
+  }))
+  .handler(async ({ data }): Promise<{ code: string }> => {
+    const databases = new Databases(adminClient());
+    const sequence = await nextMemberCodeSequence(databases);
+    const code = formatMemberCode({
+      createdAt: new Date(),
+      role: data.role,
+      gender: data.gender,
+      sequence,
+    });
+    return { code };
+  });
+
+/** Admin-only batch lookup of member codes/gender for a list of user ids. */
+export const adminGetUserCodes = createServerFn({ method: "POST" })
+  .inputValidator((input: { jwt: string; userIds: string[] }) => ({
+    jwt: String(input?.jwt ?? "").trim(),
+    userIds: Array.isArray(input?.userIds)
+      ? input.userIds.map((id) => String(id)).filter(Boolean)
+      : [],
+  }))
+  .handler(
+    async ({
+      data,
+    }): Promise<Array<{ userId: string; memberCode: string | null; gender: string | null }>> => {
+      await assertAdmin(data.jwt);
+      if (data.userIds.length === 0) return [];
+      const users = adminUsers();
+      const out: Array<{ userId: string; memberCode: string | null; gender: string | null }> = [];
+      // Appwrite caps "equal" query value lists — chunk to stay well under it.
+      const chunkSize = 100;
+      for (let i = 0; i < data.userIds.length; i += chunkSize) {
+        const chunk = data.userIds.slice(i, i + chunkSize);
+        const res = await users.list([Query.equal("$id", chunk), Query.limit(chunkSize)]);
+        for (const u of res.users) {
+          const prefs = (u.prefs ?? {}) as Record<string, unknown>;
+          out.push({
+            userId: u.$id,
+            memberCode: typeof prefs.memberCode === "string" ? prefs.memberCode : null,
+            gender: typeof prefs.gender === "string" ? prefs.gender : null,
+          });
+        }
+      }
+      return out;
+    },
+  );

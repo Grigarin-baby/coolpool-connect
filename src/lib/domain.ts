@@ -148,6 +148,9 @@ export interface DriverProfile {
   licenseNumber: string;
   city: string;
   ownerUserId?: string;
+  /** Human-readable account ID, e.g. "2606cphm0001". Null on accounts created before this existed. */
+  memberCode?: string | null;
+  gender?: string | null;
   /** Short host bio shown on trip cards */
   bio?: string | null;
   /** Profile photo URL shown on trip cards and the booking page */
