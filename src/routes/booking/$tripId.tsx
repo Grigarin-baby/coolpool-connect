@@ -23,11 +23,9 @@ import {
   listTravelerBookings,
 } from "@/data/appwrite-repository";
 import { account } from "@/integrations/appwrite/client";
-import {
-  createRazorpayOrder,
-  verifyRazorpayPayment,
-} from "@/integrations/razorpay/payment";
+import { createRazorpayOrder, verifyRazorpayPayment } from "@/integrations/razorpay/payment";
 import { formatCurrency } from "@/lib/pricing";
+import { normalizePhone } from "@/lib/identity-normalizers";
 import { getSegmentPrice } from "@/lib/segment-pricing";
 import { estimateSegmentTimes } from "@/lib/segment-times";
 import { buildSeatLayout } from "@/lib/seatLayout";
@@ -87,8 +85,7 @@ function ensureRazorpayLoaded(): Promise<boolean> {
 
 export const Route = createFileRoute("/booking/$tripId")({
   validateSearch: (search: Record<string, unknown>): BookingSearch => ({
-    fromStopIndex:
-      typeof search.fromStopIndex === "number" ? search.fromStopIndex : undefined,
+    fromStopIndex: typeof search.fromStopIndex === "number" ? search.fromStopIndex : undefined,
     toStopIndex: typeof search.toStopIndex === "number" ? search.toStopIndex : undefined,
     fromLabel: typeof search.fromLabel === "string" ? search.fromLabel : undefined,
     toLabel: typeof search.toLabel === "string" ? search.toLabel : undefined,
@@ -294,12 +291,7 @@ function BookingTripPage() {
   const segmentTimes = useMemo(() => {
     const trip = tripQuery.data;
     if (!trip) return null;
-    return estimateSegmentTimes(
-      trip,
-      sortedStops,
-      segment.fromStopIndex,
-      segment.toStopIndex,
-    );
+    return estimateSegmentTimes(trip, sortedStops, segment.fromStopIndex, segment.toStopIndex);
   }, [tripQuery.data, sortedStops, segment.fromStopIndex, segment.toStopIndex]);
 
   const buildBookingPayload = () => {
@@ -309,13 +301,15 @@ function BookingTripPage() {
 
     const trimmed = passengers.slice(0, codes.length).map((p) => ({
       name: p.name.trim(),
-      phone: p.phone.trim(),
+      // Accepts a plain 10-digit number or one with a "+91"/"91" country
+      // code prefix — either way it's normalized down to the local 10 digits.
+      phone: normalizePhone(p.phone),
       gender: p.gender,
     }));
     if (trimmed.some((p) => !p.name || !p.phone || !p.gender)) {
       throw new Error("Enter name, phone, and gender for every passenger.");
     }
-    if (trimmed.some((p) => p.phone.replace(/\D/g, "").length !== 10)) {
+    if (trimmed.some((p) => p.phone.length !== 10)) {
       throw new Error("Each mobile number must be exactly 10 digits.");
     }
 
@@ -382,13 +376,17 @@ function BookingTripPage() {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const Razorpay = (window as any).Razorpay;
       if (!ready || !Razorpay) {
-        toast.error("Payment gateway couldn't load. Check your internet (or disable ad-blockers) and try again.");
+        toast.error(
+          "Payment gateway couldn't load. Check your internet (or disable ad-blockers) and try again.",
+        );
         setPaymentPending(false);
         return;
       }
 
       const amountPaise = Math.round(totalAmount * 100);
-      const order = await createRazorpayOrder({ data: { amountPaise, receipt: `coolpool_${Date.now()}` } });
+      const order = await createRazorpayOrder({
+        data: { amountPaise, receipt: `coolpool_${Date.now()}` },
+      });
       const keyId = import.meta.env.VITE_RAZORPAY_KEY_ID as string;
 
       const rzp = new Razorpay({
@@ -698,27 +696,31 @@ function BookingTripPage() {
                 />
               </Card>
 
-              {trip.polyline && !!trip.fromLat && !!trip.fromLng && !!trip.toLat && !!trip.toLng && (
-                <Card className="p-4 sm:p-5 rounded-3xl border-border/60 shadow-soft bg-card/90 backdrop-blur-sm overflow-hidden">
-                  <h2 className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-3">
-                    Route preview
-                  </h2>
-                  <div className="rounded-2xl overflow-hidden">
-                    <RideRouteMap
-                      fromLat={trip.fromLat}
-                      fromLng={trip.fromLng}
-                      toLat={trip.toLat}
-                      toLng={trip.toLng}
-                      polyline={trip.polyline}
-                      isAirportDrop={
-                        (trip.toLocation || "").toLowerCase().includes("air") ||
-                        (trip.toLocation || "").toLowerCase().includes("flight") ||
-                        (trip.toLocation || "").toLowerCase().includes("terminal")
-                      }
-                    />
-                  </div>
-                </Card>
-              )}
+              {trip.polyline &&
+                !!trip.fromLat &&
+                !!trip.fromLng &&
+                !!trip.toLat &&
+                !!trip.toLng && (
+                  <Card className="p-4 sm:p-5 rounded-3xl border-border/60 shadow-soft bg-card/90 backdrop-blur-sm overflow-hidden">
+                    <h2 className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-3">
+                      Route preview
+                    </h2>
+                    <div className="rounded-2xl overflow-hidden">
+                      <RideRouteMap
+                        fromLat={trip.fromLat}
+                        fromLng={trip.fromLng}
+                        toLat={trip.toLat}
+                        toLng={trip.toLng}
+                        polyline={trip.polyline}
+                        isAirportDrop={
+                          (trip.toLocation || "").toLowerCase().includes("air") ||
+                          (trip.toLocation || "").toLowerCase().includes("flight") ||
+                          (trip.toLocation || "").toLowerCase().includes("terminal")
+                        }
+                      />
+                    </div>
+                  </Card>
+                )}
             </div>
 
             {/* Right column: details + payment + summary (sticky on desktop) */}
@@ -752,9 +754,12 @@ function BookingTripPage() {
                             onChange={(e) => {
                               const on = e.target.checked;
                               // Clear the prefilled booker details so the friend's go in.
-                              updatePassenger(idx, on
-                                ? { forSomeoneElse: true, name: "", phone: "", gender: "" }
-                                : { forSomeoneElse: false });
+                              updatePassenger(
+                                idx,
+                                on
+                                  ? { forSomeoneElse: true, name: "", phone: "", gender: "" }
+                                  : { forSomeoneElse: false },
+                              );
                             }}
                             className="h-4 w-4 rounded border-border accent-primary"
                           />
@@ -841,7 +846,8 @@ function BookingTripPage() {
               <div className="pt-3 border-t border-border/60 space-y-2">
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">
-                    {selected.size} seat{selected.size === 1 ? "" : "s"} × {formatCurrency(pricePerSeat)}
+                    {selected.size} seat{selected.size === 1 ? "" : "s"} ×{" "}
+                    {formatCurrency(pricePerSeat)}
                   </span>
                   <span className="font-semibold">
                     {formatCurrency(pricePerSeat * selected.size)}
