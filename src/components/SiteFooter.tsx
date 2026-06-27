@@ -72,7 +72,10 @@ export function SiteFooter() {
           </div>
         </div>
         <div className="mt-10 pt-6 border-t border-border/60 flex flex-col md:flex-row items-center justify-center md:justify-between gap-3 md:gap-4 text-xs text-muted-foreground text-center md:text-start">
-          <p>© {new Date().getFullYear()} Coolpool. All rights reserved.</p>
+          <p>
+            © {new Date().getFullYear()} Coolpool. All rights reserved by KK Exports, Illuminate
+            Infinity INDIA.
+          </p>
           <p className="max-w-xs md:max-w-none">
             Built for travelers and hosts who care about the journey.
           </p>
