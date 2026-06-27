@@ -24,6 +24,13 @@ services:
         - VITE_APPWRITE_COLLECTION_BANK_ACCOUNTS
         - VITE_APPWRITE_COLLECTION_PAYOUT_REQUESTS
         - VITE_APPWRITE_COLLECTION_REVIEWS
+    # Build args above only inline VITE_* vars into the client bundle.
+    # Server-only vars (APPWRITE_API_KEY, MSG91_*, POWERSTEXT_*,
+    # RAZORPAY_KEY_SECRET, SITE_LOCKED, etc.) need to reach the running
+    # container's process.env too, or every createServerFn that reads them
+    # silently fails — env_file does that at container start.
+    env_file:
+      - .env
     container_name: coolpool-frontend
     restart: unless-stopped
     networks:
