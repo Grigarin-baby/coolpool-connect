@@ -11,7 +11,8 @@ import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { GoogleLoginButton } from "@/components/GoogleLoginButton";
-import { PhoneOtpLogin } from "@/components/PhoneOtpLogin";
+import { OtpDigitsField } from "@/components/OtpDigitsField";
+import { useResendCooldown } from "@/hooks/useResendCooldown";
 
 export const Route = createFileRoute("/auth")({
   head: () => ({
@@ -117,6 +118,8 @@ function AuthPage() {
     verifySignupOtp,
     sendPasswordResetOtp,
     resetPasswordWithOtp,
+    sendLoginOtp,
+    verifyLoginOtp,
   } = useAuth();
   const [busy, setBusy] = useState(false);
   const [showPhoneStep, setShowPhoneStep] = useState(false);
@@ -128,22 +131,29 @@ function AuthPage() {
   const [siNumber, setSiNumber] = useState("");
   const [signInPassword, setSignInPassword] = useState("");
 
+  const [loginOtpStep, setLoginOtpStep] = useState<"phone" | "otp">("phone");
+  const [loginOtpNumber, setLoginOtpNumber] = useState("");
+  const [loginOtpCode, setLoginOtpCode] = useState("");
+  const loginOtpCooldown = useResendCooldown();
+
   const [name, setName] = useState("");
   const [suNumber, setSuNumber] = useState("");
   const [signUpPassword, setSignUpPassword] = useState("");
   const [suGender, setSuGender] = useState<"male" | "female" | "">("");
   const [suOtpStep, setSuOtpStep] = useState<"form" | "otp">("form");
   const [suOtpCode, setSuOtpCode] = useState("");
+  const signupOtpCooldown = useResendCooldown();
 
   const [adminEmail, setAdminEmail] = useState("");
   const [adminPassword, setAdminPassword] = useState("");
 
   const [forgotMode, setForgotMode] = useState(false);
-  const [forgotStep, setForgotStep] = useState<"phone" | "reset">("phone");
+  const [forgotStep, setForgotStep] = useState<"phone" | "otp" | "newpin">("phone");
   const [forgotNumber, setForgotNumber] = useState("");
   const [forgotOtp, setForgotOtp] = useState("");
   const [forgotNewPin, setForgotNewPin] = useState("");
   const [forgotConfirmPin, setForgotConfirmPin] = useState("");
+  const forgotOtpCooldown = useResendCooldown();
 
   useEffect(() => {
     if (loading || !user) return;
@@ -239,6 +249,7 @@ function AuthPage() {
       // Prove phone ownership with an SMS OTP before creating the account.
       await sendSignupOtp(toE164(suNumber));
       setSuOtpStep("otp");
+      signupOtpCooldown.start();
       toast.success(`OTP sent to ${toE164(suNumber)}`);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not send the OTP.");
@@ -247,12 +258,22 @@ function AuthPage() {
     }
   };
 
-  const handleVerifySignUpOtp = async (e: FormEvent) => {
-    e.preventDefault();
-    if (suOtpCode.length !== 6) {
-      toast.error("Enter the 6-digit code.");
-      return;
+  const handleResendSignUpOtp = async () => {
+    setBusy(true);
+    try {
+      await sendSignupOtp(toE164(suNumber));
+      signupOtpCooldown.start();
+      toast.success("OTP resent.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not resend the OTP.");
+    } finally {
+      setBusy(false);
     }
+  };
+
+  const handleVerifySignUpOtp = async (e?: FormEvent) => {
+    e?.preventDefault();
+    if (suOtpCode.length !== 4 || busy) return;
     setBusy(true);
     try {
       await verifySignupOtp(toE164(suNumber), suOtpCode);
@@ -267,7 +288,7 @@ function AuthPage() {
       setSuOtpStep("form");
       setSuOtpCode("");
       // Phone was already captured during signup and saved to prefs — the
-      // useEffect picks it up and auto-onboards the host. No extra step.
+      // useEffect below redirects automatically once the session is live.
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Invalid OTP.");
       setSuOtpCode("");
@@ -275,6 +296,67 @@ function AuthPage() {
       setBusy(false);
     }
   };
+
+  // Auto-verify the instant the 4th digit is typed — no extra tap needed.
+  useEffect(() => {
+    if (suOtpStep !== "otp" || suOtpCode.length !== 4 || busy) return;
+    void handleVerifySignUpOtp();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [suOtpCode, suOtpStep]);
+
+  const handleSendLoginOtp = async (e?: FormEvent) => {
+    e?.preventDefault();
+    if (loginOtpNumber.replace(/[^\d]/g, "").length < 6) {
+      toast.error("Enter a valid phone number.");
+      return;
+    }
+    setBusy(true);
+    try {
+      await sendLoginOtp(toE164(loginOtpNumber));
+      setLoginOtpStep("otp");
+      loginOtpCooldown.start();
+      toast.success(`OTP sent to ${toE164(loginOtpNumber)}`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not send the OTP.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleResendLoginOtp = async () => {
+    setBusy(true);
+    try {
+      await sendLoginOtp(toE164(loginOtpNumber));
+      loginOtpCooldown.start();
+      toast.success("OTP resent.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not resend the OTP.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleVerifyLoginOtp = async () => {
+    if (loginOtpCode.length !== 4 || busy) return;
+    setBusy(true);
+    try {
+      await verifyLoginOtp(toE164(loginOtpNumber), loginOtpCode);
+      toast.success("Logged in.");
+      // The useEffect watching `user`/`roles` redirects automatically once
+      // the session is live — no further action needed here.
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Invalid OTP.");
+      setLoginOtpCode("");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!otpMode || loginOtpStep !== "otp" || loginOtpCode.length !== 4 || busy) return;
+    void handleVerifyLoginOtp();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loginOtpCode, loginOtpStep, otpMode]);
 
   const handleAdminSignIn = async (e: FormEvent) => {
     e.preventDefault();
@@ -319,7 +401,8 @@ function AuthPage() {
     setBusy(true);
     try {
       await sendPasswordResetOtp(toE164(forgotNumber));
-      setForgotStep("reset");
+      setForgotStep("otp");
+      forgotOtpCooldown.start();
       toast.success(`OTP sent to ${toE164(forgotNumber)}`);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not send the OTP.");
@@ -328,10 +411,31 @@ function AuthPage() {
     }
   };
 
+  const handleResendForgotOtp = async () => {
+    setBusy(true);
+    try {
+      await sendPasswordResetOtp(toE164(forgotNumber));
+      forgotOtpCooldown.start();
+      toast.success("OTP resent.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not resend the OTP.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // The 4-digit code itself isn't re-checked until the final "Update PIN"
+  // submit (consuming it earlier would burn it before the new PIN is set) —
+  // but the UI advances the instant it's typed, no separate "verify" tap.
+  useEffect(() => {
+    if (forgotStep !== "otp" || forgotOtp.length !== 4) return;
+    setForgotStep("newpin");
+  }, [forgotOtp, forgotStep]);
+
   const handleResetPasswordWithOtp = async (e: FormEvent) => {
     e.preventDefault();
-    if (forgotOtp.length !== 6) {
-      toast.error("Enter the 6-digit code.");
+    if (forgotOtp.length !== 4) {
+      toast.error("Enter the 4-digit code.");
       return;
     }
     if (!/^\d{4}$/.test(forgotNewPin)) {
@@ -537,28 +641,47 @@ function AuthPage() {
                             {busy ? <Loader2 className="h-5 w-5 animate-spin" /> : "Send OTP"}
                           </Button>
                         </form>
-                      ) : (
-                        <form onSubmit={handleResetPasswordWithOtp} className="space-y-4">
+                      ) : forgotStep === "otp" ? (
+                        <div className="space-y-4">
                           <div className="space-y-2 text-center">
-                            <Label className="text-base font-medium">Enter the 6-digit code</Label>
+                            <Label className="text-base font-medium">Enter the 4-digit code</Label>
                             <p className="text-sm text-muted-foreground">
                               Sent to <span className="font-semibold">{toE164(forgotNumber)}</span>
                             </p>
                             <div className="flex justify-center pt-1">
-                              <InputOTP
-                                maxLength={6}
+                              <OtpDigitsField
+                                id="forgot-otp"
                                 value={forgotOtp}
                                 onChange={setForgotOtp}
-                                containerClassName="justify-center"
-                              >
-                                <InputOTPGroup>
-                                  {[0, 1, 2, 3, 4, 5].map((i) => (
-                                    <InputOTPSlot key={i} index={i} className="h-12 w-9 text-lg" />
-                                  ))}
-                                </InputOTPGroup>
-                              </InputOTP>
+                                autoFocus
+                                disabled={busy}
+                              />
                             </div>
                           </div>
+                          <button
+                            type="button"
+                            className="w-full text-center text-xs font-medium text-primary hover:underline disabled:opacity-50 disabled:no-underline"
+                            disabled={busy || !forgotOtpCooldown.canResend}
+                            onClick={handleResendForgotOtp}
+                          >
+                            {forgotOtpCooldown.canResend
+                              ? "Resend OTP"
+                              : `Resend OTP in ${forgotOtpCooldown.remaining}s`}
+                          </button>
+                          <button
+                            type="button"
+                            className="w-full text-center text-xs font-medium text-muted-foreground hover:underline"
+                            disabled={busy}
+                            onClick={() => {
+                              setForgotStep("phone");
+                              setForgotOtp("");
+                            }}
+                          >
+                            Change number
+                          </button>
+                        </div>
+                      ) : (
+                        <form onSubmit={handleResetPasswordWithOtp} className="space-y-4">
                           <div className="space-y-2">
                             <Label htmlFor="forgot-new-pin" className="text-base font-medium">
                               New 4-digit PIN
@@ -616,14 +739,73 @@ function AuthPage() {
                     </div>
                   ) : otpMode ? (
                     <div className="animate-in fade-in duration-300">
-                      <PhoneOtpLogin
-                        idPrefix="auth"
-                        submitClassName="bg-gradient-primary text-primary-foreground shadow-glow"
-                      />
+                      {loginOtpStep === "phone" ? (
+                        <form onSubmit={handleSendLoginOtp} className="space-y-2">
+                          <PhoneField
+                            id="login-otp-phone"
+                            number={loginOtpNumber}
+                            onNumberChange={setLoginOtpNumber}
+                          />
+                          <Button
+                            type="submit"
+                            variant="hero"
+                            size="lg"
+                            style={{ color: "#fff" }}
+                            className="w-full rounded-3xl h-11 font-semibold shadow-glow mt-1"
+                            disabled={busy}
+                          >
+                            {busy ? <Loader2 className="h-5 w-5 animate-spin" /> : "Send OTP"}
+                          </Button>
+                        </form>
+                      ) : (
+                        <div className="space-y-4">
+                          <div className="space-y-2 text-center">
+                            <Label className="text-base font-medium">Enter the 4-digit code</Label>
+                            <p className="text-sm text-muted-foreground">
+                              Sent to{" "}
+                              <span className="font-semibold">{toE164(loginOtpNumber)}</span>
+                            </p>
+                            <div className="flex justify-center pt-1">
+                              <OtpDigitsField
+                                id="login-otp-code"
+                                value={loginOtpCode}
+                                onChange={setLoginOtpCode}
+                                autoFocus
+                                disabled={busy}
+                              />
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            className="w-full text-center text-xs font-medium text-primary hover:underline disabled:opacity-50 disabled:no-underline"
+                            disabled={busy || !loginOtpCooldown.canResend}
+                            onClick={handleResendLoginOtp}
+                          >
+                            {loginOtpCooldown.canResend
+                              ? "Resend OTP"
+                              : `Resend OTP in ${loginOtpCooldown.remaining}s`}
+                          </button>
+                          <button
+                            type="button"
+                            className="w-full text-center text-xs font-medium text-muted-foreground hover:underline"
+                            disabled={busy}
+                            onClick={() => {
+                              setLoginOtpStep("phone");
+                              setLoginOtpCode("");
+                            }}
+                          >
+                            Change number
+                          </button>
+                        </div>
+                      )}
                       <button
                         type="button"
                         className="mt-4 w-full text-center text-sm font-medium text-primary hover:underline"
-                        onClick={() => setOtpMode(false)}
+                        onClick={() => {
+                          setOtpMode(false);
+                          setLoginOtpStep("phone");
+                          setLoginOtpCode("");
+                        }}
                       >
                         Log in with password
                       </button>
@@ -676,41 +858,37 @@ function AuthPage() {
 
                 <TabsContent value="signup" className="mt-6 outline-none">
                   {suOtpStep === "otp" ? (
-                    <form onSubmit={handleVerifySignUpOtp} className="space-y-4">
+                    <div className="space-y-4">
                       <div className="space-y-2 text-center">
-                        <Label className="text-base font-medium">Enter the 6-digit code</Label>
+                        <Label className="text-base font-medium">Enter the 4-digit code</Label>
                         <p className="text-sm text-muted-foreground">
                           Sent to <span className="font-semibold">{toE164(suNumber)}</span>
                         </p>
                         <div className="flex justify-center pt-1">
-                          <InputOTP
-                            maxLength={6}
+                          <OtpDigitsField
+                            id="su-otp-code"
                             value={suOtpCode}
                             onChange={setSuOtpCode}
-                            containerClassName="justify-center"
-                          >
-                            <InputOTPGroup>
-                              {[0, 1, 2, 3, 4, 5].map((i) => (
-                                <InputOTPSlot key={i} index={i} className="h-12 w-9 text-lg" />
-                              ))}
-                            </InputOTPGroup>
-                          </InputOTP>
+                            autoFocus
+                            disabled={busy}
+                          />
                         </div>
                       </div>
-                      <Button
-                        type="submit"
-                        variant="hero"
-                        size="lg"
-                        style={{ color: "#fff" }}
-                        className="w-full rounded-3xl h-11 font-semibold shadow-glow mt-1"
-                        disabled={busy}
+                      {busy && (
+                        <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+                          <Loader2 className="h-4 w-4 animate-spin" /> Verifying…
+                        </div>
+                      )}
+                      <button
+                        type="button"
+                        className="w-full text-center text-xs font-medium text-primary hover:underline disabled:opacity-50 disabled:no-underline"
+                        disabled={busy || !signupOtpCooldown.canResend}
+                        onClick={handleResendSignUpOtp}
                       >
-                        {busy ? (
-                          <Loader2 className="h-5 w-5 animate-spin" />
-                        ) : (
-                          "Verify & create account"
-                        )}
-                      </Button>
+                        {signupOtpCooldown.canResend
+                          ? "Resend OTP"
+                          : `Resend OTP in ${signupOtpCooldown.remaining}s`}
+                      </button>
                       <button
                         type="button"
                         className="w-full text-center text-xs font-medium text-muted-foreground hover:underline"
@@ -722,7 +900,7 @@ function AuthPage() {
                       >
                         Change number
                       </button>
-                    </form>
+                    </div>
                   ) : (
                     <form onSubmit={handleSignUp} className="space-y-2">
                       <div className="space-y-2">

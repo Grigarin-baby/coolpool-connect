@@ -1,15 +1,20 @@
 // SERVER-ONLY. Phone OTP via PowersText (bulk.powerstext.in), a raw SMS
-// gateway — unlike MSG91, it does not generate, store, or verify codes for
-// us. We own the OTP lifecycle: generate a code, store it (with expiry +
-// attempt count) in an Appwrite collection, send it via PowersText's HTTP
-// API, and verify it ourselves when the user types it back in.
+// gateway that does not generate, store, or verify codes for us. We own the
+// OTP lifecycle: generate a code, store it (with expiry + attempt count) in
+// an Appwrite collection, send it via PowersText's HTTP API, and verify it
+// ourselves when the user types it back in. This is the only OTP provider —
+// it replaced an earlier MSG91-based login flow.
 //
-// Used for two flows where phone ownership must be proven before a
-// sensitive action: (1) signup verification, (2) password reset.
+// Used for three flows where phone ownership must be proven before a
+// sensitive action: (1) signup verification, (2) password reset, (3)
+// passwordless login (finds or creates the Appwrite account and bridges a
+// session, the same way the old MSG91 login flow did).
 import { createServerFn } from "@tanstack/react-start";
-import { Client, Databases, Users, Query } from "node-appwrite";
+import { Client, Databases, Users, Query, ID } from "node-appwrite";
+import { formatMemberCode } from "@/lib/memberCode";
+import { nextMemberCodeSequence } from "@/integrations/appwrite/member-code-counter.server";
 
-export type OtpPurpose = "signup" | "password_reset";
+export type OtpPurpose = "signup" | "password_reset" | "login";
 
 function readEnv(name: string): string {
   return (typeof process !== "undefined" ? (process.env?.[name] ?? "") : "").trim();
@@ -26,7 +31,7 @@ const POWERSTEXT_BASE_URL =
 const POWERSTEXT_MESSAGE_TEMPLATE =
   readEnv("POWERSTEXT_MESSAGE_TEMPLATE") || "Dear Customer Your Login otp is {OTP} DE";
 
-const OTP_LENGTH = 6;
+const OTP_LENGTH = 4;
 const OTP_EXPIRY_MINUTES = 5;
 const MAX_ATTEMPTS = 5;
 
@@ -109,8 +114,12 @@ async function consumeOtp(
   await databases.deleteDocument(db, otpCol, docId).catch(() => {});
 }
 
+function isValidPurpose(purpose: unknown): purpose is OtpPurpose {
+  return purpose === "signup" || purpose === "password_reset" || purpose === "login";
+}
+
 /**
- * Sends a 6-digit SMS OTP to an E.164 phone number via PowersText.
+ * Sends a 4-digit SMS OTP to an E.164 phone number via PowersText.
  * Input: { data: { phone, purpose } }. Output: { sent: true }.
  */
 export const sendPowerstextOtp = createServerFn({ method: "POST" })
@@ -120,7 +129,7 @@ export const sendPowerstextOtp = createServerFn({ method: "POST" })
     if (!PHONE_E164.test(phone)) {
       throw new Error("Enter a valid phone number.");
     }
-    if (purpose !== "signup" && purpose !== "password_reset") {
+    if (!isValidPurpose(purpose)) {
       throw new Error("Invalid OTP request.");
     }
     return { phone, purpose };
@@ -185,7 +194,7 @@ export const verifyPowerstextOtp = createServerFn({ method: "POST" })
     if (code.length !== OTP_LENGTH) {
       throw new Error(`Enter the ${OTP_LENGTH}-digit code from the SMS.`);
     }
-    if (purpose !== "signup" && purpose !== "password_reset") {
+    if (!isValidPurpose(purpose)) {
       throw new Error("Invalid OTP request.");
     }
     return { phone, code, purpose };
@@ -236,4 +245,59 @@ export const resetPasswordWithPowerstextOtp = createServerFn({ method: "POST" })
     }
     await users.updatePassword(userId, data.secret);
     return { ok: true };
+  });
+
+/**
+ * Verifies a "login" OTP, then finds or creates the Appwrite account for
+ * this phone number and mints a session token — passwordless login (and
+ * implicit signup for a brand-new phone). The client swaps the returned
+ * userId/secret for a real session via account.createSession().
+ * Input: { data: { phone, code } }. Output: { userId, secret }.
+ */
+export const loginWithPowerstextOtp = createServerFn({ method: "POST" })
+  .inputValidator((input: { phone: string; code: string }) => {
+    const phone = String(input?.phone || "").trim();
+    const code = String(input?.code || "").replace(/\D/g, "");
+    if (!PHONE_E164.test(phone)) {
+      throw new Error("Invalid phone number.");
+    }
+    if (code.length !== OTP_LENGTH) {
+      throw new Error(`Enter the ${OTP_LENGTH}-digit code from the SMS.`);
+    }
+    return { phone, code };
+  })
+  .handler(async ({ data }): Promise<{ userId: string; secret: string }> => {
+    const { db, otpCol } = appwriteEnv();
+    const databases = new Databases(adminClient());
+    const docId = otpDocId(data.phone, "login");
+    await consumeOtp(databases, db, otpCol, docId, data.code);
+
+    const users = new Users(adminClient());
+    let userId: string | null = null;
+    try {
+      const existing = await users.list([Query.equal("phone", data.phone), Query.limit(1)]);
+      if (existing.total > 0) userId = existing.users[0].$id;
+    } catch {
+      // listing may fail on some Appwrite configs; fall through to create.
+    }
+
+    if (!userId) {
+      const created = await users.create(ID.unique(), undefined, data.phone);
+      userId = created.$id;
+      try {
+        const sequence = await nextMemberCodeSequence(databases);
+        const memberCode = formatMemberCode({
+          createdAt: new Date(),
+          role: "guest",
+          gender: undefined,
+          sequence,
+        });
+        await users.updatePrefs(userId, { roles: ["user"], memberCode });
+      } catch {
+        // prefs/member-code are best-effort; useAuth falls back to "user" anyway.
+      }
+    }
+
+    const token = await users.createToken(userId);
+    return { userId: token.userId, secret: token.secret };
   });

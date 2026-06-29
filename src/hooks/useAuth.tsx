@@ -1,18 +1,9 @@
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useRef,
-  useState,
-  type ReactNode,
-} from "react";
+import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
 import { ID, OAuthProvider, type Models } from "appwrite";
 import { account } from "@/integrations/appwrite/client";
 import { listUserRoles, assignRole, upsertDriverProfile } from "@/data/appwrite-repository";
 import type { AppRole } from "@/lib/domain";
 import { parseTravelerResumeRedirectParam } from "@/lib/travelerResumeRedirect";
-import { sendMsg91Otp, verifyMsg91Otp } from "@/integrations/msg91/otp";
 import {
   lookupLoginEmail,
   deleteOwnAccount,
@@ -22,6 +13,7 @@ import {
   sendPowerstextOtp,
   verifyPowerstextOtp,
   resetPasswordWithPowerstextOtp,
+  loginWithPowerstextOtp,
 } from "@/integrations/powerstext/otp";
 
 export interface MemberGoogleOAuthOptions {
@@ -52,10 +44,10 @@ interface AuthContextValue {
   ) => Promise<void>;
   /** Derives the Appwrite secret from a phone + PIN (used for PIN reset). */
   deriveAccountSecret: (phoneE164: string, password: string) => Promise<string>;
-  /** Sends an SMS OTP via MSG91 to an E.164 phone number. */
-  sendPhoneOtp: (phoneE164: string) => Promise<void>;
-  /** Verifies the OTP (for the last number sent to) and signs the user into Appwrite. */
-  verifyPhoneOtp: (code: string) => Promise<void>;
+  /** Sends a passwordless-login SMS OTP (via PowersText) to an E.164 phone number. */
+  sendLoginOtp: (phoneE164: string) => Promise<void>;
+  /** Verifies the login OTP, finding/creating the account, and signs the user into Appwrite. */
+  verifyLoginOtp: (phoneE164: string, code: string) => Promise<void>;
   /** Starts Appwrite Google OAuth (redirects away). Configure Google in Appwrite Auth settings. */
   signInWithGoogle: (opts?: MemberGoogleOAuthOptions) => void;
   signOut: () => Promise<void>;
@@ -102,8 +94,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AppwriteUser | null>(null);
   const [roles, setRoles] = useState<AppRole[]>([]);
   const [loading, setLoading] = useState(true);
-  /** The E.164 number the current OTP was sent to (MSG91 verify needs it again). */
-  const otpPhone = useRef<string | null>(null);
 
   const loadRoles = async (currentUser: AppwriteUser) => {
     try {
@@ -256,17 +246,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await refreshSession();
   };
 
-  const sendPhoneOtp = async (phoneE164: string) => {
-    await sendMsg91Otp({ data: { phone: phoneE164 } });
-    otpPhone.current = phoneE164;
+  const sendLoginOtp = async (phoneE164: string) => {
+    await sendPowerstextOtp({ data: { phone: phoneE164, purpose: "login" } });
   };
 
-  const verifyPhoneOtp = async (code: string) => {
-    const phone = otpPhone.current;
-    if (!phone) {
-      throw new Error("Request an OTP first.");
-    }
-    const { userId, secret } = await verifyMsg91Otp({ data: { phone, code } });
+  const verifyLoginOtp = async (phoneE164: string, code: string) => {
+    const { userId, secret } = await loginWithPowerstextOtp({ data: { phone: phoneE164, code } });
     // Clear any leftover anonymous/previous session before swapping in the new one.
     try {
       await account.deleteSession("current");
@@ -274,7 +259,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       /* no existing session */
     }
     await account.createSession(userId, secret);
-    otpPhone.current = null;
     await refreshSession();
   };
 
@@ -392,8 +376,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         signUp,
         signInWithPhonePassword,
         signUpWithPhonePassword,
-        sendPhoneOtp,
-        verifyPhoneOtp,
+        sendLoginOtp,
+        verifyLoginOtp,
         signInWithGoogle,
         signOut,
         refreshRoles,
