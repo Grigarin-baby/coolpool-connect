@@ -9,15 +9,26 @@ export interface SeatSlot {
   displayLabel: string;
 }
 
-const MIN_CAPACITY = 2;
-const MAX_CAPACITY = 12;
+/**
+ * The only two vehicle shapes the app supports. This is a labeling choice,
+ * not a literal seat count: "5 Seater" = 5 people total (driver + 4
+ * passenger seats, standard sedan meaning). "7 Seater" = 7 *sellable*
+ * passenger seats (driver doesn't count as a seat to sell), so a 7-seater
+ * actually carries 8 people. Must match SeatMap.tsx's COORDINATES table.
+ */
+export type VehicleSeatCapacity = 5 | 7;
 
 /**
- * Build a car-shaped grid: row 0 = driver + copilot; further rows = back bench (3 seats per row).
- * Total slots equals seatCapacity (vehicle seat count).
+ * Build a car-shaped grid. Two fixed shapes only (sedan / SUV), matching the
+ * two seat-capacity options offered when adding a vehicle and the two sets of
+ * hardcoded seat-position coordinates in SeatMap.tsx:
+ *   5-seater (sedan): A1 + Drv, then a 3-seat back row (B1, B2, B3).
+ *   7-seater (SUV):   A1 + Drv, a 3-seat middle row (B1, B2, B3), then a
+ *                     3-seat back row (C1, C2, C3) — B2 and C2 are the true
+ *                     middle seats of each row (8 people total, 7 sellable).
  */
 export function buildSeatLayout(seatCapacity: number): SeatSlot[] {
-  const cap = Math.min(MAX_CAPACITY, Math.max(MIN_CAPACITY, Math.floor(seatCapacity)));
+  const cap: VehicleSeatCapacity = seatCapacity >= 6 ? 7 : 5;
   const slots: SeatSlot[] = [];
 
   const push = (row: number, col: number, kind: SeatKind, label: string) => {
@@ -30,31 +41,38 @@ export function buildSeatLayout(seatCapacity: number): SeatSlot[] {
     });
   };
 
-  // Seat code = row letter (A, B, C…) + seat number within that row (1, 2, 3…).
-  const rowLetter = (r: number) => String.fromCharCode(65 + r);
-
-  // Row 0: Front Passenger (Left) + Driver (Right)
-  // Front Passenger on Left (Col 0)
-  if (cap > 1) {
-    push(0, 0, "passenger", `${rowLetter(0)}1`);
-  }
-
-  // Driver on Right (Col 1)
+  // Row 0: Front Passenger (Left) + Driver (Right) — same for both shapes.
+  push(0, 0, "passenger", "A1");
   push(0, 1, "driver", "Drv");
 
-  // Dynamic Row Logic based on vehicle size
-  let row = 1;
-  const isLargeVehicle = cap >= 6;
-
-  while (slots.length < cap) {
-    const seatsInThisRow = isLargeVehicle ? 2 : 3;
-    for (let c = 0; c < seatsInThisRow && slots.length < cap; c++) {
-      push(row, c, "passenger", `${rowLetter(row)}${c + 1}`);
-    }
-    row++;
+  if (cap === 5) {
+    push(1, 0, "passenger", "B1");
+    push(1, 1, "passenger", "B2");
+    push(1, 2, "passenger", "B3");
+  } else {
+    push(1, 0, "passenger", "B1");
+    push(1, 1, "passenger", "B2");
+    push(1, 2, "passenger", "B3");
+    push(2, 0, "passenger", "C1");
+    push(2, 1, "passenger", "C2");
+    push(2, 2, "passenger", "C3");
   }
 
   return slots;
+}
+
+/**
+ * Seats offered by default when a host first configures a trip: every
+ * passenger seat except the "optional" middle seats — B2 (center of the
+ * 5-seater's back row, or the 7-seater's middle row) and, on a 7-seater,
+ * C2 (center of the back row) — hosts opt back in by tapping those seats.
+ */
+export function defaultOfferedSeatCodes(seatCapacity: number): string[] {
+  return buildSeatLayout(seatCapacity)
+    .filter(
+      (slot) => slot.kind === "passenger" && slot.seatCode !== "R1-C1" && slot.seatCode !== "R2-C1",
+    )
+    .map((slot) => slot.seatCode);
 }
 
 /**

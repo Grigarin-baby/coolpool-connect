@@ -30,14 +30,15 @@ const COORDINATES: Record<string, { top: string; left: string }> = {
   "SEDAN-R1-C1": { top: "80%", left: "50%" }, // Back C
   "SEDAN-R1-C2": { top: "80%", left: "73%" }, // Back R
 
-  // SUV (6-7 Seats)
+  // SUV (8 seats: driver + 7 passenger seats — front 1, middle row 3, back row 3)
   "SUV-R0-C0": { top: "45.2%", left: "34%" },
   "SUV-R0-C1": { top: "45.2%", left: "66%" },
-  "SUV-R1-C0": { top: "64.8%", left: "34%" },
-  "SUV-R1-C1": { top: "64.8%", left: "66%" },
+  "SUV-R1-C0": { top: "64.8%", left: "30%" },
+  "SUV-R1-C1": { top: "64.8%", left: "50%" }, // middle-center — true middle seat
+  "SUV-R1-C2": { top: "64.8%", left: "70%" },
   "SUV-R2-C0": { top: "88.5%", left: "30%" },
-  "SUV-R2-C1": { top: "88.5%", left: "70%" },
-  "SUV-R2-C2": { top: "88.5%", left: "50%" },
+  "SUV-R2-C1": { top: "88.5%", left: "50%" }, // back-center — true middle seat
+  "SUV-R2-C2": { top: "88.5%", left: "70%" },
 };
 
 export function SeatMap({

@@ -6,6 +6,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type MouseEvent,
   type ReactNode,
 } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
@@ -51,6 +52,7 @@ import {
   Star,
   Filter,
   PlusCircle,
+  Share2,
 } from "lucide-react";
 import dayjs, { Dayjs } from "dayjs";
 import { Button as UiButton } from "@/components/ui/button";
@@ -73,6 +75,7 @@ import { formatCurrency } from "@/lib/pricing";
 import { getSegmentPrice } from "@/lib/segment-pricing";
 import { estimateSegmentTimes, type SegmentTimes } from "@/lib/segment-times";
 import { appwriteConfig } from "@/integrations/appwrite/client";
+import { shareTrip, getTripShareUrl } from "@/lib/share-trip";
 import { cn } from "@/lib/utils";
 import { SERVICE_CITY, BENGALURU_AIRPORTS } from "@/lib/config";
 
@@ -1131,6 +1134,7 @@ export function TripSearchForm({ variant, id }: { variant: "landing" | "page"; i
  * Wrap it in the caller's <Link> so each list keeps its own route/search params.
  */
 function TripResultRowBody({
+  tripId,
   fromLabel,
   toLabel,
   isSegment = false,
@@ -1147,6 +1151,7 @@ function TripResultRowBody({
   price,
   prefs,
 }: {
+  tripId: string;
   fromLabel: string;
   toLabel: string;
   isSegment?: boolean;
@@ -1164,8 +1169,32 @@ function TripResultRowBody({
   prefs?: RidePreferences;
 }) {
   const soldOut = seatsLeft <= 0;
+
+  const handleShare = async (e: MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const result = await shareTrip({ id: tripId, fromLocation: fromLabel, toLocation: toLabel });
+    const { toast } = await import("sonner");
+    if (result === "copied") {
+      toast.success("Trip link copied to clipboard!");
+    } else if (result === "failed") {
+      toast.info("Copy this link to share", {
+        description: getTripShareUrl(tripId),
+        duration: 8000,
+      });
+    }
+  };
+
   return (
-    <Card className="rounded-2xl border border-gray-100 bg-white shadow-sm hover:shadow-md hover:border-primary transition-all duration-200 p-4 sm:p-5">
+    <Card className="relative rounded-2xl border border-gray-100 bg-white shadow-sm hover:shadow-md hover:border-primary transition-all duration-200 p-4 sm:p-5">
+      <button
+        type="button"
+        onClick={handleShare}
+        aria-label="Share this ride"
+        className="absolute right-3 top-3 z-10 inline-flex h-8 w-8 items-center justify-center rounded-full bg-gray-50 text-gray-400 transition-colors hover:bg-primary/10 hover:text-primary"
+      >
+        <Share2 size={15} />
+      </button>
       {topSlot}
       <div className="flex items-stretch gap-4 sm:gap-5">
         {/* Times — left: green departure, red arrival */}
@@ -1469,6 +1498,7 @@ export function TripSearchResults({ variant }: { variant: "landing" | "page" }) 
                   className="block group"
                 >
                   <TripResultRowBody
+                    tripId={trip.id}
                     fromLabel={seg.fromStop.location}
                     toLabel={seg.toStop.location}
                     topSlot={
@@ -1552,6 +1582,7 @@ export function TripSearchResults({ variant }: { variant: "landing" | "page" }) 
                   className="block group"
                 >
                   <TripResultRowBody
+                    tripId={trip.id}
                     fromLabel={seg.fromStop.location}
                     toLabel={seg.toStop.location}
                     topSlot={
@@ -1642,6 +1673,7 @@ export function TripSearchResults({ variant }: { variant: "landing" | "page" }) 
                   className="block group"
                 >
                   <TripResultRowBody
+                    tripId={trip.id}
                     fromLabel={segment.fromLabel}
                     toLabel={segment.toLabel}
                     isSegment={!isFullRoute}

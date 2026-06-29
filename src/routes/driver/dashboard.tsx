@@ -70,6 +70,7 @@ import {
   Popconfirm,
   Select,
   Table,
+  Segmented,
 } from "antd";
 import type { UploadFile, UploadProps } from "antd";
 import { useAuth } from "@/hooks/useAuth";
@@ -128,6 +129,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { appwriteConfig, getUserAvatarUrl } from "@/integrations/appwrite/client";
 import { SERVICE_CITY, BENGALURU_AIRPORTS, SOUTH_INDIA_CITY_SUGGESTIONS } from "@/lib/config";
 import { SeatPicker, type SeatId } from "@/components/SeatPicker";
+import { defaultOfferedSeatCodes } from "@/lib/seatLayout";
 import { ReviewModal } from "@/components/ReviewModal";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import { getUserDisplayName } from "@/lib/user-display";
@@ -701,6 +703,7 @@ function DriverDashboardPage() {
   const directionsServiceRef = useRef<DirectionsServiceLike | null>(null);
   const seatsWatch = Form.useWatch("totalSeats", form);
   const totalPriceWatch = Form.useWatch("totalTripPrice", form);
+  const formVehicleIdWatch = Form.useWatch("vehicleId", form);
   // Persist the active module in the URL so a page refresh restores it.
   useEffect(() => {
     if (search.module !== activeModule) {
@@ -840,8 +843,17 @@ function DriverDashboardPage() {
     enabled: !!user,
   });
 
+  const formSeatCapacity: 5 | 7 =
+    vehicles.find((v) => v.id === formVehicleIdWatch)?.seatCapacity === 7 ? 7 : 5;
+
   const { mutate: saveVehicle, isPending: savingVehicle } = useMutation({
-    mutationFn: async (vals: { make: string; model: string; color: string; plate: string }) => {
+    mutationFn: async (vals: {
+      make: string;
+      model: string;
+      color: string;
+      plate: string;
+      seats: number;
+    }) => {
       if (!user) throw new Error("Not logged in");
 
       const duplicate = findDuplicateVehicle(
@@ -876,7 +888,7 @@ function DriverDashboardPage() {
         driverUserId: user.$id,
         modelName: `${vals.make} ${vals.model}`.trim(),
         plateNumber: vals.plate,
-        seatCapacity: 5,
+        seatCapacity: Number(vals.seats) === 7 ? 7 : 5,
         color: vals.color,
         carImages: carImageIds,
       };
@@ -3396,7 +3408,7 @@ function DriverDashboardPage() {
                             }}
                             initialValues={{
                               totalSeats: 3,
-                              seatConfig: ["R1-C0", "R1-C1", "R1-C2"] as SeatId[],
+                              seatConfig: defaultOfferedSeatCodes(5) as SeatId[],
                               driverId: user?.$id,
                             }}
                             requiredMark={false}
@@ -3541,7 +3553,13 @@ function DriverDashboardPage() {
                                       }
                                       const selectedVeh = vehicles.find((v) => v.id === val);
                                       if (selectedVeh) {
-                                        form.setFieldsValue({ totalSeats: selectedVeh.seatCapacity });
+                                        const seatConfig = defaultOfferedSeatCodes(
+                                          selectedVeh.seatCapacity,
+                                        ) as SeatId[];
+                                        form.setFieldsValue({
+                                          seatConfig,
+                                          totalSeats: seatConfig.length,
+                                        });
                                       }
                                     }}
                                   />
@@ -3581,6 +3599,7 @@ function DriverDashboardPage() {
                                   className="mb-0"
                                 >
                                   <SeatPicker
+                                    seatCapacity={formSeatCapacity}
                                     onChange={(seats) => {
                                       form.setFieldsValue({ totalSeats: seats.length });
                                     }}
@@ -4664,7 +4683,7 @@ function DriverDashboardPage() {
                     <Form
                       layout="vertical"
                       initialValues={{
-                        seatCapacity: 4,
+                        seatCapacity: 5,
                         phone:
                           (user?.prefs as Record<string, unknown> | undefined)?.phone ??
                           (user as { phone?: string } | null)?.phone ??
@@ -4727,7 +4746,7 @@ function DriverDashboardPage() {
                             driverUserId: user.$id,
                             modelName: `${v.make} ${v.model}`.trim(),
                             plateNumber: v.plate,
-                            seatCapacity: 5,
+                            seatCapacity: Number(v.seatCapacity) === 7 ? 7 : 5,
                             color: v.color,
                             registrationDoc: regDocId,
                             insuranceDoc: insDocId,
@@ -4792,6 +4811,21 @@ function DriverDashboardPage() {
                             size="large"
                             className="rounded-2xl font-mono"
                             placeholder="TN 01 AB 1234"
+                          />
+                        </Form.Item>
+                        <Form.Item
+                          name="seatCapacity"
+                          label="Seats"
+                          rules={[{ required: true, message: "Please choose a seat count" }]}
+                          className="md:col-span-2"
+                        >
+                          <Segmented
+                            size="large"
+                            block
+                            options={[
+                              { label: "5 Seater", value: 5 },
+                              { label: "7 Seater", value: 7 },
+                            ]}
                           />
                         </Form.Item>
                       </div>
@@ -5643,7 +5677,9 @@ function DriverDashboardPage() {
           form={vehicleForm}
           layout="vertical"
           onFinish={(vals) =>
-            saveVehicle(vals as { make: string; model: string; color: string; plate: string })
+            saveVehicle(
+              vals as { make: string; model: string; color: string; plate: string; seats: number },
+            )
           }
         >
           <div className="grid grid-cols-2 gap-4">
@@ -5677,6 +5713,21 @@ function DriverDashboardPage() {
               size="large"
               placeholder="TN 01 AB 1234"
               className="rounded-3xl h-12 font-mono tracking-widest"
+            />
+          </Form.Item>
+          <Form.Item
+            name="seats"
+            label={<span className="font-semibold text-gray-700">Seats</span>}
+            rules={[{ required: true, message: "Please choose a seat count" }]}
+            initialValue={5}
+          >
+            <Segmented
+              size="large"
+              block
+              options={[
+                { label: "5 Seater", value: 5 },
+                { label: "7 Seater", value: 7 },
+              ]}
             />
           </Form.Item>
           <Form.Item
@@ -5870,7 +5921,7 @@ function DriverDashboardPage() {
               }}
               initialValues={{
                 totalSeats: 3,
-                seatConfig: ["R1-C0", "R1-C1", "R1-C2"] as SeatId[],
+                seatConfig: defaultOfferedSeatCodes(5) as SeatId[],
                 driverId: user?.$id,
               }}
               requiredMark={false}
@@ -6002,7 +6053,10 @@ function DriverDashboardPage() {
                           }
                           const selectedVeh = vehicles.find((v) => v.id === val);
                           if (selectedVeh) {
-                            form.setFieldsValue({ totalSeats: selectedVeh.seatCapacity });
+                            const seatConfig = defaultOfferedSeatCodes(
+                              selectedVeh.seatCapacity,
+                            ) as SeatId[];
+                            form.setFieldsValue({ seatConfig, totalSeats: seatConfig.length });
                           }
                         }}
                       />
@@ -6040,6 +6094,7 @@ function DriverDashboardPage() {
                     rules={[{ required: true, message: "Select seats" }]}
                   >
                     <SeatPicker
+                      seatCapacity={formSeatCapacity}
                       onChange={(seats) => form.setFieldsValue({ totalSeats: seats.length })}
                     />
                   </Form.Item>

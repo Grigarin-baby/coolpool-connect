@@ -1,9 +1,14 @@
 import { useEffect, useRef } from "react";
 import { SeatPicker, type SeatId } from "@/components/SeatPicker";
-
-const ALL_SEATS: SeatId[] = ["R0-C0", "R1-C0", "R1-C1", "R1-C2"];
+import {
+  buildSeatLayout,
+  defaultOfferedSeatCodes,
+  type VehicleSeatCapacity,
+} from "@/lib/seatLayout";
 
 interface StepSeatsProps {
+  /** The selected vehicle's seat count — picks the sedan (5) or SUV (7) shape. */
+  seatCapacity: VehicleSeatCapacity;
   seatConfig: SeatId[];
   pricePerSeat: number | null;
   onSeatsChange: (seats: SeatId[]) => void;
@@ -11,6 +16,7 @@ interface StepSeatsProps {
 }
 
 export function StepSeats({
+  seatCapacity,
   seatConfig,
   pricePerSeat,
   onSeatsChange,
@@ -18,26 +24,28 @@ export function StepSeats({
 }: StepSeatsProps) {
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Default: all seats selected on first mount.
+  // Default to every seat except the optional B2/C2 middle seats — and
+  // re-default if the chosen vehicle's shape no longer matches the current
+  // selection (e.g. host switches from a 5- to a 7-seater).
   useEffect(() => {
-    if (seatConfig.length === 0) {
-      onSeatsChange(ALL_SEATS);
+    const validCodes = new Set(buildSeatLayout(seatCapacity).map((s) => s.seatCode));
+    const matchesShape = seatConfig.every((code) => validCodes.has(code));
+    if (seatConfig.length === 0 || !matchesShape) {
+      onSeatsChange(defaultOfferedSeatCodes(seatCapacity) as SeatId[]);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [seatCapacity]);
 
   return (
     <div className="flex flex-col gap-3 px-4 pb-2 pt-0">
       {/* Header */}
       <div className="text-center">
-        <p className="text-sm font-bold uppercase tracking-widest text-gray-400">
-          Available seats
-        </p>
+        <p className="text-sm font-bold uppercase tracking-widest text-gray-400">Available seats</p>
       </div>
 
       {/* Seat picker */}
       <div className="mx-auto w-full max-w-sm rounded-3xl border border-gray-100 bg-white p-5 shadow-sm">
-        <SeatPicker value={seatConfig} onChange={onSeatsChange} />
+        <SeatPicker seatCapacity={seatCapacity} value={seatConfig} onChange={onSeatsChange} />
       </div>
 
       {/* Price per seat input */}

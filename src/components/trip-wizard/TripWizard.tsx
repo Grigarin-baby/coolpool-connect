@@ -408,6 +408,7 @@ export function TripWizard({
         )}
         {step === "seats" && (
           <StepSeats
+            seatCapacity={selectedVehicle?.seatCapacity === 7 ? 7 : 5}
             seatConfig={data.seatConfig}
             pricePerSeat={data.pricePerSeat}
             onSeatsChange={(seatConfig: SeatId[]) => setData((d) => ({ ...d, seatConfig }))}
