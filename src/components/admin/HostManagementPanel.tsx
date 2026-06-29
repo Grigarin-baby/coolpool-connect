@@ -26,6 +26,7 @@ import {
 import { getBookingPassengers } from "@/lib/booking-passengers";
 import { passengerGenderLabel, passengerSeatLabel } from "@/lib/passenger-display";
 import { hostNetEarnings } from "@/lib/pricing";
+import { formatVehicleCode } from "@/lib/vehicleCode";
 import { CreateUserButton, ResetPasswordButton } from "./AdminUserActions";
 import type { DriverProfile, Trip } from "@/lib/domain";
 
@@ -591,7 +592,7 @@ export function HostManagementPanel() {
                     Distance: {tripDetail.trip.totalDistanceKm || "—"} km · Base fare{" "}
                     {perSeat(tripDetail.trip.totalPrice || 0)}
                   </div>
-                  <div>Trip ID: {tripDetail.trip.id}</div>
+                  <div>Trip ID: {tripDetail.trip.tripCode || tripDetail.trip.id}</div>
                 </div>
               </div>
 
@@ -606,7 +607,9 @@ export function HostManagementPanel() {
                   <div>License: {tripDetail.assignedDriver?.licenseNumber || "—"}</div>
                   <div>
                     Vehicle: {tripDetail.vehicle?.modelName || tripDetail.trip.vehicleModel || "—"}
-                    {tripDetail.vehicle?.plateNumber ? ` · ${tripDetail.vehicle.plateNumber}` : ""}
+                    {tripDetail.vehicle?.plateNumber
+                      ? ` · ${tripDetail.vehicle.plateNumber} (${formatVehicleCode(tripDetail.vehicle.plateNumber)})`
+                      : ""}
                   </div>
                   <div>
                     Color/seats: {tripDetail.vehicle?.color || tripDetail.trip.vehicleColor || "—"}{" "}

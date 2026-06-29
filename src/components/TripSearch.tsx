@@ -1143,7 +1143,6 @@ function TripResultRowBody({
   departure,
   arrival,
   durationLabel,
-  isEstimated = false,
   seatsLeft,
   price,
   prefs,
@@ -1160,7 +1159,6 @@ function TripResultRowBody({
   departure: dayjs.Dayjs;
   arrival?: dayjs.Dayjs;
   durationLabel?: string;
-  isEstimated?: boolean;
   seatsLeft: number;
   price: number;
   prefs?: RidePreferences;
@@ -1173,7 +1171,6 @@ function TripResultRowBody({
         {/* Times — left: green departure, red arrival */}
         <div className="flex w-[60px] shrink-0 flex-col justify-center text-left sm:w-[76px]">
           <p className="text-2xl font-black leading-none text-emerald-600 sm:text-3xl">
-            {isEstimated && <span className="text-base font-semibold text-gray-400">~</span>}
             {departure.format("H:mm")}
           </p>
           {durationLabel && (
@@ -1477,10 +1474,10 @@ export function TripSearchResults({ variant }: { variant: "landing" | "page" }) 
                     topSlot={
                       <div className="mb-2 flex flex-wrap gap-1.5">
                         <span className="inline-flex items-center gap-1 rounded-full bg-green-50 border border-green-200 px-2 py-0.5 text-[10px] font-semibold text-green-700">
-                          📍 Pickup ~{fromKm} km away
+                          📍 Pickup {fromKm} km away
                         </span>
                         <span className="inline-flex items-center gap-1 rounded-full bg-green-50 border border-green-200 px-2 py-0.5 text-[10px] font-semibold text-green-700">
-                          🏁 Drop ~{toKm} km away
+                          🏁 Drop {toKm} km away
                         </span>
                       </div>
                     }
@@ -1492,7 +1489,6 @@ export function TripSearchResults({ variant }: { variant: "landing" | "page" }) 
                     departure={departure}
                     arrival={arrival}
                     durationLabel={durationLabel}
-                    isEstimated={seg.times.isEstimated}
                     seatsLeft={seatsLeft}
                     price={seg.price}
                     prefs={prefs}
@@ -1561,10 +1557,10 @@ export function TripSearchResults({ variant }: { variant: "landing" | "page" }) 
                     topSlot={
                       <div className="mb-2 flex flex-wrap gap-1.5">
                         <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
-                          📍 Pickup ~{fromKm} km away
+                          📍 Pickup {fromKm} km away
                         </span>
                         <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
-                          🏁 Drop ~{toKm} km away
+                          🏁 Drop {toKm} km away
                         </span>
                       </div>
                     }
@@ -1576,7 +1572,6 @@ export function TripSearchResults({ variant }: { variant: "landing" | "page" }) 
                     departure={departure}
                     arrival={arrival}
                     durationLabel={durationLabel}
-                    isEstimated={seg.times.isEstimated}
                     seatsLeft={seatsLeft}
                     price={seg.price}
                     prefs={prefs}
@@ -1618,7 +1613,6 @@ export function TripSearchResults({ variant }: { variant: "landing" | "page" }) 
               const departure = dayjs(segmentTimes.departureAt);
               const arrival = dayjs(segmentTimes.arrivalAt);
               const durationMinutes = Math.max(1, segmentTimes.durationMinutes);
-              const timesEstimated = segmentTimes.isEstimated;
               const durationLabel =
                 durationMinutes >= 60
                   ? `${Math.floor(durationMinutes / 60)}h ${durationMinutes % 60}m`
@@ -1659,7 +1653,6 @@ export function TripSearchResults({ variant }: { variant: "landing" | "page" }) 
                     departure={departure}
                     arrival={arrival}
                     durationLabel={durationLabel}
-                    isEstimated={timesEstimated}
                     seatsLeft={seatsLeft}
                     price={segment.price}
                     prefs={prefs}

@@ -57,6 +57,7 @@ function toTrip(doc: any): Trip {
     hostRatingCount: Number(doc.host_rating_count || 0),
     vehicleModel: doc.vehicle_model ? String(doc.vehicle_model) : undefined,
     vehicleColor: doc.vehicle_color ? String(doc.vehicle_color) : undefined,
+    tripCode: doc.trip_code ? String(doc.trip_code) : null,
     status: String(doc.status || "scheduled") as TripStatus,
     notes: doc.notes ? String(doc.notes) : null,
     vehicleId: doc.vehicle_id ? String(doc.vehicle_id) : undefined,
@@ -262,6 +263,8 @@ export interface CreateTripInput {
   vehicleId?: string;
   assignedDriverId?: string;
   seatConfig?: string[];
+  /** Human-readable trip ID minted once at creation, e.g. "2606-CPTR-0001". */
+  tripCode?: string | null;
 }
 
 export interface CreateTripStopInput {
@@ -397,6 +400,7 @@ export async function createTrip(input: CreateTripInput): Promise<Trip> {
       vehicle_id: input.vehicleId ?? null,
       assigned_driver_id: input.assignedDriverId ?? null,
       seat_config: input.seatConfig ?? [],
+      trip_code: input.tripCode ?? null,
     },
     [
       // Public read so travelers can search trips without an Appwrite session (e.g. homepage modal).

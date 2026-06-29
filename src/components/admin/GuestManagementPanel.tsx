@@ -11,6 +11,7 @@ import {
 import { getBookingPassengers } from "@/lib/booking-passengers";
 import { hostNetEarnings } from "@/lib/pricing";
 import { passengerGenderLabel, passengerSeatLabel } from "@/lib/passenger-display";
+import { formatVehicleCode } from "@/lib/vehicleCode";
 import { CreateUserButton, ResetPasswordButton } from "./AdminUserActions";
 import { getUserCodesAsAdmin } from "./adminUserApi";
 import type { Booking, Trip } from "@/lib/domain";
@@ -381,7 +382,7 @@ export function GuestManagementPanel() {
                       {perSeat(tripDetail.trip.totalPrice || 0)}
                     </div>
                     <div>Trip status: {tripDetail.trip.status}</div>
-                    <div>Trip ID: {tripDetail.trip.id}</div>
+                    <div>Trip ID: {tripDetail.trip.tripCode || tripDetail.trip.id}</div>
                   </div>
                 </div>
 
@@ -401,7 +402,7 @@ export function GuestManagementPanel() {
                       Vehicle:{" "}
                       {tripDetail.vehicle?.modelName || tripDetail.trip.vehicleModel || "—"}
                       {tripDetail.vehicle?.plateNumber
-                        ? ` · ${tripDetail.vehicle.plateNumber}`
+                        ? ` · ${tripDetail.vehicle.plateNumber} (${formatVehicleCode(tripDetail.vehicle.plateNumber)})`
                         : ""}
                     </div>
                     <div>

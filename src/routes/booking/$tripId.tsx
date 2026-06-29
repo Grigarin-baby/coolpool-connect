@@ -191,6 +191,15 @@ function BookingTripPage() {
     enabled: !!user?.$id,
   });
 
+  // Gender captured once at signup (baked into the member code) — lets the
+  // booker's own seat skip the manual gender picker at checkout.
+  const selfGender: PassengerGender | null = useMemo(() => {
+    const g = String((user?.prefs as any)?.gender ?? "")
+      .trim()
+      .toLowerCase();
+    return g === "male" || g === "female" ? (g as PassengerGender) : null;
+  }, [user?.prefs]);
+
   useEffect(() => {
     if (!user) return;
 
@@ -198,7 +207,7 @@ function BookingTripPage() {
       const first = prev[0] || { name: "", phone: "", gender: "" };
       // Don't prefill the booker's details when this seat is for someone else.
       if (first.forSomeoneElse) return prev;
-      let { name, phone } = first;
+      let { name, phone, gender } = first;
       const recent =
         pastBookingsQuery.data && pastBookingsQuery.data.length > 0
           ? [...pastBookingsQuery.data].sort(
@@ -215,12 +224,13 @@ function BookingTripPage() {
         else if ((user as any).phone) phone = (user as any).phone;
         else if (recent?.passengerPhone) phone = recent.passengerPhone;
       }
-      if (name === first.name && phone === first.phone) return prev;
+      if (!gender && selfGender) gender = selfGender;
+      if (name === first.name && phone === first.phone && gender === first.gender) return prev;
       const next = [...prev];
-      next[0] = { ...first, name, phone };
+      next[0] = { ...first, name, phone, gender };
       return next;
     });
-  }, [user, pastBookingsQuery.data]);
+  }, [user, pastBookingsQuery.data, selfGender]);
 
   const layoutCapacity = useMemo(() => {
     const vehicleCap = vehicleQuery.data?.seatCapacity ?? 0;
@@ -786,24 +796,39 @@ function BookingTripPage() {
                           <Label className="text-xs font-semibold text-muted-foreground">
                             Gender
                           </Label>
-                          <div className="grid grid-cols-2 gap-2">
-                            {(["male", "female"] as const).map((gender) => (
-                              <button
-                                key={gender}
-                                type="button"
-                                onClick={() => updatePassenger(idx, { gender })}
-                                className={`h-14 rounded-2xl border text-base font-bold capitalize transition-colors ${
-                                  p.gender === gender
-                                    ? gender === "male"
-                                      ? "border-blue-500 bg-blue-50 text-blue-700"
-                                      : "border-pink-500 bg-pink-50 text-pink-700"
-                                    : "border-border/60 bg-background text-muted-foreground hover:border-primary/40"
-                                }`}
-                              >
-                                {gender}
-                              </button>
-                            ))}
-                          </div>
+                          {idx === 0 && !p.forSomeoneElse && selfGender ? (
+                            <div
+                              className={`h-14 rounded-2xl border flex items-center px-4 text-base font-bold capitalize ${
+                                selfGender === "male"
+                                  ? "border-blue-500 bg-blue-50 text-blue-700"
+                                  : "border-pink-500 bg-pink-50 text-pink-700"
+                              }`}
+                            >
+                              {selfGender}
+                              <span className="ml-auto text-xs font-medium normal-case text-muted-foreground">
+                                From your profile
+                              </span>
+                            </div>
+                          ) : (
+                            <div className="grid grid-cols-2 gap-2">
+                              {(["male", "female"] as const).map((gender) => (
+                                <button
+                                  key={gender}
+                                  type="button"
+                                  onClick={() => updatePassenger(idx, { gender })}
+                                  className={`h-14 rounded-2xl border text-base font-bold capitalize transition-colors ${
+                                    p.gender === gender
+                                      ? gender === "male"
+                                        ? "border-blue-500 bg-blue-50 text-blue-700"
+                                        : "border-pink-500 bg-pink-50 text-pink-700"
+                                      : "border-border/60 bg-background text-muted-foreground hover:border-primary/40"
+                                  }`}
+                                >
+                                  {gender}
+                                </button>
+                              ))}
+                            </div>
+                          )}
                         </div>
                         <div className="space-y-1.5">
                           <Label

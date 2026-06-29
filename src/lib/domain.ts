@@ -63,6 +63,8 @@ export interface Trip {
   hostRatingCount?: number;
   vehicleModel?: string;
   vehicleColor?: string;
+  /** Human-readable trip ID, e.g. "2606-CPTR-0001". Null on trips created before this existed. */
+  tripCode?: string | null;
   status: TripStatus;
   notes: string | null;
   vehicleId?: string;

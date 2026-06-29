@@ -117,6 +117,8 @@ import { APP_FONT_FAMILY } from "@/lib/fonts";
 import { calcPricePerKm, hostNetEarnings } from "@/lib/pricing";
 import { stripCountrySuffix } from "@/lib/geo";
 import { findDuplicateVehicle } from "@/lib/duplicateChecks";
+import { mintTripCode } from "@/integrations/appwrite/trip-server";
+import { formatVehicleCode } from "@/lib/vehicleCode";
 import { compressImage } from "@/lib/image-compression";
 import { RoleSwitch } from "@/components/RoleSwitch";
 import { getHostTier } from "@/lib/host-tier";
@@ -1257,7 +1259,8 @@ function DriverDashboardPage() {
           await deleteTripStop(s.id);
         }
       } else {
-        trip = await createTrip(payload.tripData);
+        const { code: tripCode } = await mintTripCode();
+        trip = await createTrip({ ...payload.tripData, tripCode });
       }
 
       for (const stop of payload.stopsData) {
@@ -4420,6 +4423,9 @@ function DriverDashboardPage() {
                             <p className="text-white font-mono text-lg tracking-widest">
                               {v.plateNumber}
                             </p>
+                            <p className="text-gray-400 font-mono text-xs tracking-widest mt-0.5">
+                              {formatVehicleCode(v.plateNumber)}
+                            </p>
                           </div>
                         </div>
                       ))}
@@ -4954,12 +4960,19 @@ function DriverDashboardPage() {
                       className="absolute top-4 right-4 p-0 hover:bg-transparent"
                     />
                     <div className="mt-4">
-                      <Tag
-                        color="purple"
-                        className="border-none bg-white/90 !text-gray-900 rounded-full px-3 py-1 mb-4"
-                      >
-                        {dayjs(managingTrip.departureAt).format("MMM D, YYYY • h:mm A")}
-                      </Tag>
+                      <div className="flex flex-wrap items-center gap-2 mb-4">
+                        <Tag
+                          color="purple"
+                          className="border-none bg-white/90 !text-gray-900 rounded-full px-3 py-1"
+                        >
+                          {dayjs(managingTrip.departureAt).format("MMM D, YYYY • h:mm A")}
+                        </Tag>
+                        {managingTrip.tripCode && (
+                          <Tag className="border-none bg-white/15 !text-white rounded-full px-3 py-1 font-mono">
+                            {managingTrip.tripCode}
+                          </Tag>
+                        )}
+                      </div>
                       <div className="space-y-4">
                         <div className="flex items-center gap-3">
                           <div className="w-2 h-2 rounded-full bg-white flex-shrink-0"></div>
