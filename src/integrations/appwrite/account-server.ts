@@ -153,14 +153,21 @@ export const deleteOwnAccount = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-/** Verify the JWT belongs to an admin; throws otherwise. */
+/**
+ * Verify the JWT belongs to an admin; throws otherwise.
+ *
+ * Checks the Appwrite-native account label, not account.prefs — prefs are
+ * self-editable by any user via the client SDK (account.updatePrefs), so
+ * trusting prefs.roles here would let anyone grant themselves admin. Labels
+ * can only be set with the admin API key, so this is the only safe source
+ * of truth for this check.
+ */
 async function assertAdmin(jwt: string): Promise<void> {
   if (!jwt) throw new Error("Missing authentication.");
   const { endpoint, project } = appwriteEnv();
   const jwtClient = new Client().setEndpoint(endpoint).setProject(project).setJWT(jwt);
   const me = await new Account(jwtClient).get();
-  const roles = (me.prefs as Record<string, unknown> | undefined)?.roles;
-  if (!Array.isArray(roles) || !roles.includes("admin")) {
+  if (!me.labels?.includes("admin")) {
     throw new Error("Admin access required.");
   }
 }
@@ -237,6 +244,26 @@ export const adminResetPassword = createServerFn({ method: "POST" })
     if (!data.userId) throw new Error("Missing user.");
     if (data.newPassword.length < 8) throw new Error("Password must be at least 8 characters.");
     await new Users(adminClient()).updatePassword(data.userId, data.newPassword);
+    return { ok: true };
+  });
+
+/**
+ * Admin grants another user the "admin" label (the only thing assertAdmin
+ * trusts). Requires the caller to already be an admin, so only existing
+ * admins can create new ones.
+ */
+export const adminGrantAdminLabel = createServerFn({ method: "POST" })
+  .inputValidator((input: { jwt: string; userId: string }) => ({
+    jwt: String(input?.jwt ?? "").trim(),
+    userId: String(input?.userId ?? "").trim(),
+  }))
+  .handler(async ({ data }): Promise<{ ok: boolean }> => {
+    await assertAdmin(data.jwt);
+    if (!data.userId) throw new Error("Missing user.");
+    const users = new Users(adminClient());
+    const target = await users.get(data.userId);
+    const labels = Array.from(new Set([...(target.labels ?? []), "admin"]));
+    await users.updateLabels(data.userId, labels);
     return { ok: true };
   });
 

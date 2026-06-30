@@ -2,7 +2,9 @@ import { useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, Typography, Table, Tag, Space, Button, Popconfirm, message } from "antd";
 import { ShieldCheck } from "lucide-react";
-import { assignRole, listAllBookings, listDriverProfiles } from "@/data/appwrite-repository";
+import { listAllBookings, listDriverProfiles } from "@/data/appwrite-repository";
+import { account } from "@/integrations/appwrite/client";
+import { adminGrantAdminLabel } from "@/integrations/appwrite/account-server";
 
 const { Title, Text } = Typography;
 
@@ -29,7 +31,10 @@ export function UsersPanel() {
   });
 
   const grantAdminMutation = useMutation({
-    mutationFn: (userId: string) => assignRole(userId, "admin"),
+    mutationFn: async (userId: string) => {
+      const { jwt } = await account.createJWT();
+      await adminGrantAdminLabel({ data: { jwt, userId } });
+    },
     onSuccess: () => {
       message.success("Admin role granted");
     },

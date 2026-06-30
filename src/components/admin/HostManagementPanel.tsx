@@ -21,7 +21,6 @@ import {
   listAllBookings,
   updateDriverVerification,
   updateVehicleVerification,
-  assignRole,
 } from "@/data/appwrite-repository";
 import { getBookingPassengers } from "@/lib/booking-passengers";
 import { passengerGenderLabel, passengerSeatLabel } from "@/lib/passenger-display";
@@ -29,6 +28,8 @@ import { hostNetEarnings } from "@/lib/pricing";
 import { formatVehicleCode } from "@/lib/vehicleCode";
 import { CreateUserButton, ResetPasswordButton } from "./AdminUserActions";
 import type { DriverProfile, Trip } from "@/lib/domain";
+import { account } from "@/integrations/appwrite/client";
+import { adminGrantAdminLabel } from "@/integrations/appwrite/account-server";
 
 const { Title, Text } = Typography;
 
@@ -85,7 +86,10 @@ export function HostManagementPanel() {
     onError: (e: any) => message.error(e?.message || "Failed"),
   });
   const makeAdmin = useMutation({
-    mutationFn: (userId: string) => assignRole(userId, "admin"),
+    mutationFn: async (userId: string) => {
+      const { jwt } = await account.createJWT();
+      await adminGrantAdminLabel({ data: { jwt, userId } });
+    },
     onSuccess: () => message.success("Admin role granted"),
     onError: (e: any) => message.error(e?.message || "Failed"),
   });

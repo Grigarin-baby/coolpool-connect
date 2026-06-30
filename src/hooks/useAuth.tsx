@@ -392,7 +392,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         roles,
         loading,
         isDriver: roles.includes("driver"),
-        isAdmin: roles.includes("admin"),
+        // Admin must come from the Appwrite-native label, never from `roles`
+        // (sourced from prefs/db, both of which a user can self-edit) — see
+        // assertAdmin() in account-server.ts for the matching server-side check.
+        isAdmin: !!user?.labels?.includes("admin"),
         signIn,
         signUp,
         signInWithPhonePassword,
