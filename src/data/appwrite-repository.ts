@@ -274,6 +274,7 @@ export interface CreateTripInput {
 
 export interface CreateTripStopInput {
   tripId: string;
+  hostId: string;
   stopIndex: number;
   location: string;
   lat: number;
@@ -617,8 +618,10 @@ export async function createTripStop(input: CreateTripStopInput): Promise<TripSt
     },
     [
       Permission.read(Role.any()),
-      Permission.update(Role.any()), // Adjust if you want only the host to update
-      Permission.delete(Role.any()), // Adjust if you want only the host to delete
+      Permission.update(Role.user(input.hostId)),
+      Permission.delete(Role.user(input.hostId)),
+      Permission.update(Role.label("admin")),
+      Permission.delete(Role.label("admin")),
     ],
   );
   return toTripStop(doc);
@@ -660,6 +663,20 @@ export async function createBooking(
   if (input.paymentMethod) payload.payment_method = input.paymentMethod;
   if (input.paymentReference) payload.payment_reference = input.paymentReference;
 
+  const bookingPerms = [
+    Permission.read(Role.user(input.travelerId)),
+    Permission.update(Role.user(input.travelerId)),
+    Permission.read(Role.label("admin")),
+    Permission.update(Role.label("admin")),
+    Permission.delete(Role.label("admin")),
+    ...(input.hostIdForPermissions
+      ? [
+          Permission.read(Role.user(input.hostIdForPermissions)),
+          Permission.update(Role.user(input.hostIdForPermissions)),
+        ]
+      : []),
+  ];
+
   let doc;
   try {
     doc = await databases.createDocument(
@@ -667,6 +684,7 @@ export async function createBooking(
       c.bookings,
       ID.unique(),
       payload,
+      bookingPerms,
     );
   } catch (err) {
     // A missing optional attribute on the bookings collection must NEVER cost a
@@ -686,6 +704,7 @@ export async function createBooking(
       c.bookings,
       ID.unique(),
       payload,
+      bookingPerms,
     );
   }
   return toBooking(doc);
@@ -793,16 +812,29 @@ export async function deleteDriverVehicle(vehicleId: string): Promise<void> {
 
 export async function createDriverVehicle(input: CreateDriverVehicleInput): Promise<DriverVehicle> {
   const c = ids();
-  const doc = await databases.createDocument(appwriteConfig.databaseId, c.vehicles, ID.unique(), {
-    driver_user_id: input.driverUserId,
-    model_name: input.modelName,
-    plate_number: input.plateNumber,
-    seat_capacity: input.seatCapacity,
-    color: input.color ?? null,
-    registration_doc: input.registrationDoc ?? null,
-    insurance_doc: input.insuranceDoc ?? null,
-    car_images: input.carImages ?? [],
-  });
+  const doc = await databases.createDocument(
+    appwriteConfig.databaseId,
+    c.vehicles,
+    ID.unique(),
+    {
+      driver_user_id: input.driverUserId,
+      model_name: input.modelName,
+      plate_number: input.plateNumber,
+      seat_capacity: input.seatCapacity,
+      color: input.color ?? null,
+      registration_doc: input.registrationDoc ?? null,
+      insurance_doc: input.insuranceDoc ?? null,
+      car_images: input.carImages ?? [],
+    },
+    [
+      Permission.read(Role.user(input.driverUserId)),
+      Permission.update(Role.user(input.driverUserId)),
+      Permission.delete(Role.user(input.driverUserId)),
+      Permission.read(Role.label("admin")),
+      Permission.update(Role.label("admin")),
+      Permission.delete(Role.label("admin")),
+    ],
+  );
   return toDriverVehicle(doc);
 }
 
@@ -957,6 +989,13 @@ async function createTripSeatReservation(input: {
   };
   if (input.gender) payload.gender = input.gender;
 
+  const seatPerms = [
+    Permission.read(Role.any()),
+    Permission.delete(Role.user(input.travelerId)),
+    Permission.delete(Role.user(input.hostId)),
+    Permission.delete(Role.label("admin")),
+  ];
+
   let doc;
   try {
     doc = await databases.createDocument(
@@ -964,6 +1003,7 @@ async function createTripSeatReservation(input: {
       c.tripSeatReservations,
       docId,
       payload,
+      seatPerms,
     );
   } catch (err) {
     // The `gender` attribute may not exist on the collection yet. Don't let a
@@ -979,6 +1019,7 @@ async function createTripSeatReservation(input: {
         c.tripSeatReservations,
         docId,
         payload,
+        seatPerms,
       );
     } else {
       throw err;
@@ -1225,6 +1266,13 @@ export async function upsertDriverProfile(input: CreateDriverProfileInput): Prom
       id_back_doc: input.idBackDoc ?? null,
       selfie_doc: input.selfieDoc ?? null,
     },
+    [
+      Permission.read(Role.any()),
+      Permission.update(Role.user(input.userId)),
+      Permission.read(Role.label("admin")),
+      Permission.update(Role.label("admin")),
+      Permission.delete(Role.label("admin")),
+    ],
   );
   return toDriverProfile(created);
 }
@@ -1262,6 +1310,14 @@ export async function upsertDriverVehicle(input: CreateDriverVehicleInput): Prom
     c.vehicles,
     ID.unique(),
     payload,
+    [
+      Permission.read(Role.user(input.driverUserId)),
+      Permission.update(Role.user(input.driverUserId)),
+      Permission.delete(Role.user(input.driverUserId)),
+      Permission.read(Role.label("admin")),
+      Permission.update(Role.label("admin")),
+      Permission.delete(Role.label("admin")),
+    ],
   );
   return toDriverVehicle(created);
 }
@@ -1521,7 +1577,11 @@ export async function createHeroBanner(input: Omit<HeroBanner, "id">): Promise<H
       isActive: input.isActive,
       sortOrder: input.sortOrder,
     },
-    [Permission.read(Role.any()), Permission.update(Role.any()), Permission.delete(Role.any())],
+    [
+      Permission.read(Role.any()),
+      Permission.update(Role.label("admin")),
+      Permission.delete(Role.label("admin")),
+    ],
   );
   return toHeroBanner(doc);
 }
@@ -1871,7 +1931,12 @@ export async function createReview(data: Omit<Review, "id" | "createdAt">): Prom
       tags: data.tags,
       created_at: new Date().toISOString(),
     },
-    [Permission.read(Role.any()), Permission.write(Role.users())],
+    [
+      Permission.read(Role.any()),
+      Permission.update(Role.user(data.fromUserId)),
+      Permission.delete(Role.user(data.fromUserId)),
+      Permission.delete(Role.label("admin")),
+    ],
   );
   return toReview(doc);
 }

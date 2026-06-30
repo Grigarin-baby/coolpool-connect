@@ -809,9 +809,14 @@ function DriverDashboardPage() {
         appwriteConfig.driverDocsBucketId,
         ID.unique(),
         compressed,
-        // Profile photos are shown on public pages (ride details, result cards),
-        // so they must be publicly readable.
-        [Permission.read(Role.any())],
+        // Profile photos are shown on public pages (ride details, result cards).
+        [
+          Permission.read(Role.any()),
+          Permission.delete(Role.user(user.$id)),
+          Permission.update(Role.user(user.$id)),
+          Permission.read(Role.label("admin")),
+          Permission.delete(Role.label("admin")),
+        ],
       );
       const url = `${appwriteConfig.endpoint}/storage/buckets/${appwriteConfig.driverDocsBucketId}/files/${uploaded.$id}/view?project=${appwriteConfig.projectId}`;
       await updateDriverPhoto(user.$id, url);
@@ -882,7 +887,13 @@ function DriverDashboardPage() {
             ID.unique(),
             compressed,
             // Car photos are shown on the public ride page — make them readable.
-            [Permission.read(Role.any())],
+            [
+              Permission.read(Role.any()),
+              Permission.delete(Role.user(user.$id)),
+              Permission.update(Role.user(user.$id)),
+              Permission.read(Role.label("admin")),
+              Permission.delete(Role.label("admin")),
+            ],
           );
           carImageIds.push(uploaded.$id);
         } else if (file.url) {
@@ -896,12 +907,19 @@ function DriverDashboardPage() {
       // block adding the vehicle, so each is best-effort.
       let regDocId: string | undefined;
       let insDocId: string | undefined;
+      const privateDocPerms = [
+        Permission.read(Role.user(user.$id)),
+        Permission.delete(Role.user(user.$id)),
+        Permission.read(Role.label("admin")),
+        Permission.delete(Role.label("admin")),
+      ];
       if (regFileList[0]?.originFileObj) {
         try {
           const up = await storage.createFile(
             appwriteConfig.driverDocsBucketId,
             ID.unique(),
             await compressImage(regFileList[0].originFileObj as File),
+            privateDocPerms,
           );
           regDocId = up.$id;
         } catch {
@@ -914,6 +932,7 @@ function DriverDashboardPage() {
             appwriteConfig.driverDocsBucketId,
             ID.unique(),
             await compressImage(insFileList[0].originFileObj as File),
+            privateDocPerms,
           );
           insDocId = up.$id;
         } catch {
@@ -1317,7 +1336,7 @@ function DriverDashboardPage() {
       }
 
       for (const stop of payload.stopsData) {
-        await createTripStop({ ...stop, tripId: trip.id });
+        await createTripStop({ ...stop, tripId: trip.id, hostId: trip.hostId });
       }
       return trip;
     },
@@ -4946,6 +4965,12 @@ function DriverDashboardPage() {
                           // The ID document is the actual proof of identity, so
                           // a failed upload here aborts onboarding instead of
                           // silently continuing.
+                          const idDocPerms = [
+                            Permission.read(Role.user(user.$id)),
+                            Permission.delete(Role.user(user.$id)),
+                            Permission.read(Role.label("admin")),
+                            Permission.delete(Role.label("admin")),
+                          ];
                           let idFrontDocId: string;
                           let idBackDocId: string;
                           try {
@@ -4953,12 +4978,14 @@ function DriverDashboardPage() {
                               appwriteConfig.driverDocsBucketId,
                               ID.unique(),
                               await compressImage(idFrontFileList[0].originFileObj as File),
+                              idDocPerms,
                             );
                             idFrontDocId = upFront.$id;
                             const upBack = await storage.createFile(
                               appwriteConfig.driverDocsBucketId,
                               ID.unique(),
                               await compressImage(idBackFileList[0].originFileObj as File),
+                              idDocPerms,
                             );
                             idBackDocId = upBack.$id;
                           } catch {
@@ -4975,6 +5002,7 @@ function DriverDashboardPage() {
                                 appwriteConfig.driverDocsBucketId,
                                 ID.unique(),
                                 await compressImage(selfieFileList[0].originFileObj as File),
+                                idDocPerms,
                               );
                               selfieDocId = up.$id;
                             } catch {
