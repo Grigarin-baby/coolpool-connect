@@ -216,6 +216,10 @@ function MembersPage() {
       toast.error("Enter a valid phone number.");
       return;
     }
+    if (!suGender) {
+      toast.error("Select your gender.");
+      return;
+    }
     if (!/^\d{4}$/.test(signUpPassword)) {
       toast.error("Password must be exactly 4 digits.");
       return;
@@ -460,7 +464,7 @@ function MembersPage() {
                     </div>
                     <PhoneField id="mem-su-phone" number={suNumber} onNumberChange={setSuNumber} />
                     <div className="space-y-2">
-                      <Label className="text-base">Gender (optional)</Label>
+                      <Label className="text-base">Gender</Label>
                       <div className="grid grid-cols-2 gap-2">
                         {(["male", "female"] as const).map((g) => (
                           <button
