@@ -106,8 +106,14 @@ function PhoneField({
 function MembersPage() {
   const navigate = useNavigate();
   const { redirect, google_auth } = Route.useSearch();
-  const { user, loading, roles, signInWithPhonePassword, signUpWithPhonePassword, requestPasswordRecovery } =
-    useAuth();
+  const {
+    user,
+    loading,
+    roles,
+    signInWithPhonePassword,
+    signUpWithPhonePassword,
+    requestPasswordRecovery,
+  } = useAuth();
   const [busy, setBusy] = useState(false);
   const [mode, setMode] = useState<"signin" | "signup">("signin");
 
@@ -116,6 +122,7 @@ function MembersPage() {
 
   const [name, setName] = useState("");
   const [suNumber, setSuNumber] = useState("");
+  const [suGender, setSuGender] = useState<"male" | "female" | "">("");
   const [signUpPassword, setSignUpPassword] = useState("");
   const [suEmail, setSuEmail] = useState("");
   const [recoverEmail, setRecoverEmail] = useState("");
@@ -133,9 +140,7 @@ function MembersPage() {
       toast.success("Password reset link sent — check your email inbox.");
       setShowRecover(false);
     } catch (e) {
-      toast.error(
-        e instanceof Error ? e.message : "We couldn't find an account with that email.",
-      );
+      toast.error(e instanceof Error ? e.message : "We couldn't find an account with that email.");
     } finally {
       setBusy(false);
     }
@@ -217,7 +222,13 @@ function MembersPage() {
     }
     setBusy(true);
     try {
-      await signUpWithPhonePassword(name, toE164(suNumber), signUpPassword, suEmail.trim() || undefined);
+      await signUpWithPhonePassword(
+        name,
+        toE164(suNumber),
+        signUpPassword,
+        suEmail.trim() || undefined,
+        suGender || undefined,
+      );
       toast.success("Welcome — you're ready to book.");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Unable to create account.");
@@ -332,16 +343,16 @@ function MembersPage() {
                     aria-hidden
                     className="absolute top-1 bottom-1 left-1 w-[calc(50%-0.25rem)] rounded-3xl bg-white shadow-sm transition-transform duration-300 ease-out"
                     style={{
-                      transform:
-                        mode === "signup" ? "translateX(100%)" : "translateX(0)",
+                      transform: mode === "signup" ? "translateX(100%)" : "translateX(0)",
                     }}
                   />
                   <button
                     type="button"
-                    className={`relative z-10 rounded-3xl py-2.5 text-sm font-semibold transition-colors duration-300 ${mode === "signin"
-                      ? "text-foreground"
-                      : "text-muted-foreground hover:text-foreground"
-                      }`}
+                    className={`relative z-10 rounded-3xl py-2.5 text-sm font-semibold transition-colors duration-300 ${
+                      mode === "signin"
+                        ? "text-foreground"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
                     onClick={() => {
                       setMode("signin");
                       setShowRecover(false);
@@ -351,10 +362,11 @@ function MembersPage() {
                   </button>
                   <button
                     type="button"
-                    className={`relative z-10 rounded-3xl py-2.5 text-sm font-semibold transition-colors duration-300 ${mode === "signup"
-                      ? "text-foreground"
-                      : "text-muted-foreground hover:text-foreground"
-                      }`}
+                    className={`relative z-10 rounded-3xl py-2.5 text-sm font-semibold transition-colors duration-300 ${
+                      mode === "signup"
+                        ? "text-foreground"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
                     onClick={() => {
                       setMode("signup");
                       setShowRecover(false);
@@ -446,11 +458,26 @@ function MembersPage() {
                         className="h-16 w-full rounded-3xl border-border/80 bg-background/80 font-bold placeholder:text-muted-foreground/40"
                       />
                     </div>
-                    <PhoneField
-                      id="mem-su-phone"
-                      number={suNumber}
-                      onNumberChange={setSuNumber}
-                    />
+                    <PhoneField id="mem-su-phone" number={suNumber} onNumberChange={setSuNumber} />
+                    <div className="space-y-2">
+                      <Label className="text-base">Gender (optional)</Label>
+                      <div className="grid grid-cols-2 gap-2">
+                        {(["male", "female"] as const).map((g) => (
+                          <button
+                            key={g}
+                            type="button"
+                            onClick={() => setSuGender((prev) => (prev === g ? "" : g))}
+                            className={`h-11 rounded-2xl border text-sm font-semibold capitalize transition ${
+                              suGender === g
+                                ? "border-primary bg-primary/10 text-primary"
+                                : "border-border/80 bg-background/80 text-muted-foreground"
+                            }`}
+                          >
+                            {g}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                     <div className="space-y-2">
                       <Label htmlFor="mem-su-password" className="text-base">
                         Password
@@ -464,7 +491,9 @@ function MembersPage() {
                     <div className="space-y-2">
                       <Label htmlFor="mem-su-email" className="text-base">
                         Email{" "}
-                        <span className="text-sm font-normal text-muted-foreground">(optional)</span>
+                        <span className="text-sm font-normal text-muted-foreground">
+                          (optional)
+                        </span>
                       </Label>
                       <Input
                         id="mem-su-email"
@@ -486,11 +515,7 @@ function MembersPage() {
                       className="w-full rounded-3xl bg-teal-600 hover:bg-teal-700 dark:bg-teal-600 dark:hover:bg-teal-500"
                       disabled={busy}
                     >
-                      {busy ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        "Create Account"
-                      )}
+                      {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Create Account"}
                     </Button>
                   </form>
                 )}

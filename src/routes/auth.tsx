@@ -140,6 +140,7 @@ function AuthPage() {
   const [suNumber, setSuNumber] = useState("");
   const [signUpPassword, setSignUpPassword] = useState("");
   const [suGender, setSuGender] = useState<"male" | "female" | "">("");
+  const [suEmail, setSuEmail] = useState("");
   const [suOtpStep, setSuOtpStep] = useState<"form" | "otp">("form");
   const [suOtpCode, setSuOtpCode] = useState("");
   const signupOtpCooldown = useResendCooldown();
@@ -281,7 +282,7 @@ function AuthPage() {
         name,
         toE164(suNumber),
         signUpPassword,
-        undefined,
+        suEmail.trim() || undefined,
         suGender || undefined,
       );
       toast.success("Account created.");
@@ -947,6 +948,26 @@ function AuthPage() {
                           value={signUpPassword}
                           onChange={setSignUpPassword}
                         />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="su-email" className="text-base font-medium">
+                          Email{" "}
+                          <span className="text-sm font-normal text-muted-foreground">
+                            (optional)
+                          </span>
+                        </Label>
+                        <Input
+                          id="su-email"
+                          type="email"
+                          autoComplete="email"
+                          value={suEmail}
+                          placeholder="you@example.com"
+                          onChange={(e) => setSuEmail(e.target.value)}
+                          className="h-12 rounded-3xl border-border/80 bg-background/80"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Optional, but your password can only be reset through this email.
+                        </p>
                       </div>
                       <Button
                         type="submit"
