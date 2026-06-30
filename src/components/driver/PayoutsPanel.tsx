@@ -161,7 +161,7 @@ export function PayoutsPanel() {
   if (!userId) return null;
 
   return (
-    <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
+    <div className="space-y-7 sm:space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
       <div className="flex flex-col gap-1">
         <Title level={1} className="!text-3xl sm:!text-4xl !font-extrabold" style={{ margin: 0 }}>
           Payouts
@@ -253,7 +253,7 @@ export function PayoutsPanel() {
       )}
 
       <Card className="rounded-2xl border-none shadow-soft bg-white/80">
-        <div className="flex items-center justify-between mb-4 gap-3">
+        <div className="flex items-center justify-between mb-5 gap-3">
           <div className="flex items-center gap-2">
             <Banknote size={22} className="text-primary" />
             <Text strong className="text-lg font-bold">
@@ -274,7 +274,7 @@ export function PayoutsPanel() {
         {bankLoading ? (
           <Spin />
         ) : bankAccount ? (
-          <div className="text-base space-y-2">
+          <div className="text-base space-y-3">
             <div>
               <Text type="secondary">Account holder: </Text>
               <Text strong>{bankAccount.accountHolderName}</Text>
@@ -313,7 +313,7 @@ export function PayoutsPanel() {
       </Card>
 
       <Card className="rounded-2xl border-none shadow-soft bg-white/80">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-5 gap-3">
           <div className="flex items-center gap-2">
             <Wallet size={22} className="text-primary" />
             <Text strong className="text-lg font-bold">
@@ -335,19 +335,19 @@ export function PayoutsPanel() {
           </Button>
         </div>
         {!bankAccount && (
-          <Text type="secondary" className="text-base">
+          <Text type="secondary" className="text-base block mt-3">
             Add your bank details above before requesting a payout.
           </Text>
         )}
         {bankAccount && earnings.available <= 0 && (
-          <Text type="secondary" className="text-base">
+          <Text type="secondary" className="text-base block mt-3">
             No balance available to withdraw right now.
           </Text>
         )}
       </Card>
 
       <Card className="rounded-2xl border-none shadow-soft bg-white/80 p-2 overflow-hidden">
-        <div className="p-4 flex items-center gap-2">
+        <div className="px-3 pt-3 pb-4 sm:p-4 flex items-center gap-2">
           <HistoryIcon size={22} className="text-primary" />
           <Text strong className="text-lg font-bold">
             Payout history
