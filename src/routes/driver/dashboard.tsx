@@ -870,7 +870,7 @@ function DriverDashboardPage() {
       if (!user) throw new Error("Not logged in");
 
       const duplicate = findDuplicateVehicle(
-        { plateNumber: vals.plate },
+        { plateNumber: String(vals.plate ?? "").toUpperCase() },
         vehicles.map((v) => ({ id: v.id, plateNumber: v.plateNumber })),
         editingVehicleId,
       );
@@ -943,7 +943,7 @@ function DriverDashboardPage() {
       const payload = {
         driverUserId: user.$id,
         modelName: `${vals.make} ${vals.model}`.trim(),
-        plateNumber: vals.plate,
+        plateNumber: String(vals.plate ?? "").toUpperCase(),
         seatCapacity: Number(vals.seats) === 7 ? 7 : 5,
         color: vals.color,
         carImages: carImageIds,
@@ -3639,7 +3639,7 @@ function DriverDashboardPage() {
                                     style={{ borderRadius: "8px", height: "44px" }}
                                     options={[
                                       ...vehicles.map((v) => ({
-                                        label: `${v.modelName} · ${v.plateNumber} · ${v.seatCapacity} seats`,
+                                        label: `${v.modelName} · ${v.plateNumber.toUpperCase()} · ${v.seatCapacity} seats`,
                                         value: v.id,
                                       })),
                                       {
@@ -4676,7 +4676,7 @@ function DriverDashboardPage() {
                               Plate
                             </p>
                             <p className="text-white font-mono text-lg tracking-widest">
-                              {v.plateNumber}
+                              {v.plateNumber.toUpperCase()}
                             </p>
                             <p className="text-gray-400 font-mono text-xs tracking-widest mt-0.5">
                               {formatVehicleCode(v.plateNumber)}
@@ -6068,7 +6068,10 @@ function DriverDashboardPage() {
             <Input
               size="large"
               placeholder="TN 01 AB 1234"
-              className="rounded-3xl h-12 font-mono tracking-widest"
+              className="rounded-3xl h-12 font-mono tracking-widest uppercase"
+              onChange={(e) => {
+                e.target.value = e.target.value.toUpperCase();
+              }}
             />
           </Form.Item>
           <Form.Item
@@ -6427,7 +6430,7 @@ function DriverDashboardPage() {
                         style={{ borderRadius: "8px" }}
                         options={[
                           ...vehicles.map((v) => ({
-                            label: `${v.modelName} · ${v.plateNumber}`,
+                            label: `${v.modelName} · ${v.plateNumber.toUpperCase()}`,
                             value: v.id,
                           })),
                           {
