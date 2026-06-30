@@ -53,7 +53,7 @@ export function PayoutsPanel() {
   const queryClient = useQueryClient();
   const userId = user?.$id;
   const [bankForm] = Form.useForm<BankAccountFormValues>();
-  const [editingBankDetails, setEditingBankDetails] = useState(false);
+  const [bankModalOpen, setBankModalOpen] = useState(false);
   const [requestModalOpen, setRequestModalOpen] = useState(false);
   const [requestForm] = Form.useForm<{ amount: number }>();
 
@@ -107,7 +107,7 @@ export function PayoutsPanel() {
     onSuccess: () => {
       message.success("Bank details saved.");
       void queryClient.invalidateQueries({ queryKey: ["bank-account", userId] });
-      setEditingBankDetails(false);
+      setBankModalOpen(false);
     },
     onError: (error: any) => message.error(error.message || "Failed to save bank details."),
   });
@@ -240,8 +240,8 @@ export function PayoutsPanel() {
             <Banknote size={18} className="text-primary" />
             <Text strong>Bank details</Text>
           </div>
-          {bankAccount && !editingBankDetails && (
-            <Button size="small" onClick={() => setEditingBankDetails(true)}>
+          {bankAccount && (
+            <Button size="small" onClick={() => setBankModalOpen(true)}>
               Edit
             </Button>
           )}
@@ -249,7 +249,7 @@ export function PayoutsPanel() {
 
         {bankLoading ? (
           <Spin />
-        ) : bankAccount && !editingBankDetails ? (
+        ) : bankAccount ? (
           <div className="text-sm space-y-1">
             <div>
               <Text type="secondary">Account holder: </Text>
@@ -271,66 +271,12 @@ export function PayoutsPanel() {
             )}
           </div>
         ) : (
-          <Form
-            form={bankForm}
-            layout="vertical"
-            onFinish={(values) => saveBankMutation.mutate(values)}
-            className="max-w-md"
-          >
-            {!bankAccount && (
-              <Text type="secondary" className="block mb-3">
-                Add your bank details to start requesting payouts.
-              </Text>
-            )}
-            <Form.Item
-              label="Account holder name"
-              name="accountHolderName"
-              rules={[{ required: true, message: "Required" }]}
-            >
-              <Input placeholder="As per bank records" />
-            </Form.Item>
-            <Form.Item
-              label="Account number"
-              name="accountNumber"
-              rules={[{ required: true, message: "Required" }]}
-            >
-              <Input placeholder="Bank account number" />
-            </Form.Item>
-            <Form.Item
-              label="Confirm account number"
-              name="confirmAccountNumber"
-              dependencies={["accountNumber"]}
-              rules={[
-                { required: true, message: "Required" },
-                ({ getFieldValue }) => ({
-                  validator(_, value) {
-                    if (!value || getFieldValue("accountNumber") === value) {
-                      return Promise.resolve();
-                    }
-                    return Promise.reject(new Error("Account numbers do not match"));
-                  },
-                }),
-              ]}
-            >
-              <Input placeholder="Re-enter account number" />
-            </Form.Item>
-            <Form.Item
-              label="IFSC code"
-              name="ifscCode"
-              rules={[{ required: true, message: "Required" }]}
-            >
-              <Input placeholder="e.g. HDFC0001234" style={{ textTransform: "uppercase" }} />
-            </Form.Item>
-            <Form.Item label="UPI ID (optional)" name="upiId">
-              <Input placeholder="e.g. yourname@okhdfc" />
-            </Form.Item>
-            <div className="flex gap-2">
-              <Button type="primary" htmlType="submit" loading={saveBankMutation.isPending}>
-                Save bank details
-              </Button>
-              {bankAccount && <Button onClick={() => setEditingBankDetails(false)}>Cancel</Button>}
-            </div>
-          </Form>
+          <div className="flex flex-col items-start gap-3">
+            <Text type="secondary">Add your bank details to start requesting payouts.</Text>
+            <Button type="primary" size="large" onClick={() => setBankModalOpen(true)}>
+              Add bank details
+            </Button>
+          </div>
         )}
       </Card>
 
@@ -414,6 +360,120 @@ export function PayoutsPanel() {
           ]}
         />
       </Card>
+
+      <Modal
+        open={bankModalOpen}
+        title={<span className="text-xl font-bold">Bank details</span>}
+        onCancel={() => {
+          setBankModalOpen(false);
+          bankForm.resetFields();
+          if (bankAccount) {
+            bankForm.setFieldsValue({
+              accountHolderName: bankAccount.accountHolderName,
+              accountNumber: bankAccount.accountNumber,
+              confirmAccountNumber: bankAccount.accountNumber,
+              ifscCode: bankAccount.ifscCode,
+              upiId: bankAccount.upiId ?? undefined,
+            });
+          }
+        }}
+        footer={null}
+        width={520}
+        destroyOnClose
+      >
+        <Form
+          form={bankForm}
+          layout="vertical"
+          onFinish={(values) => saveBankMutation.mutate(values)}
+          className="mt-4"
+        >
+          {!bankAccount && (
+            <Text type="secondary" className="block mb-4 text-base">
+              Add your bank details to start requesting payouts.
+            </Text>
+          )}
+          <Form.Item
+            label={<span className="text-base font-semibold">Account holder name</span>}
+            name="accountHolderName"
+            rules={[{ required: true, message: "Required" }]}
+          >
+            <Input
+              size="large"
+              className="rounded-2xl h-14 text-lg"
+              placeholder="As per bank records"
+            />
+          </Form.Item>
+          <Form.Item
+            label={<span className="text-base font-semibold">Account number</span>}
+            name="accountNumber"
+            rules={[{ required: true, message: "Required" }]}
+          >
+            <Input
+              size="large"
+              className="rounded-2xl h-14 text-lg"
+              placeholder="Bank account number"
+            />
+          </Form.Item>
+          <Form.Item
+            label={<span className="text-base font-semibold">Confirm account number</span>}
+            name="confirmAccountNumber"
+            dependencies={["accountNumber"]}
+            rules={[
+              { required: true, message: "Required" },
+              ({ getFieldValue }) => ({
+                validator(_, value) {
+                  if (!value || getFieldValue("accountNumber") === value) {
+                    return Promise.resolve();
+                  }
+                  return Promise.reject(new Error("Account numbers do not match"));
+                },
+              }),
+            ]}
+          >
+            <Input
+              size="large"
+              className="rounded-2xl h-14 text-lg"
+              placeholder="Re-enter account number"
+            />
+          </Form.Item>
+          <Form.Item
+            label={<span className="text-base font-semibold">IFSC code</span>}
+            name="ifscCode"
+            rules={[{ required: true, message: "Required" }]}
+          >
+            <Input
+              size="large"
+              className="rounded-2xl h-14 text-lg"
+              placeholder="e.g. HDFC0001234"
+              style={{ textTransform: "uppercase" }}
+            />
+          </Form.Item>
+          <Form.Item
+            label={
+              <span className="text-base font-semibold">
+                UPI ID <span className="text-sm font-normal text-muted-foreground">(optional)</span>
+              </span>
+            }
+            name="upiId"
+          >
+            <Input
+              size="large"
+              className="rounded-2xl h-14 text-lg"
+              placeholder="e.g. yourname@okhdfc"
+            />
+          </Form.Item>
+          <Button
+            type="primary"
+            htmlType="submit"
+            block
+            size="large"
+            loading={saveBankMutation.isPending}
+            className="bg-gradient-primary border-none rounded-2xl h-14 font-bold text-lg shadow-glow mt-2"
+          >
+            Save bank details
+          </Button>
+        </Form>
+      </Modal>
 
       <Modal
         open={requestModalOpen}
