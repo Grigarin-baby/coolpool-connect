@@ -134,7 +134,11 @@ import { ReviewModal } from "@/components/ReviewModal";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import { getUserDisplayName } from "@/lib/user-display";
 import { getBookingPassengers } from "@/lib/booking-passengers";
-import { passengerGenderLabel, passengerGenderTone, passengerSeatLabel } from "@/lib/passenger-display";
+import {
+  passengerGenderLabel,
+  passengerGenderTone,
+  passengerSeatLabel,
+} from "@/lib/passenger-display";
 import { TripWizard } from "@/components/trip-wizard/TripWizard";
 import type { WizardResult } from "@/components/trip-wizard/types";
 import { NotificationPermissionPrompt } from "@/components/NotificationPermissionPrompt";
@@ -261,10 +265,7 @@ const TRIP_DATE_WINDOW_DAYS = 7;
 // Single source of truth for how a host's trip status is shown — used by the
 // ledger row and the detail drawer so the same trip never reads differently in
 // two places (e.g. "Expired" in the list but "Scheduled" in the popup).
-function hostTripStatusDisplay(
-  trip: Trip,
-  expired: boolean,
-): { label: string; color: string } {
+function hostTripStatusDisplay(trip: Trip, expired: boolean): { label: string; color: string } {
   if (trip.status === "completed") return { label: "Completed", color: "success" };
   if (trip.status === "cancelled") return { label: "Cancelled", color: "error" };
   if (expired) return { label: "Expired", color: "warning" };
@@ -356,7 +357,9 @@ function getRatingColorClasses(rating: number) {
 }
 
 export const Route = createFileRoute("/driver/dashboard")({
-  validateSearch: (search: Record<string, unknown>): { module: DashboardModule; trip?: string } => ({
+  validateSearch: (
+    search: Record<string, unknown>,
+  ): { module: DashboardModule; trip?: string } => ({
     module: normalizeModule(search.module),
     trip: typeof search.trip === "string" ? search.trip : undefined,
   }),
@@ -615,7 +618,8 @@ function DriverDashboardPage() {
         lng: result.to.lng,
         stopType: "drop" as const,
         distanceFromOriginKm: Math.round(result.totalDistanceKm * 10) / 10,
-        priceFromOrigin: result.segmentPrices[`0-${result.stops.length + 1}`] ?? result.pricePerSeat,
+        priceFromOrigin:
+          result.segmentPrices[`0-${result.stops.length + 1}`] ?? result.pricePerSeat,
       },
     ];
     const payload = {
@@ -663,9 +667,7 @@ function DriverDashboardPage() {
     setWizardOpen(true);
   };
 
-  const handleShareTrip = async (
-    trip: Pick<Trip, "id" | "fromLocation" | "toLocation">,
-  ) => {
+  const handleShareTrip = async (trip: Pick<Trip, "id" | "fromLocation" | "toLocation">) => {
     const result = await shareTrip(trip);
     if (result === "copied") {
       message.success("Trip link copied to clipboard!");
@@ -677,7 +679,6 @@ function DriverDashboardPage() {
       });
     }
   };
-
 
   const handleDeleteAccount = async () => {
     if (!user?.$id) return;
@@ -726,6 +727,9 @@ function DriverDashboardPage() {
   const [regFileList, setRegFileList] = useState<UploadFile[]>([]);
   const [insFileList, setInsFileList] = useState<UploadFile[]>([]);
   const [carImagesList, setCarImagesList] = useState<UploadFile[]>([]);
+  const [idFrontFileList, setIdFrontFileList] = useState<UploadFile[]>([]);
+  const [idBackFileList, setIdBackFileList] = useState<UploadFile[]>([]);
+  const [selfieFileList, setSelfieFileList] = useState<UploadFile[]>([]);
 
   const initGoogleServices = () => {
     const w = window as Window & {
@@ -758,7 +762,7 @@ function DriverDashboardPage() {
     if (search.trip && trips.length > 0 && !managingTripId) {
       setManagingTripId(search.trip);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search.trip, trips.length]);
 
   // Ride preferences
@@ -842,6 +846,10 @@ function DriverDashboardPage() {
     queryFn: () => (user ? listVehiclesByDriverUserId(user.$id) : Promise.resolve([])),
     enabled: !!user,
   });
+
+  // Phone-only accounts get a synthetic @phone.coolpool.in address — that
+  // doesn't count as a real email, so onboarding still asks for one.
+  const hasRealEmail = !!user?.email && !user.email.endsWith("@phone.coolpool.in");
 
   const formSeatCapacity: 5 | 7 =
     vehicles.find((v) => v.id === formVehicleIdWatch)?.seatCapacity === 7 ? 7 : 5;
@@ -999,7 +1007,9 @@ function DriverDashboardPage() {
   const { data: travelerReviews = [], isLoading: travelerReviewsLoading } = useQuery({
     queryKey: ["host-reviews-for-travelers", travelerIds.join(",")],
     queryFn: async () => {
-      const reviews = await Promise.all(travelerIds.map((travelerId) => listReviewsForUser(travelerId)));
+      const reviews = await Promise.all(
+        travelerIds.map((travelerId) => listReviewsForUser(travelerId)),
+      );
       return reviews.flat().filter((review) => review.direction === "host_to_guest");
     },
     enabled: travelerIds.length > 0,
@@ -1089,8 +1099,7 @@ function DriverDashboardPage() {
       // driver (or the host themselves). Normalized so spaces, case, or a
       // +91 prefix can't sneak a duplicate through.
       const normPhone = (v?: string | null) => (v ?? "").replace(/\D/g, "").slice(-10);
-      const normLicense = (v?: string | null) =>
-        (v ?? "").replace(/[^a-z0-9]/gi, "").toUpperCase();
+      const normLicense = (v?: string | null) => (v ?? "").replace(/[^a-z0-9]/gi, "").toUpperCase();
       const newPhone = normPhone(vals.phone);
       const newLicense = normLicense(vals.licenseNumber);
       const existing = [
@@ -1169,10 +1178,10 @@ function DriverDashboardPage() {
     historyFilter === "all"
       ? pastTrips
       : pastTrips.filter((t) =>
-        historyFilter === "completed"
-          ? t.status === "completed"
-          : t.status === "cancelled" || isExpired(t),
-      );
+          historyFilter === "completed"
+            ? t.status === "completed"
+            : t.status === "cancelled" || isExpired(t),
+        );
 
   // Actual received revenue per trip = sum of segmentPrice × seatsBooked
   // for all non-cancelled bookings on that trip.
@@ -1201,8 +1210,7 @@ function DriverDashboardPage() {
   // An in-progress trip whose estimated end time has passed: the host likely
   // forgot to end it, which keeps the vehicle + driver locked. We force them to
   // END TRIP (release resources) before they can do anything else.
-  const tripEstimatedEnd = (t: Trip) =>
-    dayjs(t.arrivalAt ?? dayjs(t.departureAt).add(2, "hour"));
+  const tripEstimatedEnd = (t: Trip) => dayjs(t.arrivalAt ?? dayjs(t.departureAt).add(2, "hour"));
   const overdueLiveTrip = trips.find(
     (t) => t.status === "in_progress" && now.isAfter(tripEstimatedEnd(t)),
   );
@@ -1291,7 +1299,7 @@ function DriverDashboardPage() {
       if (editingTripId) {
         message.success("Trip updated.");
       } else {
-        setWizardOpen(false);   // close wizard so the overlay is visible
+        setWizardOpen(false); // close wizard so the overlay is visible
         setTripPublishedSuccess(true);
         window.setTimeout(() => {
           setTripPublishedSuccess(false);
@@ -1425,9 +1433,7 @@ function DriverDashboardPage() {
       intermediateValues.map((value, index) => {
         const selected = selectedIntermediateStops[index];
         return getCoords(
-          selected && selected.value === value
-            ? selected
-            : { label: value, value, lat: 0, lng: 0 },
+          selected && selected.value === value ? selected : { label: value, value, lat: 0, lng: 0 },
         );
       }),
     );
@@ -1441,109 +1447,109 @@ function DriverDashboardPage() {
     }
 
     const handleRouteResult = (result: any) => {
-        const route = result.routes[0];
-        const polyline = route.overview_polyline;
+      const route = result.routes[0];
+      const polyline = route.overview_polyline;
 
-        let currentDist = 0;
-        const stopsData = allStops.map((stop, i) => {
-          if (i > 0) {
-            currentDist += route.legs[i - 1].distance.value / 1000; // converting meters to km
-          }
-          return {
-            stopIndex: i,
-            location: stop.value,
-            lat: stop.lat,
-            lng: stop.lng,
-            stopType:
-              i === 0
-                ? ("pickup" as const)
-                : i === allStops.length - 1
-                  ? ("drop" as const)
-                  : ("both" as const),
-            distanceFromOriginKm: Math.round(currentDist * 10) / 10,
-          };
-        });
-
-        const totalDistanceKm = Math.max(0.1, Math.round(currentDist * 10) / 10);
-        const routeDurationSeconds = route.legs.reduce(
-          (total: number, leg: { duration?: { value?: number } }) =>
-            total + (leg.duration?.value ?? 0),
-          0,
-        );
-        const durationMinutes = Math.max(
-          1,
-          routeDurationSeconds > 0
-            ? Math.round(routeDurationSeconds / 60)
-            : Math.round(totalDistanceKm),
-        );
-        const departureAt = values.departureAt.toISOString();
-        const seatPrice = Number(values.totalTripPrice);
-        const totalSeats = Number(values.totalSeats);
-        const totalPrice = seatPrice * totalSeats;
-        const selectedVehicle = vehicles.find((vehicle) => vehicle.id === values.vehicleId);
-        setSegmentPricePreview(
-          stopsData.flatMap((fromStop, fromIndex) =>
-            stopsData.slice(fromIndex + 1).map((toStop) => {
-              const distanceKm = Math.max(
-                0,
-                Math.round((toStop.distanceFromOriginKm - fromStop.distanceFromOriginKm) * 10) / 10,
-              );
-              return {
-                from: fromStop.location,
-                to: toStop.location,
-                distanceKm,
-                pricePerSeat: Math.round((distanceKm / totalDistanceKm) * seatPrice),
-              };
-            }),
-          ),
-        );
-
-        const payload = {
-          tripData: {
-            hostId: user.$id,
-            fromLocation: finalFrom.value,
-            fromLat: finalFrom.lat,
-            fromLng: finalFrom.lng,
-            toLocation: finalTo.value,
-            toLat: finalTo.lat,
-            toLng: finalTo.lng,
-            polyline,
-            totalDistanceKm,
-            totalPrice,
-            pricePerKm: calcPricePerKm(totalPrice, totalDistanceKm),
-            totalSeats,
-            departureAt,
-            arrivalAt: values.departureAt.add(durationMinutes, "minute").toISOString(),
-            durationMinutes,
-            hostDisplayName: user.name || "Verified Host",
-            hostRating: 0,
-            hostRatingCount: 0,
-            vehicleModel: selectedVehicle?.modelName,
-            vehicleColor: selectedVehicle?.color || undefined,
-            notes: `Created from ride host trip module. Total price: ₹${totalPrice}.`,
-            vehicleId: values.vehicleId,
-            assignedDriverId: values.driverId,
-            seatConfig: values.seatConfig,
-          },
-          stopsData: stopsData.map((stop, i) => ({
-            ...stop,
-            priceFromOrigin:
-              i === stopsData.length - 1
-                ? seatPrice
-                : Math.round((stop.distanceFromOriginKm / totalDistanceKm) * seatPrice),
-          })),
-        };
-
-        if (import.meta.env.DEV) {
-          console.log("[publish trip] createTrip payload (strings stored in DB):", {
-            totalDistanceKm: payload.tripData.totalDistanceKm,
-            totalPrice: payload.tripData.totalPrice,
-            stopsData: payload.stopsData,
-          });
+      let currentDist = 0;
+      const stopsData = allStops.map((stop, i) => {
+        if (i > 0) {
+          currentDist += route.legs[i - 1].distance.value / 1000; // converting meters to km
         }
+        return {
+          stopIndex: i,
+          location: stop.value,
+          lat: stop.lat,
+          lng: stop.lng,
+          stopType:
+            i === 0
+              ? ("pickup" as const)
+              : i === allStops.length - 1
+                ? ("drop" as const)
+                : ("both" as const),
+          distanceFromOriginKm: Math.round(currentDist * 10) / 10,
+        };
+      });
 
-        setPendingTripPayload(payload);
-        message.success("Route and segment prices calculated. Review them, then publish.");
+      const totalDistanceKm = Math.max(0.1, Math.round(currentDist * 10) / 10);
+      const routeDurationSeconds = route.legs.reduce(
+        (total: number, leg: { duration?: { value?: number } }) =>
+          total + (leg.duration?.value ?? 0),
+        0,
+      );
+      const durationMinutes = Math.max(
+        1,
+        routeDurationSeconds > 0
+          ? Math.round(routeDurationSeconds / 60)
+          : Math.round(totalDistanceKm),
+      );
+      const departureAt = values.departureAt.toISOString();
+      const seatPrice = Number(values.totalTripPrice);
+      const totalSeats = Number(values.totalSeats);
+      const totalPrice = seatPrice * totalSeats;
+      const selectedVehicle = vehicles.find((vehicle) => vehicle.id === values.vehicleId);
+      setSegmentPricePreview(
+        stopsData.flatMap((fromStop, fromIndex) =>
+          stopsData.slice(fromIndex + 1).map((toStop) => {
+            const distanceKm = Math.max(
+              0,
+              Math.round((toStop.distanceFromOriginKm - fromStop.distanceFromOriginKm) * 10) / 10,
+            );
+            return {
+              from: fromStop.location,
+              to: toStop.location,
+              distanceKm,
+              pricePerSeat: Math.round((distanceKm / totalDistanceKm) * seatPrice),
+            };
+          }),
+        ),
+      );
+
+      const payload = {
+        tripData: {
+          hostId: user.$id,
+          fromLocation: finalFrom.value,
+          fromLat: finalFrom.lat,
+          fromLng: finalFrom.lng,
+          toLocation: finalTo.value,
+          toLat: finalTo.lat,
+          toLng: finalTo.lng,
+          polyline,
+          totalDistanceKm,
+          totalPrice,
+          pricePerKm: calcPricePerKm(totalPrice, totalDistanceKm),
+          totalSeats,
+          departureAt,
+          arrivalAt: values.departureAt.add(durationMinutes, "minute").toISOString(),
+          durationMinutes,
+          hostDisplayName: user.name || "Verified Host",
+          hostRating: 0,
+          hostRatingCount: 0,
+          vehicleModel: selectedVehicle?.modelName,
+          vehicleColor: selectedVehicle?.color || undefined,
+          notes: `Created from ride host trip module. Total price: ₹${totalPrice}.`,
+          vehicleId: values.vehicleId,
+          assignedDriverId: values.driverId,
+          seatConfig: values.seatConfig,
+        },
+        stopsData: stopsData.map((stop, i) => ({
+          ...stop,
+          priceFromOrigin:
+            i === stopsData.length - 1
+              ? seatPrice
+              : Math.round((stop.distanceFromOriginKm / totalDistanceKm) * seatPrice),
+        })),
+      };
+
+      if (import.meta.env.DEV) {
+        console.log("[publish trip] createTrip payload (strings stored in DB):", {
+          totalDistanceKm: payload.tripData.totalDistanceKm,
+          totalPrice: payload.tripData.totalPrice,
+          stopsData: payload.stopsData,
+        });
+      }
+
+      setPendingTripPayload(payload);
+      message.success("Route and segment prices calculated. Review them, then publish.");
     };
 
     try {
@@ -1659,7 +1665,7 @@ function DriverDashboardPage() {
 
         const safePredictions = predictions || [];
 
-        let filteredPredictions = safePredictions.filter((p) => {
+        const filteredPredictions = safePredictions.filter((p) => {
           const desc = p.description.toLowerCase();
           return SOUTH_INDIA_STATES.some((state) => desc.includes(state)) || isAirportQuery;
         });
@@ -1667,12 +1673,16 @@ function DriverDashboardPage() {
         if (filteredPredictions.length === 0 && safePredictions.length > 0 && !isAirportQuery) {
           if (localOptions.length > 0) return;
           const options = [
-            { value: "", label: "ðŸš« Out of Service Area (South India & Goa only)", disabled: true },
+            {
+              value: "",
+              label: "ðŸš« Out of Service Area (South India & Goa only)",
+              disabled: true,
+            },
           ];
           setCityOptions(target, options as any);
           return;
         }
-        let options: any[] = filteredPredictions.map((prediction) => ({
+        const options: any[] = filteredPredictions.map((prediction) => ({
           value: stripCountrySuffix(prediction.description),
           label: stripCountrySuffix(prediction.description),
           placeId: prediction.place_id,
@@ -1704,7 +1714,8 @@ function DriverDashboardPage() {
         }
 
         const mergedOptions = [...localOptions, ...options].filter(
-          (option, index, all) => all.findIndex((candidate) => candidate.value === option.value) === index,
+          (option, index, all) =>
+            all.findIndex((candidate) => candidate.value === option.value) === index,
         );
         setCityOptions(target, mergedOptions as any);
       },
@@ -1956,8 +1967,12 @@ function DriverDashboardPage() {
               </div>
               <h2 className="mt-5 text-2xl font-black text-gray-900">End your ongoing trip</h2>
               <p className="mt-2 text-sm leading-relaxed text-gray-600">
-                Your ride <strong>{stripCountrySuffix(overdueLiveTrip.fromLocation)} → {stripCountrySuffix(overdueLiveTrip.toLocation)}</strong> has
-                passed its expected end time. End it to release your vehicle and driver — you
+                Your ride{" "}
+                <strong>
+                  {stripCountrySuffix(overdueLiveTrip.fromLocation)} →{" "}
+                  {stripCountrySuffix(overdueLiveTrip.toLocation)}
+                </strong>{" "}
+                has passed its expected end time. End it to release your vehicle and driver — you
                 can&apos;t host a new trip until this one is closed.
               </p>
               <Button
@@ -1998,9 +2013,7 @@ function DriverDashboardPage() {
                   </svg>
                 </div>
               </div>
-              <p className="mt-6 text-2xl font-bold text-gray-900">
-                Trip published successfully
-              </p>
+              <p className="mt-6 text-2xl font-bold text-gray-900">Trip published successfully</p>
               <p className="mt-1 text-sm text-gray-500">
                 Your ride is live. Taking you to your trips…
               </p>
@@ -2057,8 +2070,8 @@ function DriverDashboardPage() {
             </div>
             <h3 className="mt-5 text-2xl font-bold text-gray-900">Delete your account?</h3>
             <p className="mt-2 text-sm leading-relaxed text-gray-600">
-              This will permanently remove your driver profile, vehicles, and host role
-              from Coolpool. <strong>This action cannot be undone.</strong>
+              This will permanently remove your driver profile, vehicles, and host role from
+              Coolpool. <strong>This action cannot be undone.</strong>
             </p>
             <div className="mt-6 flex gap-3">
               <Button
@@ -2105,7 +2118,11 @@ function DriverDashboardPage() {
                 aria-label="Go to coolpool.in home"
                 className="inline-block"
               >
-                <img src={logo} alt="Coolpool Logo" className="h-16 w-auto mx-auto object-contain" />
+                <img
+                  src={logo}
+                  alt="Coolpool Logo"
+                  className="h-16 w-auto mx-auto object-contain"
+                />
               </button>
             </div>
 
@@ -2237,11 +2254,7 @@ function DriverDashboardPage() {
                                   }
                                   className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-white shadow ring-2 ring-white"
                                 >
-                                  {savingPhoto ? (
-                                    <Spin size="small" />
-                                  ) : (
-                                    <Camera size={11} />
-                                  )}
+                                  {savingPhoto ? <Spin size="small" /> : <Camera size={11} />}
                                 </button>
                                 <input
                                   ref={photoInputRef}
@@ -2259,9 +2272,7 @@ function DriverDashboardPage() {
                                 <div className="font-semibold text-gray-900 truncate">
                                   {getUserDisplayName(user)}
                                 </div>
-                                <div className="text-xs text-gray-600 truncate">
-                                  {user?.email}
-                                </div>
+                                <div className="text-xs text-gray-600 truncate">{user?.email}</div>
                                 <div
                                   className={`text-xs font-semibold mt-1 flex items-center gap-1 ${isVerifiedHost ? "text-blue-600" : "text-amber-600"}`}
                                 >
@@ -2386,7 +2397,13 @@ function DriverDashboardPage() {
                           danger
                           size="large"
                           icon={<TriangleAlert size={20} />}
-                          style={{ height: 56, paddingInline: 40, fontSize: 17, borderRadius: 16, fontWeight: 700 }}
+                          style={{
+                            height: 56,
+                            paddingInline: 40,
+                            fontSize: 17,
+                            borderRadius: 16,
+                            fontWeight: 700,
+                          }}
                           onClick={() => setActiveModule("onboarding")}
                         >
                           Get Verified
@@ -2416,7 +2433,15 @@ function DriverDashboardPage() {
                     <Button
                       type="primary"
                       icon={<PlusCircle size={28} color="white" />}
-                      style={{ height: 72, minWidth: 190, fontSize: 20, fontWeight: 800, borderRadius: 36, whiteSpace: "nowrap", color: "white" }}
+                      style={{
+                        height: 72,
+                        minWidth: 190,
+                        fontSize: 20,
+                        fontWeight: 800,
+                        borderRadius: 36,
+                        whiteSpace: "nowrap",
+                        color: "white",
+                      }}
                       className="w-full sm:w-auto sm:flex-shrink-0 bg-gradient-primary border-none !text-white [&_svg]:!text-white shadow-glow hover:scale-105 active:scale-95 transition-transform !px-8 sm:!px-12"
                       onClick={openWizard}
                     >
@@ -2425,13 +2450,18 @@ function DriverDashboardPage() {
                   </div>
 
                   {/* ── Host Bio card ── */}
-                  <Card className="rounded-2xl border border-white/60 shadow-soft backdrop-blur-md overflow-hidden" styles={{ body: { padding: '20px 24px' } }}>
+                  <Card
+                    className="rounded-2xl border border-white/60 shadow-soft backdrop-blur-md overflow-hidden"
+                    styles={{ body: { padding: "20px 24px" } }}
+                  >
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex items-center gap-3 min-w-0">
                         <div className="p-2 bg-blue-100 rounded-2xl text-blue-600 shrink-0">
                           <User size={18} />
                         </div>
-                        <Text strong className="text-gray-800">About you</Text>
+                        <Text strong className="text-gray-800">
+                          About you
+                        </Text>
                       </div>
                       {!bioEditing && (
                         <button
@@ -2459,7 +2489,10 @@ function DriverDashboardPage() {
                         />
                         <p className="text-xs text-gray-400 text-right">{bioText.length} / 200</p>
                         <div className="flex gap-2 justify-end">
-                          <Button onClick={() => setBioEditing(false)} className="rounded-xl flex-1">
+                          <Button
+                            onClick={() => setBioEditing(false)}
+                            className="rounded-xl flex-1"
+                          >
                             Cancel
                           </Button>
                           <Button
@@ -2480,7 +2513,10 @@ function DriverDashboardPage() {
                           </p>
                         ) : (
                           <button
-                            onClick={() => { setBioText(""); setBioEditing(true); }}
+                            onClick={() => {
+                              setBioText("");
+                              setBioEditing(true);
+                            }}
                             className="text-xs text-gray-400 hover:text-primary transition-colors"
                           >
                             + Tell travelers about yourself…
@@ -2501,8 +2537,13 @@ function DriverDashboardPage() {
                             <RouteIcon size={20} />
                           </div>
                           <div className="min-w-0">
-                            <p className="text-sm font-semibold text-gray-500 leading-tight">Total Rides</p>
-                            <Tag color="purple" className="rounded-full px-2.5 border-none font-medium text-xs mt-1.5">
+                            <p className="text-sm font-semibold text-gray-500 leading-tight">
+                              Total Rides
+                            </p>
+                            <Tag
+                              color="purple"
+                              className="rounded-full px-2.5 border-none font-medium text-xs mt-1.5"
+                            >
                               +12% this month
                             </Tag>
                           </div>
@@ -2526,7 +2567,9 @@ function DriverDashboardPage() {
                             <span className="font-black text-lg leading-none">₹</span>
                           </div>
                           <div className="min-w-0">
-                            <p className="text-sm font-semibold text-gray-500 leading-tight">Total Earnings</p>
+                            <p className="text-sm font-semibold text-gray-500 leading-tight">
+                              Total Earnings
+                            </p>
                             <p className="text-xs text-gray-400 mt-1">Settlement pending</p>
                           </div>
                         </div>
@@ -2539,15 +2582,21 @@ function DriverDashboardPage() {
 
                     {/* Performance */}
                     <Card className="rounded-2xl border border-white/60 shadow-soft hover:shadow-card transition-all duration-300 backdrop-blur-md group overflow-hidden relative py-5 px-5">
-                      <div className={`absolute -left-6 -top-6 w-24 h-24 rounded-full blur-xl transition-all ${performanceRatingColors.accent}`} />
+                      <div
+                        className={`absolute -left-6 -top-6 w-24 h-24 rounded-full blur-xl transition-all ${performanceRatingColors.accent}`}
+                      />
                       <div className="flex items-center justify-between gap-4">
                         {/* Left */}
                         <div className="flex items-center gap-3 min-w-0">
-                          <div className={`p-2.5 rounded-2xl shrink-0 ${performanceRatingColors.icon}`}>
+                          <div
+                            className={`p-2.5 rounded-2xl shrink-0 ${performanceRatingColors.icon}`}
+                          >
                             <Sparkles size={20} />
                           </div>
                           <div className="min-w-0">
-                            <p className="text-sm font-semibold text-gray-500 leading-tight">Performance</p>
+                            <p className="text-sm font-semibold text-gray-500 leading-tight">
+                              Performance
+                            </p>
                             <div className="flex gap-1 mt-1.5">
                               {[...Array(5)].map((_, i) => (
                                 <Star key={i} size={13} className={performanceRatingColors.star} />
@@ -2557,7 +2606,9 @@ function DriverDashboardPage() {
                         </div>
                         {/* Right — number */}
                         <div className="text-right shrink-0">
-                          <p className={`text-3xl font-black leading-none ${performanceRatingColors.score}`}>
+                          <p
+                            className={`text-3xl font-black leading-none ${performanceRatingColors.score}`}
+                          >
                             {performanceRating.toFixed(1)}
                           </p>
                         </div>
@@ -2590,7 +2641,9 @@ function DriverDashboardPage() {
                       {/* Smoking */}
                       <div className="flex items-center justify-between p-4 rounded-2xl bg-gray-50 border border-gray-100">
                         <div className="flex items-center gap-3">
-                          <div className={`p-2 rounded-xl ${prefsLocal.smokingAllowed ? "bg-amber-100 text-amber-600" : "bg-gray-100 text-gray-400"}`}>
+                          <div
+                            className={`p-2 rounded-xl ${prefsLocal.smokingAllowed ? "bg-amber-100 text-amber-600" : "bg-gray-100 text-gray-400"}`}
+                          >
                             <Cigarette size={20} />
                           </div>
                           <div>
@@ -2609,7 +2662,9 @@ function DriverDashboardPage() {
                       {/* Alcohol */}
                       <div className="flex items-center justify-between p-4 rounded-2xl bg-gray-50 border border-gray-100">
                         <div className="flex items-center gap-3">
-                          <div className={`p-2 rounded-xl ${prefsLocal.alcoholAllowed ? "bg-rose-100 text-rose-500" : "bg-gray-100 text-gray-400"}`}>
+                          <div
+                            className={`p-2 rounded-xl ${prefsLocal.alcoholAllowed ? "bg-rose-100 text-rose-500" : "bg-gray-100 text-gray-400"}`}
+                          >
                             <Wine size={20} />
                           </div>
                           <div>
@@ -2628,7 +2683,9 @@ function DriverDashboardPage() {
                       {/* Music */}
                       <div className="flex items-center justify-between p-4 rounded-2xl bg-gray-50 border border-gray-100">
                         <div className="flex items-center gap-3">
-                          <div className={`p-2 rounded-xl ${prefsLocal.musicAllowed ? "bg-green-100 text-green-600" : "bg-gray-100 text-gray-400"}`}>
+                          <div
+                            className={`p-2 rounded-xl ${prefsLocal.musicAllowed ? "bg-green-100 text-green-600" : "bg-gray-100 text-gray-400"}`}
+                          >
                             {prefsLocal.musicAllowed ? <Music2 size={20} /> : <VolumeX size={20} />}
                           </div>
                           <div>
@@ -2640,14 +2697,23 @@ function DriverDashboardPage() {
                         </div>
                         <Switch
                           checked={prefsLocal.musicAllowed}
-                          onChange={(v) => setPrefsLocal((p) => ({ ...p, musicAllowed: v, musicType: null, musicOnly: false }))}
+                          onChange={(v) =>
+                            setPrefsLocal((p) => ({
+                              ...p,
+                              musicAllowed: v,
+                              musicType: null,
+                              musicOnly: false,
+                            }))
+                          }
                         />
                       </div>
 
                       {/* Pets */}
                       <div className="flex items-center justify-between p-4 rounded-2xl bg-gray-50 border border-gray-100">
                         <div className="flex items-center gap-3">
-                          <div className={`p-2 rounded-xl ${prefsLocal.petsAllowed ? "bg-emerald-100 text-emerald-600" : "bg-gray-100 text-gray-400"}`}>
+                          <div
+                            className={`p-2 rounded-xl ${prefsLocal.petsAllowed ? "bg-emerald-100 text-emerald-600" : "bg-gray-100 text-gray-400"}`}
+                          >
                             <PawPrint size={20} />
                           </div>
                           <div>
@@ -2728,103 +2794,105 @@ function DriverDashboardPage() {
                                   <div className="flex items-center gap-2 shrink-0">
                                     <Text strong className="text-lg text-emerald-600">
                                       ₹{item.totalPrice}
-                                  </Text>
-                                  <Dropdown
-                                    menu={{
-                                      items: [
-                                        { key: "share", label: "Share trip" },
-                                        { key: "edit", label: "Edit trip details" },
-                                        { key: "cancel", label: "Cancel trip", danger: true },
-                                      ],
-                                      onClick: async ({ key }) => {
-                                        if (key === "share") {
-                                          await handleShareTrip(item);
-                                          return;
-                                        }
-                                        if (key === "edit") {
-                                          const hide = message.loading(
-                                            "Fetching trip details...",
-                                            0,
-                                          );
-                                          try {
-                                            setEditingTripId(item.id);
-                                            setIsEditingTrip(true);
-
-                                            // Fetch stops to pre-populate
-                                            const stops = await listTripStops(item.id);
-                                            const fromStop = stops.find(
-                                              (s) => s.stopType === "pickup",
-                                            );
-                                            const toStop = stops.find((s) => s.stopType === "drop");
-                                            const intermediateStops = stops.filter(
-                                              (s) => s.stopType === "both",
-                                            );
-
-                                            if (fromStop)
-                                              setSelectedFrom({
-                                                label: fromStop.location,
-                                                value: fromStop.location,
-                                                lat: fromStop.lat,
-                                                lng: fromStop.lng,
-                                              });
-                                            if (toStop)
-                                              setSelectedTo({
-                                                label: toStop.location,
-                                                value: toStop.location,
-                                                lat: toStop.lat,
-                                                lng: toStop.lng,
-                                              });
-                                            setSelectedIntermediateStops(
-                                              Object.fromEntries(
-                                                intermediateStops.map((stop, index) => [
-                                                  index,
-                                                  {
-                                                    label: stop.location,
-                                                    value: stop.location,
-                                                    lat: stop.lat,
-                                                    lng: stop.lng,
-                                                  },
-                                                ]),
-                                              ),
-                                            );
-
-                                            form.setFieldsValue({
-                                              fromLocation: item.fromLocation,
-                                              toLocation: item.toLocation,
-                                              departureAt: dayjs(item.departureAt),
-                                              totalSeats: item.totalSeats,
-                                              totalTripPrice: Math.round(
-                                                item.totalPrice / (item.totalSeats || 1),
-                                              ),
-                                              vehicleId: item.vehicleId,
-                                              driverId: item.assignedDriverId,
-                                              intermediateStops: intermediateStops.map(
-                                                (stop) => stop.location,
-                                              ),
-                                            });
-
-                                            setShowTripForm(true);
-                                            setActiveModule("trips");
-                                            message.success("Trip loaded for editing.");
-                                          } catch (err) {
-                                            console.error("[EditTrip] Error:", err);
-                                            message.error("Failed to load trip details.");
-                                          } finally {
-                                            hide();
+                                    </Text>
+                                    <Dropdown
+                                      menu={{
+                                        items: [
+                                          { key: "share", label: "Share trip" },
+                                          { key: "edit", label: "Edit trip details" },
+                                          { key: "cancel", label: "Cancel trip", danger: true },
+                                        ],
+                                        onClick: async ({ key }) => {
+                                          if (key === "share") {
+                                            await handleShareTrip(item);
+                                            return;
                                           }
-                                        } else if (key === "cancel") {
-                                          message.info("Cancel functionality coming soon");
-                                        }
-                                      },
-                                    }}
-                                    trigger={["click"]}
-                                  >
-                                    <Button
-                                      type="text"
-                                      icon={<MoreVertical size={18} />}
-                                      className="text-gray-400 hover:text-gray-700"
-                                    />
-                                  </Dropdown>
+                                          if (key === "edit") {
+                                            const hide = message.loading(
+                                              "Fetching trip details...",
+                                              0,
+                                            );
+                                            try {
+                                              setEditingTripId(item.id);
+                                              setIsEditingTrip(true);
+
+                                              // Fetch stops to pre-populate
+                                              const stops = await listTripStops(item.id);
+                                              const fromStop = stops.find(
+                                                (s) => s.stopType === "pickup",
+                                              );
+                                              const toStop = stops.find(
+                                                (s) => s.stopType === "drop",
+                                              );
+                                              const intermediateStops = stops.filter(
+                                                (s) => s.stopType === "both",
+                                              );
+
+                                              if (fromStop)
+                                                setSelectedFrom({
+                                                  label: fromStop.location,
+                                                  value: fromStop.location,
+                                                  lat: fromStop.lat,
+                                                  lng: fromStop.lng,
+                                                });
+                                              if (toStop)
+                                                setSelectedTo({
+                                                  label: toStop.location,
+                                                  value: toStop.location,
+                                                  lat: toStop.lat,
+                                                  lng: toStop.lng,
+                                                });
+                                              setSelectedIntermediateStops(
+                                                Object.fromEntries(
+                                                  intermediateStops.map((stop, index) => [
+                                                    index,
+                                                    {
+                                                      label: stop.location,
+                                                      value: stop.location,
+                                                      lat: stop.lat,
+                                                      lng: stop.lng,
+                                                    },
+                                                  ]),
+                                                ),
+                                              );
+
+                                              form.setFieldsValue({
+                                                fromLocation: item.fromLocation,
+                                                toLocation: item.toLocation,
+                                                departureAt: dayjs(item.departureAt),
+                                                totalSeats: item.totalSeats,
+                                                totalTripPrice: Math.round(
+                                                  item.totalPrice / (item.totalSeats || 1),
+                                                ),
+                                                vehicleId: item.vehicleId,
+                                                driverId: item.assignedDriverId,
+                                                intermediateStops: intermediateStops.map(
+                                                  (stop) => stop.location,
+                                                ),
+                                              });
+
+                                              setShowTripForm(true);
+                                              setActiveModule("trips");
+                                              message.success("Trip loaded for editing.");
+                                            } catch (err) {
+                                              console.error("[EditTrip] Error:", err);
+                                              message.error("Failed to load trip details.");
+                                            } finally {
+                                              hide();
+                                            }
+                                          } else if (key === "cancel") {
+                                            message.info("Cancel functionality coming soon");
+                                          }
+                                        },
+                                      }}
+                                      trigger={["click"]}
+                                    >
+                                      <Button
+                                        type="text"
+                                        icon={<MoreVertical size={18} />}
+                                        className="text-gray-400 hover:text-gray-700"
+                                      />
+                                    </Dropdown>
                                   </div>
                                 </div>
                                 {item.status === "scheduled" &&
@@ -2867,7 +2935,9 @@ function DriverDashboardPage() {
                               <div className="mt-5 pt-4 border-t border-gray-100 flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
                                 <div className="flex items-center gap-2 text-sm text-gray-600 shrink-0">
                                   <User size={16} />
-                                  <span className="whitespace-nowrap">{item.totalSeats} seats total</span>
+                                  <span className="whitespace-nowrap">
+                                    {item.totalSeats} seats total
+                                  </span>
                                 </div>
                                 <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
                                   {item.status === "scheduled" &&
@@ -2979,7 +3049,6 @@ function DriverDashboardPage() {
                           </div>
                         </Card>
                       </div>
-
                     </div>
                   </div>
                 </div>
@@ -3091,11 +3160,7 @@ function DriverDashboardPage() {
                               align: "right" as const,
                               render: (_, trip) => {
                                 const seatsBooked = bookings
-                                  .filter(
-                                    (b) =>
-                                      b.tripId === trip.id &&
-                                      b.status !== "cancelled",
-                                  )
+                                  .filter((b) => b.tripId === trip.id && b.status !== "cancelled")
                                   .reduce((sum, b) => sum + (b.seatsBooked || 0), 0);
                                 return (
                                   <Space size="small">
@@ -3125,32 +3190,20 @@ function DriverDashboardPage() {
                                             await updateTrip(trip.id, {
                                               status: "cancelled",
                                             });
-                                            message.success(
-                                              "Trip cancelled successfully",
-                                            );
+                                            message.success("Trip cancelled successfully");
                                             queryClient.invalidateQueries({
                                               queryKey: ["host-trips"],
                                             });
                                           } catch (err) {
-                                            console.error(
-                                              "[CancelTrip] Error:",
-                                              err,
-                                            );
-                                            message.error(
-                                              "Failed to cancel trip",
-                                            );
+                                            console.error("[CancelTrip] Error:", err);
+                                            message.error("Failed to cancel trip");
                                           }
                                         }}
                                         okText="Yes, Cancel"
                                         cancelText="Keep Trip"
                                         okButtonProps={{ danger: true }}
                                       >
-                                        <Button
-                                          type="link"
-                                          size="small"
-                                          danger
-                                          className="p-0"
-                                        >
+                                        <Button type="link" size="small" danger className="p-0">
                                           Cancel
                                         </Button>
                                       </Popconfirm>
@@ -3168,8 +3221,7 @@ function DriverDashboardPage() {
                             pageSize: 10,
                             total: sortedTrips.length,
                             showSizeChanger: true,
-                            showTotal: (total) =>
-                              `Total ${total} trips`,
+                            showTotal: (total) => `Total ${total} trips`,
                             responsive: true,
                           }}
                           locale={{
@@ -3201,185 +3253,179 @@ function DriverDashboardPage() {
                         ) : (
                           sortedTrips.map((trip) => {
                             const seatsBooked = bookings
-                              .filter(
-                                (b) =>
-                                  b.tripId === trip.id &&
-                                  b.status !== "cancelled",
-                              )
+                              .filter((b) => b.tripId === trip.id && b.status !== "cancelled")
                               .reduce((sum, b) => sum + (b.seatsBooked || 0), 0);
                             return (
-                            <Card
-                              key={trip.id}
-                              onClick={() => setManagingTripId(trip.id)}
-                              className="rounded-2xl border border-white/60 shadow-card bg-white/80 backdrop-blur-md p-3 cursor-pointer transition-transform active:scale-[0.99]"
-                            >
-                              <div className="space-y-2">
-                                {/* Active toggle — pause a trip without cancelling it */}
-                                <div
-                                  className="flex items-center justify-between"
-                                  onClick={(e) => e.stopPropagation()}
-                                >
-                                  <span
-                                    className={`text-[11px] font-bold uppercase tracking-wider ${trip.active !== false ? "text-emerald-600" : "text-gray-400"}`}
+                              <Card
+                                key={trip.id}
+                                onClick={() => setManagingTripId(trip.id)}
+                                className="rounded-2xl border border-white/60 shadow-card bg-white/80 backdrop-blur-md p-3 cursor-pointer transition-transform active:scale-[0.99]"
+                              >
+                                <div className="space-y-2">
+                                  {/* Active toggle — pause a trip without cancelling it */}
+                                  <div
+                                    className="flex items-center justify-between"
+                                    onClick={(e) => e.stopPropagation()}
                                   >
-                                    {trip.active !== false ? "Active" : "Paused"}
-                                  </span>
-                                  <Switch
-                                    size="small"
-                                    checked={trip.active !== false}
-                                    onChange={(checked) => toggleTripActive(trip.id, checked)}
-                                  />
-                                </div>
-                                {/* Route */}
-                                <div className="flex items-center gap-2">
-                                  <Text strong className="flex-1 line-clamp-1 text-gray-900">
-                                    {trip.fromLocation}
-                                  </Text>
-                                  <ArrowRight size={16} className="text-gray-400" />
-                                  <Text strong className="flex-1 line-clamp-1 text-gray-900">
-                                    {trip.toLocation}
-                                  </Text>
-                                </div>
-
-                                {/* Departure & Price */}
-                                <div className="flex items-center justify-between gap-4 py-2 border-y border-gray-100">
-                                  <div>
-                                    <Text className="text-sm font-semibold text-gray-900">
-                                      {dayjs(trip.departureAt).format("MMM D, YYYY")}
+                                    <span
+                                      className={`text-[11px] font-bold uppercase tracking-wider ${trip.active !== false ? "text-emerald-600" : "text-gray-400"}`}
+                                    >
+                                      {trip.active !== false ? "Active" : "Paused"}
+                                    </span>
+                                    <Switch
+                                      size="small"
+                                      checked={trip.active !== false}
+                                      onChange={(checked) => toggleTripActive(trip.id, checked)}
+                                    />
+                                  </div>
+                                  {/* Route */}
+                                  <div className="flex items-center gap-2">
+                                    <Text strong className="flex-1 line-clamp-1 text-gray-900">
+                                      {trip.fromLocation}
                                     </Text>
-                                    <Text className="block text-xs text-gray-500">
-                                      {dayjs(trip.departureAt).format("h:mm A")}
+                                    <ArrowRight size={16} className="text-gray-400" />
+                                    <Text strong className="flex-1 line-clamp-1 text-gray-900">
+                                      {trip.toLocation}
                                     </Text>
                                   </div>
-                                  <Text strong className="text-emerald-600 text-lg whitespace-nowrap">
-                                    ₹{trip.totalPrice?.toLocaleString("en-IN")}
-                                  </Text>
-                                </div>
 
-                                {/* Status & Seats */}
-                                <div className="flex flex-wrap items-center justify-between gap-2">
-                                  <div className="flex items-center gap-2 shrink-0 flex-wrap">
-                                    {trip.status === "scheduled" &&
-                                    now.isAfter(dayjs(trip.departureAt)) ? (
-                                      <Tag
-                                        color="error"
-                                        className="rounded-full m-0 font-semibold whitespace-nowrap"
-                                      >
-                                        TIME IS UP — START NOW
-                                      </Tag>
-                                    ) : (
-                                      <Tag
-                                        color={
-                                          trip.status === "in_progress"
-                                            ? "processing"
-                                            : trip.status === "completed"
-                                              ? "success"
-                                              : trip.status === "cancelled"
-                                                ? "error"
-                                                : "blue"
-                                        }
-                                        className="rounded-full m-0 whitespace-nowrap"
-                                      >
-                                        {trip.status?.toUpperCase().replace("_", " ")}
-                                      </Tag>
-                                    )}
-                                    {trip.totalSeats - seatsBooked <= 0 ? (
-                                      <Text className="text-xs font-semibold text-red-500 whitespace-nowrap">
-                                        Sold out
+                                  {/* Departure & Price */}
+                                  <div className="flex items-center justify-between gap-4 py-2 border-y border-gray-100">
+                                    <div>
+                                      <Text className="text-sm font-semibold text-gray-900">
+                                        {dayjs(trip.departureAt).format("MMM D, YYYY")}
                                       </Text>
-                                    ) : (
-                                      <Text className="text-xs text-gray-500 whitespace-nowrap">
-                                        {trip.totalSeats - seatsBooked} seats left
+                                      <Text className="block text-xs text-gray-500">
+                                        {dayjs(trip.departureAt).format("h:mm A")}
                                       </Text>
-                                    )}
+                                    </div>
+                                    <Text
+                                      strong
+                                      className="text-emerald-600 text-lg whitespace-nowrap"
+                                    >
+                                      ₹{trip.totalPrice?.toLocaleString("en-IN")}
+                                    </Text>
                                   </div>
-                                  <div className="flex items-center gap-2 shrink-0">
-                                    {trip.status === "scheduled" &&
-                                      now.isAfter(dayjs(trip.departureAt).subtract(15, "minute")) && (
+
+                                  {/* Status & Seats */}
+                                  <div className="flex flex-wrap items-center justify-between gap-2">
+                                    <div className="flex items-center gap-2 shrink-0 flex-wrap">
+                                      {trip.status === "scheduled" &&
+                                      now.isAfter(dayjs(trip.departureAt)) ? (
+                                        <Tag
+                                          color="error"
+                                          className="rounded-full m-0 font-semibold whitespace-nowrap"
+                                        >
+                                          TIME IS UP — START NOW
+                                        </Tag>
+                                      ) : (
+                                        <Tag
+                                          color={
+                                            trip.status === "in_progress"
+                                              ? "processing"
+                                              : trip.status === "completed"
+                                                ? "success"
+                                                : trip.status === "cancelled"
+                                                  ? "error"
+                                                  : "blue"
+                                          }
+                                          className="rounded-full m-0 whitespace-nowrap"
+                                        >
+                                          {trip.status?.toUpperCase().replace("_", " ")}
+                                        </Tag>
+                                      )}
+                                      {trip.totalSeats - seatsBooked <= 0 ? (
+                                        <Text className="text-xs font-semibold text-red-500 whitespace-nowrap">
+                                          Sold out
+                                        </Text>
+                                      ) : (
+                                        <Text className="text-xs text-gray-500 whitespace-nowrap">
+                                          {trip.totalSeats - seatsBooked} seats left
+                                        </Text>
+                                      )}
+                                    </div>
+                                    <div className="flex items-center gap-2 shrink-0">
+                                      {trip.status === "scheduled" &&
+                                        now.isAfter(
+                                          dayjs(trip.departureAt).subtract(15, "minute"),
+                                        ) && (
+                                          <Button
+                                            type="primary"
+                                            size="small"
+                                            icon={<PlayCircle size={14} />}
+                                            loading={tripActionLoading === trip.id}
+                                            className="rounded-xl bg-emerald-500 border-none"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              handleStartTrip(trip.id);
+                                            }}
+                                          >
+                                            Start
+                                          </Button>
+                                        )}
+                                      {trip.status === "in_progress" && (
                                         <Button
                                           type="primary"
                                           size="small"
-                                          icon={<PlayCircle size={14} />}
+                                          danger
+                                          icon={<FlagTriangleRight size={14} />}
                                           loading={tripActionLoading === trip.id}
-                                          className="rounded-xl bg-emerald-500 border-none"
+                                          className="rounded-xl"
                                           onClick={(e) => {
                                             e.stopPropagation();
-                                            handleStartTrip(trip.id);
+                                            handleEndTrip(trip.id);
                                           }}
                                         >
-                                          Start
+                                          End Trip
                                         </Button>
                                       )}
-                                    {trip.status === "in_progress" && (
                                       <Button
-                                        type="primary"
                                         size="small"
-                                        danger
-                                        icon={<FlagTriangleRight size={14} />}
-                                        loading={tripActionLoading === trip.id}
+                                        icon={<Share2 size={14} />}
                                         className="rounded-xl"
                                         onClick={(e) => {
                                           e.stopPropagation();
-                                          handleEndTrip(trip.id);
+                                          handleShareTrip(trip);
                                         }}
                                       >
-                                        End Trip
+                                        Share
                                       </Button>
-                                    )}
-                                    <Button
-                                      size="small"
-                                      icon={<Share2 size={14} />}
-                                      className="rounded-xl"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleShareTrip(trip);
-                                      }}
-                                    >
-                                      Share
-                                    </Button>
-                                    {seatsBooked === 0 && (
-                                      <Popconfirm
-                                        title="Cancel Trip"
-                                        description="Are you sure you want to cancel this trip?"
-                                        onConfirm={async () => {
-                                          try {
-                                            await updateTrip(trip.id, {
-                                              status: "cancelled",
-                                            });
-                                            message.success(
-                                              "Trip cancelled successfully",
-                                            );
-                                            queryClient.invalidateQueries({
-                                              queryKey: ["host-trips"],
-                                            });
-                                          } catch (err) {
-                                            console.error(
-                                              "[CancelTrip] Error:",
-                                              err,
-                                            );
-                                            message.error(
-                                              "Failed to cancel trip",
-                                            );
-                                          }
-                                        }}
-                                        okText="Yes"
-                                        cancelText="No"
-                                        okButtonProps={{ danger: true }}
-                                      >
-                                        <Button
-                                          size="small"
-                                          danger
-                                          className="rounded-xl"
-                                          onClick={(e) => e.stopPropagation()}
+                                      {seatsBooked === 0 && (
+                                        <Popconfirm
+                                          title="Cancel Trip"
+                                          description="Are you sure you want to cancel this trip?"
+                                          onConfirm={async () => {
+                                            try {
+                                              await updateTrip(trip.id, {
+                                                status: "cancelled",
+                                              });
+                                              message.success("Trip cancelled successfully");
+                                              queryClient.invalidateQueries({
+                                                queryKey: ["host-trips"],
+                                              });
+                                            } catch (err) {
+                                              console.error("[CancelTrip] Error:", err);
+                                              message.error("Failed to cancel trip");
+                                            }
+                                          }}
+                                          okText="Yes"
+                                          cancelText="No"
+                                          okButtonProps={{ danger: true }}
                                         >
-                                          Cancel
-                                        </Button>
-                                      </Popconfirm>
-                                    )}
+                                          <Button
+                                            size="small"
+                                            danger
+                                            className="rounded-xl"
+                                            onClick={(e) => e.stopPropagation()}
+                                          >
+                                            Cancel
+                                          </Button>
+                                        </Popconfirm>
+                                      )}
+                                    </div>
                                   </div>
                                 </div>
-                              </div>
-                            </Card>
+                              </Card>
                             );
                           })
                         )}
@@ -3493,7 +3539,11 @@ function DriverDashboardPage() {
                               {/* Price Per Seat */}
                               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <Form.Item
-                                  label={<span className="font-semibold text-gray-700 text-sm">Price Per Seat (₹)</span>}
+                                  label={
+                                    <span className="font-semibold text-gray-700 text-sm">
+                                      Price Per Seat (₹)
+                                    </span>
+                                  }
                                   name="totalTripPrice"
                                   rules={[{ required: true, message: "Please enter price" }]}
                                   className="mb-0"
@@ -3503,7 +3553,7 @@ function DriverDashboardPage() {
                                     max={9999}
                                     precision={0}
                                     size="large"
-                                    style={{ borderRadius: '8px', height: '44px', width: '100%' }}
+                                    style={{ borderRadius: "8px", height: "44px", width: "100%" }}
                                     className="font-bold"
                                     prefix="₹"
                                     placeholder="0"
@@ -3519,7 +3569,11 @@ function DriverDashboardPage() {
                               {/* Row 3 – Vehicle + Driver */}
                               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <Form.Item
-                                  label={<span className="font-semibold text-gray-700 text-sm">Vehicle</span>}
+                                  label={
+                                    <span className="font-semibold text-gray-700 text-sm">
+                                      Vehicle
+                                    </span>
+                                  }
                                   name="vehicleId"
                                   rules={[{ required: true, message: "Please select a vehicle" }]}
                                   className="mb-0"
@@ -3528,7 +3582,7 @@ function DriverDashboardPage() {
                                     size="large"
                                     placeholder="Choose vehicle"
                                     className="w-full"
-                                    style={{ borderRadius: '8px', height: '44px' }}
+                                    style={{ borderRadius: "8px", height: "44px" }}
                                     options={[
                                       ...vehicles.map((v) => ({
                                         label: `${v.modelName} · ${v.plateNumber} · ${v.seatCapacity} seats`,
@@ -3566,7 +3620,11 @@ function DriverDashboardPage() {
                                 </Form.Item>
 
                                 <Form.Item
-                                  label={<span className="font-semibold text-gray-700 text-sm">Driver</span>}
+                                  label={
+                                    <span className="font-semibold text-gray-700 text-sm">
+                                      Driver
+                                    </span>
+                                  }
                                   name="driverId"
                                   rules={[{ required: true, message: "Please select a driver" }]}
                                   className="mb-0"
@@ -3575,7 +3633,7 @@ function DriverDashboardPage() {
                                     size="large"
                                     placeholder="Choose driver"
                                     className="w-full"
-                                    style={{ borderRadius: '8px', height: '44px' }}
+                                    style={{ borderRadius: "8px", height: "44px" }}
                                     options={[
                                       {
                                         label: `You (${user?.name?.split(" ")[0] || "Owner"})`,
@@ -3592,10 +3650,14 @@ function DriverDashboardPage() {
 
                               {/* Row 4 – Seat Configuration (full width) */}
                               <div>
-                                <span className="font-semibold text-gray-700 text-sm block mb-2">Configure Seating</span>
+                                <span className="font-semibold text-gray-700 text-sm block mb-2">
+                                  Configure Seating
+                                </span>
                                 <Form.Item
                                   name="seatConfig"
-                                  rules={[{ required: true, message: "Please select at least one seat" }]}
+                                  rules={[
+                                    { required: true, message: "Please select at least one seat" },
+                                  ]}
                                   className="mb-0"
                                 >
                                   <SeatPicker
@@ -3618,7 +3680,7 @@ function DriverDashboardPage() {
                                 type="text"
                                 size="large"
                                 className="h-14 px-8 w-full sm:w-auto font-bold text-gray-600 hover:bg-gray-100 transition-all"
-                                style={{ borderRadius: '8px' }}
+                                style={{ borderRadius: "8px" }}
                                 onClick={() => {
                                   setShowTripForm(false);
                                   form.resetFields();
@@ -3636,7 +3698,7 @@ function DriverDashboardPage() {
                                 size="large"
                                 loading={creating}
                                 className="h-14 px-12 w-full sm:w-auto bg-gradient-primary border-none font-bold shadow-lg hover:shadow-xl transition-all hover:scale-[1.01]"
-                                style={{ borderRadius: '8px' }}
+                                style={{ borderRadius: "8px" }}
                               >
                                 {pendingTripPayload
                                   ? isEditingTrip
@@ -3645,7 +3707,6 @@ function DriverDashboardPage() {
                                   : "Calculate Route & Prices"}
                               </Button>
                             </div>
-
                           </Form>
                         </Card>
 
@@ -3672,8 +3733,8 @@ function DriverDashboardPage() {
                                   >
                                     {form.getFieldValue("departureAt")
                                       ? dayjs(form.getFieldValue("departureAt")).format(
-                                        "MMM D • h:mm A",
-                                      )
+                                          "MMM D • h:mm A",
+                                        )
                                       : "Select date"}
                                   </Tag>
                                   <Text strong className="text-lg text-emerald-600">
@@ -3707,9 +3768,14 @@ function DriverDashboardPage() {
                                     <span>{seatsWatch || 4} seats</span>
                                   </div>
                                   <div className="flex gap-0.5">
-                                    {[...Array(Math.min(Number(seatsWatch) || 4, 10))].map((_, i) => (
-                                      <div key={i} className="w-2 h-2 rounded-full bg-primary/20"></div>
-                                    ))}
+                                    {[...Array(Math.min(Number(seatsWatch) || 4, 10))].map(
+                                      (_, i) => (
+                                        <div
+                                          key={i}
+                                          className="w-2 h-2 rounded-full bg-primary/20"
+                                        ></div>
+                                      ),
+                                    )}
                                   </div>
                                 </div>
                               </div>
@@ -3740,7 +3806,9 @@ function DriverDashboardPage() {
                                 className="rounded-full border-none px-3 py-1 font-semibold text-xs m-0"
                               >
                                 {form.getFieldValue("departureAt")
-                                  ? dayjs(form.getFieldValue("departureAt")).format("MMM D • h:mm A")
+                                  ? dayjs(form.getFieldValue("departureAt")).format(
+                                      "MMM D • h:mm A",
+                                    )
                                   : "Select date"}
                               </Tag>
                               <Text strong className="text-xl text-emerald-600">
@@ -3775,7 +3843,10 @@ function DriverDashboardPage() {
                               </div>
                               <div className="flex gap-1">
                                 {[...Array(Math.min(Number(seatsWatch) || 4, 10))].map((_, i) => (
-                                  <div key={i} className="w-2.5 h-2.5 rounded-full bg-primary/20"></div>
+                                  <div
+                                    key={i}
+                                    className="w-2.5 h-2.5 rounded-full bg-primary/20"
+                                  ></div>
                                 ))}
                               </div>
                             </div>
@@ -3822,7 +3893,10 @@ function DriverDashboardPage() {
                           <Banknote size={18} />
                         </div>
                         <div className="min-w-0">
-                          <Text type="secondary" className="block text-xs font-medium text-emerald-800">
+                          <Text
+                            type="secondary"
+                            className="block text-xs font-medium text-emerald-800"
+                          >
                             Earnings
                           </Text>
                           <p className="m-0 text-xl font-extrabold text-emerald-900 leading-tight">
@@ -3835,7 +3909,10 @@ function DriverDashboardPage() {
                           <CheckCircle size={18} />
                         </div>
                         <div className="min-w-0">
-                          <Text type="secondary" className="block text-xs font-medium text-purple-800">
+                          <Text
+                            type="secondary"
+                            className="block text-xs font-medium text-purple-800"
+                          >
                             Rides
                           </Text>
                           <p className="m-0 text-xl font-extrabold text-purple-900 leading-tight">
@@ -3875,23 +3952,35 @@ function DriverDashboardPage() {
                       renderItem={(trip) => (
                         <List.Item
                           className="px-5 py-4 hover:bg-gray-50 transition-colors border-b border-gray-50 last:border-0 cursor-pointer"
-                          onClick={() => { setHistoryDetailTripId(trip.id); setHistoryDetailPassenger(null); }}
+                          onClick={() => {
+                            setHistoryDetailTripId(trip.id);
+                            setHistoryDetailPassenger(null);
+                          }}
                         >
                           <div className="w-full flex items-center justify-between gap-3">
                             {/* Left: icon + route + date */}
                             <div className="flex items-center gap-3 min-w-0">
-                              <div className={`h-10 w-10 shrink-0 rounded-2xl flex items-center justify-center ${
-                                trip.status === "completed" ? "bg-emerald-100 text-emerald-600"
-                                : trip.status === "cancelled" ? "bg-red-100 text-red-600"
-                                : "bg-blue-100 text-blue-600"
-                              }`}>
-                                {trip.status === "completed" ? <CheckCircle size={18} />
-                                  : trip.status === "cancelled" ? <XCircle size={18} />
-                                  : <RouteIcon size={18} />}
+                              <div
+                                className={`h-10 w-10 shrink-0 rounded-2xl flex items-center justify-center ${
+                                  trip.status === "completed"
+                                    ? "bg-emerald-100 text-emerald-600"
+                                    : trip.status === "cancelled"
+                                      ? "bg-red-100 text-red-600"
+                                      : "bg-blue-100 text-blue-600"
+                                }`}
+                              >
+                                {trip.status === "completed" ? (
+                                  <CheckCircle size={18} />
+                                ) : trip.status === "cancelled" ? (
+                                  <XCircle size={18} />
+                                ) : (
+                                  <RouteIcon size={18} />
+                                )}
                               </div>
                               <div className="min-w-0">
                                 <p className="text-sm font-bold text-gray-800 truncate">
-                                  {trip.fromLocation.split(",")[0]} → {trip.toLocation.split(",")[0]}
+                                  {trip.fromLocation.split(",")[0]} →{" "}
+                                  {trip.toLocation.split(",")[0]}
                                 </p>
                                 <p className="text-xs text-gray-400 mt-0.5">
                                   {dayjs(trip.departureAt).format("MMM D, YYYY · h:mm A")}
@@ -3900,8 +3989,13 @@ function DriverDashboardPage() {
                             </div>
                             {/* Right: price + status */}
                             <div className="flex flex-col items-end shrink-0 gap-1">
-                              <span className={`text-sm font-black tabular-nums ${trip.status === "completed" ? "text-emerald-600" : "text-gray-400"}`}>
-                                ₹{hostNetEarnings(receivedByTrip.get(trip.id) ?? 0).toLocaleString("en-IN")}
+                              <span
+                                className={`text-sm font-black tabular-nums ${trip.status === "completed" ? "text-emerald-600" : "text-gray-400"}`}
+                              >
+                                ₹
+                                {hostNetEarnings(receivedByTrip.get(trip.id) ?? 0).toLocaleString(
+                                  "en-IN",
+                                )}
                               </span>
                               {(() => {
                                 const s = hostTripStatusDisplay(trip, isExpired(trip));
@@ -3926,7 +4020,8 @@ function DriverDashboardPage() {
               {/* ── History Trip Detail Drawer ── */}
               {(() => {
                 const detailTrip = historyDetailTripId
-                  ? filteredHistory.find((t) => t.id === historyDetailTripId) ?? pastTrips.find((t) => t.id === historyDetailTripId)
+                  ? (filteredHistory.find((t) => t.id === historyDetailTripId) ??
+                    pastTrips.find((t) => t.id === historyDetailTripId))
                   : null;
                 const tripBookings = historyDetailTripId
                   ? bookings.filter((b) => b.tripId === historyDetailTripId)
@@ -3943,10 +4038,16 @@ function DriverDashboardPage() {
                 return (
                   <Drawer
                     open={!!historyDetailTripId}
-                    onClose={() => { setHistoryDetailTripId(null); setHistoryDetailPassenger(null); }}
+                    onClose={() => {
+                      setHistoryDetailTripId(null);
+                      setHistoryDetailPassenger(null);
+                    }}
                     placement="bottom"
                     height="85vh"
-                    styles={{ body: { padding: 0, overflowY: "auto" }, header: { display: "none" } }}
+                    styles={{
+                      body: { padding: 0, overflowY: "auto" },
+                      header: { display: "none" },
+                    }}
                     className="rounded-t-3xl overflow-hidden"
                   >
                     {detailTrip && !historyDetailPassenger && (
@@ -3955,11 +4056,14 @@ function DriverDashboardPage() {
                         <div className="flex items-center justify-between px-5 pt-5 pb-4 border-b border-gray-100">
                           <div className="min-w-0">
                             <p className="text-base font-black text-gray-900 truncate">
-                              {detailTrip.fromLocation.split(",")[0]} → {detailTrip.toLocation.split(",")[0]}
+                              {detailTrip.fromLocation.split(",")[0]} →{" "}
+                              {detailTrip.toLocation.split(",")[0]}
                             </p>
                             <p className="text-xs text-gray-400 mt-0.5">
                               {dayjs(detailTrip.departureAt).format("ddd, MMM D · h:mm A")}
-                              {detailTrip.totalDistanceKm ? ` · ${detailTrip.totalDistanceKm} km` : ""}
+                              {detailTrip.totalDistanceKm
+                                ? ` · ${detailTrip.totalDistanceKm} km`
+                                : ""}
                             </p>
                           </div>
                           <div className="flex items-center gap-2 shrink-0">
@@ -3975,7 +4079,10 @@ function DriverDashboardPage() {
                               );
                             })()}
                             <button
-                              onClick={() => { setHistoryDetailTripId(null); setHistoryDetailPassenger(null); }}
+                              onClick={() => {
+                                setHistoryDetailTripId(null);
+                                setHistoryDetailPassenger(null);
+                              }}
                               className="grid h-8 w-8 place-items-center rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200"
                             >
                               <XCircle size={16} />
@@ -3986,30 +4093,44 @@ function DriverDashboardPage() {
                         <div className="flex-1 overflow-y-auto">
                           {/* Route stops */}
                           {historyStopsLoading ? (
-                            <div className="flex justify-center py-6"><Spin /></div>
-                          ) : historyDetailStops.length > 0 && (
-                            <div className="px-5 py-4 border-b border-gray-100">
-                              <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-3">Route</p>
-                              <div className="space-y-0">
-                                {historyDetailStops
-                                  .slice()
-                                  .sort((a, b) => a.stopIndex - b.stopIndex)
-                                  .map((stop, i, arr) => (
-                                    <div key={stop.id} className="flex items-start gap-3">
-                                      <div className="flex flex-col items-center">
-                                        <div className={`h-2.5 w-2.5 rounded-full mt-1.5 shrink-0 ${i === 0 ? "bg-emerald-500" : i === arr.length - 1 ? "bg-rose-500" : "bg-amber-400"}`} />
-                                        {i < arr.length - 1 && <div className="w-px flex-1 min-h-[1.5rem] bg-gray-200 my-1" />}
-                                      </div>
-                                      <div className="pb-2 min-w-0">
-                                        <p className="text-sm font-semibold text-gray-800 leading-tight">{stop.location}</p>
-                                        {stop.distanceFromOriginKm > 0 && (
-                                          <p className="text-xs text-gray-400">{stop.distanceFromOriginKm} km from start</p>
-                                        )}
-                                      </div>
-                                    </div>
-                                  ))}
-                              </div>
+                            <div className="flex justify-center py-6">
+                              <Spin />
                             </div>
+                          ) : (
+                            historyDetailStops.length > 0 && (
+                              <div className="px-5 py-4 border-b border-gray-100">
+                                <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-3">
+                                  Route
+                                </p>
+                                <div className="space-y-0">
+                                  {historyDetailStops
+                                    .slice()
+                                    .sort((a, b) => a.stopIndex - b.stopIndex)
+                                    .map((stop, i, arr) => (
+                                      <div key={stop.id} className="flex items-start gap-3">
+                                        <div className="flex flex-col items-center">
+                                          <div
+                                            className={`h-2.5 w-2.5 rounded-full mt-1.5 shrink-0 ${i === 0 ? "bg-emerald-500" : i === arr.length - 1 ? "bg-rose-500" : "bg-amber-400"}`}
+                                          />
+                                          {i < arr.length - 1 && (
+                                            <div className="w-px flex-1 min-h-[1.5rem] bg-gray-200 my-1" />
+                                          )}
+                                        </div>
+                                        <div className="pb-2 min-w-0">
+                                          <p className="text-sm font-semibold text-gray-800 leading-tight">
+                                            {stop.location}
+                                          </p>
+                                          {stop.distanceFromOriginKm > 0 && (
+                                            <p className="text-xs text-gray-400">
+                                              {stop.distanceFromOriginKm} km from start
+                                            </p>
+                                          )}
+                                        </div>
+                                      </div>
+                                    ))}
+                                </div>
+                              </div>
+                            )
                           )}
 
                           {/* Passengers */}
@@ -4022,8 +4143,11 @@ function DriverDashboardPage() {
                             ) : (
                               <div className="space-y-2">
                                 {tripBookings.map((b) => {
-                                  const nameParts = (b.passengerName || "").split("|").map((s) => s.trim());
-                                  const primaryName = nameParts[0]?.replace(/^Seat\s+[^:]+:\s*/i, "") || "Passenger";
+                                  const nameParts = (b.passengerName || "")
+                                    .split("|")
+                                    .map((s) => s.trim());
+                                  const primaryName =
+                                    nameParts[0]?.replace(/^Seat\s+[^:]+:\s*/i, "") || "Passenger";
                                   return (
                                     <button
                                       key={b.id}
@@ -4036,13 +4160,27 @@ function DriverDashboardPage() {
                                           {primaryName.charAt(0).toUpperCase()}
                                         </div>
                                         <div className="min-w-0">
-                                          <p className="text-sm font-bold text-gray-800 truncate">{primaryName}{nameParts.length > 1 ? ` +${nameParts.length - 1}` : ""}</p>
-                                          <p className="text-xs text-gray-400">{b.seatsBooked} seat{b.seatsBooked > 1 ? "s" : ""} · ₹{b.segmentPrice}</p>
+                                          <p className="text-sm font-bold text-gray-800 truncate">
+                                            {primaryName}
+                                            {nameParts.length > 1
+                                              ? ` +${nameParts.length - 1}`
+                                              : ""}
+                                          </p>
+                                          <p className="text-xs text-gray-400">
+                                            {b.seatsBooked} seat{b.seatsBooked > 1 ? "s" : ""} · ₹
+                                            {b.segmentPrice}
+                                          </p>
                                         </div>
                                       </div>
                                       <div className="flex items-center gap-2 shrink-0">
                                         <Tag
-                                          color={b.status === "confirmed" || b.status === "completed" ? "success" : b.status === "cancelled" ? "error" : "processing"}
+                                          color={
+                                            b.status === "confirmed" || b.status === "completed"
+                                              ? "success"
+                                              : b.status === "cancelled"
+                                                ? "error"
+                                                : "processing"
+                                          }
                                           className="m-0 rounded-full border-none capitalize text-[10px] font-bold px-2"
                                         >
                                           {b.status}
@@ -4060,127 +4198,172 @@ function DriverDashboardPage() {
                         {/* Revenue footer */}
                         <div className="border-t border-gray-100 px-5 py-4 flex items-center justify-between bg-white">
                           <div>
-                            <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Net earnings</p>
-                            <p className="text-xl font-black text-emerald-600">₹{received.toLocaleString("en-IN")}</p>
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">
+                              Net earnings
+                            </p>
+                            <p className="text-xl font-black text-emerald-600">
+                              ₹{received.toLocaleString("en-IN")}
+                            </p>
                           </div>
                           <div className="text-right">
-                            <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Seats filled</p>
-                            <p className="text-xl font-black text-gray-700">{seatsBooked} / {detailTrip.totalSeats ?? "–"}</p>
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">
+                              Seats filled
+                            </p>
+                            <p className="text-xl font-black text-gray-700">
+                              {seatsBooked} / {detailTrip.totalSeats ?? "–"}
+                            </p>
                           </div>
                         </div>
                       </div>
                     )}
 
                     {/* Passenger detail view */}
-                    {historyDetailPassenger && (() => {
-                      const b = historyDetailPassenger;
-                      const passengers = getBookingPassengers(b);
-                      const fromStop = historyDetailStops.find((s) => s.stopIndex === b.fromStopIndex);
-                      const toStop = historyDetailStops.find((s) => s.stopIndex === b.toStopIndex);
-                      return (
-                        <div className="flex flex-col h-full" style={{ fontFamily: APP_FONT_FAMILY }}>
-                          {/* Header */}
-                          <div className="flex items-center gap-3 px-5 pt-5 pb-4 border-b border-gray-100">
-                            <button
-                              onClick={() => setHistoryDetailPassenger(null)}
-                              className="grid h-8 w-8 place-items-center rounded-full bg-gray-100 text-gray-600"
-                            >
-                              <ArrowRight size={16} className="rotate-180" />
-                            </button>
-                            <p className="text-base font-black text-gray-900 flex-1">Passenger Details</p>
-                            <button
-                              onClick={() => { setHistoryDetailTripId(null); setHistoryDetailPassenger(null); }}
-                              className="grid h-8 w-8 place-items-center rounded-full bg-gray-100 text-gray-500"
-                            >
-                              <XCircle size={16} />
-                            </button>
-                          </div>
-
-                          <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
-                            {/* Passengers list */}
-                            <div>
-                              <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-3">Passengers ({passengers.length})</p>
-                              <div className="space-y-2">
-                                {passengers.map((p, i) => (
-                                  <div key={i} className="flex items-center justify-between gap-3 rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3">
-                                    <div className="flex items-center gap-3 min-w-0">
-                                      <div className="h-9 w-9 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-sm shrink-0">
-                                        {p.name.charAt(0).toUpperCase()}
-                                      </div>
-                                      <div className="min-w-0">
-                                        <p className="text-sm font-bold text-gray-800 truncate">{p.name}</p>
-                                        <p className="text-xs text-gray-400">{p.phone}</p>
-                                      </div>
-                                    </div>
-                                    <div className="flex flex-col items-end gap-1">
-                                      <span className="text-xs font-bold text-primary bg-primary/10 rounded-full px-2 py-0.5 shrink-0">
-                                        {passengerSeatLabel(p.seatCode)}
-                                      </span>
-                                      <span
-                                        className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
-                                          passengerGenderTone(p.gender) === "male"
-                                            ? "bg-blue-50 text-blue-700"
-                                            : passengerGenderTone(p.gender) === "female"
-                                              ? "bg-pink-50 text-pink-700"
-                                              : "bg-gray-100 text-gray-500"
-                                        }`}
-                                      >
-                                        {passengerGenderLabel(p.gender)}
-                                      </span>
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
+                    {historyDetailPassenger &&
+                      (() => {
+                        const b = historyDetailPassenger;
+                        const passengers = getBookingPassengers(b);
+                        const fromStop = historyDetailStops.find(
+                          (s) => s.stopIndex === b.fromStopIndex,
+                        );
+                        const toStop = historyDetailStops.find(
+                          (s) => s.stopIndex === b.toStopIndex,
+                        );
+                        return (
+                          <div
+                            className="flex flex-col h-full"
+                            style={{ fontFamily: APP_FONT_FAMILY }}
+                          >
+                            {/* Header */}
+                            <div className="flex items-center gap-3 px-5 pt-5 pb-4 border-b border-gray-100">
+                              <button
+                                onClick={() => setHistoryDetailPassenger(null)}
+                                className="grid h-8 w-8 place-items-center rounded-full bg-gray-100 text-gray-600"
+                              >
+                                <ArrowRight size={16} className="rotate-180" />
+                              </button>
+                              <p className="text-base font-black text-gray-900 flex-1">
+                                Passenger Details
+                              </p>
+                              <button
+                                onClick={() => {
+                                  setHistoryDetailTripId(null);
+                                  setHistoryDetailPassenger(null);
+                                }}
+                                className="grid h-8 w-8 place-items-center rounded-full bg-gray-100 text-gray-500"
+                              >
+                                <XCircle size={16} />
+                              </button>
                             </div>
 
-                            {/* Segment */}
-                            <div className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-4 space-y-3">
-                              <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Booking details</p>
-                              {fromStop && toStop && (
-                                <div className="flex items-center gap-2 text-sm font-bold text-gray-800">
-                                  <span>{fromStop.location.split(",")[0]}</span>
-                                  <ArrowRight size={14} className="text-gray-300 shrink-0" />
-                                  <span>{toStop.location.split(",")[0]}</span>
-                                </div>
-                              )}
-                              <div className="grid grid-cols-2 gap-3 text-sm">
-                                <div>
-                                  <p className="text-xs text-gray-400">Seats</p>
-                                  <p className="font-bold text-gray-800">{b.seatsBooked}</p>
-                                </div>
-                                <div>
-                                  <p className="text-xs text-gray-400">Amount paid</p>
-                                  <p className="font-bold text-emerald-600">₹{b.segmentPrice * b.seatsBooked}</p>
-                                </div>
-                                <div>
-                                  <p className="text-xs text-gray-400">Status</p>
-                                  <Tag color={b.status === "confirmed" || b.status === "completed" ? "success" : b.status === "cancelled" ? "error" : "processing"} className="m-0 rounded-full border-none capitalize text-[10px] font-bold px-2">
-                                    {b.status}
-                                  </Tag>
-                                </div>
-                                <div>
-                                  <p className="text-xs text-gray-400">Booked on</p>
-                                  <p className="font-bold text-gray-800 text-xs">{dayjs(b.createdAt).format("MMM D · h:mm A")}</p>
+                            <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
+                              {/* Passengers list */}
+                              <div>
+                                <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-3">
+                                  Passengers ({passengers.length})
+                                </p>
+                                <div className="space-y-2">
+                                  {passengers.map((p, i) => (
+                                    <div
+                                      key={i}
+                                      className="flex items-center justify-between gap-3 rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3"
+                                    >
+                                      <div className="flex items-center gap-3 min-w-0">
+                                        <div className="h-9 w-9 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-sm shrink-0">
+                                          {p.name.charAt(0).toUpperCase()}
+                                        </div>
+                                        <div className="min-w-0">
+                                          <p className="text-sm font-bold text-gray-800 truncate">
+                                            {p.name}
+                                          </p>
+                                          <p className="text-xs text-gray-400">{p.phone}</p>
+                                        </div>
+                                      </div>
+                                      <div className="flex flex-col items-end gap-1">
+                                        <span className="text-xs font-bold text-primary bg-primary/10 rounded-full px-2 py-0.5 shrink-0">
+                                          {passengerSeatLabel(p.seatCode)}
+                                        </span>
+                                        <span
+                                          className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                                            passengerGenderTone(p.gender) === "male"
+                                              ? "bg-blue-50 text-blue-700"
+                                              : passengerGenderTone(p.gender) === "female"
+                                                ? "bg-pink-50 text-pink-700"
+                                                : "bg-gray-100 text-gray-500"
+                                          }`}
+                                        >
+                                          {passengerGenderLabel(p.gender)}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  ))}
                                 </div>
                               </div>
-                              {b.otp && (
-                                <div className="border-t border-gray-100 pt-3">
-                                  <p className="text-xs text-gray-400 mb-1">Boarding OTP</p>
-                                  <div className="flex items-center gap-3">
-                                    <span className="font-mono text-2xl font-black tracking-[0.4rem] text-gray-900">{b.otp}</span>
-                                    {b.verified && (
-                                      <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-600 bg-emerald-50 rounded-full px-2 py-0.5">
-                                        <CheckCircle size={10} /> Verified
-                                      </span>
-                                    )}
+
+                              {/* Segment */}
+                              <div className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-4 space-y-3">
+                                <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">
+                                  Booking details
+                                </p>
+                                {fromStop && toStop && (
+                                  <div className="flex items-center gap-2 text-sm font-bold text-gray-800">
+                                    <span>{fromStop.location.split(",")[0]}</span>
+                                    <ArrowRight size={14} className="text-gray-300 shrink-0" />
+                                    <span>{toStop.location.split(",")[0]}</span>
+                                  </div>
+                                )}
+                                <div className="grid grid-cols-2 gap-3 text-sm">
+                                  <div>
+                                    <p className="text-xs text-gray-400">Seats</p>
+                                    <p className="font-bold text-gray-800">{b.seatsBooked}</p>
+                                  </div>
+                                  <div>
+                                    <p className="text-xs text-gray-400">Amount paid</p>
+                                    <p className="font-bold text-emerald-600">
+                                      ₹{b.segmentPrice * b.seatsBooked}
+                                    </p>
+                                  </div>
+                                  <div>
+                                    <p className="text-xs text-gray-400">Status</p>
+                                    <Tag
+                                      color={
+                                        b.status === "confirmed" || b.status === "completed"
+                                          ? "success"
+                                          : b.status === "cancelled"
+                                            ? "error"
+                                            : "processing"
+                                      }
+                                      className="m-0 rounded-full border-none capitalize text-[10px] font-bold px-2"
+                                    >
+                                      {b.status}
+                                    </Tag>
+                                  </div>
+                                  <div>
+                                    <p className="text-xs text-gray-400">Booked on</p>
+                                    <p className="font-bold text-gray-800 text-xs">
+                                      {dayjs(b.createdAt).format("MMM D · h:mm A")}
+                                    </p>
                                   </div>
                                 </div>
-                              )}
+                                {b.otp && (
+                                  <div className="border-t border-gray-100 pt-3">
+                                    <p className="text-xs text-gray-400 mb-1">Boarding OTP</p>
+                                    <div className="flex items-center gap-3">
+                                      <span className="font-mono text-2xl font-black tracking-[0.4rem] text-gray-900">
+                                        {b.otp}
+                                      </span>
+                                      {b.verified && (
+                                        <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-600 bg-emerald-50 rounded-full px-2 py-0.5">
+                                          <CheckCircle size={10} /> Verified
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      );
-                    })()}
+                        );
+                      })()}
                   </Drawer>
                 );
               })()}
@@ -4313,7 +4496,6 @@ function DriverDashboardPage() {
                       ))}
                     </div>
                   )}
-
                 </div>
               )}
 
@@ -4519,150 +4701,159 @@ function DriverDashboardPage() {
                             (b: Booking) => b.verified,
                           );
                           return (
-                          <Card
-                            key={customer.travelerId}
-                            className="rounded-2xl border border-white/60 shadow-soft hover:shadow-card transition-all bg-white/80 backdrop-blur-md overflow-hidden"
-                            bodyStyle={{ padding: 16 }}
-                          >
-                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-                              <div className="flex items-center gap-3">
-                                <Avatar
-                                  size={44}
-                                  className="bg-gradient-primary shadow-soft flex-shrink-0"
-                                >
-                                  {customer.name[0]}
-                                </Avatar>
-                                <div>
-                                  <div className="flex items-center gap-2 flex-wrap">
-                                    <Title level={5} className="m-0">
-                                      {customer.name}
-                                    </Title>
-                                    {anyVerified && (
-                                      <Tag
-                                        color="green"
-                                        className="rounded-full px-2 border-none font-bold uppercase text-[10px] m-0"
-                                      >
-                                        Verified
-                                      </Tag>
-                                    )}
-                                    {customer.totalTrips >= 3 && (
-                                      <Tag
-                                        color="gold"
-                                        className="rounded-full px-2 border-none font-bold uppercase text-[10px] m-0"
-                                      >
-                                        Frequent
-                                      </Tag>
-                                    )}
-                                    <div className="flex items-center gap-1 bg-emerald-500/10 px-1.5 py-0.5 rounded-full border border-emerald-500/20">
-                                      <Star
-                                        size={10}
-                                        className="text-emerald-600 fill-emerald-600"
-                                      />
-                                      <Text className="text-[11px] text-emerald-700 font-bold">
-                                        {customer.ratingsCount > 0
-                                          ? (customer.avgRating / customer.ratingsCount).toFixed(1)
-                                          : "New"}
-                                      </Text>
-                                    </div>
-                                  </div>
-                                  <div className="flex items-center gap-2 mt-1 text-gray-500 text-xs">
-                                    <Text type="secondary" className="text-xs">{customer.phone}</Text>
-                                    <span className="w-1 h-1 bg-gray-300 rounded-full"></span>
-                                    <Text type="secondary" className="text-xs">{customer.totalTrips} Trips</Text>
-                                  </div>
-                                </div>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <Button
-                                  type="primary"
-                                  size="middle"
-                                  className="h-9 rounded-xl bg-purple-600 border-none font-semibold shadow-soft"
-                                  onClick={() => {
-                                    setSelectedBooking(customer.latestBookings[0]);
-                                    setRatingValue(customer.latestBookings[0].ratingByHost || 5);
-                                    setRatingComment(
-                                      customer.latestBookings[0].commentByHost || "",
-                                    );
-                                    setRatingModalVisible(true);
-                                  }}
-                                >
-                                  Rate Latest Trip
-                                </Button>
-                              </div>
-                            </div>
-
-                            <div className="mt-4 pt-4 border-t border-gray-100">
-                              <Text
-                                strong
-                                className="text-gray-400 uppercase text-[10px] tracking-widest block mb-3"
-                              >
-                                Trip History with you
-                              </Text>
-                              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                                {customer.latestBookings.slice(0, 3).map((b: Booking) => (
-                                  <div
-                                    key={b.id}
-                                    className="bg-gray-50/50 p-3 rounded-xl border border-gray-100 flex flex-col gap-2"
+                            <Card
+                              key={customer.travelerId}
+                              className="rounded-2xl border border-white/60 shadow-soft hover:shadow-card transition-all bg-white/80 backdrop-blur-md overflow-hidden"
+                              bodyStyle={{ padding: 16 }}
+                            >
+                              <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                                <div className="flex items-center gap-3">
+                                  <Avatar
+                                    size={44}
+                                    className="bg-gradient-primary shadow-soft flex-shrink-0"
                                   >
-                                    <div className="flex items-center justify-between gap-2">
-                                      <Text
-                                        type="secondary"
-                                        className="text-[10px] uppercase tracking-wider"
-                                      >
-                                        {dayjs(b.createdAt).format("MMM D, YYYY")}
-                                      </Text>
-                                      <Tag
-                                        color={
-                                          b.status === "confirmed"
-                                            ? "green"
-                                            : b.status === "completed"
-                                              ? "blue"
-                                              : "orange"
-                                        }
-                                        className="rounded-full text-[9px] border-none font-bold uppercase px-1.5 m-0"
-                                      >
-                                        {b.status}
-                                      </Tag>
-                                    </div>
-                                    <Text className="text-xs font-semibold">
-                                      {b.seatsBooked} Seat{b.seatsBooked > 1 ? "s" : ""} • ₹{b.segmentPrice}
-                                    </Text>
-
-                                    {b.verified && (
-                                      <div className="flex items-center gap-1.5 rounded-lg bg-emerald-50 border border-emerald-200 px-2 py-1.5">
-                                        <Star size={12} className="text-emerald-600 fill-emerald-600" />
-                                        <Text className="text-[11px] font-bold text-emerald-700">
-                                          Customer Verified
+                                    {customer.name[0]}
+                                  </Avatar>
+                                  <div>
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <Title level={5} className="m-0">
+                                        {customer.name}
+                                      </Title>
+                                      {anyVerified && (
+                                        <Tag
+                                          color="green"
+                                          className="rounded-full px-2 border-none font-bold uppercase text-[10px] m-0"
+                                        >
+                                          Verified
+                                        </Tag>
+                                      )}
+                                      {customer.totalTrips >= 3 && (
+                                        <Tag
+                                          color="gold"
+                                          className="rounded-full px-2 border-none font-bold uppercase text-[10px] m-0"
+                                        >
+                                          Frequent
+                                        </Tag>
+                                      )}
+                                      <div className="flex items-center gap-1 bg-emerald-500/10 px-1.5 py-0.5 rounded-full border border-emerald-500/20">
+                                        <Star
+                                          size={10}
+                                          className="text-emerald-600 fill-emerald-600"
+                                        />
+                                        <Text className="text-[11px] text-emerald-700 font-bold">
+                                          {customer.ratingsCount > 0
+                                            ? (customer.avgRating / customer.ratingsCount).toFixed(
+                                                1,
+                                              )
+                                            : "New"}
                                         </Text>
                                       </div>
-                                    )}
-
-                                    {b.ratingByHost && (
-                                      <div className="flex items-center gap-1.5">
-                                        {[...Array(5)].map((_, i) => (
-                                          <Star
-                                            key={i}
-                                            size={10}
-                                            className={
-                                              i < b.ratingByHost!
-                                                ? "text-amber-400 fill-amber-400"
-                                                : "text-gray-200"
-                                            }
-                                          />
-                                        ))}
-                                      </div>
-                                    )}
+                                    </div>
+                                    <div className="flex items-center gap-2 mt-1 text-gray-500 text-xs">
+                                      <Text type="secondary" className="text-xs">
+                                        {customer.phone}
+                                      </Text>
+                                      <span className="w-1 h-1 bg-gray-300 rounded-full"></span>
+                                      <Text type="secondary" className="text-xs">
+                                        {customer.totalTrips} Trips
+                                      </Text>
+                                    </div>
                                   </div>
-                                ))}
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <Button
+                                    type="primary"
+                                    size="middle"
+                                    className="h-9 rounded-xl bg-purple-600 border-none font-semibold shadow-soft"
+                                    onClick={() => {
+                                      setSelectedBooking(customer.latestBookings[0]);
+                                      setRatingValue(customer.latestBookings[0].ratingByHost || 5);
+                                      setRatingComment(
+                                        customer.latestBookings[0].commentByHost || "",
+                                      );
+                                      setRatingModalVisible(true);
+                                    }}
+                                  >
+                                    Rate Latest Trip
+                                  </Button>
+                                </div>
                               </div>
-                            </div>
-                          </Card>
+
+                              <div className="mt-4 pt-4 border-t border-gray-100">
+                                <Text
+                                  strong
+                                  className="text-gray-400 uppercase text-[10px] tracking-widest block mb-3"
+                                >
+                                  Trip History with you
+                                </Text>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                  {customer.latestBookings.slice(0, 3).map((b: Booking) => (
+                                    <div
+                                      key={b.id}
+                                      className="bg-gray-50/50 p-3 rounded-xl border border-gray-100 flex flex-col gap-2"
+                                    >
+                                      <div className="flex items-center justify-between gap-2">
+                                        <Text
+                                          type="secondary"
+                                          className="text-[10px] uppercase tracking-wider"
+                                        >
+                                          {dayjs(b.createdAt).format("MMM D, YYYY")}
+                                        </Text>
+                                        <Tag
+                                          color={
+                                            b.status === "confirmed"
+                                              ? "green"
+                                              : b.status === "completed"
+                                                ? "blue"
+                                                : "orange"
+                                          }
+                                          className="rounded-full text-[9px] border-none font-bold uppercase px-1.5 m-0"
+                                        >
+                                          {b.status}
+                                        </Tag>
+                                      </div>
+                                      <Text className="text-xs font-semibold">
+                                        {b.seatsBooked} Seat{b.seatsBooked > 1 ? "s" : ""} • ₹
+                                        {b.segmentPrice}
+                                      </Text>
+
+                                      {b.verified && (
+                                        <div className="flex items-center gap-1.5 rounded-lg bg-emerald-50 border border-emerald-200 px-2 py-1.5">
+                                          <Star
+                                            size={12}
+                                            className="text-emerald-600 fill-emerald-600"
+                                          />
+                                          <Text className="text-[11px] font-bold text-emerald-700">
+                                            Customer Verified
+                                          </Text>
+                                        </div>
+                                      )}
+
+                                      {b.ratingByHost && (
+                                        <div className="flex items-center gap-1.5">
+                                          {[...Array(5)].map((_, i) => (
+                                            <Star
+                                              key={i}
+                                              size={10}
+                                              className={
+                                                i < b.ratingByHost!
+                                                  ? "text-amber-400 fill-amber-400"
+                                                  : "text-gray-200"
+                                              }
+                                            />
+                                          ))}
+                                        </div>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            </Card>
                           );
                         })}
                       </div>
                     )}
                   </div>
-
                 </div>
               )}
 
@@ -4688,22 +4879,38 @@ function DriverDashboardPage() {
                           (user?.prefs as Record<string, unknown> | undefined)?.phone ??
                           (user as { phone?: string } | null)?.phone ??
                           "",
+                        email: hasRealEmail ? user?.email : "",
                       }}
                       onFinish={async (v) => {
                         if (!user) return;
+
+                        if (!v.idDocType) {
+                          message.error("Select which ID document you're uploading.");
+                          return;
+                        }
+                        if (
+                          !idFrontFileList[0]?.originFileObj ||
+                          !idBackFileList[0]?.originFileObj
+                        ) {
+                          message.error("Upload both the front and back of your ID document.");
+                          return;
+                        }
+
                         setOnboardingSubmitting(true);
                         try {
                           const phoneDigits = String(v.phone || "").replace(/[^\d]/g, "");
+                          const enteredEmail = String(v.email || "").trim();
                           // The `drivers` collection requires a non-empty email.
                           // Phone-based accounts may have no real email, so fall
                           // back to a deterministic phone-derived address.
                           const profileEmail =
-                            user.email && user.email.trim()
+                            enteredEmail ||
+                            (user.email && user.email.trim()
                               ? user.email
-                              : `u${phoneDigits}@phone.coolpool.in`;
+                              : `u${phoneDigits}@phone.coolpool.in`);
 
-                          // Documents are optional — a failed upload must never
-                          // block verification, so each upload is best-effort.
+                          // Vehicle documents are optional — a failed upload must
+                          // never block verification, so each is best-effort.
                           let regDocId: string | undefined;
                           let insDocId: string | undefined;
                           if (regFileList[0]?.originFileObj) {
@@ -4715,7 +4922,9 @@ function DriverDashboardPage() {
                               );
                               regDocId = up.$id;
                             } catch {
-                              message.warning("Registration document upload failed — you can add it later.");
+                              message.warning(
+                                "Registration document upload failed — you can add it later.",
+                              );
                             }
                           }
                           if (insFileList[0]?.originFileObj) {
@@ -4727,7 +4936,48 @@ function DriverDashboardPage() {
                               );
                               insDocId = up.$id;
                             } catch {
-                              message.warning("Insurance document upload failed — you can add it later.");
+                              message.warning(
+                                "Insurance document upload failed — you can add it later.",
+                              );
+                            }
+                          }
+
+                          // The ID document is the actual proof of identity, so
+                          // unlike the vehicle docs above, a failed upload here
+                          // aborts onboarding instead of silently continuing.
+                          let idFrontDocId: string;
+                          let idBackDocId: string;
+                          try {
+                            const upFront = await storage.createFile(
+                              appwriteConfig.driverDocsBucketId,
+                              ID.unique(),
+                              await compressImage(idFrontFileList[0].originFileObj as File),
+                            );
+                            idFrontDocId = upFront.$id;
+                            const upBack = await storage.createFile(
+                              appwriteConfig.driverDocsBucketId,
+                              ID.unique(),
+                              await compressImage(idBackFileList[0].originFileObj as File),
+                            );
+                            idBackDocId = upBack.$id;
+                          } catch {
+                            message.error("ID document upload failed. Please try again.");
+                            setOnboardingSubmitting(false);
+                            return;
+                          }
+
+                          // The live selfie is best-effort, like the vehicle docs.
+                          let selfieDocId: string | undefined;
+                          if (selfieFileList[0]?.originFileObj) {
+                            try {
+                              const up = await storage.createFile(
+                                appwriteConfig.driverDocsBucketId,
+                                ID.unique(),
+                                await compressImage(selfieFileList[0].originFileObj as File),
+                              );
+                              selfieDocId = up.$id;
+                            } catch {
+                              message.warning("Selfie upload failed — you can add it later.");
                             }
                           }
 
@@ -4740,6 +4990,10 @@ function DriverDashboardPage() {
                             phone: String(v.phone),
                             licenseNumber: String(v.licenseNumber),
                             city: String(v.city),
+                            idDocType: v.idDocType,
+                            idFrontDoc: idFrontDocId,
+                            idBackDoc: idBackDocId,
+                            selfieDoc: selfieDocId,
                           });
 
                           await upsertDriverVehicle({
@@ -4765,57 +5019,205 @@ function DriverDashboardPage() {
                       }}
                     >
                       <Divider>
-                        <Text className="text-xs font-bold uppercase tracking-widest text-purple-600">
+                        <Text className="text-sm font-bold uppercase tracking-widest text-purple-600">
                           Personal & License
                         </Text>
                       </Divider>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6">
-                        <Form.Item name="phone" label="Phone Number" rules={[{ required: true }]}>
+                        <Form.Item
+                          name="phone"
+                          label={<span className="text-base font-semibold">Phone Number</span>}
+                          rules={[{ required: true }]}
+                        >
                           <Input
                             size="large"
-                            className="rounded-2xl"
+                            className="rounded-2xl h-14 text-lg"
                             placeholder="+91 98765 43210"
                           />
                         </Form.Item>
-                        <Form.Item name="city" label="City" rules={[{ required: true }]}>
-                          <Input size="large" className="rounded-2xl" placeholder="Chennai" />
+                        <Form.Item
+                          name="city"
+                          label={<span className="text-base font-semibold">City</span>}
+                          rules={[{ required: true }]}
+                        >
+                          <Input
+                            size="large"
+                            className="rounded-2xl h-14 text-lg"
+                            placeholder="Chennai"
+                          />
                         </Form.Item>
+                        {!hasRealEmail && (
+                          <Form.Item
+                            name="email"
+                            label={
+                              <span className="text-base font-semibold">
+                                Email{" "}
+                                <span className="text-sm font-normal text-muted-foreground">
+                                  (optional)
+                                </span>
+                              </span>
+                            }
+                            className="md:col-span-2"
+                          >
+                            <Input
+                              type="email"
+                              size="large"
+                              className="rounded-2xl h-14 text-lg"
+                              placeholder="you@example.com"
+                            />
+                          </Form.Item>
+                        )}
                         <Form.Item
                           name="licenseNumber"
-                          label="Driving License Number"
+                          label={
+                            <span className="text-base font-semibold">Driving License Number</span>
+                          }
                           rules={[{ required: true }]}
                           className="md:col-span-2"
                         >
                           <Input
                             size="large"
-                            className="rounded-2xl"
+                            className="rounded-2xl h-14 text-lg"
                             placeholder="TN01 20150012345"
                           />
                         </Form.Item>
                       </div>
 
                       <Divider orientation="left" className="mt-8">
-                        <Text className="text-xs font-bold uppercase tracking-widest text-purple-600">
+                        <Text className="text-sm font-bold uppercase tracking-widest text-purple-600">
+                          Identity Verification
+                        </Text>
+                      </Divider>
+                      <div className="grid grid-cols-1 gap-x-6">
+                        <Form.Item
+                          name="idDocType"
+                          label={
+                            <span className="text-base font-semibold">
+                              Which document are you uploading?
+                            </span>
+                          }
+                          rules={[{ required: true, message: "Select an ID document" }]}
+                        >
+                          <Segmented
+                            size="large"
+                            block
+                            options={[
+                              { label: "Aadhar Card", value: "aadhar" },
+                              { label: "Driving Licence", value: "license" },
+                            ]}
+                          />
+                        </Form.Item>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                        <div>
+                          <Text className="text-base font-semibold mb-2 block">
+                            Document — Front Side
+                          </Text>
+                          <Upload
+                            beforeUpload={() => false}
+                            maxCount={1}
+                            accept="image/*"
+                            fileList={idFrontFileList}
+                            onChange={({ fileList }) => setIdFrontFileList(fileList)}
+                          >
+                            <Button
+                              block
+                              size="large"
+                              className="rounded-2xl border-dashed h-24 flex flex-col items-center justify-center gap-1"
+                            >
+                              <Plus size={20} />
+                              <span className="text-sm">Upload Front</span>
+                            </Button>
+                          </Upload>
+                        </div>
+                        <div>
+                          <Text className="text-base font-semibold mb-2 block">
+                            Document — Back Side
+                          </Text>
+                          <Upload
+                            beforeUpload={() => false}
+                            maxCount={1}
+                            accept="image/*"
+                            fileList={idBackFileList}
+                            onChange={({ fileList }) => setIdBackFileList(fileList)}
+                          >
+                            <Button
+                              block
+                              size="large"
+                              className="rounded-2xl border-dashed h-24 flex flex-col items-center justify-center gap-1"
+                            >
+                              <Plus size={20} />
+                              <span className="text-sm">Upload Back</span>
+                            </Button>
+                          </Upload>
+                        </div>
+                        <div className="md:col-span-2">
+                          <Text className="text-base font-semibold mb-2 block">Live Selfie</Text>
+                          <Upload
+                            beforeUpload={() => false}
+                            maxCount={1}
+                            accept="image/*"
+                            capture="user"
+                            fileList={selfieFileList}
+                            onChange={({ fileList }) => setSelfieFileList(fileList)}
+                          >
+                            <Button
+                              block
+                              size="large"
+                              className="rounded-2xl border-dashed h-24 flex flex-col items-center justify-center gap-1"
+                            >
+                              <Camera size={20} />
+                              <span className="text-sm">Take Selfie</span>
+                            </Button>
+                          </Upload>
+                          <Text type="secondary" className="text-xs mt-1.5 block">
+                            Used only to verify your identity — not shown publicly.
+                          </Text>
+                        </div>
+                      </div>
+
+                      <Divider orientation="left" className="mt-8">
+                        <Text className="text-sm font-bold uppercase tracking-widest text-purple-600">
                           Vehicle Information
                         </Text>
                       </Divider>
                       <div className="grid grid-cols-2 gap-x-6">
-                        <Form.Item name="make" label="Make" rules={[{ required: true }]}>
-                          <Input size="large" className="rounded-2xl" placeholder="Hyundai" />
-                        </Form.Item>
-                        <Form.Item name="model" label="Model" rules={[{ required: true }]}>
-                          <Input size="large" className="rounded-2xl" placeholder="Creta" />
-                        </Form.Item>
-                        <Form.Item name="plate" label="License Plate" rules={[{ required: true }]}>
+                        <Form.Item
+                          name="make"
+                          label={<span className="text-base font-semibold">Make</span>}
+                          rules={[{ required: true }]}
+                        >
                           <Input
                             size="large"
-                            className="rounded-2xl font-mono"
+                            className="rounded-2xl h-14 text-lg"
+                            placeholder="Hyundai"
+                          />
+                        </Form.Item>
+                        <Form.Item
+                          name="model"
+                          label={<span className="text-base font-semibold">Model</span>}
+                          rules={[{ required: true }]}
+                        >
+                          <Input
+                            size="large"
+                            className="rounded-2xl h-14 text-lg"
+                            placeholder="Creta"
+                          />
+                        </Form.Item>
+                        <Form.Item
+                          name="plate"
+                          label={<span className="text-base font-semibold">License Plate</span>}
+                          rules={[{ required: true }]}
+                        >
+                          <Input
+                            size="large"
+                            className="rounded-2xl font-mono h-14 text-lg"
                             placeholder="TN 01 AB 1234"
                           />
                         </Form.Item>
                         <Form.Item
                           name="seatCapacity"
-                          label="Seats"
+                          label={<span className="text-base font-semibold">Seats</span>}
                           rules={[{ required: true, message: "Please choose a seat count" }]}
                           className="md:col-span-2"
                         >
@@ -4831,13 +5233,13 @@ function DriverDashboardPage() {
                       </div>
 
                       <Divider orientation="left" className="mt-8">
-                        <Text className="text-xs font-bold uppercase tracking-widest text-purple-600">
-                          Documents
+                        <Text className="text-sm font-bold uppercase tracking-widest text-purple-600">
+                          Vehicle Documents
                         </Text>
                       </Divider>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
                         <div>
-                          <Text className="text-sm font-medium mb-2 block">
+                          <Text className="text-base font-semibold mb-2 block">
                             Registration Document
                           </Text>
                           <Upload
@@ -4849,15 +5251,17 @@ function DriverDashboardPage() {
                             <Button
                               block
                               size="large"
-                              className="rounded-2xl border-dashed h-20 flex flex-col items-center justify-center gap-1"
+                              className="rounded-2xl border-dashed h-24 flex flex-col items-center justify-center gap-1"
                             >
-                              <Plus size={18} />
-                              <span className="text-xs">Upload RC</span>
+                              <Plus size={20} />
+                              <span className="text-sm">Upload RC</span>
                             </Button>
                           </Upload>
                         </div>
                         <div>
-                          <Text className="text-sm font-medium mb-2 block">Insurance Policy</Text>
+                          <Text className="text-base font-semibold mb-2 block">
+                            Insurance Policy
+                          </Text>
                           <Upload
                             beforeUpload={() => false}
                             maxCount={1}
@@ -4867,10 +5271,10 @@ function DriverDashboardPage() {
                             <Button
                               block
                               size="large"
-                              className="rounded-2xl border-dashed h-20 flex flex-col items-center justify-center gap-1"
+                              className="rounded-2xl border-dashed h-24 flex flex-col items-center justify-center gap-1"
                             >
-                              <Plus size={18} />
-                              <span className="text-xs">Upload Insurance</span>
+                              <Plus size={20} />
+                              <span className="text-sm">Upload Insurance</span>
                             </Button>
                           </Upload>
                         </div>
@@ -5096,7 +5500,9 @@ function DriverDashboardPage() {
                   >
                     <div className="space-y-3 py-2">
                       {(() => {
-                        const sortedStops = [...managingTripStops].sort((a, b) => a.stopIndex - b.stopIndex);
+                        const sortedStops = [...managingTripStops].sort(
+                          (a, b) => a.stopIndex - b.stopIndex,
+                        );
                         const last = sortedStops.length - 1;
                         return sortedStops.map((stop, i) => (
                           <div key={stop.id} className="flex items-start gap-3">
@@ -5107,7 +5513,11 @@ function DriverDashboardPage() {
                             ></div>
                             <div>
                               <p className="text-xs font-bold uppercase tracking-widest text-gray-400">
-                                {i === 0 ? "Pickup" : i === last ? "Drop-off" : `Stop ${stop.stopIndex}`}
+                                {i === 0
+                                  ? "Pickup"
+                                  : i === last
+                                    ? "Drop-off"
+                                    : `Stop ${stop.stopIndex}`}
                               </p>
                               <p className="font-semibold text-gray-800">{stop.location}</p>
                             </div>
@@ -5141,7 +5551,9 @@ function DriverDashboardPage() {
                           const passengers = getBookingPassengers(b);
                           const primaryPassenger = passengers[0];
                           const primaryName = primaryPassenger?.name || "Passenger";
-                          const seatLabel = passengers.map((passenger) => passengerSeatLabel(passenger.seatCode)).join(", ");
+                          const seatLabel = passengers
+                            .map((passenger) => passengerSeatLabel(passenger.seatCode))
+                            .join(", ");
                           const genderLabel = [
                             ...new Set(
                               passengers
@@ -5152,201 +5564,212 @@ function DriverDashboardPage() {
                           const reviews = travelerReviewsByUser[b.travelerId] ?? [];
                           const rating =
                             reviews.length > 0
-                              ? reviews.reduce((sum, review) => sum + review.stars, 0) / reviews.length
+                              ? reviews.reduce((sum, review) => sum + review.stars, 0) /
+                                reviews.length
                               : null;
                           return (
-                          <Card
-                            key={b.id}
-                            className="rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-all overflow-hidden"
-                            bodyStyle={{ padding: 16 }}
-                          >
-                            <div className="flex items-start justify-between gap-3">
-                              <div className="flex items-center gap-3 min-w-0">
-                                <Avatar
-                                  size={54}
-                                  src={getUserAvatarUrl(primaryName, 108)}
-                                  className="bg-gradient-primary shadow-sm text-lg font-bold text-white shrink-0"
-                                >
-                                  {primaryName[0] || "P"}
-                                </Avatar>
-                                <div className="min-w-0">
-                                  <Text strong className="block text-base text-gray-900 truncate">
-                                    {primaryName}
-                                    {passengers.length > 1 ? ` +${passengers.length - 1}` : ""}
-                                  </Text>
-                                  <Text type="secondary" className="block text-xs mt-0.5">
-                                    {genderLabel || "—"} · {seatLabel || "—"}
-                                  </Text>
-                                  <div className="mt-1.5 flex items-center gap-1 text-xs">
-                                    <Star
-                                      size={13}
-                                      className={rating ? "fill-amber-400 text-amber-400" : "text-gray-300"}
-                                    />
-                                    <span className="font-bold text-gray-700">
-                                      {rating ? rating.toFixed(1) : "New"}
-                                    </span>
-                                    <span className="text-gray-400">· {reviews.length} reviews</span>
+                            <Card
+                              key={b.id}
+                              className="rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-all overflow-hidden"
+                              bodyStyle={{ padding: 16 }}
+                            >
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="flex items-center gap-3 min-w-0">
+                                  <Avatar
+                                    size={54}
+                                    src={getUserAvatarUrl(primaryName, 108)}
+                                    className="bg-gradient-primary shadow-sm text-lg font-bold text-white shrink-0"
+                                  >
+                                    {primaryName[0] || "P"}
+                                  </Avatar>
+                                  <div className="min-w-0">
+                                    <Text strong className="block text-base text-gray-900 truncate">
+                                      {primaryName}
+                                      {passengers.length > 1 ? ` +${passengers.length - 1}` : ""}
+                                    </Text>
+                                    <Text type="secondary" className="block text-xs mt-0.5">
+                                      {genderLabel || "—"} · {seatLabel || "—"}
+                                    </Text>
+                                    <div className="mt-1.5 flex items-center gap-1 text-xs">
+                                      <Star
+                                        size={13}
+                                        className={
+                                          rating ? "fill-amber-400 text-amber-400" : "text-gray-300"
+                                        }
+                                      />
+                                      <span className="font-bold text-gray-700">
+                                        {rating ? rating.toFixed(1) : "New"}
+                                      </span>
+                                      <span className="text-gray-400">
+                                        · {reviews.length} reviews
+                                      </span>
+                                    </div>
                                   </div>
                                 </div>
-                              </div>
-                              <div className="text-right shrink-0">
-                                <Text strong className="block text-base text-emerald-600">
-                                  ₹{b.segmentPrice}
-                                </Text>
-                                <Tag
-                                  color={
-                                    b.status === "confirmed"
-                                      ? "success"
-                                      : b.status === "no_show"
-                                        ? "error"
-                                        : "processing"
-                                  }
-                                  className="m-0 rounded-full uppercase text-[10px] font-bold border-none"
-                                >
-                                  {b.status === "no_show" ? "No-show" : b.status}
-                                </Tag>
-                              </div>
-                            </div>
-
-                            <div className="mt-4 flex items-center gap-2">
-                              {contact.tel && (
-                                <a
-                                  href={contact.tel}
-                                  className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-100"
-                                  title="Call passenger"
-                                >
-                                  <Phone size={16} />
-                                </a>
-                              )}
-                              {contact.whatsapp && (
-                                <a
-                                  href={contact.whatsapp}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 hover:bg-emerald-100"
-                                  title="Message on WhatsApp"
-                                >
-                                  <MessageCircle size={16} />
-                                </a>
-                              )}
-                              <Button
-                                className="ml-auto h-9 rounded-xl font-semibold"
-                                onClick={() => setTravelerDetailBooking(b)}
-                              >
-                                View details
-                              </Button>
-                            </div>
-
-                            <div className="mt-4 pt-4 border-t border-gray-100">
-                              {b.status === "no_show" ? (
-                                <div className="flex items-center gap-2 rounded-xl bg-rose-50 border border-rose-200 px-3 py-2">
-                                  <UserX size={14} className="text-rose-600 shrink-0" />
-                                  <Text className="text-sm font-bold text-rose-700 flex-1">
-                                    Marked as no-show
+                                <div className="text-right shrink-0">
+                                  <Text strong className="block text-base text-emerald-600">
+                                    ₹{b.segmentPrice}
                                   </Text>
-                                  <Button
-                                    size="small"
-                                    loading={noShowId === b.id}
-                                    className="rounded-xl font-semibold"
-                                    onClick={() => handleSetBookingStatus(b.id, "confirmed")}
+                                  <Tag
+                                    color={
+                                      b.status === "confirmed"
+                                        ? "success"
+                                        : b.status === "no_show"
+                                          ? "error"
+                                          : "processing"
+                                    }
+                                    className="m-0 rounded-full uppercase text-[10px] font-bold border-none"
                                   >
-                                    Undo
-                                  </Button>
+                                    {b.status === "no_show" ? "No-show" : b.status}
+                                  </Tag>
                                 </div>
-                              ) : b.verified ? (
-                                <div className="flex items-center gap-2 rounded-xl bg-emerald-50 border border-emerald-200 px-3 py-2">
-                                  <Star size={14} className="text-emerald-600 fill-emerald-600 shrink-0" />
-                                  <Text className="text-sm font-bold text-emerald-700 flex-1">
-                                    Customer Verified
-                                  </Text>
-                                </div>
-                              ) : (
-                                <div>
-                                  <Text className="text-[10px] uppercase tracking-widest text-gray-400 block mb-2 font-bold">
-                                    Boarding OTP
-                                  </Text>
-                                  <div className="flex items-center gap-3">
-                                    <InputOTP
-                                      maxLength={4}
-                                      value={otpInputs[b.id] || ""}
-                                      onChange={(v) =>
-                                        setOtpInputs((prev) => ({
-                                          ...prev,
-                                          [b.id]: v.replace(/\D/g, ""),
-                                        }))
-                                      }
-                                      inputMode="numeric"
-                                      containerClassName="flex-1"
-                                    >
-                                      <InputOTPGroup className="grid w-full grid-cols-4 gap-2">
-                                        {[0, 1, 2, 3].map((i) => (
-                                          <InputOTPSlot
-                                            key={i}
-                                            index={i}
-                                            className="h-12 w-full rounded-xl border border-border/80 bg-background text-xl font-bold first:rounded-xl last:rounded-xl"
-                                          />
-                                        ))}
-                                      </InputOTPGroup>
-                                    </InputOTP>
+                              </div>
+
+                              <div className="mt-4 flex items-center gap-2">
+                                {contact.tel && (
+                                  <a
+                                    href={contact.tel}
+                                    className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-100"
+                                    title="Call passenger"
+                                  >
+                                    <Phone size={16} />
+                                  </a>
+                                )}
+                                {contact.whatsapp && (
+                                  <a
+                                    href={contact.whatsapp}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 hover:bg-emerald-100"
+                                    title="Message on WhatsApp"
+                                  >
+                                    <MessageCircle size={16} />
+                                  </a>
+                                )}
+                                <Button
+                                  className="ml-auto h-9 rounded-xl font-semibold"
+                                  onClick={() => setTravelerDetailBooking(b)}
+                                >
+                                  View details
+                                </Button>
+                              </div>
+
+                              <div className="mt-4 pt-4 border-t border-gray-100">
+                                {b.status === "no_show" ? (
+                                  <div className="flex items-center gap-2 rounded-xl bg-rose-50 border border-rose-200 px-3 py-2">
+                                    <UserX size={14} className="text-rose-600 shrink-0" />
+                                    <Text className="text-sm font-bold text-rose-700 flex-1">
+                                      Marked as no-show
+                                    </Text>
                                     <Button
-                                      type="primary"
-                                      loading={verifyingId === b.id}
-                                      onClick={() => handleVerifyOtp(b.id)}
-                                      className="rounded-xl bg-purple-600 border-none font-semibold h-12 px-5"
+                                      size="small"
+                                      loading={noShowId === b.id}
+                                      className="rounded-xl font-semibold"
+                                      onClick={() => handleSetBookingStatus(b.id, "confirmed")}
                                     >
-                                      Verify
+                                      Undo
                                     </Button>
                                   </div>
-                                  <button
-                                    type="button"
-                                    onClick={() => confirmMarkNoShow(b.id, b.passengerName)}
-                                    className="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold text-gray-400 hover:text-rose-600 transition-colors"
-                                  >
-                                    <UserX size={12} />
-                                    Passenger didn't show up
-                                  </button>
-                                </div>
-                              )}
-                            </div>
+                                ) : b.verified ? (
+                                  <div className="flex items-center gap-2 rounded-xl bg-emerald-50 border border-emerald-200 px-3 py-2">
+                                    <Star
+                                      size={14}
+                                      className="text-emerald-600 fill-emerald-600 shrink-0"
+                                    />
+                                    <Text className="text-sm font-bold text-emerald-700 flex-1">
+                                      Customer Verified
+                                    </Text>
+                                  </div>
+                                ) : (
+                                  <div>
+                                    <Text className="text-[10px] uppercase tracking-widest text-gray-400 block mb-2 font-bold">
+                                      Boarding OTP
+                                    </Text>
+                                    <div className="flex items-center gap-3">
+                                      <InputOTP
+                                        maxLength={4}
+                                        value={otpInputs[b.id] || ""}
+                                        onChange={(v) =>
+                                          setOtpInputs((prev) => ({
+                                            ...prev,
+                                            [b.id]: v.replace(/\D/g, ""),
+                                          }))
+                                        }
+                                        inputMode="numeric"
+                                        containerClassName="flex-1"
+                                      >
+                                        <InputOTPGroup className="grid w-full grid-cols-4 gap-2">
+                                          {[0, 1, 2, 3].map((i) => (
+                                            <InputOTPSlot
+                                              key={i}
+                                              index={i}
+                                              className="h-12 w-full rounded-xl border border-border/80 bg-background text-xl font-bold first:rounded-xl last:rounded-xl"
+                                            />
+                                          ))}
+                                        </InputOTPGroup>
+                                      </InputOTP>
+                                      <Button
+                                        type="primary"
+                                        loading={verifyingId === b.id}
+                                        onClick={() => handleVerifyOtp(b.id)}
+                                        className="rounded-xl bg-purple-600 border-none font-semibold h-12 px-5"
+                                      >
+                                        Verify
+                                      </Button>
+                                    </div>
+                                    <button
+                                      type="button"
+                                      onClick={() => confirmMarkNoShow(b.id, b.passengerName)}
+                                      className="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold text-gray-400 hover:text-rose-600 transition-colors"
+                                    >
+                                      <UserX size={12} />
+                                      Passenger didn't show up
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
 
-                            {b.status !== "no_show" && b.status !== "cancelled" && (
-                              <Button
-                                type={
-                                  completedTripIds.has(b.tripId) &&
-                                  !existingHostReviewsLoading &&
-                                  !existingHostReviewMap[b.id]
-                                    ? "primary"
-                                    : "default"
-                                }
-                                block
-                                loading={completedTripIds.has(b.tripId) && existingHostReviewsLoading}
-                                disabled={
-                                  !completedTripIds.has(b.tripId) ||
-                                  existingHostReviewsLoading ||
-                                  !!existingHostReviewMap[b.id]
-                                }
-                                className={`mt-3 h-10 rounded-xl font-semibold ${
-                                  completedTripIds.has(b.tripId) &&
-                                  !existingHostReviewsLoading &&
-                                  !existingHostReviewMap[b.id]
-                                    ? "bg-purple-600 border-none"
-                                    : ""
-                                }`}
-                                onClick={() => {
-                                  setSelectedBooking(b);
-                                  setManagingTripId(null);
-                                  setRatingModalVisible(true);
-                                }}
-                              >
-                                {existingHostReviewMap[b.id]
-                                  ? "Review submitted"
-                                  : completedTripIds.has(b.tripId)
-                                    ? "Review traveller"
-                                    : "Review after trip"}
-                              </Button>
-                            )}
-                          </Card>
-                        );})}
+                              {b.status !== "no_show" && b.status !== "cancelled" && (
+                                <Button
+                                  type={
+                                    completedTripIds.has(b.tripId) &&
+                                    !existingHostReviewsLoading &&
+                                    !existingHostReviewMap[b.id]
+                                      ? "primary"
+                                      : "default"
+                                  }
+                                  block
+                                  loading={
+                                    completedTripIds.has(b.tripId) && existingHostReviewsLoading
+                                  }
+                                  disabled={
+                                    !completedTripIds.has(b.tripId) ||
+                                    existingHostReviewsLoading ||
+                                    !!existingHostReviewMap[b.id]
+                                  }
+                                  className={`mt-3 h-10 rounded-xl font-semibold ${
+                                    completedTripIds.has(b.tripId) &&
+                                    !existingHostReviewsLoading &&
+                                    !existingHostReviewMap[b.id]
+                                      ? "bg-purple-600 border-none"
+                                      : ""
+                                  }`}
+                                  onClick={() => {
+                                    setSelectedBooking(b);
+                                    setManagingTripId(null);
+                                    setRatingModalVisible(true);
+                                  }}
+                                >
+                                  {existingHostReviewMap[b.id]
+                                    ? "Review submitted"
+                                    : completedTripIds.has(b.tripId)
+                                      ? "Review traveller"
+                                      : "Review after trip"}
+                                </Button>
+                              )}
+                            </Card>
+                          );
+                        })}
                       </div>
                     )}
                   </div>
@@ -5357,220 +5780,236 @@ function DriverDashboardPage() {
         })()}
 
       {/* Traveller profile and booking details */}
-      {travelerDetailBooking && (() => {
-        const booking = travelerDetailBooking;
-        const trip = trips.find((item) => item.id === booking.tripId);
-        const passengers = getBookingPassengers(booking);
-        const primaryPassenger = passengers[0];
-        const primaryName = primaryPassenger?.name || "Passenger";
-        const contact = getContactLinks(primaryPassenger?.phone || booking.passengerPhone);
-        const reviews = travelerReviewsByUser[booking.travelerId] ?? [];
-        const rating =
-          reviews.length > 0
-            ? reviews.reduce((sum, review) => sum + review.stars, 0) / reviews.length
-            : null;
-        const travelerBookings = bookings.filter((item) => item.travelerId === booking.travelerId);
-        const completedTravelerTrips = travelerBookings.filter((item) =>
-          completedTripIds.has(item.tripId),
-        ).length;
-        const fromLocation =
-          managingStopsByIndexForDetail(managingTripStops, booking.fromStopIndex) ??
-          trip?.fromLocation ??
-          "Pickup";
-        const toLocation =
-          managingStopsByIndexForDetail(managingTripStops, booking.toStopIndex) ??
-          trip?.toLocation ??
-          "Drop-off";
-        const canReview =
-          completedTripIds.has(booking.tripId) &&
-          booking.status !== "no_show" &&
-          booking.status !== "cancelled" &&
-          !existingHostReviewMap[booking.id];
+      {travelerDetailBooking &&
+        (() => {
+          const booking = travelerDetailBooking;
+          const trip = trips.find((item) => item.id === booking.tripId);
+          const passengers = getBookingPassengers(booking);
+          const primaryPassenger = passengers[0];
+          const primaryName = primaryPassenger?.name || "Passenger";
+          const contact = getContactLinks(primaryPassenger?.phone || booking.passengerPhone);
+          const reviews = travelerReviewsByUser[booking.travelerId] ?? [];
+          const rating =
+            reviews.length > 0
+              ? reviews.reduce((sum, review) => sum + review.stars, 0) / reviews.length
+              : null;
+          const travelerBookings = bookings.filter(
+            (item) => item.travelerId === booking.travelerId,
+          );
+          const completedTravelerTrips = travelerBookings.filter((item) =>
+            completedTripIds.has(item.tripId),
+          ).length;
+          const fromLocation =
+            managingStopsByIndexForDetail(managingTripStops, booking.fromStopIndex) ??
+            trip?.fromLocation ??
+            "Pickup";
+          const toLocation =
+            managingStopsByIndexForDetail(managingTripStops, booking.toStopIndex) ??
+            trip?.toLocation ??
+            "Drop-off";
+          const canReview =
+            completedTripIds.has(booking.tripId) &&
+            booking.status !== "no_show" &&
+            booking.status !== "cancelled" &&
+            !existingHostReviewMap[booking.id];
 
-        return (
-          <Drawer
-            title={null}
-            placement="right"
-            width={440}
-            zIndex={1100}
-            open
-            closable={false}
-            onClose={() => setTravelerDetailBooking(null)}
-            styles={{ body: { padding: 0, overflowY: "auto" } }}
-          >
-            <div className="min-h-full bg-gray-50" style={{ fontFamily: APP_FONT_FAMILY }}>
-              <div className="relative bg-gradient-primary px-6 pb-7 pt-5 text-white">
-                <button
-                  type="button"
-                  onClick={() => setTravelerDetailBooking(null)}
-                  className="absolute left-4 top-4 grid h-9 w-9 place-items-center rounded-full bg-white/15 text-white"
-                  aria-label="Back to passenger roster"
-                >
-                  <ArrowRight size={18} className="rotate-180" />
-                </button>
-                <div className="flex flex-col items-center pt-7 text-center">
-                  <Avatar
-                    size={92}
-                    src={getUserAvatarUrl(primaryName, 184)}
-                    className="border-4 border-white/80 bg-white/20 text-2xl font-bold"
+          return (
+            <Drawer
+              title={null}
+              placement="right"
+              width={440}
+              zIndex={1100}
+              open
+              closable={false}
+              onClose={() => setTravelerDetailBooking(null)}
+              styles={{ body: { padding: 0, overflowY: "auto" } }}
+            >
+              <div className="min-h-full bg-gray-50" style={{ fontFamily: APP_FONT_FAMILY }}>
+                <div className="relative bg-gradient-primary px-6 pb-7 pt-5 text-white">
+                  <button
+                    type="button"
+                    onClick={() => setTravelerDetailBooking(null)}
+                    className="absolute left-4 top-4 grid h-9 w-9 place-items-center rounded-full bg-white/15 text-white"
+                    aria-label="Back to passenger roster"
                   >
-                    {primaryName[0] || "P"}
-                  </Avatar>
-                  <h2 className="mt-3 text-xl font-black text-white">{primaryName}</h2>
-                  <div className="mt-1 flex items-center gap-1.5 text-sm text-white/85">
-                    <Star size={15} className={rating ? "fill-amber-300 text-amber-300" : ""} />
-                    <span className="font-bold">{rating ? rating.toFixed(1) : "New traveller"}</span>
-                    <span>· {reviews.length} reviews</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-4 p-4">
-                <div className="grid grid-cols-3 overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
-                  <TravelerStat value={String(completedTravelerTrips)} label="trips" />
-                  <TravelerStat value={rating ? `${rating.toFixed(1)}★` : "New"} label="rating" />
-                  <TravelerStat value={String(reviews.length)} label="reviews" />
-                </div>
-
-                <section className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
-                  <p className="mb-3 text-[10px] font-bold uppercase tracking-widest text-gray-400">
-                    This booking
-                  </p>
-                  <div className="mb-4 flex items-center gap-2 text-sm font-bold text-gray-800">
-                    <span className="truncate">{fromLocation}</span>
-                    <ArrowRight size={14} className="shrink-0 text-gray-300" />
-                    <span className="truncate">{toLocation}</span>
-                  </div>
-                  <div className="space-y-2">
-                    {passengers.map((passenger) => (
-                      <div
-                        key={`${passenger.seatCode}-${passenger.name}`}
-                        className="flex items-center justify-between gap-3 rounded-xl bg-gray-50 px-3 py-2.5"
-                      >
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-bold text-gray-800">{passenger.name}</p>
-                          <p className="text-xs text-gray-400">{passenger.phone}</p>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                          <span
-                            className={`rounded-full px-2 py-1 text-[10px] font-bold ${
-                              passengerGenderTone(passenger.gender) === "male"
-                                ? "bg-blue-50 text-blue-700"
-                                : passengerGenderTone(passenger.gender) === "female"
-                                  ? "bg-pink-50 text-pink-700"
-                                  : "bg-gray-100 text-gray-500"
-                            }`}
-                          >
-                            {passengerGenderLabel(passenger.gender)}
-                          </span>
-                          <span className="rounded-full bg-purple-50 px-2 py-1 text-[10px] font-bold text-purple-700">
-                            {passengerSeatLabel(passenger.seatCode)}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="mt-4 flex items-center justify-between border-t border-gray-100 pt-3">
-                    <div>
-                      <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Price</p>
-                      <p className="font-black text-emerald-600">₹{booking.segmentPrice}</p>
+                    <ArrowRight size={18} className="rotate-180" />
+                  </button>
+                  <div className="flex flex-col items-center pt-7 text-center">
+                    <Avatar
+                      size={92}
+                      src={getUserAvatarUrl(primaryName, 184)}
+                      className="border-4 border-white/80 bg-white/20 text-2xl font-bold"
+                    >
+                      {primaryName[0] || "P"}
+                    </Avatar>
+                    <h2 className="mt-3 text-xl font-black text-white">{primaryName}</h2>
+                    <div className="mt-1 flex items-center gap-1.5 text-sm text-white/85">
+                      <Star size={15} className={rating ? "fill-amber-300 text-amber-300" : ""} />
+                      <span className="font-bold">
+                        {rating ? rating.toFixed(1) : "New traveller"}
+                      </span>
+                      <span>· {reviews.length} reviews</span>
                     </div>
-                    <Tag
-                      color={
-                        booking.status === "no_show"
-                          ? "error"
-                          : booking.status === "cancelled"
-                            ? "default"
-                            : "success"
-                      }
-                      className="m-0 rounded-full border-none px-3 font-bold capitalize"
-                    >
-                      {booking.status === "no_show" ? "No-show" : booking.status}
-                    </Tag>
                   </div>
-                  <div className="mt-4 grid grid-cols-2 gap-2">
-                    <Button href={contact.tel ?? undefined} disabled={!contact.tel} className="h-10 rounded-xl">
-                      <Phone size={15} /> Call
-                    </Button>
-                    <Button
-                      href={contact.whatsapp ?? undefined}
-                      target="_blank"
-                      disabled={!contact.whatsapp}
-                      className="h-10 rounded-xl"
-                    >
-                      <MessageCircle size={15} /> Message
-                    </Button>
-                  </div>
-                </section>
+                </div>
 
-                <section className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
-                  <div className="mb-3 flex items-center justify-between">
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">
-                      Reviews from hosts
-                    </p>
-                    {travelerReviewsLoading && <Spin size="small" />}
+                <div className="space-y-4 p-4">
+                  <div className="grid grid-cols-3 overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
+                    <TravelerStat value={String(completedTravelerTrips)} label="trips" />
+                    <TravelerStat value={rating ? `${rating.toFixed(1)}★` : "New"} label="rating" />
+                    <TravelerStat value={String(reviews.length)} label="reviews" />
                   </div>
-                  {reviews.length === 0 ? (
-                    <p className="rounded-xl bg-gray-50 px-3 py-4 text-center text-sm text-gray-400">
-                      No reviews yet.
+
+                  <section className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+                    <p className="mb-3 text-[10px] font-bold uppercase tracking-widest text-gray-400">
+                      This booking
                     </p>
-                  ) : (
-                    <div className="space-y-3">
-                      {reviews.slice(0, 5).map((review) => (
-                        <div key={review.id} className="border-b border-gray-50 pb-3 last:border-0 last:pb-0">
-                          <div className="flex items-center justify-between gap-2">
-                            <div className="flex items-center gap-0.5">
-                              {[1, 2, 3, 4, 5].map((star) => (
-                                <Star
-                                  key={star}
-                                  size={13}
-                                  className={
-                                    star <= review.stars
-                                      ? "fill-amber-400 text-amber-400"
-                                      : "text-gray-200"
-                                  }
-                                />
-                              ))}
-                            </div>
-                            <span className="text-xs text-gray-400">
-                              {dayjs(review.createdAt).fromNow()}
+                    <div className="mb-4 flex items-center gap-2 text-sm font-bold text-gray-800">
+                      <span className="truncate">{fromLocation}</span>
+                      <ArrowRight size={14} className="shrink-0 text-gray-300" />
+                      <span className="truncate">{toLocation}</span>
+                    </div>
+                    <div className="space-y-2">
+                      {passengers.map((passenger) => (
+                        <div
+                          key={`${passenger.seatCode}-${passenger.name}`}
+                          className="flex items-center justify-between gap-3 rounded-xl bg-gray-50 px-3 py-2.5"
+                        >
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-bold text-gray-800">
+                              {passenger.name}
+                            </p>
+                            <p className="text-xs text-gray-400">{passenger.phone}</p>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <span
+                              className={`rounded-full px-2 py-1 text-[10px] font-bold ${
+                                passengerGenderTone(passenger.gender) === "male"
+                                  ? "bg-blue-50 text-blue-700"
+                                  : passengerGenderTone(passenger.gender) === "female"
+                                    ? "bg-pink-50 text-pink-700"
+                                    : "bg-gray-100 text-gray-500"
+                              }`}
+                            >
+                              {passengerGenderLabel(passenger.gender)}
+                            </span>
+                            <span className="rounded-full bg-purple-50 px-2 py-1 text-[10px] font-bold text-purple-700">
+                              {passengerSeatLabel(passenger.seatCode)}
                             </span>
                           </div>
-                          <p className="mt-1 text-sm font-semibold text-gray-700">
-                            {review.tags.join(" · ")}
-                          </p>
                         </div>
                       ))}
                     </div>
-                  )}
-                </section>
+                    <div className="mt-4 flex items-center justify-between border-t border-gray-100 pt-3">
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">
+                          Price
+                        </p>
+                        <p className="font-black text-emerald-600">₹{booking.segmentPrice}</p>
+                      </div>
+                      <Tag
+                        color={
+                          booking.status === "no_show"
+                            ? "error"
+                            : booking.status === "cancelled"
+                              ? "default"
+                              : "success"
+                        }
+                        className="m-0 rounded-full border-none px-3 font-bold capitalize"
+                      >
+                        {booking.status === "no_show" ? "No-show" : booking.status}
+                      </Tag>
+                    </div>
+                    <div className="mt-4 grid grid-cols-2 gap-2">
+                      <Button
+                        href={contact.tel ?? undefined}
+                        disabled={!contact.tel}
+                        className="h-10 rounded-xl"
+                      >
+                        <Phone size={15} /> Call
+                      </Button>
+                      <Button
+                        href={contact.whatsapp ?? undefined}
+                        target="_blank"
+                        disabled={!contact.whatsapp}
+                        className="h-10 rounded-xl"
+                      >
+                        <MessageCircle size={15} /> Message
+                      </Button>
+                    </div>
+                  </section>
 
-                {booking.status !== "no_show" && booking.status !== "cancelled" && (
-                  <Button
-                    type={canReview ? "primary" : "default"}
-                    block
-                    disabled={!canReview || existingHostReviewsLoading}
-                    loading={completedTripIds.has(booking.tripId) && existingHostReviewsLoading}
-                    className={`h-12 rounded-2xl font-bold ${canReview ? "bg-purple-600 border-none" : ""}`}
-                    onClick={() => {
-                      setSelectedBooking(booking);
-                      setTravelerDetailBooking(null);
-                      setManagingTripId(null);
-                      setRatingModalVisible(true);
-                    }}
-                  >
-                    {existingHostReviewMap[booking.id]
-                      ? "Review submitted"
-                      : completedTripIds.has(booking.tripId)
-                        ? "Review traveller"
-                        : "Review after trip"}
-                  </Button>
-                )}
+                  <section className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+                    <div className="mb-3 flex items-center justify-between">
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">
+                        Reviews from hosts
+                      </p>
+                      {travelerReviewsLoading && <Spin size="small" />}
+                    </div>
+                    {reviews.length === 0 ? (
+                      <p className="rounded-xl bg-gray-50 px-3 py-4 text-center text-sm text-gray-400">
+                        No reviews yet.
+                      </p>
+                    ) : (
+                      <div className="space-y-3">
+                        {reviews.slice(0, 5).map((review) => (
+                          <div
+                            key={review.id}
+                            className="border-b border-gray-50 pb-3 last:border-0 last:pb-0"
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-0.5">
+                                {[1, 2, 3, 4, 5].map((star) => (
+                                  <Star
+                                    key={star}
+                                    size={13}
+                                    className={
+                                      star <= review.stars
+                                        ? "fill-amber-400 text-amber-400"
+                                        : "text-gray-200"
+                                    }
+                                  />
+                                ))}
+                              </div>
+                              <span className="text-xs text-gray-400">
+                                {dayjs(review.createdAt).fromNow()}
+                              </span>
+                            </div>
+                            <p className="mt-1 text-sm font-semibold text-gray-700">
+                              {review.tags.join(" · ")}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </section>
+
+                  {booking.status !== "no_show" && booking.status !== "cancelled" && (
+                    <Button
+                      type={canReview ? "primary" : "default"}
+                      block
+                      disabled={!canReview || existingHostReviewsLoading}
+                      loading={completedTripIds.has(booking.tripId) && existingHostReviewsLoading}
+                      className={`h-12 rounded-2xl font-bold ${canReview ? "bg-purple-600 border-none" : ""}`}
+                      onClick={() => {
+                        setSelectedBooking(booking);
+                        setTravelerDetailBooking(null);
+                        setManagingTripId(null);
+                        setRatingModalVisible(true);
+                      }}
+                    >
+                      {existingHostReviewMap[booking.id]
+                        ? "Review submitted"
+                        : completedTripIds.has(booking.tripId)
+                          ? "Review traveller"
+                          : "Review after trip"}
+                    </Button>
+                  )}
+                </div>
               </div>
-            </div>
-          </Drawer>
-        );
-      })()}
+            </Drawer>
+          );
+        })()}
 
       {/* Add/Edit Driver Drawer — rendered globally (zIndex above the trip
           wizard) so it can open on top without closing the wizard */}
@@ -5967,9 +6406,7 @@ function DriverDashboardPage() {
                           <p className="text-gray-500">Distance</p>
                         </div>
                         <div>
-                          <p className="font-bold text-gray-900">
-                            {wizardResult.stops.length}
-                          </p>
+                          <p className="font-bold text-gray-900">{wizardResult.stops.length}</p>
                           <p className="text-gray-500">Stops</p>
                         </div>
                       </div>
@@ -5994,8 +6431,8 @@ function DriverDashboardPage() {
                         <RouteIcon size={16} /> Plan your route
                       </div>
                       <p className="text-xs text-gray-600">
-                        Pick start &amp; end, choose the route on the map, set the
-                        time, and add boarding points.
+                        Pick start &amp; end, choose the route on the map, set the time, and add
+                        boarding points.
                       </p>
                     </button>
                   )}
@@ -6028,7 +6465,7 @@ function DriverDashboardPage() {
                         size="large"
                         placeholder="Select vehicle"
                         className="h-12 w-full"
-                        style={{ borderRadius: '8px' }}
+                        style={{ borderRadius: "8px" }}
                         options={[
                           ...vehicles.map((v) => ({
                             label: `${v.modelName} · ${v.plateNumber}`,
@@ -6071,7 +6508,7 @@ function DriverDashboardPage() {
                         size="large"
                         placeholder="Select driver"
                         className="h-12 w-full"
-                        style={{ borderRadius: '8px' }}
+                        style={{ borderRadius: "8px" }}
                         options={[
                           {
                             label: `You (${user?.name?.split(" ")[0] || "Owner"})`,
@@ -6121,7 +6558,7 @@ function DriverDashboardPage() {
                       precision={0}
                       size="large"
                       className="w-full h-12"
-                      style={{ borderRadius: '8px', height: '48px', width: '100%' }}
+                      style={{ borderRadius: "8px", height: "48px", width: "100%" }}
                       onChange={(val) => {
                         if (typeof val === "number" && val > 9999) {
                           form.setFieldsValue({ totalTripPrice: 9999 });

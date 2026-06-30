@@ -174,6 +174,11 @@ function toDriverProfile(doc: any): DriverProfile {
     active: doc.active !== false,
     memberCode: doc.member_code ? String(doc.member_code) : null,
     gender: doc.gender ? String(doc.gender) : null,
+    idDocType:
+      doc.id_doc_type === "aadhar" || doc.id_doc_type === "license" ? doc.id_doc_type : null,
+    idFrontDoc: doc.id_front_doc ? String(doc.id_front_doc) : null,
+    idBackDoc: doc.id_back_doc ? String(doc.id_back_doc) : null,
+    selfieDoc: doc.selfie_doc ? String(doc.selfie_doc) : null,
   };
 }
 
@@ -303,6 +308,11 @@ export interface CreateDriverProfileInput {
   /** Carried over from the account's existing member code/gender (e.g. when a guest becomes a host). */
   memberCode?: string | null;
   gender?: string | null;
+  /** Which ID document the host uploaded for identity verification. */
+  idDocType?: "aadhar" | "license" | null;
+  idFrontDoc?: string | null;
+  idBackDoc?: string | null;
+  selfieDoc?: string | null;
 }
 
 export interface CreateDriverVehicleInput {
@@ -1188,6 +1198,10 @@ export async function upsertDriverProfile(input: CreateDriverProfileInput): Prom
           ? { member_code: input.memberCode }
           : {}),
         ...(input.gender && !existing.documents[0].gender ? { gender: input.gender } : {}),
+        ...(input.idDocType ? { id_doc_type: input.idDocType } : {}),
+        ...(input.idFrontDoc ? { id_front_doc: input.idFrontDoc } : {}),
+        ...(input.idBackDoc ? { id_back_doc: input.idBackDoc } : {}),
+        ...(input.selfieDoc ? { selfie_doc: input.selfieDoc } : {}),
       },
     );
     return toDriverProfile(updated);
@@ -1206,6 +1220,10 @@ export async function upsertDriverProfile(input: CreateDriverProfileInput): Prom
       city: input.city,
       member_code: input.memberCode ?? null,
       gender: input.gender ?? null,
+      id_doc_type: input.idDocType ?? null,
+      id_front_doc: input.idFrontDoc ?? null,
+      id_back_doc: input.idBackDoc ?? null,
+      selfie_doc: input.selfieDoc ?? null,
     },
   );
   return toDriverProfile(created);

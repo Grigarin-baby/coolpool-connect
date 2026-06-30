@@ -170,6 +170,11 @@ export interface DriverProfile {
   ratingCount?: number;
   /** Host can toggle a driver out of service without deleting them. */
   active?: boolean;
+  /** Which ID document the host uploaded for identity verification. */
+  idDocType?: "aadhar" | "license" | null;
+  idFrontDoc?: string | null;
+  idBackDoc?: string | null;
+  selfieDoc?: string | null;
 }
 
 /** One claimed seat on a trip — stored without traveler PII for public seat maps */
