@@ -163,10 +163,10 @@ export function PayoutsPanel() {
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
       <div className="flex flex-col gap-1">
-        <Title level={2} style={{ margin: 0 }}>
+        <Title level={1} className="!text-3xl sm:!text-4xl !font-extrabold" style={{ margin: 0 }}>
           Payouts
         </Title>
-        <Text type="secondary">
+        <Text type="secondary" className="text-base">
           Track your earnings and request withdrawals to your bank. Amounts shown are net of the{" "}
           {PLATFORM_FEE_PERCENT}% platform fee.
           {!loading && earnings.lifetimeCommission > 0 && (
@@ -179,16 +179,24 @@ export function PayoutsPanel() {
         </Text>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
         <Card className="rounded-2xl border-none shadow-soft bg-white/80">
-          <Text type="secondary">Lifetime earnings</Text>
-          <Title level={3} style={{ margin: "4px 0" }}>
+          <Text type="secondary" className="text-base font-semibold">
+            Lifetime earnings
+          </Text>
+          <Title level={2} className="!text-3xl !font-extrabold" style={{ margin: "4px 0" }}>
             {loading ? <Spin size="small" /> : `₹${earnings.lifetime.toLocaleString("en-IN")}`}
           </Title>
         </Card>
         <Card className="rounded-2xl border-none shadow-soft bg-white/80">
-          <Text type="secondary">Platform commission paid ({PLATFORM_FEE_PERCENT}%)</Text>
-          <Title level={3} style={{ margin: "4px 0" }} className="!text-amber-600">
+          <Text type="secondary" className="text-base font-semibold">
+            Platform commission paid ({PLATFORM_FEE_PERCENT}%)
+          </Text>
+          <Title
+            level={2}
+            className="!text-3xl !font-extrabold !text-amber-600"
+            style={{ margin: "4px 0" }}
+          >
             {loading ? (
               <Spin size="small" />
             ) : (
@@ -197,24 +205,34 @@ export function PayoutsPanel() {
           </Title>
         </Card>
         <Card className="rounded-2xl border-none shadow-soft bg-white/80">
-          <Text type="secondary">Available to withdraw</Text>
-          <Title level={3} style={{ margin: "4px 0" }} className="!text-emerald-600">
+          <Text type="secondary" className="text-base font-semibold">
+            Available to withdraw
+          </Text>
+          <Title
+            level={2}
+            className="!text-3xl !font-extrabold !text-emerald-600"
+            style={{ margin: "4px 0" }}
+          >
             {loading ? <Spin size="small" /> : `₹${earnings.available.toLocaleString("en-IN")}`}
           </Title>
         </Card>
         <Card className="rounded-2xl border-none shadow-soft bg-white/80">
-          <Text type="secondary">Pending requests</Text>
-          <Title level={3} style={{ margin: "4px 0" }}>
+          <Text type="secondary" className="text-base font-semibold">
+            Pending requests
+          </Text>
+          <Title level={2} className="!text-3xl !font-extrabold" style={{ margin: "4px 0" }}>
             {loading ? <Spin size="small" /> : `₹${earnings.pending.toLocaleString("en-IN")}`}
           </Title>
         </Card>
         <Card className="rounded-2xl border-none shadow-soft bg-white/80">
-          <Text type="secondary">Already paid out</Text>
-          <Title level={3} style={{ margin: "4px 0" }}>
+          <Text type="secondary" className="text-base font-semibold">
+            Already paid out
+          </Text>
+          <Title level={2} className="!text-3xl !font-extrabold" style={{ margin: "4px 0" }}>
             {loading ? <Spin size="small" /> : `₹${earnings.paidOut.toLocaleString("en-IN")}`}
           </Title>
           {!loading && earnings.overpaid > 0 && (
-            <Text type="danger" className="text-xs font-semibold">
+            <Text type="danger" className="text-sm font-semibold">
               Overpaid by ₹{earnings.overpaid.toLocaleString("en-IN")}
             </Text>
           )}
@@ -235,13 +253,19 @@ export function PayoutsPanel() {
       )}
 
       <Card className="rounded-2xl border-none shadow-soft bg-white/80">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-4 gap-3">
           <div className="flex items-center gap-2">
-            <Banknote size={18} className="text-primary" />
-            <Text strong>Bank details</Text>
+            <Banknote size={22} className="text-primary" />
+            <Text strong className="text-lg font-bold">
+              Bank details
+            </Text>
           </div>
           {bankAccount && (
-            <Button size="small" onClick={() => setBankModalOpen(true)}>
+            <Button
+              size="large"
+              className="rounded-2xl font-semibold"
+              onClick={() => setBankModalOpen(true)}
+            >
               Edit
             </Button>
           )}
@@ -250,7 +274,7 @@ export function PayoutsPanel() {
         {bankLoading ? (
           <Spin />
         ) : bankAccount ? (
-          <div className="text-sm space-y-1">
+          <div className="text-base space-y-2">
             <div>
               <Text type="secondary">Account holder: </Text>
               <Text strong>{bankAccount.accountHolderName}</Text>
@@ -271,9 +295,17 @@ export function PayoutsPanel() {
             )}
           </div>
         ) : (
-          <div className="flex flex-col items-start gap-3">
-            <Text type="secondary">Add your bank details to start requesting payouts.</Text>
-            <Button type="primary" size="large" onClick={() => setBankModalOpen(true)}>
+          <div className="flex flex-col items-stretch sm:items-start gap-3">
+            <Text type="secondary" className="text-base">
+              Add your bank details to start requesting payouts.
+            </Text>
+            <Button
+              type="primary"
+              size="large"
+              block
+              className="sm:w-auto rounded-2xl font-semibold h-12"
+              onClick={() => setBankModalOpen(true)}
+            >
               Add bank details
             </Button>
           </div>
@@ -281,14 +313,19 @@ export function PayoutsPanel() {
       </Card>
 
       <Card className="rounded-2xl border-none shadow-soft bg-white/80">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-3">
           <div className="flex items-center gap-2">
-            <Wallet size={18} className="text-primary" />
-            <Text strong>Request a payout</Text>
+            <Wallet size={22} className="text-primary" />
+            <Text strong className="text-lg font-bold">
+              Request a payout
+            </Text>
           </div>
           <Button
             type="primary"
+            size="large"
+            block
             disabled={!bankAccount || earnings.available <= 0}
+            className="sm:w-auto rounded-2xl font-semibold h-12"
             onClick={() => {
               requestForm.setFieldsValue({ amount: earnings.available });
               setRequestModalOpen(true);
@@ -298,67 +335,127 @@ export function PayoutsPanel() {
           </Button>
         </div>
         {!bankAccount && (
-          <Text type="secondary">Add your bank details above before requesting a payout.</Text>
+          <Text type="secondary" className="text-base">
+            Add your bank details above before requesting a payout.
+          </Text>
         )}
         {bankAccount && earnings.available <= 0 && (
-          <Text type="secondary">No balance available to withdraw right now.</Text>
+          <Text type="secondary" className="text-base">
+            No balance available to withdraw right now.
+          </Text>
         )}
       </Card>
 
       <Card className="rounded-2xl border-none shadow-soft bg-white/80 p-2 overflow-hidden">
         <div className="p-4 flex items-center gap-2">
-          <HistoryIcon size={18} className="text-primary" />
-          <Text strong>Payout history</Text>
+          <HistoryIcon size={22} className="text-primary" />
+          <Text strong className="text-lg font-bold">
+            Payout history
+          </Text>
         </div>
-        <Table
-          rowKey="id"
-          loading={requestsLoading}
-          dataSource={payoutRequests}
-          locale={{ emptyText: "No payout requests yet." }}
-          pagination={{ pageSize: 10 }}
-          columns={[
-            {
-              title: "Date",
-              dataIndex: "requestedAt",
-              key: "requestedAt",
-              render: (date: string) => new Date(date).toLocaleDateString("en-IN"),
-            },
-            {
-              title: "Amount (net)",
-              dataIndex: "amount",
-              key: "amount",
-              render: (amount: number) => `₹${amount.toLocaleString("en-IN")}`,
-            },
-            {
-              title: "Platform commission",
-              key: "platformFee",
-              render: (_, r) => {
-                const fee = r.platformFee ?? estimateFeeFromNet(r.amount);
-                const isEstimate = r.platformFee == null;
-                return (
-                  <Text type="secondary" italic={isEstimate}>
-                    {isEstimate ? "≈" : ""}₹{fee.toLocaleString("en-IN")}
-                  </Text>
-                );
+
+        {/* Mobile: stacked cards instead of a cramped table */}
+        <div className="sm:hidden px-2 pb-2 space-y-3">
+          {requestsLoading ? (
+            <div className="py-6 flex justify-center">
+              <Spin />
+            </div>
+          ) : payoutRequests.length === 0 ? (
+            <div className="py-6 text-center">
+              <Text type="secondary">No payout requests yet.</Text>
+            </div>
+          ) : (
+            payoutRequests.map((r) => {
+              const fee = r.platformFee ?? estimateFeeFromNet(r.amount);
+              const isEstimate = r.platformFee == null;
+              return (
+                <div
+                  key={r.id}
+                  className="rounded-2xl border border-black/5 bg-white p-4 space-y-2"
+                >
+                  <div className="flex items-center justify-between">
+                    <Text className="text-lg font-bold">₹{r.amount.toLocaleString("en-IN")}</Text>
+                    <Tag
+                      color={STATUS_COLORS[r.status]}
+                      bordered={false}
+                      className="capitalize text-sm"
+                    >
+                      {r.status}
+                    </Tag>
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    {new Date(r.requestedAt).toLocaleDateString("en-IN")}
+                  </div>
+                  <div className="text-sm">
+                    <Text type="secondary">Platform commission: </Text>
+                    <Text type="secondary" italic={isEstimate}>
+                      {isEstimate ? "≈" : ""}₹{fee.toLocaleString("en-IN")}
+                    </Text>
+                  </div>
+                  {r.paymentReference && (
+                    <div className="text-sm">
+                      <Text type="secondary">Reference: </Text>
+                      <Text>{r.paymentReference}</Text>
+                    </div>
+                  )}
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        {/* Desktop / tablet: table */}
+        <div className="hidden sm:block">
+          <Table
+            rowKey="id"
+            loading={requestsLoading}
+            dataSource={payoutRequests}
+            locale={{ emptyText: "No payout requests yet." }}
+            pagination={{ pageSize: 10 }}
+            columns={[
+              {
+                title: "Date",
+                dataIndex: "requestedAt",
+                key: "requestedAt",
+                render: (date: string) => new Date(date).toLocaleDateString("en-IN"),
               },
-            },
-            {
-              title: "Status",
-              key: "status",
-              render: (_, r) => (
-                <Tag color={STATUS_COLORS[r.status]} bordered={false} className="capitalize">
-                  {r.status}
-                </Tag>
-              ),
-            },
-            {
-              title: "Reference",
-              dataIndex: "paymentReference",
-              key: "paymentReference",
-              render: (ref?: string | null) => ref || "—",
-            },
-          ]}
-        />
+              {
+                title: "Amount (net)",
+                dataIndex: "amount",
+                key: "amount",
+                render: (amount: number) => `₹${amount.toLocaleString("en-IN")}`,
+              },
+              {
+                title: "Platform commission",
+                key: "platformFee",
+                render: (_, r) => {
+                  const fee = r.platformFee ?? estimateFeeFromNet(r.amount);
+                  const isEstimate = r.platformFee == null;
+                  return (
+                    <Text type="secondary" italic={isEstimate}>
+                      {isEstimate ? "≈" : ""}₹{fee.toLocaleString("en-IN")}
+                    </Text>
+                  );
+                },
+              },
+              {
+                title: "Status",
+                key: "status",
+                render: (_, r) => (
+                  <Tag color={STATUS_COLORS[r.status]} bordered={false} className="capitalize">
+                    {r.status}
+                  </Tag>
+                ),
+              },
+              {
+                title: "Reference",
+                dataIndex: "paymentReference",
+                key: "paymentReference",
+                render: (ref?: string | null) => ref || "—",
+              },
+            ]}
+          />
+        </div>
       </Card>
 
       <Modal
@@ -477,9 +574,10 @@ export function PayoutsPanel() {
 
       <Modal
         open={requestModalOpen}
-        title="Request payout"
+        title={<span className="text-xl font-bold">Request payout</span>}
         onCancel={() => setRequestModalOpen(false)}
         footer={null}
+        width={520}
         destroyOnClose
       >
         <Form
@@ -489,7 +587,11 @@ export function PayoutsPanel() {
           className="mt-4"
         >
           <Form.Item
-            label={`Amount (max ₹${earnings.available.toLocaleString("en-IN")})`}
+            label={
+              <span className="text-base font-semibold">
+                Amount (max ₹{earnings.available.toLocaleString("en-IN")})
+              </span>
+            }
             name="amount"
             rules={[
               { required: true, message: "Required" },
@@ -501,7 +603,13 @@ export function PayoutsPanel() {
               },
             ]}
           >
-            <InputNumber min={1} max={earnings.available} className="w-full" prefix="₹" />
+            <InputNumber
+              min={1}
+              max={earnings.available}
+              className="w-full rounded-2xl h-14 text-lg"
+              size="large"
+              prefix="₹"
+            />
           </Form.Item>
           <Form.Item noStyle shouldUpdate>
             {({ getFieldValue }) => {
@@ -510,7 +618,7 @@ export function PayoutsPanel() {
               const fee = estimateFeeFromNet(amount);
               const gross = amount + fee;
               return (
-                <Text type="secondary" className="block mb-4 text-xs">
+                <Text type="secondary" className="block mb-4 text-sm">
                   Gross ₹{gross.toLocaleString("en-IN")} → platform commission ₹
                   {fee.toLocaleString("en-IN")} ({PLATFORM_FEE_PERCENT}%) → you receive ₹
                   {amount.toLocaleString("en-IN")}.
@@ -518,7 +626,14 @@ export function PayoutsPanel() {
               );
             }}
           </Form.Item>
-          <Button type="primary" htmlType="submit" loading={requestPayoutMutation.isPending} block>
+          <Button
+            type="primary"
+            htmlType="submit"
+            block
+            size="large"
+            loading={requestPayoutMutation.isPending}
+            className="bg-gradient-primary border-none rounded-2xl h-14 font-bold text-lg shadow-glow mt-2"
+          >
             Submit request
           </Button>
         </Form>

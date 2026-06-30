@@ -1962,6 +1962,8 @@ function DriverDashboardPage() {
           },
           Modal: {
             borderRadiusLG: 16,
+            contentBg: "#ffffff",
+            headerBg: "#ffffff",
           },
           Tag: {
             borderRadiusSM: 999,
