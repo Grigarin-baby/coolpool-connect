@@ -892,6 +892,35 @@ function DriverDashboardPage() {
         }
       }
 
+      // Registration & insurance are optional — a failed upload must never
+      // block adding the vehicle, so each is best-effort.
+      let regDocId: string | undefined;
+      let insDocId: string | undefined;
+      if (regFileList[0]?.originFileObj) {
+        try {
+          const up = await storage.createFile(
+            appwriteConfig.driverDocsBucketId,
+            ID.unique(),
+            await compressImage(regFileList[0].originFileObj as File),
+          );
+          regDocId = up.$id;
+        } catch {
+          message.warning("Registration document upload failed — you can add it later.");
+        }
+      }
+      if (insFileList[0]?.originFileObj) {
+        try {
+          const up = await storage.createFile(
+            appwriteConfig.driverDocsBucketId,
+            ID.unique(),
+            await compressImage(insFileList[0].originFileObj as File),
+          );
+          insDocId = up.$id;
+        } catch {
+          message.warning("Insurance document upload failed — you can add it later.");
+        }
+      }
+
       const payload = {
         driverUserId: user.$id,
         modelName: `${vals.make} ${vals.model}`.trim(),
@@ -899,6 +928,8 @@ function DriverDashboardPage() {
         seatCapacity: Number(vals.seats) === 7 ? 7 : 5,
         color: vals.color,
         carImages: carImageIds,
+        ...(regDocId ? { registrationDoc: regDocId } : {}),
+        ...(insDocId ? { insuranceDoc: insDocId } : {}),
       };
 
       if (editingVehicleId) {
@@ -913,6 +944,8 @@ function DriverDashboardPage() {
       setVehicleDrawerOpen(false);
       vehicleForm.resetFields();
       setCarImagesList([]);
+      setRegFileList([]);
+      setInsFileList([]);
       setEditingVehicleId(null);
     },
     onError: (err: any) => {
@@ -4866,7 +4899,7 @@ function DriverDashboardPage() {
                     </div>
                     <Title level={2}>Host Onboarding</Title>
                     <Text type="secondary" className="text-lg">
-                      Register your vehicle and documents to get verified.
+                      Verify your identity to get started. You'll add your vehicle next.
                     </Text>
                   </div>
 
@@ -4874,7 +4907,6 @@ function DriverDashboardPage() {
                     <Form
                       layout="vertical"
                       initialValues={{
-                        seatCapacity: 5,
                         phone:
                           (user?.prefs as Record<string, unknown> | undefined)?.phone ??
                           (user as { phone?: string } | null)?.phone ??
@@ -4909,42 +4941,9 @@ function DriverDashboardPage() {
                               ? user.email
                               : `u${phoneDigits}@phone.coolpool.in`);
 
-                          // Vehicle documents are optional — a failed upload must
-                          // never block verification, so each is best-effort.
-                          let regDocId: string | undefined;
-                          let insDocId: string | undefined;
-                          if (regFileList[0]?.originFileObj) {
-                            try {
-                              const up = await storage.createFile(
-                                appwriteConfig.driverDocsBucketId,
-                                ID.unique(),
-                                await compressImage(regFileList[0].originFileObj as File),
-                              );
-                              regDocId = up.$id;
-                            } catch {
-                              message.warning(
-                                "Registration document upload failed — you can add it later.",
-                              );
-                            }
-                          }
-                          if (insFileList[0]?.originFileObj) {
-                            try {
-                              const up = await storage.createFile(
-                                appwriteConfig.driverDocsBucketId,
-                                ID.unique(),
-                                await compressImage(insFileList[0].originFileObj as File),
-                              );
-                              insDocId = up.$id;
-                            } catch {
-                              message.warning(
-                                "Insurance document upload failed — you can add it later.",
-                              );
-                            }
-                          }
-
                           // The ID document is the actual proof of identity, so
-                          // unlike the vehicle docs above, a failed upload here
-                          // aborts onboarding instead of silently continuing.
+                          // a failed upload here aborts onboarding instead of
+                          // silently continuing.
                           let idFrontDocId: string;
                           let idBackDocId: string;
                           try {
@@ -4966,7 +4965,7 @@ function DriverDashboardPage() {
                             return;
                           }
 
-                          // The live selfie is best-effort, like the vehicle docs.
+                          // The live selfie is best-effort.
                           let selfieDocId: string | undefined;
                           if (selfieFileList[0]?.originFileObj) {
                             try {
@@ -4981,8 +4980,6 @@ function DriverDashboardPage() {
                             }
                           }
 
-                          // Profile + vehicle are what grant verification — these
-                          // run after uploads so a doc failure can't abort them.
                           await upsertDriverProfile({
                             userId: user.$id,
                             fullName: user.name || String(v.phone || ""),
@@ -4996,21 +4993,13 @@ function DriverDashboardPage() {
                             selfieDoc: selfieDocId,
                           });
 
-                          await upsertDriverVehicle({
-                            driverUserId: user.$id,
-                            modelName: `${v.make} ${v.model}`.trim(),
-                            plateNumber: v.plate,
-                            seatCapacity: Number(v.seatCapacity) === 7 ? 7 : 5,
-                            color: v.color,
-                            registrationDoc: regDocId,
-                            insuranceDoc: insDocId,
-                          });
-
                           await assignRole(user.$id, "driver");
-                          message.success("Onboarding complete! You are now a verified host.");
-                          await queryClient.invalidateQueries({ queryKey: ["driver-vehicles"] });
+                          message.success(
+                            "Identity verified! Now add your vehicle to start hosting.",
+                          );
                           await refreshRoles();
                           setActiveModule("dashboard");
+                          setVehicleDrawerOpen(true);
                         } catch (err) {
                           message.error(err instanceof Error ? err.message : "Onboarding failed");
                         } finally {
@@ -5176,117 +5165,13 @@ function DriverDashboardPage() {
                         </div>
                       </div>
 
-                      <Divider orientation="left" className="mt-8">
-                        <Text className="text-sm font-bold uppercase tracking-widest text-purple-600">
-                          Vehicle Information
-                        </Text>
-                      </Divider>
-                      <div className="grid grid-cols-2 gap-x-6">
-                        <Form.Item
-                          name="make"
-                          label={<span className="text-base font-semibold">Make</span>}
-                          rules={[{ required: true }]}
-                        >
-                          <Input
-                            size="large"
-                            className="rounded-2xl h-14 text-lg"
-                            placeholder="Hyundai"
-                          />
-                        </Form.Item>
-                        <Form.Item
-                          name="model"
-                          label={<span className="text-base font-semibold">Model</span>}
-                          rules={[{ required: true }]}
-                        >
-                          <Input
-                            size="large"
-                            className="rounded-2xl h-14 text-lg"
-                            placeholder="Creta"
-                          />
-                        </Form.Item>
-                        <Form.Item
-                          name="plate"
-                          label={<span className="text-base font-semibold">License Plate</span>}
-                          rules={[{ required: true }]}
-                        >
-                          <Input
-                            size="large"
-                            className="rounded-2xl font-mono h-14 text-lg"
-                            placeholder="TN 01 AB 1234"
-                          />
-                        </Form.Item>
-                        <Form.Item
-                          name="seatCapacity"
-                          label={<span className="text-base font-semibold">Seats</span>}
-                          rules={[{ required: true, message: "Please choose a seat count" }]}
-                          className="md:col-span-2"
-                        >
-                          <Segmented
-                            size="large"
-                            block
-                            options={[
-                              { label: "5 Seater", value: 5 },
-                              { label: "7 Seater", value: 7 },
-                            ]}
-                          />
-                        </Form.Item>
-                      </div>
-
-                      <Divider orientation="left" className="mt-8">
-                        <Text className="text-sm font-bold uppercase tracking-widest text-purple-600">
-                          Vehicle Documents
-                        </Text>
-                      </Divider>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-                        <div>
-                          <Text className="text-base font-semibold mb-2 block">
-                            Registration Document
-                          </Text>
-                          <Upload
-                            beforeUpload={() => false}
-                            maxCount={1}
-                            fileList={regFileList}
-                            onChange={({ fileList }) => setRegFileList(fileList)}
-                          >
-                            <Button
-                              block
-                              size="large"
-                              className="rounded-2xl border-dashed h-24 flex flex-col items-center justify-center gap-1"
-                            >
-                              <Plus size={20} />
-                              <span className="text-sm">Upload RC</span>
-                            </Button>
-                          </Upload>
-                        </div>
-                        <div>
-                          <Text className="text-base font-semibold mb-2 block">
-                            Insurance Policy
-                          </Text>
-                          <Upload
-                            beforeUpload={() => false}
-                            maxCount={1}
-                            fileList={insFileList}
-                            onChange={({ fileList }) => setInsFileList(fileList)}
-                          >
-                            <Button
-                              block
-                              size="large"
-                              className="rounded-2xl border-dashed h-24 flex flex-col items-center justify-center gap-1"
-                            >
-                              <Plus size={20} />
-                              <span className="text-sm">Upload Insurance</span>
-                            </Button>
-                          </Upload>
-                        </div>
-                      </div>
-
                       <Button
                         type="primary"
                         htmlType="submit"
                         block
                         size="large"
                         loading={onboardingSubmitting}
-                        className="bg-gradient-primary border-none rounded-2xl h-14 font-bold text-lg shadow-glow"
+                        className="bg-gradient-primary border-none rounded-2xl h-14 font-bold text-lg shadow-glow mt-8"
                       >
                         Complete Verification
                       </Button>
@@ -6097,6 +5982,8 @@ function DriverDashboardPage() {
           setVehicleDrawerOpen(false);
           vehicleForm.resetFields();
           setCarImagesList([]);
+          setRegFileList([]);
+          setInsFileList([]);
           setEditingVehicleId(null);
         }}
         footer={
@@ -6188,6 +6075,48 @@ function DriverDashboardPage() {
               )}
             </Upload>
           </Form.Item>
+          <div className="grid grid-cols-2 gap-4">
+            <Form.Item
+              label={
+                <span className="font-semibold text-gray-700">Registration Doc (Optional)</span>
+              }
+            >
+              <Upload
+                beforeUpload={() => false}
+                maxCount={1}
+                fileList={regFileList}
+                onChange={({ fileList }) => setRegFileList(fileList)}
+              >
+                <Button
+                  block
+                  size="large"
+                  className="rounded-2xl border-dashed h-20 flex flex-col items-center justify-center gap-1"
+                >
+                  <Plus size={18} />
+                  <span className="text-xs">Upload RC</span>
+                </Button>
+              </Upload>
+            </Form.Item>
+            <Form.Item
+              label={<span className="font-semibold text-gray-700">Insurance (Optional)</span>}
+            >
+              <Upload
+                beforeUpload={() => false}
+                maxCount={1}
+                fileList={insFileList}
+                onChange={({ fileList }) => setInsFileList(fileList)}
+              >
+                <Button
+                  block
+                  size="large"
+                  className="rounded-2xl border-dashed h-20 flex flex-col items-center justify-center gap-1"
+                >
+                  <Plus size={18} />
+                  <span className="text-xs">Upload Insurance</span>
+                </Button>
+              </Upload>
+            </Form.Item>
+          </div>
         </Form>
       </Drawer>
 
