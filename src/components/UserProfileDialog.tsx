@@ -29,6 +29,9 @@ export function UserProfileDialog({
   const displayName = getUserDisplayName(user);
   const roleTags = roles.length > 0 ? roles : (["user"] as AppRole[]);
   const hasName = !!user.name?.trim();
+  const prefs = (user.prefs ?? {}) as Record<string, unknown>;
+  const memberCode = typeof prefs.memberCode === "string" ? prefs.memberCode : null;
+  const phone = user.phone || (typeof prefs.phone === "string" ? prefs.phone : "");
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -79,10 +82,16 @@ export function UserProfileDialog({
           </div>
           <div className="flex items-center justify-between gap-4">
             <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground shrink-0">
-              Account
+              Phone
+            </dt>
+            <dd className="font-semibold text-right break-all">{phone || "—"}</dd>
+          </div>
+          <div className="flex items-center justify-between gap-4">
+            <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground shrink-0">
+              Member ID
             </dt>
             <dd className="font-mono text-xs text-muted-foreground text-right break-all">
-              {user.$id}
+              {memberCode || user.$id}
             </dd>
           </div>
         </dl>

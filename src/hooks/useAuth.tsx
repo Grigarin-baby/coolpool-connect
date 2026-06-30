@@ -89,6 +89,27 @@ async function derivePassword(phoneE164: string, raw: string): Promise<string> {
   return `cp_${hex}`;
 }
 
+/**
+ * Accounts created via Google OAuth (or any account that predates the
+ * member-code system) never went through signUpWithPhonePassword, so they
+ * have no prefs.memberCode. Mint one on the next session refresh and persist
+ * it — best-effort, never blocks sign-in.
+ */
+async function backfillMemberCode(currentUser: AppwriteUser): Promise<AppwriteUser> {
+  const prefs = (currentUser.prefs ?? {}) as Record<string, unknown>;
+  if (typeof prefs.memberCode === "string" && prefs.memberCode) return currentUser;
+  try {
+    const roles = Array.isArray(prefs.roles) ? (prefs.roles as string[]) : [];
+    const role = roles.includes("driver") ? "host" : "guest";
+    const gender = typeof prefs.gender === "string" ? prefs.gender : undefined;
+    const { code } = await mintMemberCode({ data: { role, gender } });
+    await account.updatePrefs({ ...prefs, memberCode: code });
+    return await account.get();
+  } catch {
+    return currentUser;
+  }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<{ userId: string } | null>(null);
   const [user, setUser] = useState<AppwriteUser | null>(null);
@@ -121,9 +142,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const refreshSession = useCallback(async () => {
     try {
       const currentUser = await account.get();
-      setUser(currentUser);
       setSession({ userId: currentUser.$id });
       await loadRoles(currentUser);
+      setUser(await backfillMemberCode(currentUser));
     } catch {
       setUser(null);
       setSession(null);
