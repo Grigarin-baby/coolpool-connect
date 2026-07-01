@@ -620,8 +620,6 @@ export async function createTripStop(input: CreateTripStopInput): Promise<TripSt
       Permission.read(Role.any()),
       Permission.update(Role.user(input.hostId)),
       Permission.delete(Role.user(input.hostId)),
-      Permission.update(Role.label("admin")),
-      Permission.delete(Role.label("admin")),
     ],
   );
   return toTripStop(doc);
@@ -666,9 +664,6 @@ export async function createBooking(
   const bookingPerms = [
     Permission.read(Role.user(input.travelerId)),
     Permission.update(Role.user(input.travelerId)),
-    Permission.read(Role.label("admin")),
-    Permission.update(Role.label("admin")),
-    Permission.delete(Role.label("admin")),
     ...(input.hostIdForPermissions
       ? [
           Permission.read(Role.user(input.hostIdForPermissions)),
@@ -830,9 +825,6 @@ export async function createDriverVehicle(input: CreateDriverVehicleInput): Prom
       Permission.read(Role.user(input.driverUserId)),
       Permission.update(Role.user(input.driverUserId)),
       Permission.delete(Role.user(input.driverUserId)),
-      Permission.read(Role.label("admin")),
-      Permission.update(Role.label("admin")),
-      Permission.delete(Role.label("admin")),
     ],
   );
   return toDriverVehicle(doc);
@@ -993,7 +985,6 @@ async function createTripSeatReservation(input: {
     Permission.read(Role.any()),
     Permission.delete(Role.user(input.travelerId)),
     Permission.delete(Role.user(input.hostId)),
-    Permission.delete(Role.label("admin")),
   ];
 
   let doc;
@@ -1269,9 +1260,6 @@ export async function upsertDriverProfile(input: CreateDriverProfileInput): Prom
     [
       Permission.read(Role.any()),
       Permission.update(Role.user(input.userId)),
-      Permission.read(Role.label("admin")),
-      Permission.update(Role.label("admin")),
-      Permission.delete(Role.label("admin")),
     ],
   );
   return toDriverProfile(created);
@@ -1314,9 +1302,6 @@ export async function upsertDriverVehicle(input: CreateDriverVehicleInput): Prom
       Permission.read(Role.user(input.driverUserId)),
       Permission.update(Role.user(input.driverUserId)),
       Permission.delete(Role.user(input.driverUserId)),
-      Permission.read(Role.label("admin")),
-      Permission.update(Role.label("admin")),
-      Permission.delete(Role.label("admin")),
     ],
   );
   return toDriverVehicle(created);
@@ -1579,8 +1564,6 @@ export async function createHeroBanner(input: Omit<HeroBanner, "id">): Promise<H
     },
     [
       Permission.read(Role.any()),
-      Permission.update(Role.label("admin")),
-      Permission.delete(Role.label("admin")),
     ],
   );
   return toHeroBanner(doc);
@@ -1935,7 +1918,6 @@ export async function createReview(data: Omit<Review, "id" | "createdAt">): Prom
       Permission.read(Role.any()),
       Permission.update(Role.user(data.fromUserId)),
       Permission.delete(Role.user(data.fromUserId)),
-      Permission.delete(Role.label("admin")),
     ],
   );
   return toReview(doc);

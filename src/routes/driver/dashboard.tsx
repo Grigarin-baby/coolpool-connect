@@ -814,8 +814,6 @@ function DriverDashboardPage() {
           Permission.read(Role.any()),
           Permission.delete(Role.user(user.$id)),
           Permission.update(Role.user(user.$id)),
-          Permission.read(Role.label("admin")),
-          Permission.delete(Role.label("admin")),
         ],
       );
       const url = `${appwriteConfig.endpoint}/storage/buckets/${appwriteConfig.driverDocsBucketId}/files/${uploaded.$id}/view?project=${appwriteConfig.projectId}`;
@@ -891,8 +889,6 @@ function DriverDashboardPage() {
               Permission.read(Role.any()),
               Permission.delete(Role.user(user.$id)),
               Permission.update(Role.user(user.$id)),
-              Permission.read(Role.label("admin")),
-              Permission.delete(Role.label("admin")),
             ],
           );
           carImageIds.push(uploaded.$id);
@@ -910,8 +906,6 @@ function DriverDashboardPage() {
       const privateDocPerms = [
         Permission.read(Role.user(user.$id)),
         Permission.delete(Role.user(user.$id)),
-        Permission.read(Role.label("admin")),
-        Permission.delete(Role.label("admin")),
       ];
       if (regFileList[0]?.originFileObj) {
         try {
@@ -4968,8 +4962,6 @@ function DriverDashboardPage() {
                           const idDocPerms = [
                             Permission.read(Role.user(user.$id)),
                             Permission.delete(Role.user(user.$id)),
-                            Permission.read(Role.label("admin")),
-                            Permission.delete(Role.label("admin")),
                           ];
                           let idFrontDocId: string;
                           let idBackDocId: string;
@@ -6005,6 +5997,7 @@ function DriverDashboardPage() {
         placement="right"
         width={420}
         zIndex={1200}
+        styles={{ body: { background: "#ffffff" }, header: { background: "#ffffff" }, footer: { background: "#ffffff" } }}
         open={vehicleDrawerOpen}
         onClose={() => {
           setVehicleDrawerOpen(false);
