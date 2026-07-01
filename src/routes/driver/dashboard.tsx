@@ -5923,6 +5923,7 @@ function DriverDashboardPage() {
         placement="right"
         width={420}
         zIndex={1200}
+        styles={{ body: { background: "#ffffff" }, header: { background: "#ffffff" }, footer: { background: "#ffffff" } }}
         open={driverDrawerOpen}
         onClose={() => {
           setDriverDrawerOpen(false);
