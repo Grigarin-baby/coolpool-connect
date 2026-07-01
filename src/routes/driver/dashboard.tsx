@@ -5321,7 +5321,7 @@ function DriverDashboardPage() {
                           {dayjs(managingTrip.departureAt).format("MMM D, YYYY • h:mm A")}
                         </Tag>
                         {managingTrip.tripCode && (
-                          <Tag className="border-none bg-white/15 !text-white rounded-full px-3 py-1 font-mono">
+                          <Tag className="border-none bg-white !text-black rounded-full px-3 py-1 font-mono">
                             {managingTrip.tripCode}
                           </Tag>
                         )}
