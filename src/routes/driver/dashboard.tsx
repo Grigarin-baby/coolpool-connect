@@ -40,6 +40,9 @@ import {
   UserX,
   Share2,
   Award,
+  FileText,
+  ShieldCheck,
+  Check,
 } from "lucide-react";
 import {
   Layout,
@@ -74,6 +77,7 @@ import {
 } from "antd";
 import type { UploadFile, UploadProps } from "antd";
 import { useAuth } from "@/hooks/useAuth";
+import { cn } from "@/lib/utils";
 import {
   createTrip,
   listHostTrips,
@@ -6020,7 +6024,7 @@ function DriverDashboardPage() {
             loading={savingVehicle}
             block
             size="large"
-            className="bg-gradient-primary border-none rounded-3xl font-bold h-12"
+            className="bg-gradient-primary border-none rounded-3xl font-extrabold h-16 !text-xl tracking-wide"
             onClick={() => vehicleForm.submit()}
           >
             {editingVehicleId ? "Save Changes" : "Add Vehicle"}
@@ -6088,7 +6092,7 @@ function DriverDashboardPage() {
             />
           </Form.Item>
           <Form.Item
-            label={<span className="font-semibold text-gray-700">Car Images (Optional)</span>}
+            label={<span className="font-semibold text-gray-700">Car Photos (Optional)</span>}
           >
             <Upload
               listType="picture-card"
@@ -6097,54 +6101,99 @@ function DriverDashboardPage() {
               beforeUpload={() => false}
               maxCount={10}
               multiple
+              className="car-upload"
             >
               {carImagesList.length >= 10 ? null : (
-                <div>
-                  <Plus className="mx-auto text-gray-400" size={24} />
-                  <div style={{ marginTop: 8 }}>Upload</div>
+                <div className="flex flex-col items-center gap-1 text-gray-400">
+                  <Camera size={28} />
+                  <span className="text-xs font-semibold">Add Photo</span>
                 </div>
               )}
             </Upload>
           </Form.Item>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-3">
             <Form.Item
-              label={
-                <span className="font-semibold text-gray-700">Registration Doc (Optional)</span>
-              }
+              label={<span className="font-semibold text-gray-700">Registration (RC)</span>}
+              className="!mb-0"
             >
               <Upload
                 beforeUpload={() => false}
                 maxCount={1}
                 fileList={regFileList}
                 onChange={({ fileList }) => setRegFileList(fileList)}
+                showUploadList={false}
               >
-                <Button
-                  block
-                  size="large"
-                  className="rounded-2xl border-dashed h-20 flex flex-col items-center justify-center gap-1"
+                <button
+                  type="button"
+                  className={cn(
+                    "w-full rounded-2xl border-2 border-dashed p-4 flex items-center gap-4 transition-all",
+                    regFileList.length > 0
+                      ? "border-purple-400 bg-purple-50"
+                      : "border-gray-200 bg-gray-50 hover:border-purple-300 hover:bg-purple-50/40",
+                  )}
                 >
-                  <Plus size={18} />
-                  <span className="text-xs">Upload RC</span>
-                </Button>
+                  <div className={cn(
+                    "w-12 h-12 rounded-xl flex items-center justify-center shrink-0",
+                    regFileList.length > 0 ? "bg-purple-100" : "bg-white border border-gray-200",
+                  )}>
+                    <FileText size={22} className={regFileList.length > 0 ? "text-purple-600" : "text-gray-400"} />
+                  </div>
+                  <div className="text-left min-w-0">
+                    <p className={cn("font-semibold text-sm truncate", regFileList.length > 0 ? "text-purple-700" : "text-gray-600")}>
+                      {regFileList.length > 0 ? regFileList[0].name : "Upload RC Book"}
+                    </p>
+                    <p className="text-xs text-gray-400 mt-0.5">
+                      {regFileList.length > 0 ? "Tap to change" : "PDF, JPG or PNG"}
+                    </p>
+                  </div>
+                  {regFileList.length > 0 ? (
+                    <Check size={18} className="ml-auto text-purple-500 shrink-0" />
+                  ) : (
+                    <Plus size={18} className="ml-auto text-gray-400 shrink-0" />
+                  )}
+                </button>
               </Upload>
             </Form.Item>
             <Form.Item
               label={<span className="font-semibold text-gray-700">Insurance (Optional)</span>}
+              className="!mb-0"
             >
               <Upload
                 beforeUpload={() => false}
                 maxCount={1}
                 fileList={insFileList}
                 onChange={({ fileList }) => setInsFileList(fileList)}
+                showUploadList={false}
               >
-                <Button
-                  block
-                  size="large"
-                  className="rounded-2xl border-dashed h-20 flex flex-col items-center justify-center gap-1"
+                <button
+                  type="button"
+                  className={cn(
+                    "w-full rounded-2xl border-2 border-dashed p-4 flex items-center gap-4 transition-all",
+                    insFileList.length > 0
+                      ? "border-blue-400 bg-blue-50"
+                      : "border-gray-200 bg-gray-50 hover:border-blue-300 hover:bg-blue-50/40",
+                  )}
                 >
-                  <Plus size={18} />
-                  <span className="text-xs">Upload Insurance</span>
-                </Button>
+                  <div className={cn(
+                    "w-12 h-12 rounded-xl flex items-center justify-center shrink-0",
+                    insFileList.length > 0 ? "bg-blue-100" : "bg-white border border-gray-200",
+                  )}>
+                    <ShieldCheck size={22} className={insFileList.length > 0 ? "text-blue-600" : "text-gray-400"} />
+                  </div>
+                  <div className="text-left min-w-0">
+                    <p className={cn("font-semibold text-sm truncate", insFileList.length > 0 ? "text-blue-700" : "text-gray-600")}>
+                      {insFileList.length > 0 ? insFileList[0].name : "Upload Insurance"}
+                    </p>
+                    <p className="text-xs text-gray-400 mt-0.5">
+                      {insFileList.length > 0 ? "Tap to change" : "PDF, JPG or PNG"}
+                    </p>
+                  </div>
+                  {insFileList.length > 0 ? (
+                    <Check size={18} className="ml-auto text-blue-500 shrink-0" />
+                  ) : (
+                    <Plus size={18} className="ml-auto text-gray-400 shrink-0" />
+                  )}
+                </button>
               </Upload>
             </Form.Item>
           </div>
