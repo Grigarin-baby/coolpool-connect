@@ -35,17 +35,23 @@ export function DigitalTimePicker({ value, onChange, className }: DigitalTimePic
 
   const pill = (active: boolean) =>
     cn(
-      "h-12 w-full rounded-2xl border text-base font-bold transition-all",
+      "h-11 w-full rounded-xl border text-sm font-bold transition-all",
       active
         ? "bg-gradient-primary !text-white border-transparent shadow-glow-sm"
         : "bg-white text-gray-600 border-gray-200 hover:border-primary/50 hover:text-primary",
     );
 
   return (
-    <div className={cn("rounded-3xl border border-gray-100 bg-white p-4 shadow-sm", className)}>
-      {/* Hour — full width, 4 cols × 3 rows */}
-      <p className="mb-2 text-[11px] font-extrabold uppercase tracking-widest text-gray-400">Hour</p>
-      <div className="grid grid-cols-4 gap-1.5">
+    <div className={cn("rounded-3xl border border-gray-100 bg-white p-3 shadow-sm", className)}>
+      {/* Selected time display — top so it's always visible while tapping */}
+      <div className="mb-3 text-center text-4xl font-black tabular-nums text-gray-900 leading-none">
+        {current.hour12}:{String(snappedMinute).padStart(2, "0")}{" "}
+        <span className="text-xl text-primary">{current.period}</span>
+      </div>
+
+      {/* Hour — 6 cols × 2 rows (saves one row vs 4-col) */}
+      <p className="mb-1.5 text-[10px] font-extrabold uppercase tracking-widest text-gray-400">Hour</p>
+      <div className="grid grid-cols-6 gap-1.5">
         {HOURS.map((h) => (
           <button
             key={h}
@@ -58,8 +64,8 @@ export function DigitalTimePicker({ value, onChange, className }: DigitalTimePic
         ))}
       </div>
 
-      {/* Minute — full width, 4 cols in one row */}
-      <p className="mt-3 mb-2 text-[11px] font-extrabold uppercase tracking-widest text-gray-400">Minute</p>
+      {/* Minute — 4 cols, single row */}
+      <p className="mt-2.5 mb-1.5 text-[10px] font-extrabold uppercase tracking-widest text-gray-400">Minute</p>
       <div className="grid grid-cols-4 gap-1.5">
         {MINUTES.map((m) => (
           <button
@@ -73,7 +79,7 @@ export function DigitalTimePicker({ value, onChange, className }: DigitalTimePic
         ))}
       </div>
 
-      {/* AM / PM — full width, 2 cols */}
+      {/* AM / PM — full width 2 cols */}
       <div className="mt-1.5 grid grid-cols-2 gap-1.5">
         {(["AM", "PM"] as const).map((p) => (
           <button
@@ -85,12 +91,6 @@ export function DigitalTimePicker({ value, onChange, className }: DigitalTimePic
             {p}
           </button>
         ))}
-      </div>
-
-      {/* Selected time display */}
-      <div className="mt-4 text-center text-4xl font-black tabular-nums text-gray-900">
-        {current.hour12}:{String(snappedMinute).padStart(2, "0")}{" "}
-        <span className="text-xl text-primary">{current.period}</span>
       </div>
     </div>
   );

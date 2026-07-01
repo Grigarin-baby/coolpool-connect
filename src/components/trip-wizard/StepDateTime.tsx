@@ -58,20 +58,20 @@ export function StepDateTime({ date, time, onDateChange, onTimeChange }: StepDat
     !selectedDeparture.isAfter(dayjs().add(MIN_DEPARTURE_LEAD_MINUTES, "minute"));
 
   return (
-    <div className="flex flex-col gap-6 px-4 pb-6">
+    <div className="flex flex-col gap-4 px-4 pb-4">
       {/* ── Date section ── */}
       <div>
-        <p className="mb-3 text-xs font-bold uppercase tracking-widest text-gray-500">
+        <p className="mb-2 text-xs font-bold uppercase tracking-widest text-gray-500">
           When are you leaving?
         </p>
 
-        {/* Today / Tomorrow big buttons */}
+        {/* Today / Tomorrow buttons */}
         <div className="flex gap-3">
           <button
             type="button"
             onClick={() => onDateChange(today)}
             className={cn(
-              "w-full h-16 rounded-2xl text-xl font-black tracking-wide transition-all duration-200 border-2 flex items-center justify-center active:scale-95",
+              "w-full h-12 rounded-2xl text-lg font-black tracking-wide transition-all duration-200 border-2 flex items-center justify-center active:scale-95",
               todaySelected
                 ? "bg-gradient-primary !text-white border-transparent shadow-glow-sm"
                 : "bg-white text-gray-700 border-gray-200 hover:border-primary/50 hover:text-primary",
@@ -83,7 +83,7 @@ export function StepDateTime({ date, time, onDateChange, onTimeChange }: StepDat
             type="button"
             onClick={() => onDateChange(tomorrow)}
             className={cn(
-              "w-full h-16 rounded-2xl text-xl font-black tracking-wide transition-all duration-200 border-2 flex items-center justify-center active:scale-95",
+              "w-full h-12 rounded-2xl text-lg font-black tracking-wide transition-all duration-200 border-2 flex items-center justify-center active:scale-95",
               tomorrowSelected
                 ? "bg-gradient-primary !text-white border-transparent shadow-glow-sm"
                 : "bg-white text-gray-700 border-gray-200 hover:border-primary/50 hover:text-primary",
@@ -94,7 +94,7 @@ export function StepDateTime({ date, time, onDateChange, onTimeChange }: StepDat
         </div>
 
         {/* Next 7 days chips */}
-        <div className="mt-3 grid grid-cols-7 gap-1.5">
+        <div className="mt-2 grid grid-cols-7 gap-1">
           {upcomingDates.map((d) => {
             const isSelected = d.isSame(selected, "day");
             return (
@@ -105,7 +105,7 @@ export function StepDateTime({ date, time, onDateChange, onTimeChange }: StepDat
                 aria-pressed={isSelected}
                 onClick={() => onDateChange(d)}
                 className={cn(
-                  "h-12 rounded-xl border text-center transition-all duration-200 active:scale-95",
+                  "h-10 rounded-xl border text-center transition-all duration-200 active:scale-95",
                   isSelected
                     ? "bg-gradient-primary !text-white border-transparent shadow-glow-sm scale-[1.03]"
                     : "bg-white text-gray-600 border-gray-200 hover:border-primary/50 hover:text-primary",
@@ -113,7 +113,7 @@ export function StepDateTime({ date, time, onDateChange, onTimeChange }: StepDat
               >
                 <span
                   className={cn(
-                    "block text-[9px] font-extrabold uppercase tracking-tight leading-none",
+                    "block text-[8px] font-extrabold uppercase tracking-tight leading-none",
                     isSelected ? "!text-white" : "text-gray-500",
                   )}
                 >
@@ -121,7 +121,7 @@ export function StepDateTime({ date, time, onDateChange, onTimeChange }: StepDat
                 </span>
                 <span
                   className={cn(
-                    "mt-1 block text-sm font-black leading-none",
+                    "mt-0.5 block text-xs font-black leading-none",
                     isSelected && "!text-white",
                   )}
                 >
@@ -135,7 +135,7 @@ export function StepDateTime({ date, time, onDateChange, onTimeChange }: StepDat
 
       {/* ── Time selector (digital, 15-min steps) ── */}
       <div>
-        <p className="mb-3 text-xs font-bold uppercase tracking-widest text-gray-500">
+        <p className="mb-2 text-xs font-bold uppercase tracking-widest text-gray-500">
           Departure time
         </p>
         <DigitalTimePicker value={time} onChange={onTimeChange} />
