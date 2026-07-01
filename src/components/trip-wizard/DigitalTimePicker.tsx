@@ -35,65 +35,62 @@ export function DigitalTimePicker({ value, onChange, className }: DigitalTimePic
 
   const pill = (active: boolean) =>
     cn(
-      "h-14 w-full rounded-2xl border text-lg font-bold transition-all",
+      "h-12 w-full rounded-2xl border text-base font-bold transition-all",
       active
         ? "bg-gradient-primary !text-white border-transparent shadow-glow-sm"
         : "bg-white text-gray-600 border-gray-200 hover:border-primary/50 hover:text-primary",
     );
 
   return (
-    <div className={cn("rounded-3xl border border-gray-100 bg-white p-5 shadow-sm", className)}>
-      <div className="flex items-start gap-7">
-        {/* Hour */}
-        <div className="flex-1">
-          <p className="mb-2.5 text-[11px] font-extrabold uppercase tracking-widest text-gray-400">Hour</p>
-          <div className="grid grid-cols-4 gap-2">
-            {HOURS.map((h) => (
-              <button
-                key={h}
-                type="button"
-                onClick={() => emit({ hour12: h })}
-                className={pill(current.hour12 === h)}
-              >
-                {h}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Minute + AM/PM */}
-        <div className="w-36 shrink-0">
-          <p className="mb-2.5 text-[11px] font-extrabold uppercase tracking-widest text-gray-400">Minute</p>
-          <div className="grid grid-cols-2 gap-2">
-            {MINUTES.map((m) => (
-              <button
-                key={m}
-                type="button"
-                onClick={() => emit({ minute: m })}
-                className={pill(snappedMinute === m)}
-              >
-                {String(m).padStart(2, "0")}
-              </button>
-            ))}
-          </div>
-          <div className="mt-3 grid grid-cols-2 gap-2">
-            {(["AM", "PM"] as const).map((p) => (
-              <button
-                key={p}
-                type="button"
-                onClick={() => emit({ period: p })}
-                className={pill(current.period === p)}
-              >
-                {p}
-              </button>
-            ))}
-          </div>
-        </div>
+    <div className={cn("rounded-3xl border border-gray-100 bg-white p-4 shadow-sm", className)}>
+      {/* Hour — full width, 4 cols × 3 rows */}
+      <p className="mb-2 text-[11px] font-extrabold uppercase tracking-widest text-gray-400">Hour</p>
+      <div className="grid grid-cols-4 gap-1.5">
+        {HOURS.map((h) => (
+          <button
+            key={h}
+            type="button"
+            onClick={() => emit({ hour12: h })}
+            className={pill(current.hour12 === h)}
+          >
+            {h}
+          </button>
+        ))}
       </div>
 
-      <div className="mt-5 text-center text-5xl font-black tabular-nums text-gray-900">
+      {/* Minute — full width, 4 cols in one row */}
+      <p className="mt-3 mb-2 text-[11px] font-extrabold uppercase tracking-widest text-gray-400">Minute</p>
+      <div className="grid grid-cols-4 gap-1.5">
+        {MINUTES.map((m) => (
+          <button
+            key={m}
+            type="button"
+            onClick={() => emit({ minute: m })}
+            className={pill(snappedMinute === m)}
+          >
+            {String(m).padStart(2, "0")}
+          </button>
+        ))}
+      </div>
+
+      {/* AM / PM — full width, 2 cols */}
+      <div className="mt-1.5 grid grid-cols-2 gap-1.5">
+        {(["AM", "PM"] as const).map((p) => (
+          <button
+            key={p}
+            type="button"
+            onClick={() => emit({ period: p })}
+            className={pill(current.period === p)}
+          >
+            {p}
+          </button>
+        ))}
+      </div>
+
+      {/* Selected time display */}
+      <div className="mt-4 text-center text-4xl font-black tabular-nums text-gray-900">
         {current.hour12}:{String(snappedMinute).padStart(2, "0")}{" "}
-        <span className="text-2xl text-primary">{current.period}</span>
+        <span className="text-xl text-primary">{current.period}</span>
       </div>
     </div>
   );
