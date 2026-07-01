@@ -51,8 +51,8 @@ type StepKey =
 const STEP_ORDER: StepKey[] = [
   "route",
   "when",
-  "seats",
   "vehicle",
+  "seats",
   "driver",
   "review",
 ];
