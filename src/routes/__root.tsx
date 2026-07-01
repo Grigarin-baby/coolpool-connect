@@ -7,8 +7,6 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { registerServiceWorker } from "@/lib/notifications";
 import { getSiteLockStatus } from "@/integrations/site-lock/site-lock-server";
 import { SiteLockScreen } from "@/components/SiteLockScreen";
-import "antd/dist/reset.css";
-import "../antd-reset-overrides.css";
 
 import appCss from "../styles.css?url";
 
@@ -18,8 +16,10 @@ const GOOGLE_FONTS_CSS =
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 1000 * 60 * 5, // 5 minutes
+      staleTime: 1000 * 60 * 5,  // 5 min — don't re-fetch until data is this old
+      gcTime: 1000 * 60 * 30,    // 30 min — keep in memory so back-nav is instant
       retry: 1,
+      refetchOnWindowFocus: false, // avoid re-fetch noise when user switches tabs
     },
   },
 });
@@ -78,8 +78,6 @@ export const Route = createRootRoute({
       { rel: "apple-touch-icon", href: "/apple-touch-icon.png" },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
-      // Warm up connections to the third parties we hit early so maps/payments
-      // and font CSS start sooner.
       { rel: "preconnect", href: "https://maps.googleapis.com" },
       { rel: "dns-prefetch", href: "https://checkout.razorpay.com" },
       { rel: "stylesheet", href: GOOGLE_FONTS_CSS },
