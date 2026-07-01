@@ -13,7 +13,7 @@ import {
   Spin,
   Modal,
 } from "antd";
-import { Wallet, Banknote, History as HistoryIcon } from "lucide-react";
+import { Wallet, History as HistoryIcon, Pencil } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import {
   getBankAccount,
@@ -179,7 +179,7 @@ export function PayoutsPanel() {
         </Text>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
         <Card className="rounded-2xl border-none shadow-soft bg-white/80">
           <Text type="secondary" className="text-base font-semibold">
             Lifetime earnings
@@ -190,7 +190,7 @@ export function PayoutsPanel() {
         </Card>
         <Card className="rounded-2xl border-none shadow-soft bg-white/80">
           <Text type="secondary" className="text-base font-semibold">
-            Platform commission paid ({PLATFORM_FEE_PERCENT}%)
+            Commission paid ({PLATFORM_FEE_PERCENT}%)
           </Text>
           <Title
             level={2}
@@ -237,6 +237,36 @@ export function PayoutsPanel() {
             </Text>
           )}
         </Card>
+        {/* Bank details as a tappable stat tile */}
+        <Card
+          className="rounded-2xl border-none shadow-soft bg-white/80 cursor-pointer hover:shadow-md active:scale-95 transition-all"
+          onClick={() => setBankModalOpen(true)}
+        >
+          <div className="flex items-center justify-between">
+            <Text type="secondary" className="text-base font-semibold">
+              Bank Details
+            </Text>
+            <Pencil size={16} className="text-gray-400" />
+          </div>
+          <Title
+            level={2}
+            className="!text-xl !font-extrabold !text-purple-600 !leading-tight"
+            style={{ margin: "6px 0 0" }}
+          >
+            {bankLoading ? (
+              <Spin size="small" />
+            ) : bankAccount ? (
+              <span className="truncate block">{bankAccount.accountHolderName}</span>
+            ) : (
+              <span className="text-gray-400 font-bold text-lg">Tap to add</span>
+            )}
+          </Title>
+          {bankAccount && (
+            <Text type="secondary" className="text-xs">
+              ••••{bankAccount.accountNumber.slice(-4)}
+            </Text>
+          )}
+        </Card>
       </div>
 
       {!loading && earnings.overpaid > 0 && (
@@ -251,66 +281,6 @@ export function PayoutsPanel() {
           </div>
         </Card>
       )}
-
-      <Card className="rounded-2xl border-none shadow-soft bg-white/80">
-        <div className="flex items-center justify-between mb-5 gap-3">
-          <div className="flex items-center gap-2">
-            <Banknote size={22} className="text-primary" />
-            <Text strong className="text-lg font-bold">
-              Bank details
-            </Text>
-          </div>
-          {bankAccount && (
-            <Button
-              size="large"
-              className="rounded-2xl font-semibold"
-              onClick={() => setBankModalOpen(true)}
-            >
-              Edit
-            </Button>
-          )}
-        </div>
-
-        {bankLoading ? (
-          <Spin />
-        ) : bankAccount ? (
-          <div className="text-base space-y-3">
-            <div>
-              <Text type="secondary">Account holder: </Text>
-              <Text strong>{bankAccount.accountHolderName}</Text>
-            </div>
-            <div>
-              <Text type="secondary">Account number: </Text>
-              <Text strong>•••• {bankAccount.accountNumber.slice(-4)}</Text>
-            </div>
-            <div>
-              <Text type="secondary">IFSC: </Text>
-              <Text strong>{bankAccount.ifscCode}</Text>
-            </div>
-            {bankAccount.upiId && (
-              <div>
-                <Text type="secondary">UPI ID: </Text>
-                <Text strong>{bankAccount.upiId}</Text>
-              </div>
-            )}
-          </div>
-        ) : (
-          <div className="flex flex-col items-stretch sm:items-start gap-3">
-            <Text type="secondary" className="text-base">
-              Add your bank details to start requesting payouts.
-            </Text>
-            <Button
-              type="primary"
-              size="large"
-              block
-              className="sm:w-auto rounded-2xl font-semibold h-12"
-              onClick={() => setBankModalOpen(true)}
-            >
-              Add bank details
-            </Button>
-          </div>
-        )}
-      </Card>
 
       <Card className="rounded-2xl border-none shadow-soft bg-white/80">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-5 gap-3">
@@ -336,7 +306,7 @@ export function PayoutsPanel() {
         </div>
         {!bankAccount && (
           <Text type="secondary" className="text-base block mt-3">
-            Add your bank details above before requesting a payout.
+            Tap "Bank Details" above to add your account before requesting a payout.
           </Text>
         )}
         {bankAccount && earnings.available <= 0 && (
