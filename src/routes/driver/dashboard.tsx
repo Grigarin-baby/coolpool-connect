@@ -4913,7 +4913,6 @@ function DriverDashboardPage() {
 
               {/* — ONBOARDING MODULE — */}
               {activeModule === "onboarding" && (
-                {/* -mx-5 sm:-mx-8 cancels Content's p-5 / p-8 so the form fills the full screen on mobile */}
                 <div className="-mx-5 sm:mx-auto sm:max-w-2xl space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
                   <div className="text-center px-5 sm:px-0 pt-2">
                     <div className="mx-auto w-20 h-20 bg-gradient-primary rounded-3xl flex items-center justify-center text-white shadow-glow mb-6">
