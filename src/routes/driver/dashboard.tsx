@@ -5936,7 +5936,7 @@ function DriverDashboardPage() {
             loading={savingDriver}
             block
             size="large"
-            className="bg-gradient-primary border-none rounded-3xl font-bold h-12"
+            className="bg-gradient-primary border-none rounded-3xl font-extrabold h-16 !text-xl tracking-wide"
             onClick={() => driverForm.submit()}
           >
             {editingDriverId ? "Save Changes" : "Add Driver"}
@@ -5948,48 +5948,54 @@ function DriverDashboardPage() {
           layout="vertical"
           onFinish={(vals) => saveDriver(vals as Omit<CreateTeamDriverInput, "ownerUserId">)}
         >
-          {[
-            {
-              name: "fullName",
-              label: "Full Name",
-              rules: [{ required: true, message: "Required" }],
-            },
-            {
-              name: "email",
-              label: "Email",
-              rules: [
-                {
-                  required: true,
-                  type: "email" as const,
-                  message: "Valid email required",
-                },
-              ],
-            },
-            {
-              name: "phone",
-              label: "Phone",
-              rules: [{ required: true, message: "Required" }],
-            },
-            {
-              name: "licenseNumber",
-              label: "License Number",
-              rules: [{ required: true, message: "Required" }],
-            },
-            {
-              name: "city",
-              label: "City",
-              rules: [{ required: true, message: "Required" }],
-            },
-          ].map((f) => (
-            <Form.Item
-              key={f.name}
-              name={f.name}
-              label={<span className="font-semibold text-gray-700">{f.label}</span>}
-              rules={f.rules}
-            >
-              <Input size="large" className="rounded-3xl h-12" />
-            </Form.Item>
-          ))}
+          <Form.Item
+            name="fullName"
+            label={<span className="font-bold text-lg text-gray-800">Full Name</span>}
+            rules={[{ required: true, message: "Required" }]}
+          >
+            <Input size="large" className="rounded-3xl h-16 text-xl" />
+          </Form.Item>
+          <Form.Item
+            name="email"
+            label={<span className="font-bold text-lg text-gray-800">Email</span>}
+            rules={[{ required: true, type: "email", message: "Valid email required" }]}
+          >
+            <Input size="large" className="rounded-3xl h-16 text-xl" />
+          </Form.Item>
+          <Form.Item
+            name="phone"
+            label={<span className="font-bold text-lg text-gray-800">Phone</span>}
+            rules={[
+              { required: true, message: "Required" },
+              { len: 10, message: "Must be exactly 10 digits" },
+              { pattern: /^\d{10}$/, message: "Digits only" },
+            ]}
+          >
+            <Input
+              size="large"
+              inputMode="numeric"
+              maxLength={10}
+              className="rounded-3xl h-16 text-xl"
+              onChange={(e) => {
+                const digits = e.target.value.replace(/\D/g, "").slice(0, 10);
+                driverForm.setFieldValue("phone", digits);
+              }}
+            />
+          </Form.Item>
+          <Form.Item
+            name="licenseNumber"
+            label={<span className="font-bold text-lg text-gray-800">License Number</span>}
+            rules={[{ required: true, message: "Required" }]}
+          >
+            <Input size="large" className="rounded-3xl h-16 text-xl" />
+          </Form.Item>
+          <Form.Item
+            name="city"
+            label={<span className="font-bold text-lg text-gray-800">City</span>}
+            rules={[{ required: true, message: "Required" }]}
+          >
+            <Input size="large" className="rounded-3xl h-16 text-xl" />
+          </Form.Item>
         </Form>
       </Drawer>
       {/* Add/Edit Vehicle Drawer */}
