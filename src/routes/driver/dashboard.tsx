@@ -6083,8 +6083,8 @@ function DriverDashboardPage() {
               size="large"
               block
               options={[
-                { label: "5 Seater", value: 5 },
-                { label: "7 Seater", value: 7 },
+                { label: "5S", value: 5 },
+                { label: "7S", value: 7 },
               ]}
             />
           </Form.Item>
