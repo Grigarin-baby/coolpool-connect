@@ -95,8 +95,8 @@ function PhoneField({
         value={number}
         placeholder="9876543210"
         onChange={(e) => onNumberChange(e.target.value.replace(/\D/g, "").slice(0, 10))}
-        style={{ fontSize: "2rem", lineHeight: 1.1, letterSpacing: "0.725rem" }}
-        className="h-16 w-full rounded-3xl border-border/80 bg-background/80 font-bold placeholder:text-muted-foreground/40"
+        style={{ fontSize: "1.5rem", lineHeight: 1.2, letterSpacing: "0.2rem" }}
+        className="h-14 w-full rounded-3xl border-border/80 bg-background/80 font-bold placeholder:text-muted-foreground/40"
       />
     </div>
   );
