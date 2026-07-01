@@ -17,6 +17,7 @@ import {
   getTripById,
   getHostPreferences,
   getVehicleByDriverUserId,
+  getVehicleById,
   listDriverProfilesByUserIds,
   listTripSeatReservations,
   listTripStops,
@@ -149,9 +150,12 @@ function BookingTripPage() {
   });
 
   const vehicleQuery = useQuery({
-    queryKey: ["vehicle-by-host", tripQuery.data?.hostId],
-    queryFn: () =>
-      tripQuery.data ? getVehicleByDriverUserId(tripQuery.data.hostId) : Promise.resolve(null),
+    queryKey: ["vehicle-for-trip", tripQuery.data?.vehicleId, tripQuery.data?.hostId],
+    queryFn: async () => {
+      if (!tripQuery.data) return null;
+      if (tripQuery.data.vehicleId) return getVehicleById(tripQuery.data.vehicleId);
+      return getVehicleByDriverUserId(tripQuery.data.hostId);
+    },
     enabled: !!tripQuery.data,
   });
 
@@ -233,11 +237,11 @@ function BookingTripPage() {
   }, [user, pastBookingsQuery.data, selfGender]);
 
   const layoutCapacity = useMemo(() => {
-    const vehicleCap = vehicleQuery.data?.seatCapacity ?? 0;
+    const vehicleCap = vehicleQuery.data?.seatCapacity;
+    if (vehicleCap) return vehicleCap;
+    // Fallback: totalSeats = offered seats count; >= 6 means 7-seater trip, else 5-seater
     const tripCap = tripQuery.data?.totalSeats ?? 0;
-    // Always use the larger of the two to ensure all seats are shown
-    const finalCap = Math.max(vehicleCap, tripCap);
-    return Math.min(12, Math.max(5, finalCap));
+    return tripCap >= 6 ? 7 : 5;
   }, [vehicleQuery.data?.seatCapacity, tripQuery.data?.totalSeats]);
 
   const layout = useMemo(() => buildSeatLayout(layoutCapacity), [layoutCapacity]);
