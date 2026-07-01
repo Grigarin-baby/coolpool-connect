@@ -102,6 +102,26 @@ export function StepRoute({
   const [stopOptions, setStopOptions] = useState<CityOption[][]>(() => intermediatePoints.map(() => []));
   const [stopSearching, setStopSearching] = useState<boolean[]>(() => intermediatePoints.map(() => false));
 
+  // Keep a ref so async callbacks always read the latest intermediatePoints
+  // (avoids stale-closure overwrites when resolveCoords awaits and the list changes)
+  const intermediatePointsRef = useRef(intermediatePoints);
+  useEffect(() => { intermediatePointsRef.current = intermediatePoints; });
+
+  // Sync local array lengths when stops are added or removed from outside
+  // (guards against desync after rapid add/remove or component remount)
+  useEffect(() => {
+    setStopTexts((prev) =>
+      intermediatePoints.map((p, i) => (i < prev.length ? prev[i] : p.label)),
+    );
+    setStopOptions((prev) =>
+      intermediatePoints.map((_, i) => (i < prev.length ? prev[i] : [])),
+    );
+    setStopSearching((prev) =>
+      intermediatePoints.map((_, i) => (i < prev.length ? prev[i] : false)),
+    );
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [intermediatePoints.length]);
+
   // Clean up debounce on unmount
   useEffect(() => () => { if (debounceRef.current) clearTimeout(debounceRef.current); }, []);
 
@@ -254,10 +274,12 @@ export function StepRoute({
     const point = await resolveCoords(hit);
     if (!point) return;
     setStopTexts((prev) => { const n = [...prev]; n[idx] = point.label; return n; });
-    const updated = [...intermediatePoints];
-    updated[idx] = { ...point, stopType: intermediatePoints[idx]?.stopType ?? "both" };
+    // Read via ref so a concurrent add/remove during the async wait doesn't get lost
+    const current = intermediatePointsRef.current;
+    const updated = [...current];
+    updated[idx] = { ...point, stopType: current[idx]?.stopType ?? "both" };
     onIntermediatePointsChange(updated);
-  }, [stopOptions, intermediatePoints, onIntermediatePointsChange, resolveCoords]);
+  }, [stopOptions, onIntermediatePointsChange, resolveCoords]);
 
   // ─────────────────────────────────────────────────────────────────────────
 
