@@ -4913,8 +4913,9 @@ function DriverDashboardPage() {
 
               {/* — ONBOARDING MODULE — */}
               {activeModule === "onboarding" && (
-                <div className="max-w-2xl mx-auto space-y-10 animate-in fade-in slide-in-from-right-4 duration-500">
-                  <div className="text-center">
+                {/* -mx-5 sm:-mx-8 cancels Content's p-5 / p-8 so the form fills the full screen on mobile */}
+                <div className="-mx-5 sm:mx-auto sm:max-w-2xl space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
+                  <div className="text-center px-5 sm:px-0 pt-2">
                     <div className="mx-auto w-20 h-20 bg-gradient-primary rounded-3xl flex items-center justify-center text-white shadow-glow mb-6">
                       <Sparkles size={40} />
                     </div>
@@ -4924,7 +4925,7 @@ function DriverDashboardPage() {
                     </Text>
                   </div>
 
-                  <Card className="rounded-3xl border border-white/60 shadow-card bg-white/80 backdrop-blur-md p-8">
+                  <Card className="rounded-none sm:rounded-3xl border-0 sm:border sm:border-white/60 shadow-none sm:shadow-card bg-white sm:bg-white/80 backdrop-blur-md px-5 pt-6 pb-10 sm:p-8">
                     <Form
                       layout="vertical"
                       initialValues={{
@@ -5038,30 +5039,30 @@ function DriverDashboardPage() {
                       }}
                     >
                       <Divider>
-                        <Text className="text-sm font-bold uppercase tracking-widest text-purple-600">
+                        <Text className="text-base font-bold uppercase tracking-widest text-purple-600">
                           Personal & License
                         </Text>
                       </Divider>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6">
+                      <div className="grid grid-cols-1 gap-x-6">
                         <Form.Item
                           name="phone"
-                          label={<span className="text-base font-semibold">Phone Number</span>}
+                          label={<span className="text-lg font-semibold">Phone Number</span>}
                           rules={[{ required: true }]}
                         >
                           <Input
                             size="large"
-                            className="rounded-2xl h-14 text-lg"
+                            className="rounded-2xl h-16 text-xl"
                             placeholder="+91 98765 43210"
                           />
                         </Form.Item>
                         <Form.Item
                           name="city"
-                          label={<span className="text-base font-semibold">City</span>}
+                          label={<span className="text-lg font-semibold">City</span>}
                           rules={[{ required: true }]}
                         >
                           <Input
                             size="large"
-                            className="rounded-2xl h-14 text-lg"
+                            className="rounded-2xl h-16 text-xl"
                             placeholder="Chennai"
                           />
                         </Form.Item>
@@ -5069,19 +5070,18 @@ function DriverDashboardPage() {
                           <Form.Item
                             name="email"
                             label={
-                              <span className="text-base font-semibold">
+                              <span className="text-lg font-semibold">
                                 Email{" "}
                                 <span className="text-sm font-normal text-muted-foreground">
                                   (optional)
                                 </span>
                               </span>
                             }
-                            className="md:col-span-2"
                           >
                             <Input
                               type="email"
                               size="large"
-                              className="rounded-2xl h-14 text-lg"
+                              className="rounded-2xl h-16 text-xl"
                               placeholder="you@example.com"
                             />
                           </Form.Item>
@@ -5089,14 +5089,13 @@ function DriverDashboardPage() {
                         <Form.Item
                           name="licenseNumber"
                           label={
-                            <span className="text-base font-semibold">Driving License Number</span>
+                            <span className="text-lg font-semibold">Driving License Number</span>
                           }
                           rules={[{ required: true }]}
-                          className="md:col-span-2"
                         >
                           <Input
                             size="large"
-                            className="rounded-2xl h-14 text-lg"
+                            className="rounded-2xl h-16 text-xl"
                             placeholder="TN01 20150012345"
                           />
                         </Form.Item>
@@ -5111,7 +5110,7 @@ function DriverDashboardPage() {
                         <Form.Item
                           name="idDocType"
                           label={
-                            <span className="text-base font-semibold">
+                            <span className="text-lg font-semibold">
                               Which document are you uploading?
                             </span>
                           }
@@ -5127,10 +5126,10 @@ function DriverDashboardPage() {
                           />
                         </Form.Item>
                       </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                      <div className="grid grid-cols-2 gap-4 mb-8">
                         <div>
-                          <Text className="text-base font-semibold mb-2 block">
-                            Document — Front Side
+                          <Text className="text-lg font-semibold mb-2 block">
+                            Front Side
                           </Text>
                           <Upload
                             beforeUpload={() => false}
@@ -5142,16 +5141,16 @@ function DriverDashboardPage() {
                             <Button
                               block
                               size="large"
-                              className="rounded-2xl border-dashed h-24 flex flex-col items-center justify-center gap-1"
+                              className="rounded-2xl border-dashed h-32 flex flex-col items-center justify-center gap-2"
                             >
-                              <Plus size={20} />
-                              <span className="text-sm">Upload Front</span>
+                              <Plus size={24} />
+                              <span className="text-base font-medium">Upload Front</span>
                             </Button>
                           </Upload>
                         </div>
                         <div>
-                          <Text className="text-base font-semibold mb-2 block">
-                            Document — Back Side
+                          <Text className="text-lg font-semibold mb-2 block">
+                            Back Side
                           </Text>
                           <Upload
                             beforeUpload={() => false}
@@ -5163,15 +5162,15 @@ function DriverDashboardPage() {
                             <Button
                               block
                               size="large"
-                              className="rounded-2xl border-dashed h-24 flex flex-col items-center justify-center gap-1"
+                              className="rounded-2xl border-dashed h-32 flex flex-col items-center justify-center gap-2"
                             >
-                              <Plus size={20} />
-                              <span className="text-sm">Upload Back</span>
+                              <Plus size={24} />
+                              <span className="text-base font-medium">Upload Back</span>
                             </Button>
                           </Upload>
                         </div>
-                        <div className="md:col-span-2">
-                          <Text className="text-base font-semibold mb-2 block">Live Selfie</Text>
+                        <div className="col-span-2">
+                          <Text className="text-lg font-semibold mb-2 block">Live Selfie</Text>
                           <Upload
                             beforeUpload={() => false}
                             maxCount={1}
@@ -5183,13 +5182,13 @@ function DriverDashboardPage() {
                             <Button
                               block
                               size="large"
-                              className="rounded-2xl border-dashed h-24 flex flex-col items-center justify-center gap-1"
+                              className="rounded-2xl border-dashed h-32 flex flex-col items-center justify-center gap-2"
                             >
-                              <Camera size={20} />
-                              <span className="text-sm">Take Selfie</span>
+                              <Camera size={24} />
+                              <span className="text-base font-medium">Take Selfie</span>
                             </Button>
                           </Upload>
-                          <Text type="secondary" className="text-xs mt-1.5 block">
+                          <Text type="secondary" className="text-sm mt-2 block">
                             Used only to verify your identity — not shown publicly.
                           </Text>
                         </div>
@@ -5201,7 +5200,7 @@ function DriverDashboardPage() {
                         block
                         size="large"
                         loading={onboardingSubmitting}
-                        className="bg-gradient-primary border-none rounded-2xl h-14 font-bold text-lg shadow-glow mt-8"
+                        className="bg-gradient-primary border-none rounded-2xl h-16 font-bold text-xl shadow-glow mt-4"
                       >
                         Complete Verification
                       </Button>
