@@ -1,4 +1,4 @@
-import { TrendingUp, ArrowRight } from "lucide-react";
+import { TrendingUp, ArrowRight, ArrowDown } from "lucide-react";
 
 const TRENDING_ROUTES: { from: string; to: string }[] = [
   { from: "Bengaluru", to: "Hyderabad" },
@@ -31,14 +31,14 @@ export function DynamicTrendingRoutes() {
         <TrendingUp className="h-5 w-5 text-primary/40" />
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {TRENDING_ROUTES.map((route, i) => (
           <button
             key={`${route.from}-${route.to}`}
             type="button"
             onClick={() => triggerSearch(route.from, route.to)}
             style={{ animationDelay: `${i * 60}ms` }}
-            className="group relative isolate overflow-hidden rounded-3xl border border-gray-100 bg-white p-5 text-left shadow-sm transition-all duration-200 active:scale-[0.98] hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-lg"
+            className="group relative isolate overflow-hidden rounded-3xl border border-gray-100 bg-white p-4 text-left shadow-sm transition-all duration-200 active:scale-[0.98] hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-lg"
           >
             {/* glow accent */}
             <div
@@ -46,26 +46,24 @@ export function DynamicTrendingRoutes() {
               className="pointer-events-none absolute -right-12 -top-12 h-32 w-32 rounded-full bg-primary/10 blur-2xl opacity-0 transition-opacity duration-300 group-hover:opacity-100"
             />
 
-            {/* top row: Today pill + chevron */}
+            {/* top row: Popular pill + chevron */}
             <div className="mb-3 flex items-center justify-between">
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-2.5 py-1 text-[0.65rem] font-bold uppercase tracking-widest text-primary">
+              <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[0.6rem] font-bold uppercase tracking-widest text-primary">
                 <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
                 Popular
               </span>
-              <ArrowRight className="h-4 w-4 text-gray-300 transition-all duration-300 group-hover:translate-x-1 group-hover:text-primary" />
+              <ArrowRight className="h-3.5 w-3.5 text-gray-300 transition-all duration-300 group-hover:translate-x-1 group-hover:text-primary" />
             </div>
 
-            {/* route — natural-width side-by-side, centered around the arrow.
-                When the row can't fit on one line, the destination wraps to
-                the next line (card grows taller). Within each name,
-                break-words lets a single long word break instead of
-                overflowing the card. */}
-            <div className="flex flex-wrap items-center justify-start gap-x-3 gap-y-1">
-              <span className="max-w-full text-2xl lg:text-3xl font-black leading-tight tracking-tight text-gray-900 break-words">
+            {/* Mobile: stack from ↓ to vertically so long names never wrap.
+                Desktop (sm+): side-by-side with → arrow. */}
+            <div className="flex flex-col gap-0.5 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-2">
+              <span className="text-lg sm:text-2xl lg:text-3xl font-black leading-tight tracking-tight text-gray-900 truncate">
                 {route.from}
               </span>
-              <ArrowRight className="h-7 w-7 shrink-0 text-primary" strokeWidth={3} />
-              <span className="trending-to-text max-w-full text-2xl lg:text-3xl font-black leading-tight tracking-tight break-words text-gradient-primary">
+              <ArrowDown className="h-4 w-4 shrink-0 text-primary sm:hidden" strokeWidth={3} />
+              <ArrowRight className="hidden sm:block h-5 w-5 lg:h-7 lg:w-7 shrink-0 text-primary" strokeWidth={3} />
+              <span className="text-lg sm:text-2xl lg:text-3xl font-black leading-tight tracking-tight truncate text-gradient-primary">
                 {route.to}
               </span>
             </div>
