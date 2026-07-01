@@ -451,14 +451,11 @@ export function PayoutsPanel() {
           })}
           columns={[
             {
-              title: "Driver/Host",
+              title: "Host",
               key: "driver",
               render: (_, r) => {
                 const earned = earnedByHost.get(r.driverUserId) ?? 0;
                 const rawAvailable = rawAvailableFor(r.driverUserId);
-                // For an open request, availability excludes all open requests.
-                // Add this one back without clamping negatives, otherwise prior
-                // overpayments look payable.
                 const headroom =
                   rawAvailable +
                   (r.status === "pending" || r.status === "processing" ? r.amount : 0);
@@ -481,6 +478,32 @@ export function PayoutsPanel() {
                   </div>
                 );
               },
+            },
+            {
+              title: "Trip",
+              key: "trip",
+              render: (_, r) =>
+                r.tripRoute ? (
+                  <div>
+                    <div className="text-sm font-semibold">{r.tripRoute}</div>
+                    {r.tripDate && (
+                      <div className="text-xs text-muted-foreground">
+                        {new Date(r.tripDate).toLocaleDateString("en-IN", {
+                          day: "numeric",
+                          month: "short",
+                          year: "numeric",
+                        })}
+                      </div>
+                    )}
+                    {r.tripId && (
+                      <div className="text-xs text-muted-foreground font-mono">
+                        #{r.tripId.slice(-6).toUpperCase()}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <Text type="secondary">—</Text>
+                ),
             },
             {
               title: "Amount",
@@ -565,7 +588,7 @@ export function PayoutsPanel() {
           })}
           columns={[
             {
-              title: "Driver/Host",
+              title: "Host",
               key: "driver",
               render: (_, r) => (
                 <div>
@@ -577,13 +600,34 @@ export function PayoutsPanel() {
               ),
             },
             {
+              title: "Trip",
+              key: "trip",
+              render: (_, r) =>
+                r.tripRoute ? (
+                  <div>
+                    <div className="text-sm font-semibold">{r.tripRoute}</div>
+                    {r.tripDate && (
+                      <div className="text-xs text-muted-foreground">
+                        {new Date(r.tripDate).toLocaleDateString("en-IN", {
+                          day: "numeric",
+                          month: "short",
+                          year: "numeric",
+                        })}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <Text type="secondary">—</Text>
+                ),
+            },
+            {
               title: "Amount",
               dataIndex: "amount",
               key: "amount",
               render: (amount: number) => formatMoney(amount),
             },
             {
-              title: "Platform commission",
+              title: "Commission",
               key: "platformFee",
               render: (_, r) => <CommissionCell request={r} />,
             },
@@ -715,6 +759,22 @@ export function PayoutsPanel() {
                   </Tag>
                 </div>
                 <div className="grid gap-3 sm:grid-cols-2">
+                  {detailRequest.tripRoute && (
+                    <div className="sm:col-span-2">
+                      <div className="text-xs text-muted-foreground">Trip</div>
+                      <div className="font-bold">{detailRequest.tripRoute}</div>
+                      {detailRequest.tripDate && (
+                        <div className="text-xs text-muted-foreground">
+                          {new Date(detailRequest.tripDate).toLocaleDateString("en-IN", {
+                            day: "numeric",
+                            month: "short",
+                            year: "numeric",
+                          })}{" "}
+                          · #{(detailRequest.tripId ?? "").slice(-6).toUpperCase()}
+                        </div>
+                      )}
+                    </div>
+                  )}
                   <div>
                     <div className="text-xs text-muted-foreground">Amount (net to host)</div>
                     <div className="font-bold">{formatMoney(detailRequest.amount)}</div>

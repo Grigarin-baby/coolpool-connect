@@ -229,6 +229,12 @@ export interface PayoutRequest {
   accountNumber: string;
   ifscCode: string;
   upiId?: string | null;
+  /** Set for per-trip payout requests. Null on legacy bulk requests. */
+  tripId?: string | null;
+  /** Snapshot of the trip route label, e.g. "Kochi → Bengaluru". */
+  tripRoute?: string | null;
+  /** Snapshot of the trip departure date (ISO string). */
+  tripDate?: string | null;
 }
 
 export interface HeroBanner {

@@ -5,15 +5,22 @@ import {
   Typography,
   Form,
   Input,
-  InputNumber,
   Button,
-  Table,
   Tag,
   message,
   Spin,
   Modal,
 } from "antd";
-import { Wallet, History as HistoryIcon, Pencil } from "lucide-react";
+import {
+  Wallet,
+  History as HistoryIcon,
+  Pencil,
+  ArrowRight,
+  CheckCircle2,
+  Clock3,
+  XCircle,
+  MapPin,
+} from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import {
   getBankAccount,
@@ -25,11 +32,11 @@ import {
 } from "@/data/appwrite-repository";
 import {
   hostNetEarnings,
+  platformFee,
   PLATFORM_FEE_PERCENT,
-  estimateGrossFromNet,
   estimateFeeFromNet,
 } from "@/lib/pricing";
-import type { PayoutStatus } from "@/lib/domain";
+import type { PayoutStatus, Trip } from "@/lib/domain";
 
 const { Title, Text } = Typography;
 
@@ -48,14 +55,175 @@ interface BankAccountFormValues {
   upiId?: string;
 }
 
+function tripShortId(tripId: string) {
+  return `#${tripId.slice(-6).toUpperCase()}`;
+}
+
+function tripRouteLabel(trip: Trip) {
+  const from = trip.fromLocation.split(",")[0].trim();
+  const to = trip.toLocation.split(",")[0].trim();
+  return `${from} → ${to}`;
+}
+
+interface TripEarningsCardProps {
+  trip: Trip;
+  collected: number;
+  fee: number;
+  net: number;
+  payoutStatus: PayoutStatus | null;
+  hasBankAccount: boolean;
+  availableBalance: number;
+  onWithdraw: () => void;
+  onAddBank: () => void;
+}
+
+function TripEarningsCard({
+  trip,
+  collected,
+  fee,
+  net,
+  payoutStatus,
+  hasBankAccount,
+  availableBalance,
+  onWithdraw,
+  onAddBank,
+}: TripEarningsCardProps) {
+  const dateLabel = new Date(trip.departureAt).toLocaleDateString("en-IN", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+  const route = tripRouteLabel(trip);
+
+  const canWithdraw = hasBankAccount && payoutStatus === null && availableBalance >= net;
+
+  let actionButton: React.ReactNode;
+  if (!hasBankAccount) {
+    actionButton = (
+      <Button
+        block
+        size="large"
+        className="rounded-2xl h-14 font-bold text-base border-2 border-purple-300 text-purple-600"
+        onClick={onAddBank}
+      >
+        Add Bank First
+      </Button>
+    );
+  } else if (payoutStatus === null) {
+    actionButton = (
+      <Button
+        type="primary"
+        block
+        size="large"
+        disabled={!canWithdraw}
+        className="rounded-2xl h-14 font-bold text-base bg-gradient-primary border-none shadow-glow"
+        onClick={onWithdraw}
+        icon={<ArrowRight size={18} />}
+        iconPosition="end"
+      >
+        Withdraw ₹{net.toLocaleString("en-IN")}
+      </Button>
+    );
+  } else if (payoutStatus === "pending" || payoutStatus === "processing") {
+    actionButton = (
+      <Button
+        block
+        size="large"
+        disabled
+        className="rounded-2xl h-14 font-bold text-base"
+        icon={<Clock3 size={18} />}
+        iconPosition="end"
+      >
+        {payoutStatus === "processing" ? "Processing" : "Requested"}
+      </Button>
+    );
+  } else if (payoutStatus === "paid") {
+    actionButton = (
+      <Button
+        block
+        size="large"
+        disabled
+        className="rounded-2xl h-14 font-bold text-base !text-emerald-600 !border-emerald-200 !bg-emerald-50"
+        icon={<CheckCircle2 size={18} />}
+        iconPosition="end"
+      >
+        Paid
+      </Button>
+    );
+  } else if (payoutStatus === "rejected") {
+    actionButton = (
+      <Button
+        type="primary"
+        block
+        size="large"
+        className="rounded-2xl h-14 font-bold text-base bg-gradient-primary border-none shadow-glow"
+        onClick={onWithdraw}
+        icon={<ArrowRight size={18} />}
+        iconPosition="end"
+      >
+        Retry ₹{net.toLocaleString("en-IN")}
+      </Button>
+    );
+  }
+
+  return (
+    <Card className="rounded-3xl border-none shadow-soft bg-white/90 overflow-hidden">
+      {/* Trip header */}
+      <div className="flex items-start justify-between gap-2 mb-5">
+        <div className="flex items-start gap-3">
+          <div className="w-10 h-10 rounded-2xl bg-purple-100 flex items-center justify-center shrink-0 mt-0.5">
+            <MapPin size={18} className="text-purple-600" />
+          </div>
+          <div>
+            <div className="text-lg font-extrabold leading-tight">{route}</div>
+            <div className="text-sm text-muted-foreground mt-0.5">
+              {dateLabel} · {tripShortId(trip.id)}
+            </div>
+          </div>
+        </div>
+        {payoutStatus && (
+          <Tag
+            color={STATUS_COLORS[payoutStatus]}
+            bordered={false}
+            className="capitalize text-sm shrink-0 mt-1"
+          >
+            {payoutStatus}
+          </Tag>
+        )}
+      </div>
+
+      {/* Earnings breakdown — 3 columns */}
+      <div className="grid grid-cols-3 gap-3 mb-5">
+        <div className="rounded-2xl bg-slate-50 p-3 text-center">
+          <div className="text-xs text-muted-foreground font-semibold mb-1">Collected</div>
+          <div className="text-lg font-extrabold">₹{collected.toLocaleString("en-IN")}</div>
+        </div>
+        <div className="rounded-2xl bg-amber-50 p-3 text-center">
+          <div className="text-xs text-amber-600 font-semibold mb-1">Fee ({PLATFORM_FEE_PERCENT}%)</div>
+          <div className="text-lg font-extrabold text-amber-600">₹{fee.toLocaleString("en-IN")}</div>
+        </div>
+        <div className="rounded-2xl bg-emerald-50 p-3 text-center">
+          <div className="text-xs text-emerald-600 font-semibold mb-1">Net</div>
+          <div className="text-lg font-extrabold text-emerald-600">₹{net.toLocaleString("en-IN")}</div>
+        </div>
+      </div>
+
+      {actionButton}
+    </Card>
+  );
+}
+
 export function PayoutsPanel() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const userId = user?.$id;
   const [bankForm] = Form.useForm<BankAccountFormValues>();
   const [bankModalOpen, setBankModalOpen] = useState(false);
-  const [requestModalOpen, setRequestModalOpen] = useState(false);
-  const [requestForm] = Form.useForm<{ amount: number }>();
+  const [withdrawTrip, setWithdrawTrip] = useState<{
+    trip: Trip;
+    net: number;
+    grossAmount: number;
+  } | null>(null);
 
   const { data: bankAccount, isLoading: bankLoading } = useQuery({
     queryKey: ["bank-account", userId],
@@ -113,26 +281,35 @@ export function PayoutsPanel() {
   });
 
   const requestPayoutMutation = useMutation({
-    mutationFn: (amount: number) => {
+    mutationFn: ({
+      trip,
+      net,
+      grossAmount,
+    }: {
+      trip: Trip;
+      net: number;
+      grossAmount: number;
+    }) => {
       if (!userId || !bankAccount) throw new Error("Add your bank details first.");
-      // The 5% fee is a flat percentage, so the gross behind any net amount
-      // the host chooses to withdraw is exactly amount / 0.95 — snapshot it
-      // now so the commission never has to be reverse-estimated later.
-      const grossAmount = estimateGrossFromNet(amount);
-      return createPayoutRequest({ driverUserId: userId, amount, grossAmount, bankAccount });
+      return createPayoutRequest({
+        driverUserId: userId,
+        amount: net,
+        grossAmount,
+        bankAccount,
+        tripId: trip.id,
+        tripRoute: tripRouteLabel(trip),
+        tripDate: trip.departureAt,
+      });
     },
     onSuccess: () => {
-      message.success("Payout requested. We'll process it soon.");
+      message.success("Withdrawal requested. We'll process it soon.");
       void queryClient.invalidateQueries({ queryKey: ["payout-requests", userId] });
-      setRequestModalOpen(false);
-      requestForm.resetFields();
+      setWithdrawTrip(null);
     },
     onError: (error: any) => message.error(error.message || "Failed to request payout."),
   });
 
-  // Lifetime earnings = gross from non-cancelled bookings on COMPLETED trips
-  // (a host earns once the ride actually happens), NET of the platform
-  // commission. Matches the dashboard's "Total Earnings" exactly.
+  // Lifetime stats (all completed trips)
   const earnings = useMemo(() => {
     const completedTripIds = new Set(
       trips.filter((t) => t.status === "completed").map((t) => t.id),
@@ -144,17 +321,65 @@ export function PayoutsPanel() {
     const lifetime = hostNetEarnings(gross);
     const lifetimeCommission = Math.max(0, gross - lifetime);
 
-    const paidOutRaw = payoutRequests
+    const paidOut = payoutRequests
       .filter((r) => r.status === "paid")
       .reduce((sum, r) => sum + r.amount, 0);
     const pending = payoutRequests
       .filter((r) => r.status === "pending" || r.status === "processing")
       .reduce((sum, r) => sum + r.amount, 0);
-    const overpaid = Math.max(0, paidOutRaw - lifetime);
-    const available = Math.max(0, lifetime - paidOutRaw - pending);
+    const available = Math.max(0, lifetime - paidOut - pending);
 
-    return { lifetime, lifetimeCommission, paidOut: paidOutRaw, pending, available, overpaid };
+    return { lifetime, lifetimeCommission, paidOut, pending, available };
   }, [trips, bookings, payoutRequests]);
+
+  // Per-trip earnings for completed trips
+  const perTripItems = useMemo(() => {
+    const completedTrips = trips.filter((t) => t.status === "completed");
+    return completedTrips
+      .map((trip) => {
+        const tripBookings = bookings.filter(
+          (b) => b.tripId === trip.id && b.status !== "cancelled",
+        );
+        const collected = tripBookings.reduce(
+          (sum, b) => sum + b.segmentPrice * b.seatsBooked,
+          0,
+        );
+        if (collected === 0) return null;
+        const fee = platformFee(collected);
+        const net = hostNetEarnings(collected);
+        // Find the most recent payout request for this trip
+        const tripRequests = payoutRequests
+          .filter((r) => r.tripId === trip.id)
+          .sort(
+            (a, b) => new Date(b.requestedAt).getTime() - new Date(a.requestedAt).getTime(),
+          );
+        const latestRequest = tripRequests[0] ?? null;
+        const payoutStatus = latestRequest
+          ? latestRequest.status === "rejected"
+            ? null // rejected = can retry
+            : latestRequest.status
+          : null;
+        return { trip, collected, fee, net, payoutStatus, latestRequest };
+      })
+      .filter(Boolean)
+      .sort(
+        (a, b) =>
+          new Date(b!.trip.departureAt).getTime() - new Date(a!.trip.departureAt).getTime(),
+      ) as Array<{
+      trip: Trip;
+      collected: number;
+      fee: number;
+      net: number;
+      payoutStatus: PayoutStatus | null;
+      latestRequest: (typeof payoutRequests)[number] | null;
+    }>;
+  }, [trips, bookings, payoutRequests]);
+
+  // Legacy bulk requests (no tripId) shown in History
+  const legacyRequests = useMemo(
+    () => payoutRequests.filter((r) => !r.tripId),
+    [payoutRequests],
+  );
 
   const loading = bankLoading || tripsLoading || bookingsLoading || requestsLoading;
 
@@ -162,35 +387,30 @@ export function PayoutsPanel() {
 
   return (
     <div className="space-y-7 sm:space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
+      {/* Page title */}
       <div className="flex flex-col gap-1">
         <Title level={1} className="!text-3xl sm:!text-4xl !font-extrabold" style={{ margin: 0 }}>
           Payouts
         </Title>
         <Text type="secondary" className="text-base">
-          Track your earnings and request withdrawals to your bank. Amounts shown are net of the{" "}
-          {PLATFORM_FEE_PERCENT}% platform fee.
-          {!loading && earnings.lifetimeCommission > 0 && (
-            <>
-              {" "}
-              You've paid ₹{earnings.lifetimeCommission.toLocaleString("en-IN")} in platform fees so
-              far.
-            </>
-          )}
+          Net of {PLATFORM_FEE_PERCENT}% platform fee. Request withdrawal per trip after it's
+          completed.
         </Text>
       </div>
 
+      {/* Stats grid */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
         <Card className="rounded-2xl border-none shadow-soft bg-white/80">
-          <Text type="secondary" className="text-base font-semibold">
-            Lifetime earnings
+          <Text type="secondary" className="text-sm font-semibold">
+            Lifetime
           </Text>
           <Title level={2} className="!text-3xl !font-extrabold" style={{ margin: "4px 0" }}>
             {loading ? <Spin size="small" /> : `₹${earnings.lifetime.toLocaleString("en-IN")}`}
           </Title>
         </Card>
         <Card className="rounded-2xl border-none shadow-soft bg-white/80">
-          <Text type="secondary" className="text-base font-semibold">
-            Commission paid ({PLATFORM_FEE_PERCENT}%)
+          <Text type="secondary" className="text-sm font-semibold">
+            Commission ({PLATFORM_FEE_PERCENT}%)
           </Text>
           <Title
             level={2}
@@ -205,8 +425,8 @@ export function PayoutsPanel() {
           </Title>
         </Card>
         <Card className="rounded-2xl border-none shadow-soft bg-white/80">
-          <Text type="secondary" className="text-base font-semibold">
-            Available to withdraw
+          <Text type="secondary" className="text-sm font-semibold">
+            Available
           </Text>
           <Title
             level={2}
@@ -217,34 +437,29 @@ export function PayoutsPanel() {
           </Title>
         </Card>
         <Card className="rounded-2xl border-none shadow-soft bg-white/80">
-          <Text type="secondary" className="text-base font-semibold">
-            Pending requests
+          <Text type="secondary" className="text-sm font-semibold">
+            Pending
           </Text>
           <Title level={2} className="!text-3xl !font-extrabold" style={{ margin: "4px 0" }}>
             {loading ? <Spin size="small" /> : `₹${earnings.pending.toLocaleString("en-IN")}`}
           </Title>
         </Card>
         <Card className="rounded-2xl border-none shadow-soft bg-white/80">
-          <Text type="secondary" className="text-base font-semibold">
-            Already paid out
+          <Text type="secondary" className="text-sm font-semibold">
+            Paid out
           </Text>
           <Title level={2} className="!text-3xl !font-extrabold" style={{ margin: "4px 0" }}>
             {loading ? <Spin size="small" /> : `₹${earnings.paidOut.toLocaleString("en-IN")}`}
           </Title>
-          {!loading && earnings.overpaid > 0 && (
-            <Text type="danger" className="text-sm font-semibold">
-              Overpaid by ₹{earnings.overpaid.toLocaleString("en-IN")}
-            </Text>
-          )}
         </Card>
-        {/* Bank details as a tappable stat tile */}
+        {/* Bank Details tile */}
         <Card
           className="rounded-2xl border-none shadow-soft bg-white/80 cursor-pointer hover:shadow-md active:scale-95 transition-all"
           onClick={() => setBankModalOpen(true)}
         >
           <div className="flex items-center justify-between">
-            <Text type="secondary" className="text-base font-semibold">
-              Bank Details
+            <Text type="secondary" className="text-sm font-semibold">
+              Bank
             </Text>
             <Pencil size={16} className="text-gray-400" />
           </div>
@@ -269,82 +484,74 @@ export function PayoutsPanel() {
         </Card>
       </div>
 
-      {!loading && earnings.overpaid > 0 && (
-        <Card className="rounded-2xl border border-rose-200 bg-rose-50 text-rose-700 shadow-soft">
-          <Text type="danger" strong>
-            Paid payouts exceed completed-trip earnings by ₹
-            {earnings.overpaid.toLocaleString("en-IN")}.
+      {/* Per-trip earnings cards */}
+      <div>
+        <div className="flex items-center gap-2 mb-4">
+          <Wallet size={22} className="text-primary" />
+          <Text strong className="text-xl font-bold">
+            Earnings
           </Text>
-          <div className="text-sm text-rose-700/80">
-            New payout requests are locked until the ledger is corrected or more completed earnings
-            are added.
-          </div>
-        </Card>
-      )}
+        </div>
 
-      <Card className="rounded-2xl border-none shadow-soft bg-white/80">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-5 gap-3">
-          <div className="flex items-center gap-2">
-            <Wallet size={22} className="text-primary" />
-            <Text strong className="text-lg font-bold">
-              Request a payout
+        {loading ? (
+          <div className="py-8 flex justify-center">
+            <Spin size="large" />
+          </div>
+        ) : perTripItems.length === 0 ? (
+          <Card className="rounded-3xl border-none shadow-soft bg-white/80">
+            <div className="py-6 text-center">
+              <Text type="secondary" className="text-base">
+                No completed trips yet. Earnings appear here once a trip is marked complete.
+              </Text>
+            </div>
+          </Card>
+        ) : (
+          <div className="space-y-4">
+            {perTripItems.map((item) => (
+              <TripEarningsCard
+                key={item.trip.id}
+                trip={item.trip}
+                collected={item.collected}
+                fee={item.fee}
+                net={item.net}
+                payoutStatus={item.payoutStatus}
+                hasBankAccount={!!bankAccount}
+                availableBalance={earnings.available}
+                onWithdraw={() =>
+                  setWithdrawTrip({
+                    trip: item.trip,
+                    net: item.net,
+                    grossAmount: item.collected,
+                  })
+                }
+                onAddBank={() => setBankModalOpen(true)}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Legacy bulk payout history (requests without a tripId) */}
+      {legacyRequests.length > 0 && (
+        <div>
+          <div className="flex items-center gap-2 mb-4">
+            <HistoryIcon size={22} className="text-primary" />
+            <Text strong className="text-xl font-bold">
+              History
             </Text>
           </div>
-          <Button
-            type="primary"
-            size="large"
-            block
-            disabled={!bankAccount || earnings.available <= 0}
-            className="sm:w-auto rounded-2xl font-semibold h-12"
-            onClick={() => {
-              requestForm.setFieldsValue({ amount: earnings.available });
-              setRequestModalOpen(true);
-            }}
-          >
-            Request Payout
-          </Button>
-        </div>
-        {!bankAccount && (
-          <Text type="secondary" className="text-base block mt-3">
-            Tap "Bank Details" above to add your account before requesting a payout.
-          </Text>
-        )}
-        {bankAccount && earnings.available <= 0 && (
-          <Text type="secondary" className="text-base block mt-3">
-            No balance available to withdraw right now.
-          </Text>
-        )}
-      </Card>
-
-      <Card className="rounded-2xl border-none shadow-soft bg-white/80 p-2 overflow-hidden">
-        <div className="px-3 pt-3 pb-4 sm:p-4 flex items-center gap-2">
-          <HistoryIcon size={22} className="text-primary" />
-          <Text strong className="text-lg font-bold">
-            Payout history
-          </Text>
-        </div>
-
-        {/* Mobile: stacked cards instead of a cramped table */}
-        <div className="sm:hidden px-2 pb-2 space-y-3">
-          {requestsLoading ? (
-            <div className="py-6 flex justify-center">
-              <Spin />
-            </div>
-          ) : payoutRequests.length === 0 ? (
-            <div className="py-6 text-center">
-              <Text type="secondary">No payout requests yet.</Text>
-            </div>
-          ) : (
-            payoutRequests.map((r) => {
+          <div className="space-y-3">
+            {legacyRequests.map((r) => {
               const fee = r.platformFee ?? estimateFeeFromNet(r.amount);
-              const isEstimate = r.platformFee == null;
               return (
                 <div
                   key={r.id}
                   className="rounded-2xl border border-black/5 bg-white p-4 space-y-2"
                 >
                   <div className="flex items-center justify-between">
-                    <Text className="text-lg font-bold">₹{r.amount.toLocaleString("en-IN")}</Text>
+                    <Text className="text-lg font-bold">
+                      ₹{r.amount.toLocaleString("en-IN")}
+                    </Text>
                     <Tag
                       color={STATUS_COLORS[r.status]}
                       bordered={false}
@@ -354,80 +561,111 @@ export function PayoutsPanel() {
                     </Tag>
                   </div>
                   <div className="text-sm text-muted-foreground">
-                    {new Date(r.requestedAt).toLocaleDateString("en-IN")}
-                  </div>
-                  <div className="text-sm">
-                    <Text type="secondary">Platform commission: </Text>
-                    <Text type="secondary" italic={isEstimate}>
-                      {isEstimate ? "≈" : ""}₹{fee.toLocaleString("en-IN")}
-                    </Text>
+                    {new Date(r.requestedAt).toLocaleDateString("en-IN")} · Commission ₹
+                    {fee.toLocaleString("en-IN")}
                   </div>
                   {r.paymentReference && (
                     <div className="text-sm">
-                      <Text type="secondary">Reference: </Text>
+                      <Text type="secondary">Ref: </Text>
                       <Text>{r.paymentReference}</Text>
                     </div>
                   )}
                 </div>
               );
-            })
-          )}
+            })}
+          </div>
         </div>
+      )}
 
-        {/* Desktop / tablet: table */}
-        <div className="hidden sm:block">
-          <Table
-            rowKey="id"
-            loading={requestsLoading}
-            dataSource={payoutRequests}
-            locale={{ emptyText: "No payout requests yet." }}
-            pagination={{ pageSize: 10 }}
-            columns={[
-              {
-                title: "Date",
-                dataIndex: "requestedAt",
-                key: "requestedAt",
-                render: (date: string) => new Date(date).toLocaleDateString("en-IN"),
-              },
-              {
-                title: "Amount (net)",
-                dataIndex: "amount",
-                key: "amount",
-                render: (amount: number) => `₹${amount.toLocaleString("en-IN")}`,
-              },
-              {
-                title: "Platform commission",
-                key: "platformFee",
-                render: (_, r) => {
-                  const fee = r.platformFee ?? estimateFeeFromNet(r.amount);
-                  const isEstimate = r.platformFee == null;
-                  return (
-                    <Text type="secondary" italic={isEstimate}>
-                      {isEstimate ? "≈" : ""}₹{fee.toLocaleString("en-IN")}
-                    </Text>
-                  );
-                },
-              },
-              {
-                title: "Status",
-                key: "status",
-                render: (_, r) => (
-                  <Tag color={STATUS_COLORS[r.status]} bordered={false} className="capitalize">
-                    {r.status}
-                  </Tag>
-                ),
-              },
-              {
-                title: "Reference",
-                dataIndex: "paymentReference",
-                key: "paymentReference",
-                render: (ref?: string | null) => ref || "—",
-              },
-            ]}
-          />
-        </div>
-      </Card>
+      {/* Withdraw confirmation modal */}
+      <Modal
+        open={!!withdrawTrip}
+        title={<span className="text-xl font-bold">Confirm withdrawal</span>}
+        onCancel={() => setWithdrawTrip(null)}
+        footer={null}
+        width={480}
+        destroyOnClose
+      >
+        {withdrawTrip && (
+          <div className="mt-4 space-y-5">
+            {/* Trip summary */}
+            <div className="rounded-2xl bg-slate-50 p-4 space-y-1">
+              <div className="font-bold text-base">{tripRouteLabel(withdrawTrip.trip)}</div>
+              <div className="text-sm text-muted-foreground">
+                {new Date(withdrawTrip.trip.departureAt).toLocaleDateString("en-IN", {
+                  day: "numeric",
+                  month: "short",
+                  year: "numeric",
+                })}{" "}
+                · {tripShortId(withdrawTrip.trip.id)}
+              </div>
+            </div>
 
+            {/* Amount breakdown */}
+            <div className="grid grid-cols-3 gap-3">
+              <div className="rounded-2xl bg-slate-50 p-3 text-center">
+                <div className="text-xs text-muted-foreground font-semibold mb-1">Collected</div>
+                <div className="font-extrabold">
+                  ₹{withdrawTrip.grossAmount.toLocaleString("en-IN")}
+                </div>
+              </div>
+              <div className="rounded-2xl bg-amber-50 p-3 text-center">
+                <div className="text-xs text-amber-600 font-semibold mb-1">Fee (5%)</div>
+                <div className="font-extrabold text-amber-600">
+                  ₹{platformFee(withdrawTrip.grossAmount).toLocaleString("en-IN")}
+                </div>
+              </div>
+              <div className="rounded-2xl bg-emerald-50 p-3 text-center">
+                <div className="text-xs text-emerald-600 font-semibold mb-1">You get</div>
+                <div className="font-extrabold text-emerald-600">
+                  ₹{withdrawTrip.net.toLocaleString("en-IN")}
+                </div>
+              </div>
+            </div>
+
+            {/* Bank details */}
+            {bankAccount && (
+              <div className="rounded-2xl bg-purple-50 border border-purple-100 p-4 flex items-center justify-between">
+                <div>
+                  <div className="font-semibold text-sm">{bankAccount.accountHolderName}</div>
+                  <div className="text-xs text-muted-foreground">
+                    ••••{bankAccount.accountNumber.slice(-4)} · {bankAccount.ifscCode}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="text-xs text-purple-600 font-semibold"
+                  onClick={() => {
+                    setWithdrawTrip(null);
+                    setBankModalOpen(true);
+                  }}
+                >
+                  Change
+                </button>
+              </div>
+            )}
+
+            <Button
+              type="primary"
+              block
+              size="large"
+              loading={requestPayoutMutation.isPending}
+              className="bg-gradient-primary border-none rounded-2xl h-14 font-bold text-lg shadow-glow"
+              onClick={() => {
+                if (withdrawTrip) requestPayoutMutation.mutate(withdrawTrip);
+              }}
+            >
+              Confirm — ₹{withdrawTrip.net.toLocaleString("en-IN")}
+            </Button>
+
+            <Text type="secondary" className="block text-xs text-center">
+              We'll transfer to your bank account within 3–5 business days.
+            </Text>
+          </div>
+        )}
+      </Modal>
+
+      {/* Bank details modal */}
       <Modal
         open={bankModalOpen}
         title={<span className="text-xl font-bold">Bank details</span>}
@@ -518,7 +756,8 @@ export function PayoutsPanel() {
           <Form.Item
             label={
               <span className="text-base font-semibold">
-                UPI ID <span className="text-sm font-normal text-muted-foreground">(optional)</span>
+                UPI ID{" "}
+                <span className="text-sm font-normal text-muted-foreground">(optional)</span>
               </span>
             }
             name="upiId"
@@ -538,73 +777,6 @@ export function PayoutsPanel() {
             className="bg-gradient-primary border-none rounded-2xl h-14 font-bold text-lg shadow-glow mt-2"
           >
             Save bank details
-          </Button>
-        </Form>
-      </Modal>
-
-      <Modal
-        open={requestModalOpen}
-        title={<span className="text-xl font-bold">Request payout</span>}
-        onCancel={() => setRequestModalOpen(false)}
-        footer={null}
-        width={520}
-        destroyOnClose
-      >
-        <Form
-          form={requestForm}
-          layout="vertical"
-          onFinish={(values) => requestPayoutMutation.mutate(values.amount)}
-          className="mt-4"
-        >
-          <Form.Item
-            label={
-              <span className="text-base font-semibold">
-                Amount (max ₹{earnings.available.toLocaleString("en-IN")})
-              </span>
-            }
-            name="amount"
-            rules={[
-              { required: true, message: "Required" },
-              {
-                validator(_, value) {
-                  if (value > 0 && value <= earnings.available) return Promise.resolve();
-                  return Promise.reject(new Error("Enter an amount within your available balance"));
-                },
-              },
-            ]}
-          >
-            <InputNumber
-              min={1}
-              max={earnings.available}
-              className="w-full rounded-2xl h-14 text-lg"
-              size="large"
-              prefix="₹"
-            />
-          </Form.Item>
-          <Form.Item noStyle shouldUpdate>
-            {({ getFieldValue }) => {
-              const amount = Number(getFieldValue("amount")) || 0;
-              if (amount <= 0) return null;
-              const fee = estimateFeeFromNet(amount);
-              const gross = amount + fee;
-              return (
-                <Text type="secondary" className="block mb-4 text-sm">
-                  Gross ₹{gross.toLocaleString("en-IN")} → platform commission ₹
-                  {fee.toLocaleString("en-IN")} ({PLATFORM_FEE_PERCENT}%) → you receive ₹
-                  {amount.toLocaleString("en-IN")}.
-                </Text>
-              );
-            }}
-          </Form.Item>
-          <Button
-            type="primary"
-            htmlType="submit"
-            block
-            size="large"
-            loading={requestPayoutMutation.isPending}
-            className="bg-gradient-primary border-none rounded-2xl h-14 font-bold text-lg shadow-glow mt-2"
-          >
-            Submit request
           </Button>
         </Form>
       </Modal>

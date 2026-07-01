@@ -239,6 +239,9 @@ function toPayoutRequest(doc: any): PayoutRequest {
     accountNumber: String(doc.account_number || ""),
     ifscCode: String(doc.ifsc_code || ""),
     upiId: doc.upi_id ? String(doc.upi_id) : null,
+    tripId: doc.trip_id ? String(doc.trip_id) : null,
+    tripRoute: doc.trip_route ? String(doc.trip_route) : null,
+    tripDate: doc.trip_date ? String(doc.trip_date) : null,
   };
 }
 
@@ -1820,6 +1823,12 @@ export interface CreatePayoutRequestInput {
    */
   grossAmount: number;
   bankAccount: BankAccount;
+  /** Per-trip payout: the trip this request belongs to. */
+  tripId?: string | null;
+  /** Snapshot of route label, e.g. "Kochi → Bengaluru". */
+  tripRoute?: string | null;
+  /** Snapshot of departure date (ISO string). */
+  tripDate?: string | null;
 }
 
 /** Create a payout request, snapshotting the bank account details and the gross/fee split at request time. */
@@ -1840,6 +1849,9 @@ export async function createPayoutRequest(input: CreatePayoutRequestInput): Prom
       account_number: input.bankAccount.accountNumber,
       ifsc_code: input.bankAccount.ifscCode,
       upi_id: input.bankAccount.upiId ?? null,
+      trip_id: input.tripId ?? null,
+      trip_route: input.tripRoute ?? null,
+      trip_date: input.tripDate ?? null,
     },
     [Permission.read(Role.user(input.driverUserId))],
   );
