@@ -33,9 +33,9 @@ const COORDINATES: Record<string, { top: string; left: string }> = {
   // SUV (8 seats: driver + 7 passenger seats — front 1, middle row 3, back row 3)
   "SUV-R0-C0": { top: "39%", left: "32%" },
   "SUV-R0-C1": { top: "39%", left: "68%" },
-  "SUV-R1-C0": { top: "63%", left: "25%" },
-  "SUV-R1-C1": { top: "63%", left: "50%" },
-  "SUV-R1-C2": { top: "63%", left: "74%" },
+  "SUV-R1-C0": { top: "60%", left: "30%" },
+  "SUV-R1-C1": { top: "60%", left: "50%" },
+  "SUV-R1-C2": { top: "60%", left: "70%" },
   "SUV-R2-C0": { top: "86%", left: "28%" },
   "SUV-R2-C1": { top: "86%", left: "50%" },
   "SUV-R2-C2": { top: "86%", left: "72%" },
