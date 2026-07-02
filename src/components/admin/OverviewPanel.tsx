@@ -21,13 +21,13 @@ import { platformFee, PLATFORM_FEE_PERCENT } from "@/lib/pricing";
 const { Title, Text } = Typography;
 
 const STAT_COLORS: Record<string, { bg: string; text: string }> = {
-  purple: { bg: "rgba(107,70,193,0.10)", text: "#6b46c1" },
-  geekblue: { bg: "rgba(49,100,211,0.10)", text: "#3164d3" },
-  blue:    { bg: "rgba(22,119,255,0.10)", text: "#1677ff" },
-  cyan:    { bg: "rgba(19,194,194,0.10)", text: "#13c2c2" },
-  success: { bg: "rgba(82,196,26,0.10)",  text: "#52c41a" },
-  gold:    { bg: "rgba(212,160,23,0.10)", text: "#d4a017" },
-  warning: { bg: "rgba(250,173,20,0.10)", text: "#faad14" },
+  purple:   { bg: "#ede9f6", text: "#6b46c1" },
+  geekblue: { bg: "#e8eeff", text: "#3164d3" },
+  blue:     { bg: "#e6f4ff", text: "#1677ff" },
+  cyan:     { bg: "#e6fffb", text: "#13c2c2" },
+  success:  { bg: "#f6ffed", text: "#52c41a" },
+  gold:     { bg: "#fffbe6", text: "#d4a017" },
+  warning:  { bg: "#fff7e6", text: "#faad14" },
 };
 
 export function OverviewPanel({ onNavigate }: { onNavigate: (key: string) => void }) {
