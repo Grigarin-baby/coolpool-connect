@@ -42,6 +42,7 @@ export default defineConfig({
     build: {
       rollupOptions: {
         output: {
+          constBindings: false,
           manualChunks: (id) => {
             if (id.includes("node_modules/react-dom") || id.includes("node_modules/react/")) {
               return "vendor-react";
