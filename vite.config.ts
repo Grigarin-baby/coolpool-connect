@@ -31,13 +31,18 @@ export default defineConfig({
     preview: {
       allowedHosts: true,
     },
+    // Force esbuild to pre-bundle antd so its internal circular deps are
+    // resolved at pre-bundle time rather than at runtime. Without this,
+    // Rollup places some `let` declarations after their first use inside the
+    // vendor-antd chunk, which Safari's strict TDZ enforcement turns into
+    // "Cannot access '...' before initialization" crashes.
+    optimizeDeps: {
+      include: ["antd", "@ant-design/icons", "@ant-design/cssinjs"],
+    },
     build: {
       rollupOptions: {
         output: {
           manualChunks: (id) => {
-            if (id.includes("node_modules/antd") || id.includes("node_modules/@ant-design") || id.includes("node_modules/rc-")) {
-              return "vendor-antd";
-            }
             if (id.includes("node_modules/react-dom") || id.includes("node_modules/react/")) {
               return "vendor-react";
             }
