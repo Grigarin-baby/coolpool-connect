@@ -16,14 +16,14 @@
  */
 export const PLATFORM_FEE_PERCENT = 5;
 
-/** Platform's cut of a gross amount (rounded to the rupee). */
+/** Platform's cut of a gross amount — rounded to the paise (2 decimal places). */
 export function platformFee(gross: number): number {
-  return Math.round(Math.max(0, gross) * (PLATFORM_FEE_PERCENT / 100));
+  return Math.round(Math.max(0, gross) * PLATFORM_FEE_PERCENT) / 100;
 }
 
 /** What the host keeps from a gross amount, after the platform commission. */
 export function hostNetEarnings(gross: number): number {
-  return Math.max(0, Math.round(gross) - platformFee(gross));
+  return Math.max(0, Math.round((gross - platformFee(gross)) * 100) / 100);
 }
 
 /**
@@ -33,12 +33,12 @@ export function hostNetEarnings(gross: number): number {
  * the lump net total — so callers should label this as an estimate.
  */
 export function estimateGrossFromNet(net: number): number {
-  return Math.round(Math.max(0, net) / (1 - PLATFORM_FEE_PERCENT / 100));
+  return Math.round(Math.max(0, net) / (1 - PLATFORM_FEE_PERCENT / 100) * 100) / 100;
 }
 
 /** Estimated commission behind a net payout amount (see estimateGrossFromNet). */
 export function estimateFeeFromNet(net: number): number {
-  return Math.max(0, estimateGrossFromNet(net) - Math.max(0, net));
+  return Math.max(0, Math.round((estimateGrossFromNet(net) - Math.max(0, net)) * 100) / 100);
 }
 
 export function calcPricePerKm(totalPrice: number, totalDistanceKm: number): number {
