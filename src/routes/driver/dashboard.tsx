@@ -453,19 +453,6 @@ function DriverDashboardPage() {
     return () => clearInterval(interval);
   }, []);
 
-  // Auto-expire scheduled trips that are 45+ minutes past departure and haven't started.
-  // Writes "expired" to Appwrite once per trip so the status persists across sessions.
-  useEffect(() => {
-    for (const trip of trips) {
-      if (trip.status !== "scheduled") continue;
-      if (!now.isAfter(dayjs(trip.departureAt).add(45, "minute"))) continue;
-      if (autoExpiredRef.current.has(trip.id)) continue;
-      autoExpiredRef.current.add(trip.id);
-      void updateTrip(trip.id, { status: "expired" })
-        .then(() => queryClient.invalidateQueries({ queryKey: ["host-trips"] }))
-        .catch(() => {});
-    }
-  }, [trips, now, queryClient]);
 
   // Stop sharing location whenever the dashboard unmounts (e.g. driver navigates away).
   useEffect(() => {
@@ -777,6 +764,21 @@ function DriverDashboardPage() {
     queryFn: () => (user ? listHostTrips(user.$id) : Promise.resolve([])),
     enabled: !!user,
   });
+
+  // Auto-expire scheduled trips that are 45+ minutes past departure and haven't started.
+  // Writes "expired" to Appwrite once per trip so the status persists across sessions.
+  // Must be placed after the `trips` declaration to avoid a TDZ on the const binding.
+  useEffect(() => {
+    for (const trip of trips) {
+      if (trip.status !== "scheduled") continue;
+      if (!now.isAfter(dayjs(trip.departureAt).add(45, "minute"))) continue;
+      if (autoExpiredRef.current.has(trip.id)) continue;
+      autoExpiredRef.current.add(trip.id);
+      void updateTrip(trip.id, { status: "expired" })
+        .then(() => queryClient.invalidateQueries({ queryKey: ["host-trips"] }))
+        .catch(() => {});
+    }
+  }, [trips, now, queryClient]);
 
   // Auto-open trip panel when navigated from a notification (?trip=<id>).
   useEffect(() => {
