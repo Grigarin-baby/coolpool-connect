@@ -95,6 +95,14 @@ export function PayoutsPanel() {
     return map;
   }, [drivers]);
 
+  const tripById = useMemo(() => new Map(trips.map((t) => [t.id, t])), [trips]);
+  // Human-readable trip id for a payout, e.g. "2607-CPTR-0032". Falls back to
+  // a short slice of the raw id for trips minted before codes existed.
+  const tripCodeFor = (tripId: string | null | undefined): string | null => {
+    if (!tripId) return null;
+    return tripById.get(tripId)?.tripCode || `#${tripId.slice(-6).toUpperCase()}`;
+  };
+
   // Net earnings per host = 95% of (price × seats) for non-cancelled bookings
   // on their COMPLETED trips — same rule as the host dashboard/payout panel.
   const earnedByHost = useMemo(() => {
@@ -483,9 +491,9 @@ export function PayoutsPanel() {
               title: "Trip",
               key: "trip",
               render: (_, r) =>
-                r.tripRoute ? (
+                r.tripRoute || r.tripId ? (
                   <div>
-                    <div className="text-sm font-semibold">{r.tripRoute}</div>
+                    {r.tripRoute && <div className="text-sm font-semibold">{r.tripRoute}</div>}
                     {r.tripDate && (
                       <div className="text-xs text-muted-foreground">
                         {new Date(r.tripDate).toLocaleDateString("en-IN", {
@@ -495,9 +503,9 @@ export function PayoutsPanel() {
                         })}
                       </div>
                     )}
-                    {r.tripId && (
+                    {tripCodeFor(r.tripId) && (
                       <div className="text-xs text-muted-foreground font-mono">
-                        #{r.tripId.slice(-6).toUpperCase()}
+                        {tripCodeFor(r.tripId)}
                       </div>
                     )}
                   </div>
@@ -603,9 +611,9 @@ export function PayoutsPanel() {
               title: "Trip",
               key: "trip",
               render: (_, r) =>
-                r.tripRoute ? (
+                r.tripRoute || r.tripId ? (
                   <div>
-                    <div className="text-sm font-semibold">{r.tripRoute}</div>
+                    {r.tripRoute && <div className="text-sm font-semibold">{r.tripRoute}</div>}
                     {r.tripDate && (
                       <div className="text-xs text-muted-foreground">
                         {new Date(r.tripDate).toLocaleDateString("en-IN", {
@@ -613,6 +621,11 @@ export function PayoutsPanel() {
                           month: "short",
                           year: "numeric",
                         })}
+                      </div>
+                    )}
+                    {tripCodeFor(r.tripId) && (
+                      <div className="text-xs text-muted-foreground font-mono">
+                        {tripCodeFor(r.tripId)}
                       </div>
                     )}
                   </div>
@@ -759,20 +772,24 @@ export function PayoutsPanel() {
                   </Tag>
                 </div>
                 <div className="grid gap-3 sm:grid-cols-2">
-                  {detailRequest.tripRoute && (
+                  {(detailRequest.tripRoute || detailRequest.tripId) && (
                     <div className="sm:col-span-2">
                       <div className="text-xs text-muted-foreground">Trip</div>
-                      <div className="font-bold">{detailRequest.tripRoute}</div>
-                      {detailRequest.tripDate && (
-                        <div className="text-xs text-muted-foreground">
-                          {new Date(detailRequest.tripDate).toLocaleDateString("en-IN", {
+                      {detailRequest.tripRoute && (
+                        <div className="font-bold">{detailRequest.tripRoute}</div>
+                      )}
+                      <div className="text-xs text-muted-foreground">
+                        {detailRequest.tripDate &&
+                          `${new Date(detailRequest.tripDate).toLocaleDateString("en-IN", {
                             day: "numeric",
                             month: "short",
                             year: "numeric",
-                          })}{" "}
-                          · #{(detailRequest.tripId ?? "").slice(-6).toUpperCase()}
-                        </div>
-                      )}
+                          })}`}
+                        {detailRequest.tripDate && tripCodeFor(detailRequest.tripId) ? " · " : ""}
+                        {tripCodeFor(detailRequest.tripId) && (
+                          <span className="font-mono">{tripCodeFor(detailRequest.tripId)}</span>
+                        )}
+                      </div>
                     </div>
                   )}
                   <div>

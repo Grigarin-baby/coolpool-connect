@@ -62,6 +62,9 @@ function toPayoutRequest(doc: any): PayoutRequest {
     accountNumber: String(doc.account_number || ""),
     ifscCode: String(doc.ifsc_code || ""),
     upiId: doc.upi_id ? String(doc.upi_id) : null,
+    tripId: doc.trip_id ? String(doc.trip_id) : null,
+    tripRoute: doc.trip_route ? String(doc.trip_route) : null,
+    tripDate: doc.trip_date ? String(doc.trip_date) : null,
   };
 }
 
