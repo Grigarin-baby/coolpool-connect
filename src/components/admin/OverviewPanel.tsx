@@ -63,7 +63,7 @@ export function OverviewPanel({ onNavigate }: { onNavigate: (key: string) => voi
     {
       label: "Hosts + Drivers",
       value: drivers.length,
-      icon: <Users size={26} />,
+      icon: <Users size={28} />,
       tag: "Active network",
       tagColor: "purple",
       onClick: () => onNavigate("hosts"),
@@ -71,7 +71,7 @@ export function OverviewPanel({ onNavigate }: { onNavigate: (key: string) => voi
     {
       label: "Total Vehicles",
       value: vehicles.length,
-      icon: <Car size={26} />,
+      icon: <Car size={28} />,
       tag: "Registered fleet",
       tagColor: "geekblue",
       onClick: () => onNavigate("hosts"),
@@ -79,7 +79,7 @@ export function OverviewPanel({ onNavigate }: { onNavigate: (key: string) => voi
     {
       label: "Total Trips",
       value: trips.length,
-      icon: <RouteIcon size={26} />,
+      icon: <RouteIcon size={28} />,
       tag: `${activeTrips.length} active`,
       tagColor: "blue",
       onClick: () => onNavigate("trips"),
@@ -87,7 +87,7 @@ export function OverviewPanel({ onNavigate }: { onNavigate: (key: string) => voi
     {
       label: "Completed Trips",
       value: completedTrips,
-      icon: <CheckCircle size={26} />,
+      icon: <CheckCircle size={28} />,
       tag: "Successfully finished",
       tagColor: "success",
       onClick: () => onNavigate("trips"),
@@ -95,7 +95,7 @@ export function OverviewPanel({ onNavigate }: { onNavigate: (key: string) => voi
     {
       label: "Total Bookings",
       value: bookings.length,
-      icon: <Ticket size={26} />,
+      icon: <Ticket size={28} />,
       tag: `${bookings.filter((b) => b.status === "confirmed").length} confirmed`,
       tagColor: "cyan",
       onClick: () => onNavigate("bookings"),
@@ -103,7 +103,7 @@ export function OverviewPanel({ onNavigate }: { onNavigate: (key: string) => voi
     {
       label: "Revenue (confirmed)",
       value: `₹${revenue.toLocaleString("en-IN")}`,
-      icon: <Wallet size={26} />,
+      icon: <Wallet size={28} />,
       tag: "Confirmed + completed",
       tagColor: "cyan",
       onClick: () => onNavigate("bookings"),
@@ -111,7 +111,7 @@ export function OverviewPanel({ onNavigate }: { onNavigate: (key: string) => voi
     {
       label: "Platform earnings",
       value: `₹${platformFee(revenue).toLocaleString("en-IN")}`,
-      icon: <Wallet size={26} />,
+      icon: <Wallet size={28} />,
       tag: `${PLATFORM_FEE_PERCENT}% commission`,
       tagColor: "gold",
       onClick: () => onNavigate("bookings"),
@@ -119,7 +119,7 @@ export function OverviewPanel({ onNavigate }: { onNavigate: (key: string) => voi
     {
       label: "Pending Verifications",
       value: pendingVerifications,
-      icon: <AlertTriangle size={26} />,
+      icon: <AlertTriangle size={28} />,
       tag: pendingVerifications > 0 ? "Needs review" : "All clear",
       tagColor: pendingVerifications > 0 ? "warning" : "success",
       onClick: () => onNavigate("hosts"),
@@ -144,7 +144,7 @@ export function OverviewPanel({ onNavigate }: { onNavigate: (key: string) => voi
         </Text>
       </div>
 
-      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {stats.map((s) => {
           const colors = STAT_COLORS[s.tagColor] ?? STAT_COLORS.purple;
           return (
@@ -152,14 +152,15 @@ export function OverviewPanel({ onNavigate }: { onNavigate: (key: string) => voi
               key={s.label}
               onClick={s.onClick}
               className="rounded-3xl border-none shadow-soft hover:shadow-card transition-base bg-white/80 backdrop-blur-sm cursor-pointer group"
-              styles={{ body: { padding: "24px 28px" } }}
+              styles={{ body: { padding: "28px 28px 24px" } }}
+              style={{ outline: "none" }}
             >
               <div className="flex items-start justify-between gap-3">
                 <div
                   className="rounded-2xl flex items-center justify-center flex-shrink-0"
                   style={{
-                    width: 52,
-                    height: 52,
+                    width: 60,
+                    height: 60,
                     background: colors.bg,
                     color: colors.text,
                   }}
@@ -174,11 +175,11 @@ export function OverviewPanel({ onNavigate }: { onNavigate: (key: string) => voi
                   {s.tag}
                 </Tag>
               </div>
-              <div className="mt-4">
+              <div className="mt-5">
                 <div className="text-3xl font-extrabold leading-none tracking-tight" style={{ color: "#1a1a2e" }}>
                   {loading ? <Spin size="small" /> : s.value}
                 </div>
-                <Text type="secondary" className="text-sm mt-1 block group-hover:text-primary transition-colors">
+                <Text type="secondary" className="text-sm mt-2 block group-hover:text-primary transition-colors">
                   {s.label}
                 </Text>
               </div>
