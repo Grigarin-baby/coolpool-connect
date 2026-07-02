@@ -192,8 +192,9 @@ export function OverviewPanel({ onNavigate }: { onNavigate: (key: string) => voi
         <Card
           className="rounded-3xl border-none shadow-soft bg-white/80 backdrop-blur-sm overflow-hidden"
           styles={{ body: { padding: 0 } }}
+          style={{ outline: "none" }}
         >
-          <div className="px-7 py-5 border-b border-border/60 flex items-center justify-between">
+          <div className="px-6 py-5 border-b border-border/60 flex items-center justify-between">
             <Title level={4} style={{ margin: 0 }}>Recent Bookings</Title>
             <span
               className="text-sm font-semibold text-primary cursor-pointer hover:underline"
@@ -203,7 +204,7 @@ export function OverviewPanel({ onNavigate }: { onNavigate: (key: string) => voi
             </span>
           </div>
           <List
-            className="px-4"
+            className="px-6"
             itemLayout="horizontal"
             loading={bookingsLoading}
             dataSource={recentBookings}
@@ -241,8 +242,9 @@ export function OverviewPanel({ onNavigate }: { onNavigate: (key: string) => voi
         <Card
           className="rounded-3xl border-none shadow-soft bg-white/80 backdrop-blur-sm overflow-hidden"
           styles={{ body: { padding: 0 } }}
+          style={{ outline: "none" }}
         >
-          <div className="px-7 py-5 border-b border-border/60 flex items-center justify-between">
+          <div className="px-6 py-5 border-b border-border/60 flex items-center justify-between">
             <Title level={4} style={{ margin: 0 }}>Recent Trips</Title>
             <span
               className="text-sm font-semibold text-primary cursor-pointer hover:underline"
@@ -252,7 +254,7 @@ export function OverviewPanel({ onNavigate }: { onNavigate: (key: string) => voi
             </span>
           </div>
           <List
-            className="px-4"
+            className="px-6"
             itemLayout="horizontal"
             loading={tripsLoading}
             dataSource={recentTrips}
