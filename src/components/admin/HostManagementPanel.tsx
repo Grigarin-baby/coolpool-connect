@@ -243,22 +243,23 @@ export function HostManagementPanel() {
   const dateTime = (value?: string) => (value ? new Date(value).toLocaleString("en-IN") : "—");
 
   return (
-    <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
-      <div className="flex flex-col gap-1">
-        <Title level={2} style={{ margin: 0 }}>
+    <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
+      <div className="flex flex-col gap-2">
+        <Title level={1} style={{ margin: 0 }}>
           Host Management
         </Title>
-        <Text type="secondary">All hosts. Search by name, email, phone, or user ID.</Text>
+        <Text type="secondary" className="text-base">All hosts. Search by name, email, phone, or user ID.</Text>
       </div>
 
-      <Card className="rounded-3xl border-none shadow-card bg-white/90 backdrop-blur-md p-2 overflow-hidden">
-        <div className="p-4 flex flex-wrap items-center justify-between gap-3">
+      <Card className="rounded-3xl border-none shadow-card bg-white/90 backdrop-blur-md overflow-hidden" styles={{ body: { padding: 0 } }}>
+        <div className="px-6 py-5 flex flex-wrap items-center justify-between gap-3 border-b border-border/40">
           <Input.Search
             allowClear
+            size="large"
             placeholder="Search hosts by name, email, phone, or user ID…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            style={{ maxWidth: 420 }}
+            style={{ maxWidth: 460 }}
           />
           <CreateUserButton role="host" />
         </div>
@@ -354,30 +355,24 @@ export function HostManagementPanel() {
               </div>
             </div>
 
-            <Space>
+            <Space wrap>
               <Popconfirm
                 title="Verify this host?"
                 onConfirm={() => verifyDriver.mutate({ id: selected.id, status: "approved" })}
               >
-                <Button size="small" type="primary">
-                  Verify
-                </Button>
+                <Button type="primary">Verify</Button>
               </Popconfirm>
               <Popconfirm
                 title="Reject this host?"
                 onConfirm={() => verifyDriver.mutate({ id: selected.id, status: "rejected" })}
               >
-                <Button size="small" danger>
-                  Reject
-                </Button>
+                <Button danger>Reject</Button>
               </Popconfirm>
               <Popconfirm
                 title="Grant admin access?"
                 onConfirm={() => makeAdmin.mutate(selected.userId)}
               >
-                <Button size="small" icon={<ShieldCheck size={14} />}>
-                  Make Admin
-                </Button>
+                <Button icon={<ShieldCheck size={16} />}>Make Admin</Button>
               </Popconfirm>
               <ResetPasswordButton userId={selected.userId} />
             </Space>

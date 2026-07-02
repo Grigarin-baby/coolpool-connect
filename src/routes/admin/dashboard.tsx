@@ -88,6 +88,7 @@ function AdminDashboardPage() {
           </p>
           <Button
             type="primary"
+            size="large"
             className="mt-4 rounded-3xl bg-gradient-primary border-none"
             onClick={() => void signOut()}
           >
@@ -103,8 +104,21 @@ function AdminDashboardPage() {
       theme={{
         token: {
           colorPrimary: "#6b46c1",
-          borderRadius: 0,
+          borderRadius: 16,
           fontFamily: APP_FONT_FAMILY,
+          fontSize: 15,
+          fontSizeLG: 17,
+          fontSizeXL: 20,
+          fontSizeHeading1: 38,
+          fontSizeHeading2: 30,
+          fontSizeHeading3: 24,
+          fontSizeHeading4: 20,
+          fontSizeHeading5: 17,
+          lineHeight: 1.6,
+          controlHeight: 44,
+          controlHeightLG: 52,
+          paddingContentVertical: 16,
+          paddingContentHorizontal: 20,
         },
         components: {
           Layout: {
@@ -116,6 +130,30 @@ function AdminDashboardPage() {
             itemBg: "transparent",
             itemSelectedBg: "rgba(107, 70, 193, 0.1)",
             itemSelectedColor: "#6b46c1",
+            itemHeight: 52,
+            iconSize: 20,
+            fontSize: 15,
+          },
+          Table: {
+            fontSize: 14,
+            headerBg: "rgba(107,70,193,0.05)",
+            rowHoverBg: "rgba(107,70,193,0.04)",
+            cellPaddingBlock: 14,
+            cellPaddingInline: 16,
+          },
+          Card: {
+            paddingLG: 28,
+          },
+          Input: {
+            fontSize: 15,
+          },
+          Button: {
+            fontSize: 15,
+            fontWeight: 600,
+          },
+          Tag: {
+            fontSize: 13,
+            paddingInline: 10,
           },
         },
       }}
@@ -124,72 +162,42 @@ function AdminDashboardPage() {
         <Sider
           breakpoint="lg"
           collapsedWidth="0"
-          width={280}
+          width={300}
           className="border-r border-border/60 backdrop-blur-xl hidden lg:block"
           style={{ position: "sticky", top: 0, height: "100vh", left: 0, zIndex: 100 }}
         >
           <div className="p-6 text-center">
-            <img src={logo} alt="Coolpool Logo" className="h-24 w-auto mx-auto object-contain" />
+            <img src={logo} alt="Coolpool Logo" className="h-28 w-auto mx-auto object-contain" />
           </div>
 
           <Menu
             mode="inline"
             selectedKeys={[activeModule]}
             onClick={({ key }) => setActiveModule(key)}
-            className="border-none px-2 mt-4"
+            className="border-none px-3 mt-2"
             items={[
-              {
-                key: "overview",
-                icon: <LayoutDashboard size={18} />,
-                label: "Overview",
-              },
-              {
-                key: "guests",
-                icon: <Ticket size={18} />,
-                label: "Guest Management",
-              },
-              {
-                key: "hosts",
-                icon: <Car size={18} />,
-                label: "Host Management",
-              },
-              {
-                key: "trips",
-                icon: <RouteIcon size={18} />,
-                label: "Trip Manager",
-              },
-              {
-                key: "bookings",
-                icon: <Ticket size={18} />,
-                label: "Booking Manager",
-              },
-              {
-                key: "payouts",
-                icon: <Wallet size={18} />,
-                label: "Payouts",
-              },
-              {
-                key: "banners",
-                icon: <ImageIcon size={18} />,
-                label: "Banners Manager",
-              },
-              {
-                key: "deleted",
-                icon: <UserX size={18} />,
-                label: "Deleted Accounts",
-              },
+              { key: "overview",  icon: <LayoutDashboard size={20} />, label: "Overview" },
+              { key: "guests",    icon: <Ticket size={20} />,          label: "Guest Management" },
+              { key: "hosts",     icon: <Car size={20} />,             label: "Host Management" },
+              { key: "trips",     icon: <RouteIcon size={20} />,       label: "Trip Manager" },
+              { key: "bookings",  icon: <Ticket size={20} />,          label: "Booking Manager" },
+              { key: "payouts",   icon: <Wallet size={20} />,          label: "Payouts" },
+              { key: "banners",   icon: <ImageIcon size={20} />,       label: "Banners Manager" },
+              { key: "deleted",   icon: <UserX size={20} />,           label: "Deleted Accounts" },
             ]}
           />
 
-          <div className="absolute bottom-0 left-0 right-0 p-4">
+          <div className="absolute bottom-0 left-0 right-0 p-5">
             <Card className="rounded-3xl bg-secondary/40 border-none backdrop-blur-md">
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-4">
                 <Badge count={trips.length} overflowCount={99} color="#6b46c1">
-                  <Avatar icon={<Activity size={16} />} className="bg-primary/20 text-primary" />
+                  <Avatar size={44} icon={<Activity size={18} />} className="bg-primary/20 text-primary" />
                 </Badge>
                 <div>
-                  <p className="text-xs text-muted-foreground">Active Traffic</p>
-                  <p className="text-lg font-bold">{tripsLoading ? "..." : trips.length} routes</p>
+                  <p className="text-sm text-muted-foreground">Active Traffic</p>
+                  <p className="text-xl font-bold leading-tight">
+                    {tripsLoading ? "…" : trips.length} routes
+                  </p>
                 </div>
               </div>
             </Card>
@@ -197,21 +205,21 @@ function AdminDashboardPage() {
         </Sider>
 
         <Layout>
-          <Header className="px-6 flex items-center justify-between border-b border-border/60 backdrop-blur-md sticky top-0 z-10 h-20 bg-background/60">
+          <Header className="px-8 flex items-center justify-between border-b border-border/60 backdrop-blur-md sticky top-0 z-10 bg-background/60" style={{ height: 80 }}>
             <div>
-              <Title level={4} style={{ margin: 0 }} className="hidden sm:block">
+              <Title level={3} style={{ margin: 0 }} className="hidden sm:block">
                 {MODULE_TITLES[activeModule] ?? "Dashboard"}
               </Title>
               <div className="sm:hidden">
                 <img src={logo} alt="Coolpool Logo" className="h-16 w-auto object-contain" />
               </div>
             </div>
-            <div className="flex items-center gap-4">
-              <div className="text-right hidden md:flex flex-col justify-center max-w-[180px]">
-                <Text strong className="text-sm leading-tight block truncate">
+            <div className="flex items-center gap-5">
+              <div className="text-right hidden md:flex flex-col justify-center max-w-[200px]">
+                <Text strong className="text-base leading-tight block truncate">
                   {getUserDisplayName(user)}
                 </Text>
-                <Text className="text-[10px] text-primary font-bold uppercase tracking-wider leading-tight truncate">
+                <Text className="text-xs text-primary font-bold uppercase tracking-wider leading-tight truncate">
                   {user?.email ?? "Administrator"}
                 </Text>
               </div>
@@ -222,13 +230,13 @@ function AdminDashboardPage() {
                     if (key === "profile") setProfileModalOpen(true);
                   },
                   items: [
-                    { key: "profile", label: "My Profile", icon: <User size={14} /> },
-                    { key: "settings", label: "System Config", icon: <Settings size={14} /> },
+                    { key: "profile", label: "My Profile", icon: <User size={16} /> },
+                    { key: "settings", label: "System Config", icon: <Settings size={16} /> },
                     { type: "divider" },
                     {
                       key: "logout",
                       label: "Logout",
-                      icon: <LogOut size={14} />,
+                      icon: <LogOut size={16} />,
                       danger: true,
                       onClick: () => void signOut(),
                     },
@@ -237,11 +245,11 @@ function AdminDashboardPage() {
                 trigger={["click"]}
                 placement="bottomRight"
               >
-                <Badge dot status="processing" offset={[-4, 32]} color="#6b46c1">
+                <Badge dot status="processing" offset={[-5, 38]} color="#6b46c1">
                   <Avatar
-                    icon={<User size={20} />}
+                    icon={<User size={22} />}
                     className="bg-gradient-primary cursor-pointer shadow-soft border-2 border-white/50"
-                    size={40}
+                    size={48}
                   />
                 </Badge>
               </Dropdown>
@@ -249,14 +257,14 @@ function AdminDashboardPage() {
           </Header>
 
           <Content className="p-6 md:p-10 max-w-7xl mx-auto w-full">
-            {activeModule === "overview" && <OverviewPanel onNavigate={setActiveModule} />}
-            {activeModule === "guests" && <GuestManagementPanel />}
-            {activeModule === "hosts" && <HostManagementPanel />}
-            {activeModule === "trips" && <TripsPanel />}
-            {activeModule === "bookings" && <BookingsPanel />}
-            {activeModule === "payouts" && <PayoutsPanel />}
-            {activeModule === "banners" && <BannersManager />}
-            {activeModule === "deleted" && <DeletedAccountsPanel />}
+            {activeModule === "overview"  && <OverviewPanel onNavigate={setActiveModule} />}
+            {activeModule === "guests"    && <GuestManagementPanel />}
+            {activeModule === "hosts"     && <HostManagementPanel />}
+            {activeModule === "trips"     && <TripsPanel />}
+            {activeModule === "bookings"  && <BookingsPanel />}
+            {activeModule === "payouts"   && <PayoutsPanel />}
+            {activeModule === "banners"   && <BannersManager />}
+            {activeModule === "deleted"   && <DeletedAccountsPanel />}
           </Content>
         </Layout>
       </Layout>
