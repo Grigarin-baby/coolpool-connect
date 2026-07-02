@@ -150,11 +150,11 @@ export function OverviewPanel({ onNavigate }: { onNavigate: (key: string) => voi
             <Card
               key={s.label}
               onClick={s.onClick}
-              className="rounded-3xl border-none shadow-soft hover:shadow-card transition-base bg-white/80 backdrop-blur-sm cursor-pointer group"
+              className="rounded-3xl border-none shadow-soft hover:shadow-card transition-base bg-white/80 backdrop-blur-sm cursor-pointer group overflow-hidden"
               styles={{ body: { padding: "28px 28px 24px" } }}
               style={{ outline: "none" }}
             >
-              <div className="flex items-start justify-between gap-3">
+              <div className="flex flex-wrap items-start justify-between gap-3">
                 <div
                   className="rounded-2xl flex items-center justify-center flex-shrink-0"
                   style={{
@@ -170,6 +170,7 @@ export function OverviewPanel({ onNavigate }: { onNavigate: (key: string) => voi
                   color={s.tagColor}
                   bordered={false}
                   className="rounded-2xl text-xs font-semibold mt-1"
+                  style={{ whiteSpace: "normal", wordBreak: "break-word", maxWidth: "100%" }}
                 >
                   {s.tag}
                 </Tag>
