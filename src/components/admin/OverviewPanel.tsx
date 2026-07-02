@@ -188,7 +188,7 @@ export function OverviewPanel({ onNavigate }: { onNavigate: (key: string) => voi
         })}
       </div>
 
-      <div className="grid gap-8 lg:grid-cols-2">
+      <div className="flex flex-col gap-8">
         <Card
           className="rounded-3xl border-none shadow-soft bg-white/80 backdrop-blur-sm overflow-hidden"
           styles={{ body: { padding: 0 } }}
