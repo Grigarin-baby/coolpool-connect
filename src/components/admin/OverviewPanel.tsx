@@ -1,7 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
-import { Card, Typography, Tag, Spin, List, Avatar } from "antd";
+import { Card, Typography, Tag, Spin, List } from "antd";
 import {
-  Activity,
   AlertTriangle,
   Car,
   CheckCircle,
@@ -212,11 +211,6 @@ export function OverviewPanel({ onNavigate }: { onNavigate: (key: string) => voi
             renderItem={(b) => (
               <List.Item className="py-4">
                 <List.Item.Meta
-                  avatar={
-                    <Avatar size={44} className="bg-gradient-primary text-base font-bold">
-                      {b.passengerName.charAt(0) || "?"}
-                    </Avatar>
-                  }
                   title={<Text strong className="text-base">{b.passengerName}</Text>}
                   description={
                     <span className="text-sm">{b.seatsBooked} seat(s) · ₹{b.segmentPrice}</span>
@@ -262,11 +256,6 @@ export function OverviewPanel({ onNavigate }: { onNavigate: (key: string) => voi
             renderItem={(trip) => (
               <List.Item className="py-4">
                 <List.Item.Meta
-                  avatar={
-                    <div className="h-11 w-11 rounded-2xl bg-primary/10 flex items-center justify-center flex-shrink-0">
-                      <Activity size={20} className="text-primary" />
-                    </div>
-                  }
                   title={
                     <Text strong className="text-base">
                       {trip.fromLocation.split(",")[0]} → {trip.toLocation.split(",")[0]}
