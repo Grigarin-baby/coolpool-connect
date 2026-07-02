@@ -210,7 +210,7 @@ export function OverviewPanel({ onNavigate }: { onNavigate: (key: string) => voi
             dataSource={recentBookings}
             locale={{ emptyText: "No bookings yet." }}
             renderItem={(b) => (
-              <List.Item className="py-4">
+              <List.Item style={{ padding: "20px 0" }}>
                 <List.Item.Meta
                   title={<Text strong className="text-base">{b.passengerName}</Text>}
                   description={
@@ -255,7 +255,7 @@ export function OverviewPanel({ onNavigate }: { onNavigate: (key: string) => voi
             dataSource={recentTrips}
             locale={{ emptyText: "No trips found." }}
             renderItem={(trip) => (
-              <List.Item className="py-4">
+              <List.Item style={{ padding: "20px 0" }}>
                 <List.Item.Meta
                   title={
                     <Text strong className="text-base">
