@@ -19,8 +19,6 @@ import {
   listAllVehicles,
   listAllTrips,
   listAllBookings,
-  updateDriverVerification,
-  updateVehicleVerification,
 } from "@/data/appwrite-repository";
 import { getBookingPassengers } from "@/lib/booking-passengers";
 import { passengerGenderLabel, passengerSeatLabel } from "@/lib/passenger-display";
@@ -29,7 +27,11 @@ import { formatVehicleCode } from "@/lib/vehicleCode";
 import { CreateUserButton, ResetPasswordButton } from "./AdminUserActions";
 import type { DriverProfile, Trip } from "@/lib/domain";
 import { account } from "@/integrations/appwrite/client";
-import { adminGrantAdminLabel } from "@/integrations/appwrite/account-server";
+import {
+  adminGrantAdminLabel,
+  adminUpdateDriverVerification,
+  adminUpdateVehicleVerification,
+} from "@/integrations/appwrite/account-server";
 
 const { Title, Text } = Typography;
 
@@ -68,8 +70,10 @@ export function HostManagementPanel() {
   };
 
   const verifyDriver = useMutation({
-    mutationFn: (v: { id: string; status: "approved" | "rejected" }) =>
-      updateDriverVerification(v.id, v.status),
+    mutationFn: async (v: { id: string; status: "approved" | "rejected" }) => {
+      const { jwt } = await account.createJWT();
+      await adminUpdateDriverVerification({ data: { jwt, driverId: v.id, status: v.status } });
+    },
     onSuccess: () => {
       message.success("Host verification updated");
       invalidate();
@@ -77,8 +81,10 @@ export function HostManagementPanel() {
     onError: (e: any) => message.error(e?.message || "Failed"),
   });
   const verifyVehicle = useMutation({
-    mutationFn: (v: { id: string; status: "approved" | "rejected" }) =>
-      updateVehicleVerification(v.id, v.status),
+    mutationFn: async (v: { id: string; status: "approved" | "rejected" }) => {
+      const { jwt } = await account.createJWT();
+      await adminUpdateVehicleVerification({ data: { jwt, vehicleId: v.id, status: v.status } });
+    },
     onSuccess: () => {
       message.success("Vehicle verification updated");
       invalidate();

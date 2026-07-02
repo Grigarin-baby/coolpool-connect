@@ -506,3 +506,47 @@ export const adminGetUserCodes = createServerFn({ method: "POST" })
       return out;
     },
   );
+
+/** Admin-only: update a driver/host profile's verification status using the API key. */
+export const adminUpdateDriverVerification = createServerFn({ method: "POST" })
+  .inputValidator(
+    (input: { jwt: string; driverId: string; status: "approved" | "rejected"; note?: string | null }) => ({
+      jwt: String(input?.jwt ?? "").trim(),
+      driverId: String(input?.driverId ?? "").trim(),
+      status: (["approved", "rejected"].includes(String(input?.status)) ? input.status : "rejected") as "approved" | "rejected",
+      note: input?.note == null ? null : String(input.note).trim(),
+    }),
+  )
+  .handler(async ({ data }): Promise<{ ok: boolean }> => {
+    await assertAdmin(data.jwt);
+    if (!data.driverId) throw new Error("Missing driver ID.");
+    const db = readEnv("VITE_APPWRITE_DATABASE_ID") || readEnv("APPWRITE_DATABASE_ID");
+    const col = readEnv("VITE_APPWRITE_COLLECTION_DRIVERS") || "coolpool_drivers";
+    await new Databases(adminClient()).updateDocument(db, col, data.driverId, {
+      verification_status: data.status,
+      verification_note: data.note ?? null,
+    });
+    return { ok: true };
+  });
+
+/** Admin-only: update a vehicle's verification status using the API key. */
+export const adminUpdateVehicleVerification = createServerFn({ method: "POST" })
+  .inputValidator(
+    (input: { jwt: string; vehicleId: string; status: "approved" | "rejected"; note?: string | null }) => ({
+      jwt: String(input?.jwt ?? "").trim(),
+      vehicleId: String(input?.vehicleId ?? "").trim(),
+      status: (["approved", "rejected"].includes(String(input?.status)) ? input.status : "rejected") as "approved" | "rejected",
+      note: input?.note == null ? null : String(input.note).trim(),
+    }),
+  )
+  .handler(async ({ data }): Promise<{ ok: boolean }> => {
+    await assertAdmin(data.jwt);
+    if (!data.vehicleId) throw new Error("Missing vehicle ID.");
+    const db = readEnv("VITE_APPWRITE_DATABASE_ID") || readEnv("APPWRITE_DATABASE_ID");
+    const col = readEnv("VITE_APPWRITE_COLLECTION_VEHICLES") || "coolpool_vehicles";
+    await new Databases(adminClient()).updateDocument(db, col, data.vehicleId, {
+      verification_status: data.status,
+      verification_note: data.note ?? null,
+    });
+    return { ok: true };
+  });

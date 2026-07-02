@@ -2,13 +2,10 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, Typography, Table, Tag, Space, Button, Modal, Input, message } from "antd";
 import { CheckCircle, XCircle, FileText } from "lucide-react";
-import {
-  listAllVehicles,
-  listDriverProfiles,
-  updateVehicleVerification,
-} from "@/data/appwrite-repository";
-import { appwriteConfig } from "@/integrations/appwrite/client";
+import { listAllVehicles, listDriverProfiles } from "@/data/appwrite-repository";
+import { account, appwriteConfig } from "@/integrations/appwrite/client";
 import type { DriverVehicle, VerificationStatus } from "@/lib/domain";
+import { adminUpdateVehicleVerification } from "@/integrations/appwrite/account-server";
 
 const { Title, Text } = Typography;
 
@@ -41,15 +38,18 @@ export function VehiclesPanel() {
   const driverByUserId = new Map(drivers.map((d) => [d.userId, d]));
 
   const verifyMutation = useMutation({
-    mutationFn: ({
+    mutationFn: async ({
       vehicleId,
       status,
       note,
     }: {
       vehicleId: string;
-      status: VerificationStatus;
+      status: "approved" | "rejected";
       note?: string | null;
-    }) => updateVehicleVerification(vehicleId, status, note),
+    }) => {
+      const { jwt } = await account.createJWT();
+      await adminUpdateVehicleVerification({ data: { jwt, vehicleId, status, note } });
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-vehicles"] });
       message.success("Vehicle verification updated");

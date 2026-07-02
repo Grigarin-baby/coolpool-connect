@@ -2,8 +2,10 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, Typography, List, Avatar, Tag, Space, Button, Modal, Input, message } from "antd";
 import { CheckCircle, XCircle } from "lucide-react";
-import { listDriverProfiles, updateDriverVerification } from "@/data/appwrite-repository";
+import { listDriverProfiles } from "@/data/appwrite-repository";
 import type { DriverProfile, VerificationStatus } from "@/lib/domain";
+import { account } from "@/integrations/appwrite/client";
+import { adminUpdateDriverVerification } from "@/integrations/appwrite/account-server";
 
 const { Title, Text } = Typography;
 
@@ -24,15 +26,18 @@ export function DriversPanel() {
   });
 
   const verifyMutation = useMutation({
-    mutationFn: ({
+    mutationFn: async ({
       driverId,
       status,
       note,
     }: {
       driverId: string;
-      status: VerificationStatus;
+      status: "approved" | "rejected";
       note?: string | null;
-    }) => updateDriverVerification(driverId, status, note),
+    }) => {
+      const { jwt } = await account.createJWT();
+      await adminUpdateDriverVerification({ data: { jwt, driverId, status, note } });
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-drivers"] });
       message.success("Driver verification updated");
