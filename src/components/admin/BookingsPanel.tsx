@@ -51,6 +51,20 @@ export function BookingsPanel() {
   });
 
   const tripById = useMemo(() => new Map(trips.map((t) => [t.id, t])), [trips]);
+  // Running booking number, oldest = 0001, assigned across ALL bookings.
+  const sequenceById = useMemo(() => {
+    const sorted = [...bookings].sort((a, b) => {
+      const ta = new Date(a.createdAt).getTime();
+      const tb = new Date(b.createdAt).getTime();
+      if (ta !== tb) return ta - tb;
+      return a.id.localeCompare(b.id);
+    });
+    const m = new Map<string, number>();
+    sorted.forEach((b, i) => m.set(b.id, i + 1));
+    return m;
+  }, [bookings]);
+  const bookingCode = (b: Booking) =>
+    formatBookingCode({ createdAt: b.createdAt, sequence: sequenceById.get(b.id) ?? 0 });
   const hostNameByUserId = useMemo(() => {
     const m = new Map<string, string>();
     drivers.forEach((d) => m.set(d.userId, d.fullName));
@@ -73,7 +87,7 @@ export function BookingsPanel() {
       list = list.filter((b) => {
         const trip = tripById.get(b.tripId);
         const route = trip ? `${trip.fromLocation} ${trip.toLocation}` : "";
-        const code = formatBookingCode({ createdAt: b.createdAt, id: b.id });
+        const code = formatBookingCode({ createdAt: b.createdAt, sequence: sequenceById.get(b.id) ?? 0 });
         return (
           (b.passengerName || "").toLowerCase().includes(q) ||
           (b.passengerPhone || "").toLowerCase().includes(q) ||
@@ -83,7 +97,7 @@ export function BookingsPanel() {
       });
     }
     return list;
-  }, [bookings, statusFilter, search, tripById]);
+  }, [bookings, statusFilter, search, tripById, sequenceById]);
 
   const selectedTrip = selected ? tripById.get(selected.tripId) : undefined;
 
@@ -120,7 +134,7 @@ export function BookingsPanel() {
               key: "id",
               width: 170,
               render: (_, b) => {
-                const code = formatBookingCode({ createdAt: b.createdAt, id: b.id });
+                const code = bookingCode(b);
                 return (
                   <span onClick={(e) => e.stopPropagation()}>
                     <Text
@@ -214,8 +228,8 @@ export function BookingsPanel() {
         {selected && (
           <div className="space-y-4 text-sm">
             <div className="rounded-2xl bg-gray-50 p-4 space-y-1">
-              <Text copyable={{ text: formatBookingCode({ createdAt: selected.createdAt, id: selected.id }) }} className="font-mono text-xs text-muted-foreground">
-                {formatBookingCode({ createdAt: selected.createdAt, id: selected.id })}
+              <Text copyable={{ text: bookingCode(selected) }} className="font-mono text-xs text-muted-foreground">
+                {bookingCode(selected)}
               </Text>
               <div className="font-semibold">
                 {selectedTrip
