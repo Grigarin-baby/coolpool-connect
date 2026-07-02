@@ -4,6 +4,7 @@ import {
   Activity,
   AlertTriangle,
   Car,
+  CheckCircle,
   Route as RouteIcon,
   Ticket,
   Users,
@@ -50,6 +51,7 @@ export function OverviewPanel({ onNavigate }: { onNavigate: (key: string) => voi
   const loading = driversLoading || vehiclesLoading || tripsLoading || bookingsLoading;
 
   const activeTrips = trips.filter((t) => t.status === "scheduled" || t.status === "in_progress");
+  const completedTrips = trips.filter((t) => t.status === "completed").length;
   const revenue = bookings
     .filter((b) => b.status === "confirmed" || b.status === "completed")
     .reduce((sum, b) => sum + (b.segmentPrice || 0) * (b.seatsBooked || 1), 0);
@@ -83,6 +85,14 @@ export function OverviewPanel({ onNavigate }: { onNavigate: (key: string) => voi
       onClick: () => onNavigate("trips"),
     },
     {
+      label: "Completed Trips",
+      value: completedTrips,
+      icon: <CheckCircle size={26} />,
+      tag: "Successfully finished",
+      tagColor: "success",
+      onClick: () => onNavigate("trips"),
+    },
+    {
       label: "Total Bookings",
       value: bookings.length,
       icon: <Ticket size={26} />,
@@ -95,7 +105,7 @@ export function OverviewPanel({ onNavigate }: { onNavigate: (key: string) => voi
       value: `₹${revenue.toLocaleString("en-IN")}`,
       icon: <Wallet size={26} />,
       tag: "Confirmed + completed",
-      tagColor: "success",
+      tagColor: "cyan",
       onClick: () => onNavigate("bookings"),
     },
     {
