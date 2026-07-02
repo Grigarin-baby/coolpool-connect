@@ -81,6 +81,7 @@ export function TripsPanel() {
           t.fromLocation.toLowerCase().includes(q) ||
           t.toLocation.toLowerCase().includes(q) ||
           t.id.toLowerCase().includes(q) ||
+          (t.tripCode ?? "").toLowerCase().includes(q) ||
           hostName(t).toLowerCase().includes(q),
       );
     }
@@ -132,11 +133,14 @@ export function TripsPanel() {
             {
               title: "Trip ID",
               key: "id",
-              width: 140,
+              width: 170,
               render: (_, trip) => (
                 <span onClick={(e) => e.stopPropagation()}>
-                  <Text copyable={{ text: trip.id, tooltips: ["Copy ID", "Copied"] }} className="font-mono text-xs">
-                    {trip.id.slice(0, 8)}…
+                  <Text
+                    copyable={{ text: trip.tripCode ?? trip.id, tooltips: ["Copy ID", "Copied"] }}
+                    className="font-mono text-xs whitespace-nowrap"
+                  >
+                    {trip.tripCode ?? `${trip.id.slice(0, 8)}…`}
                   </Text>
                 </span>
               ),
