@@ -9,6 +9,7 @@ import {
 } from "@/data/appwrite-repository";
 import { getBookingPassengers } from "@/lib/booking-passengers";
 import { passengerGenderLabel, passengerSeatLabel } from "@/lib/passenger-display";
+import { formatBookingCode } from "@/lib/bookingCode";
 import type { Booking, BookingStatus } from "@/lib/domain";
 
 const { Title, Text } = Typography;
@@ -72,10 +73,12 @@ export function BookingsPanel() {
       list = list.filter((b) => {
         const trip = tripById.get(b.tripId);
         const route = trip ? `${trip.fromLocation} ${trip.toLocation}` : "";
+        const code = formatBookingCode({ createdAt: b.createdAt, id: b.id });
         return (
           (b.passengerName || "").toLowerCase().includes(q) ||
           (b.passengerPhone || "").toLowerCase().includes(q) ||
-          route.toLowerCase().includes(q)
+          route.toLowerCase().includes(q) ||
+          code.toLowerCase().includes(q)
         );
       });
     }
@@ -97,7 +100,7 @@ export function BookingsPanel() {
         <div className="px-4 pt-4 flex flex-wrap items-center justify-between gap-3">
           <Input.Search
             allowClear
-            placeholder="Search by passenger, phone, or route…"
+            placeholder="Search by booking ID, passenger, phone, or route…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             style={{ maxWidth: 360 }}
@@ -112,6 +115,24 @@ export function BookingsPanel() {
           pagination={{ pageSize: 10 }}
           onRow={(b) => ({ onClick: () => setSelected(b), style: { cursor: "pointer" } })}
           columns={[
+            {
+              title: "Booking ID",
+              key: "id",
+              width: 170,
+              render: (_, b) => {
+                const code = formatBookingCode({ createdAt: b.createdAt, id: b.id });
+                return (
+                  <span onClick={(e) => e.stopPropagation()}>
+                    <Text
+                      copyable={{ text: code, tooltips: ["Copy ID", "Copied"] }}
+                      className="font-mono text-xs whitespace-nowrap"
+                    >
+                      {code}
+                    </Text>
+                  </span>
+                );
+              },
+            },
             {
               title: "Passenger",
               key: "passenger",
@@ -193,6 +214,9 @@ export function BookingsPanel() {
         {selected && (
           <div className="space-y-4 text-sm">
             <div className="rounded-2xl bg-gray-50 p-4 space-y-1">
+              <Text copyable={{ text: formatBookingCode({ createdAt: selected.createdAt, id: selected.id }) }} className="font-mono text-xs text-muted-foreground">
+                {formatBookingCode({ createdAt: selected.createdAt, id: selected.id })}
+              </Text>
               <div className="font-semibold">
                 {selectedTrip
                   ? `${selectedTrip.fromLocation.split(",")[0]} → ${selectedTrip.toLocation.split(",")[0]}`
