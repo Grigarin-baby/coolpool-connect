@@ -20,6 +20,7 @@ const STATUS_COLOR: Record<TripStatus, string> = {
   in_progress: "processing",
   completed: "success",
   cancelled: "error",
+  expired: "default",
 };
 
 const STATUS_OPTIONS: { label: string; value: TripStatus | "all" }[] = [
@@ -79,6 +80,7 @@ export function TripsPanel() {
         (t) =>
           t.fromLocation.toLowerCase().includes(q) ||
           t.toLocation.toLowerCase().includes(q) ||
+          t.id.toLowerCase().includes(q) ||
           hostName(t).toLowerCase().includes(q),
       );
     }
@@ -127,6 +129,18 @@ export function TripsPanel() {
           pagination={{ pageSize: 10 }}
           onRow={(t) => ({ onClick: () => setSelected(t), style: { cursor: "pointer" } })}
           columns={[
+            {
+              title: "Trip ID",
+              key: "id",
+              width: 140,
+              render: (_, trip) => (
+                <span onClick={(e) => e.stopPropagation()}>
+                  <Text copyable={{ text: trip.id, tooltips: ["Copy ID", "Copied"] }} className="font-mono text-xs">
+                    {trip.id.slice(0, 8)}…
+                  </Text>
+                </span>
+              ),
+            },
             {
               title: "Route",
               key: "route",
