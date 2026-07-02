@@ -194,7 +194,7 @@ export function OverviewPanel({ onNavigate }: { onNavigate: (key: string) => voi
           styles={{ body: { padding: 0 } }}
           style={{ outline: "none" }}
         >
-          <div className="px-6 py-5 border-b border-border/60 flex items-center justify-between">
+          <div className="px-8 py-6 border-b border-border/60 flex items-center justify-between">
             <Title level={4} style={{ margin: 0 }}>Recent Bookings</Title>
             <span
               className="text-sm font-semibold text-primary cursor-pointer hover:underline"
@@ -204,7 +204,7 @@ export function OverviewPanel({ onNavigate }: { onNavigate: (key: string) => voi
             </span>
           </div>
           <List
-            className="px-6"
+            style={{ padding: "4px 32px 12px" }}
             itemLayout="horizontal"
             loading={bookingsLoading}
             dataSource={recentBookings}
@@ -239,7 +239,7 @@ export function OverviewPanel({ onNavigate }: { onNavigate: (key: string) => voi
           styles={{ body: { padding: 0 } }}
           style={{ outline: "none" }}
         >
-          <div className="px-6 py-5 border-b border-border/60 flex items-center justify-between">
+          <div className="px-8 py-6 border-b border-border/60 flex items-center justify-between">
             <Title level={4} style={{ margin: 0 }}>Recent Trips</Title>
             <span
               className="text-sm font-semibold text-primary cursor-pointer hover:underline"
@@ -249,7 +249,7 @@ export function OverviewPanel({ onNavigate }: { onNavigate: (key: string) => voi
             </span>
           </div>
           <List
-            className="px-6"
+            style={{ padding: "4px 32px 12px" }}
             itemLayout="horizontal"
             loading={tripsLoading}
             dataSource={recentTrips}
