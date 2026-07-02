@@ -14,7 +14,7 @@ export interface Review {
   createdAt: string;
 }
 export type StopType = "pickup" | "drop" | "both";
-export type TripStatus = "scheduled" | "in_progress" | "completed" | "cancelled";
+export type TripStatus = "scheduled" | "in_progress" | "completed" | "cancelled" | "expired";
 export type BookingStatus = "pending" | "confirmed" | "cancelled" | "completed" | "no_show";
 export type PassengerGender = "male" | "female";
 export type VerificationStatus = "pending" | "approved" | "rejected";

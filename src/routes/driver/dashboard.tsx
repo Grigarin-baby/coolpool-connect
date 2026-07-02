@@ -274,7 +274,7 @@ const TRIP_DATE_WINDOW_DAYS = 7;
 function hostTripStatusDisplay(trip: Trip, expired: boolean): { label: string; color: string } {
   if (trip.status === "completed") return { label: "Completed", color: "success" };
   if (trip.status === "cancelled") return { label: "Cancelled", color: "error" };
-  if (expired) return { label: "Expired", color: "warning" };
+  if (trip.status === "expired" || expired) return { label: "Expired", color: "default" };
   if (trip.status === "in_progress") return { label: "In progress", color: "processing" };
   return { label: "Scheduled", color: "processing" };
 }
@@ -442,6 +442,7 @@ function DriverDashboardPage() {
   const [tripActionLoading, setTripActionLoading] = useState<string | null>(null);
   const [now, setNow] = useState(() => dayjs());
   const locationWatchIdRef = useRef<number | null>(null);
+  const autoExpiredRef = useRef<Set<string>>(new Set());
   const performanceRating = 5;
   const performanceRatingColors = getRatingColorClasses(performanceRating);
 
@@ -451,6 +452,20 @@ function DriverDashboardPage() {
     const interval = setInterval(() => setNow(dayjs()), 30000);
     return () => clearInterval(interval);
   }, []);
+
+  // Auto-expire scheduled trips that are 45+ minutes past departure and haven't started.
+  // Writes "expired" to Appwrite once per trip so the status persists across sessions.
+  useEffect(() => {
+    for (const trip of trips) {
+      if (trip.status !== "scheduled") continue;
+      if (!now.isAfter(dayjs(trip.departureAt).add(45, "minute"))) continue;
+      if (autoExpiredRef.current.has(trip.id)) continue;
+      autoExpiredRef.current.add(trip.id);
+      void updateTrip(trip.id, { status: "expired" })
+        .then(() => queryClient.invalidateQueries({ queryKey: ["host-trips"] }))
+        .catch(() => {});
+    }
+  }, [trips, now, queryClient]);
 
   // Stop sharing location whenever the dashboard unmounts (e.g. driver navigates away).
   useEffect(() => {
@@ -1214,11 +1229,11 @@ function DriverDashboardPage() {
   // A trip that's more than 5 hours past its departure and was never completed
   // or cancelled is treated as "expired" — it drops out of the upcoming Trips
   // tab and shows in History.
-  const TRIP_EXPIRY_HOURS = 5;
+  const TRIP_EXPIRY_MINUTES = 45;
   const isExpired = (t: Trip) =>
-    t.status !== "completed" &&
-    t.status !== "cancelled" &&
-    now.isAfter(dayjs(t.departureAt).add(TRIP_EXPIRY_HOURS, "hour"));
+    t.status === "expired" ||
+    (t.status === "scheduled" &&
+      now.isAfter(dayjs(t.departureAt).add(TRIP_EXPIRY_MINUTES, "minute")));
 
   // lifetimeEarnings computed after receivedByTrip is built (below)
   // Past trips: completed, cancelled, or expired move to history.
@@ -2950,7 +2965,8 @@ function DriverDashboardPage() {
                                   </div>
                                 </div>
                                 {item.status === "scheduled" &&
-                                  now.isAfter(dayjs(item.departureAt)) && (
+                                  now.isAfter(dayjs(item.departureAt)) &&
+                                  !now.isAfter(dayjs(item.departureAt).add(45, "minute")) && (
                                     <Tag
                                       color="error"
                                       className="rounded-full px-3 py-1 font-semibold text-xs m-0 self-start"
@@ -2958,6 +2974,14 @@ function DriverDashboardPage() {
                                       TIME IS UP — START NOW
                                     </Tag>
                                   )}
+                                {isExpired(item) && (
+                                  <Tag
+                                    color="default"
+                                    className="rounded-full px-3 py-1 font-semibold text-xs m-0 self-start"
+                                  >
+                                    EXPIRED
+                                  </Tag>
+                                )}
                               </div>
 
                               <div className="flex items-stretch gap-4">
@@ -2995,7 +3019,8 @@ function DriverDashboardPage() {
                                 </div>
                                 <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
                                   {item.status === "scheduled" &&
-                                    now.isAfter(dayjs(item.departureAt).subtract(15, "minute")) && (
+                                    now.isAfter(dayjs(item.departureAt).subtract(15, "minute")) &&
+                                    !now.isAfter(dayjs(item.departureAt).add(45, "minute")) && (
                                       <Button
                                         type="primary"
                                         size="small"
@@ -3365,12 +3390,20 @@ function DriverDashboardPage() {
                                   <div className="flex flex-wrap items-center justify-between gap-2">
                                     <div className="flex items-center gap-2 shrink-0 flex-wrap">
                                       {trip.status === "scheduled" &&
-                                      now.isAfter(dayjs(trip.departureAt)) ? (
+                                      now.isAfter(dayjs(trip.departureAt)) &&
+                                      !now.isAfter(dayjs(trip.departureAt).add(45, "minute")) ? (
                                         <Tag
                                           color="error"
                                           className="rounded-full m-0 font-semibold whitespace-nowrap"
                                         >
                                           TIME IS UP — START NOW
+                                        </Tag>
+                                      ) : isExpired(trip) ? (
+                                        <Tag
+                                          color="default"
+                                          className="rounded-full m-0 font-semibold whitespace-nowrap"
+                                        >
+                                          EXPIRED
                                         </Tag>
                                       ) : (
                                         <Tag
@@ -3402,7 +3435,8 @@ function DriverDashboardPage() {
                                       {trip.status === "scheduled" &&
                                         now.isAfter(
                                           dayjs(trip.departureAt).subtract(15, "minute"),
-                                        ) && (
+                                        ) &&
+                                        !now.isAfter(dayjs(trip.departureAt).add(45, "minute")) && (
                                           <Button
                                             type="primary"
                                             size="small"
