@@ -340,7 +340,9 @@ export function HostManagementPanel() {
               <div className="text-muted-foreground">License: {selected.licenseNumber || "—"}</div>
               <div className="text-muted-foreground">City: {selected.city || "—"}</div>
               {selected.bio && <div className="text-muted-foreground">Bio: {selected.bio}</div>}
-              <div className="text-muted-foreground break-all">User ID: {selected.userId}</div>
+              <div className="text-muted-foreground">
+                Member ID: {selected.memberCode || <span className="break-all">{selected.userId}</span>}
+              </div>
               <div className="font-semibold text-emerald-700 pt-1">
                 Net earnings (completed): ₹{detail.netEarnings.toLocaleString("en-IN")}
               </div>

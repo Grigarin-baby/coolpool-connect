@@ -267,7 +267,9 @@ export function GuestManagementPanel() {
                 )}
               </div>
               <div className="text-muted-foreground">Phone: {selected.phone || "—"}</div>
-              <div className="text-muted-foreground break-all">User ID: {selected.userId}</div>
+              <div className="text-muted-foreground">
+                Member ID: {selected.memberCode || <span className="break-all">{selected.userId}</span>}
+              </div>
               <div className="text-muted-foreground">{selected.bookings.length} booking(s)</div>
             </div>
 
