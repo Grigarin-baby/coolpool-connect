@@ -1310,6 +1310,25 @@ export async function upsertDriverVehicle(input: CreateDriverVehicleInput): Prom
   return toDriverVehicle(created);
 }
 
+/** Writes member_code onto a driver doc that was created before the code was assigned. */
+export async function patchDriverProfileMemberCode(
+  userId: string,
+  memberCode: string,
+): Promise<void> {
+  const c = ids();
+  const existing = await databases.listDocuments(appwriteConfig.databaseId, c.drivers, [
+    Query.equal("user_id", userId),
+    Query.limit(1),
+  ]);
+  if (existing.total === 0 || existing.documents[0].member_code) return;
+  await databases.updateDocument(
+    appwriteConfig.databaseId,
+    c.drivers,
+    existing.documents[0].$id,
+    { member_code: memberCode },
+  );
+}
+
 export async function listDriverProfiles(): Promise<DriverProfile[]> {
   const c = ids();
   const result = await databases.listDocuments(appwriteConfig.databaseId, c.drivers, [

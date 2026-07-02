@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
 import { ID, OAuthProvider, type Models } from "appwrite";
 import { account } from "@/integrations/appwrite/client";
-import { listUserRoles, assignRole, upsertDriverProfile } from "@/data/appwrite-repository";
+import { listUserRoles, assignRole, upsertDriverProfile, patchDriverProfileMemberCode } from "@/data/appwrite-repository";
 import type { AppRole } from "@/lib/domain";
 import { parseTravelerResumeRedirectParam } from "@/lib/travelerResumeRedirect";
 import {
@@ -104,6 +104,10 @@ async function backfillMemberCode(currentUser: AppwriteUser): Promise<AppwriteUs
     const gender = typeof prefs.gender === "string" ? prefs.gender : undefined;
     const { code } = await mintMemberCode({ data: { role, gender } });
     await account.updatePrefs({ ...prefs, memberCode: code });
+    // Also sync to the driver doc so the admin panel shows the code immediately.
+    if (role === "host") {
+      void patchDriverProfileMemberCode(currentUser.$id, code).catch(() => {});
+    }
     return await account.get();
   } catch {
     return currentUser;
