@@ -584,6 +584,7 @@ function toDeletedAccount(doc: any): DeletedAccount {
     phone: String(doc.phone || ""),
     email: String(doc.email || ""),
     roles: String(doc.roles || ""),
+    memberCode: doc.member_code ? String(doc.member_code) : null,
     deletedAt: String(doc.deleted_at || doc.$createdAt || ""),
   };
 }

@@ -129,6 +129,7 @@ export const deleteOwnAccount = createServerFn({ method: "POST" })
         phone: me.phone || String(prefs.phone ?? ""),
         email: me.email || String(prefs.email ?? ""),
         roles,
+        member_code: typeof prefs.memberCode === "string" ? prefs.memberCode : null,
         deleted_at: new Date().toISOString(),
       });
     } catch {

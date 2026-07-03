@@ -22,6 +22,7 @@ export function DeletedAccountsPanel() {
         (a.fullName || "").toLowerCase().includes(q) ||
         (a.email || "").toLowerCase().includes(q) ||
         (a.phone || "").toLowerCase().includes(q) ||
+        (a.memberCode || "").toLowerCase().includes(q) ||
         (a.userId || "").toLowerCase().includes(q),
     );
   }, [accounts, search]);
@@ -35,6 +36,13 @@ export function DeletedAccountsPanel() {
     },
     { title: "Phone", dataIndex: "phone", key: "phone", render: (v: string) => v || "—" },
     { title: "Email", dataIndex: "email", key: "email", render: (v: string) => v || "—" },
+    {
+      title: "Account ID",
+      dataIndex: "memberCode",
+      key: "memberCode",
+      render: (v: string) =>
+        v ? <span className="font-mono text-xs">{v}</span> : <span className="text-gray-400">—</span>,
+    },
     {
       title: "Roles",
       dataIndex: "roles",
@@ -78,7 +86,7 @@ export function DeletedAccountsPanel() {
         <div className="p-4">
           <Input.Search
             allowClear
-            placeholder="Search by name, email, phone, or user ID…"
+            placeholder="Search by name, email, phone, account ID, or user ID…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             style={{ maxWidth: 420 }}

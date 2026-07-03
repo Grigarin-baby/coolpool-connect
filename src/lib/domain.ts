@@ -103,6 +103,8 @@ export interface DeletedAccount {
   phone: string;
   email: string;
   roles: string;
+  /** Human-readable account ID (e.g. "2606-CPGM-0001"). Null for accounts deleted before this was archived. */
+  memberCode?: string | null;
   deletedAt: string;
 }
 
