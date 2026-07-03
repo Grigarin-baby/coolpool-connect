@@ -491,24 +491,8 @@ export function PayoutsPanel() {
               title: "Trip",
               key: "trip",
               render: (_, r) =>
-                r.tripRoute || r.tripId ? (
-                  <div>
-                    {r.tripRoute && <div className="text-sm font-semibold">{r.tripRoute}</div>}
-                    {r.tripDate && (
-                      <div className="text-xs text-muted-foreground">
-                        {new Date(r.tripDate).toLocaleDateString("en-IN", {
-                          day: "numeric",
-                          month: "short",
-                          year: "numeric",
-                        })}
-                      </div>
-                    )}
-                    {tripCodeFor(r.tripId) && (
-                      <div className="text-xs text-muted-foreground font-mono">
-                        {tripCodeFor(r.tripId)}
-                      </div>
-                    )}
-                  </div>
+                tripCodeFor(r.tripId) ? (
+                  <Text className="font-mono text-sm">{tripCodeFor(r.tripId)}</Text>
                 ) : (
                   <Text type="secondary">—</Text>
                 ),
@@ -611,24 +595,8 @@ export function PayoutsPanel() {
               title: "Trip",
               key: "trip",
               render: (_, r) =>
-                r.tripRoute || r.tripId ? (
-                  <div>
-                    {r.tripRoute && <div className="text-sm font-semibold">{r.tripRoute}</div>}
-                    {r.tripDate && (
-                      <div className="text-xs text-muted-foreground">
-                        {new Date(r.tripDate).toLocaleDateString("en-IN", {
-                          day: "numeric",
-                          month: "short",
-                          year: "numeric",
-                        })}
-                      </div>
-                    )}
-                    {tripCodeFor(r.tripId) && (
-                      <div className="text-xs text-muted-foreground font-mono">
-                        {tripCodeFor(r.tripId)}
-                      </div>
-                    )}
-                  </div>
+                tripCodeFor(r.tripId) ? (
+                  <Text className="font-mono text-sm">{tripCodeFor(r.tripId)}</Text>
                 ) : (
                   <Text type="secondary">—</Text>
                 ),
