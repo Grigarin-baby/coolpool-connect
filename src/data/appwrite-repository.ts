@@ -349,6 +349,22 @@ export async function getTripById(tripId: string): Promise<Trip> {
   return toTrip(doc);
 }
 
+/**
+ * Look up a trip by its human-readable code (e.g. "2606-CPTR-0001"), used for
+ * shareable /ride/<code> links. Relies on the `idx_trip_code` index on the
+ * trips collection. Codes are stored uppercase, so we normalize the input.
+ */
+export async function getTripByCode(tripCode: string): Promise<Trip> {
+  const c = ids();
+  const result = await databases.listDocuments(appwriteConfig.databaseId, c.trips, [
+    Query.equal("trip_code", tripCode.trim().toUpperCase()),
+    Query.limit(1),
+  ]);
+  const doc = result.documents[0];
+  if (!doc) throw new Error("Trip not found");
+  return toTrip(doc);
+}
+
 export async function listTripStops(tripId: string): Promise<TripStop[]> {
   const c = ids();
   const result = await databases.listDocuments(appwriteConfig.databaseId, c.tripStops, [

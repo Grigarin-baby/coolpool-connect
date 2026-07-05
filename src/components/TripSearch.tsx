@@ -1148,6 +1148,7 @@ export function TripSearchForm({ variant, id }: { variant: "landing" | "page"; i
  */
 function TripResultRowBody({
   tripId,
+  tripCode,
   fromLabel,
   toLabel,
   isSegment = false,
@@ -1165,6 +1166,7 @@ function TripResultRowBody({
   prefs,
 }: {
   tripId: string;
+  tripCode?: string | null;
   fromLabel: string;
   toLabel: string;
   isSegment?: boolean;
@@ -1186,13 +1188,13 @@ function TripResultRowBody({
   const handleShare = async (e: MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    const result = await shareTrip({ id: tripId, fromLocation: fromLabel, toLocation: toLabel });
+    const result = await shareTrip({ id: tripId, tripCode, fromLocation: fromLabel, toLocation: toLabel });
     const { toast } = await import("sonner");
     if (result === "copied") {
       toast.success("Trip link copied to clipboard!");
     } else if (result === "failed") {
       toast.info("Copy this link to share", {
-        description: getTripShareUrl(tripId),
+        description: getTripShareUrl(tripCode ?? tripId),
         duration: 8000,
       });
     }
@@ -1500,7 +1502,7 @@ export function TripSearchResults({ variant }: { variant: "landing" | "page" }) 
                 <Link
                   key={trip.id}
                   to="/ride/$tripId"
-                  params={{ tripId: trip.id }}
+                  params={{ tripId: trip.tripCode ?? trip.id }}
                   search={{
                     fromStopIndex: seg.fromStop.stopIndex,
                     toStopIndex: seg.toStop.stopIndex,
@@ -1512,6 +1514,7 @@ export function TripSearchResults({ variant }: { variant: "landing" | "page" }) 
                 >
                   <TripResultRowBody
                     tripId={trip.id}
+                    tripCode={trip.tripCode}
                     fromLabel={seg.fromStop.location}
                     toLabel={seg.toStop.location}
                     topSlot={
@@ -1584,7 +1587,7 @@ export function TripSearchResults({ variant }: { variant: "landing" | "page" }) 
                 <Link
                   key={trip.id}
                   to="/ride/$tripId"
-                  params={{ tripId: trip.id }}
+                  params={{ tripId: trip.tripCode ?? trip.id }}
                   search={{
                     fromStopIndex: seg.fromStop.stopIndex,
                     toStopIndex: seg.toStop.stopIndex,
@@ -1596,6 +1599,7 @@ export function TripSearchResults({ variant }: { variant: "landing" | "page" }) 
                 >
                   <TripResultRowBody
                     tripId={trip.id}
+                    tripCode={trip.tripCode}
                     fromLabel={seg.fromStop.location}
                     toLabel={seg.toStop.location}
                     topSlot={
@@ -1675,7 +1679,7 @@ export function TripSearchResults({ variant }: { variant: "landing" | "page" }) 
                 <Link
                   key={trip.id}
                   to="/ride/$tripId"
-                  params={{ tripId: trip.id }}
+                  params={{ tripId: trip.tripCode ?? trip.id }}
                   search={{
                     fromStopIndex: segment.fromStopIndex,
                     toStopIndex: segment.toStopIndex,
@@ -1687,6 +1691,7 @@ export function TripSearchResults({ variant }: { variant: "landing" | "page" }) 
                 >
                   <TripResultRowBody
                     tripId={trip.id}
+                    tripCode={trip.tripCode}
                     fromLabel={segment.fromLabel}
                     toLabel={segment.toLabel}
                     isSegment={!isFullRoute}
@@ -1732,7 +1737,7 @@ export function TripSearchResults({ variant }: { variant: "landing" | "page" }) 
                       <Link
                         key={trip.id}
                         to="/ride/$tripId"
-                        params={{ tripId: trip.id }}
+                        params={{ tripId: trip.tripCode ?? trip.id }}
                         className="block group"
                       >
                         <Card className="rounded-2xl border border-gray-100 bg-white shadow-sm hover:shadow-md hover:border-primary transition-all duration-200 p-3 sm:p-4">

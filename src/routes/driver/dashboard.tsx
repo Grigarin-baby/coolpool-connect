@@ -675,14 +675,16 @@ function DriverDashboardPage() {
     setWizardOpen(true);
   };
 
-  const handleShareTrip = async (trip: Pick<Trip, "id" | "fromLocation" | "toLocation">) => {
+  const handleShareTrip = async (
+    trip: Pick<Trip, "id" | "fromLocation" | "toLocation"> & { tripCode?: string | null },
+  ) => {
     const result = await shareTrip(trip);
     if (result === "copied") {
       message.success("Trip link copied to clipboard!");
     } else if (result === "failed") {
       // Clipboard/share blocked (e.g. inside an iframe) — show the link to copy manually.
       message.info({
-        content: `Copy this link to share: ${getTripShareUrl(trip.id)}`,
+        content: `Copy this link to share: ${getTripShareUrl(trip.tripCode ?? trip.id)}`,
         duration: 8,
       });
     }

@@ -4,11 +4,15 @@ export function getTripShareUrl(tripId: string): string {
   return `${window.location.origin}/ride/${tripId}`;
 }
 
-export async function shareTrip(trip: Pick<Trip, "id" | "fromLocation" | "toLocation">): Promise<"shared" | "copied" | "failed"> {
+export async function shareTrip(
+  trip: Pick<Trip, "id" | "fromLocation" | "toLocation"> & { tripCode?: string | null },
+): Promise<"shared" | "copied" | "failed"> {
   return shareLink({
     title: "Coolpool ride",
     text: `Join my ride from ${trip.fromLocation} to ${trip.toLocation} on Coolpool!`,
-    url: getTripShareUrl(trip.id),
+    // Prefer the human-readable code (e.g. 2606-CPTR-0001); fall back to the raw
+    // id for older trips created before codes existed.
+    url: getTripShareUrl(trip.tripCode ?? trip.id),
   });
 }
 

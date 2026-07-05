@@ -594,7 +594,7 @@ function TripsPage() {
                           className="w-full rounded-2xl"
                           onClick={(e) => e.stopPropagation()}
                         >
-                          <Link to="/ride/$tripId" params={{ tripId: trip.id }}>
+                          <Link to="/ride/$tripId" params={{ tripId: trip.tripCode ?? trip.id }}>
                             Open ride page
                           </Link>
                         </Button>

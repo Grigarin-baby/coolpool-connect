@@ -45,6 +45,7 @@ import {
   listReviewsForUser,
   listTripSeatReservations,
   listTripStops,
+  getTripByCode,
 } from "@/data/appwrite-repository";
 import { appwriteConfig } from "@/integrations/appwrite/client";
 import { formatCurrency } from "@/lib/pricing";
@@ -102,9 +103,11 @@ function RideInfoPage() {
   const [pickedFromIndex, setPickedFromIndex] = useState<number | null>(null);
   const [pickedToIndex, setPickedToIndex] = useState<number | null>(null);
 
+  // The URL param may be a human-readable trip code (e.g. 2606-CPTR-0001) from a
+  // shared link, or a raw Appwrite id from older links — resolve either.
   const tripQuery = useQuery({
     queryKey: ["trip", tripId],
-    queryFn: () => getTripById(tripId),
+    queryFn: () => (/-CPTR-/i.test(tripId) ? getTripByCode(tripId) : getTripById(tripId)),
   });
   const trip = tripQuery.data;
 
@@ -292,7 +295,7 @@ function RideInfoPage() {
                 toast.success("Trip link copied to clipboard!");
               } else if (result === "failed") {
                 toast.info("Copy this link to share", {
-                  description: getTripShareUrl(trip.id),
+                  description: getTripShareUrl(trip.tripCode ?? trip.id),
                   duration: 8000,
                 });
               }
