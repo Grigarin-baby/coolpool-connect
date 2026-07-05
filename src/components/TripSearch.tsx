@@ -1255,7 +1255,7 @@ function TripResultRowBody({
             type="button"
             onClick={handleShare}
             aria-label="Share this ride"
-            className="mb-1.5 inline-flex h-8 w-8 items-center justify-center rounded-full bg-gray-50 text-gray-400 transition-colors hover:bg-primary/10 hover:text-primary"
+            className="mb-3 inline-flex h-8 w-8 items-center justify-center rounded-full bg-gray-50 text-gray-400 transition-colors hover:bg-primary/10 hover:text-primary"
           >
             <Share2 size={15} />
           </button>
