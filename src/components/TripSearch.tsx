@@ -1248,20 +1248,23 @@ function TripResultRowBody({
           </div>
         </div>
 
-        {/* Share + price + seats — right. Share sits in the column flow (not a
-            floating corner button) so it never overlaps the price. */}
+        {/* Share + price + seats — right. Share sits BESIDE the price on one
+            line (not stacked above it), so the two can never vertically
+            overlap regardless of font metrics or card height. */}
         <div className="flex shrink-0 flex-col items-end justify-center text-right">
-          <button
-            type="button"
-            onClick={handleShare}
-            aria-label="Share this ride"
-            className="mb-3 inline-flex h-8 w-8 items-center justify-center rounded-full bg-gray-50 text-gray-400 transition-colors hover:bg-primary/10 hover:text-primary"
-          >
-            <Share2 size={15} />
-          </button>
-          <p className="whitespace-nowrap text-2xl font-black leading-none text-gradient-primary sm:text-3xl">
-            {formatCurrency(price)}
-          </p>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleShare}
+              aria-label="Share this ride"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-gray-50 text-gray-400 transition-colors hover:bg-primary/10 hover:text-primary"
+            >
+              <Share2 size={15} />
+            </button>
+            <p className="whitespace-nowrap text-2xl font-black leading-tight text-gradient-primary sm:text-3xl">
+              {formatCurrency(price)}
+            </p>
+          </div>
           <p className="mt-1.5 whitespace-nowrap text-xs font-bold">
             {soldOut ? (
               <span className="text-destructive">Sold out</span>
