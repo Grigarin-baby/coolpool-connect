@@ -1,4 +1,4 @@
-import { TrendingUp, ArrowRight, ArrowDown } from "lucide-react";
+import { TrendingUp, ArrowRight } from "lucide-react";
 
 const TRENDING_ROUTES: { from: string; to: string }[] = [
   { from: "Bengaluru", to: "Hyderabad" },
@@ -31,7 +31,7 @@ export function DynamicTrendingRoutes() {
         <TrendingUp className="h-5 w-5 text-primary/40" />
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         {TRENDING_ROUTES.map((route, i) => (
           <button
             key={`${route.from}-${route.to}`}
@@ -55,15 +55,18 @@ export function DynamicTrendingRoutes() {
               <ArrowRight className="h-3.5 w-3.5 text-gray-300 transition-all duration-300 group-hover:translate-x-1 group-hover:text-primary" />
             </div>
 
-            {/* Mobile: stack from ↓ to vertically so long names never wrap.
-                Desktop (sm+): side-by-side with → arrow. */}
-            <div className="flex flex-col gap-0.5 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-2">
-              <span className="text-lg sm:text-2xl lg:text-3xl font-black leading-tight tracking-tight text-gray-900 truncate">
+            {/* from → to on a single line at every size. The mobile font is
+                fluid (clamp) so long names shrink to fit instead of wrapping to
+                a second row; sm+ keeps fixed sizes. */}
+            <div className="flex flex-row items-center gap-x-2 min-w-0">
+              <span className="min-w-0 truncate whitespace-nowrap text-[clamp(1.05rem,5vw,1.6rem)] sm:text-2xl lg:text-3xl font-black leading-tight tracking-tight text-gray-900">
                 {route.from}
               </span>
-              <ArrowDown className="h-4 w-4 shrink-0 text-primary sm:hidden" strokeWidth={3} />
-              <ArrowRight className="hidden sm:block h-5 w-5 lg:h-7 lg:w-7 shrink-0 text-primary" strokeWidth={3} />
-              <span className="text-lg sm:text-2xl lg:text-3xl font-black leading-tight tracking-tight truncate text-gradient-primary">
+              <ArrowRight
+                className="h-5 w-5 lg:h-7 lg:w-7 shrink-0 text-primary"
+                strokeWidth={3}
+              />
+              <span className="min-w-0 truncate whitespace-nowrap text-[clamp(1.05rem,5vw,1.6rem)] sm:text-2xl lg:text-3xl font-black leading-tight tracking-tight text-gradient-primary">
                 {route.to}
               </span>
             </div>
