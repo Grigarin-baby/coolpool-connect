@@ -1202,14 +1202,6 @@ function TripResultRowBody({
 
   return (
     <Card className="relative rounded-2xl border border-gray-100 bg-white shadow-sm hover:shadow-md hover:border-primary transition-all duration-200 p-4 sm:p-5">
-      <button
-        type="button"
-        onClick={handleShare}
-        aria-label="Share this ride"
-        className="absolute right-3 top-3 z-10 inline-flex h-8 w-8 items-center justify-center rounded-full bg-gray-50 text-gray-400 transition-colors hover:bg-primary/10 hover:text-primary"
-      >
-        <Share2 size={15} />
-      </button>
       {topSlot}
       <div className="flex items-stretch gap-4 sm:gap-5">
         {/* Times — left: green departure, red arrival */}
@@ -1256,8 +1248,17 @@ function TripResultRowBody({
           </div>
         </div>
 
-        {/* Price + seats — right */}
+        {/* Share + price + seats — right. Share sits in the column flow (not a
+            floating corner button) so it never overlaps the price. */}
         <div className="flex shrink-0 flex-col items-end justify-center text-right">
+          <button
+            type="button"
+            onClick={handleShare}
+            aria-label="Share this ride"
+            className="mb-1.5 inline-flex h-8 w-8 items-center justify-center rounded-full bg-gray-50 text-gray-400 transition-colors hover:bg-primary/10 hover:text-primary"
+          >
+            <Share2 size={15} />
+          </button>
           <p className="whitespace-nowrap text-2xl font-black leading-none text-gradient-primary sm:text-3xl">
             {formatCurrency(price)}
           </p>
