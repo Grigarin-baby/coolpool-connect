@@ -11,6 +11,8 @@ import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { parseTravelerResumeRedirectParam } from "@/lib/travelerResumeRedirect";
 import { GoogleLoginButton } from "@/components/GoogleLoginButton";
+import { OtpDigitsField } from "@/components/OtpDigitsField";
+import { useResendCooldown } from "@/hooks/useResendCooldown";
 
 export const Route = createFileRoute("/members")({
   validateSearch: (search: Record<string, unknown>) => ({
@@ -113,6 +115,8 @@ function MembersPage() {
     signInWithPhonePassword,
     signUpWithPhonePassword,
     requestPasswordRecovery,
+    sendSignupOtp,
+    verifySignupOtp,
   } = useAuth();
   const [busy, setBusy] = useState(false);
   const [mode, setMode] = useState<"signin" | "signup">("signin");
@@ -125,6 +129,9 @@ function MembersPage() {
   const [suGender, setSuGender] = useState<"male" | "female" | "">("");
   const [signUpPassword, setSignUpPassword] = useState("");
   const [suEmail, setSuEmail] = useState("");
+  const [suOtpStep, setSuOtpStep] = useState<"form" | "otp">("form");
+  const [suOtpCode, setSuOtpCode] = useState("");
+  const signupOtpCooldown = useResendCooldown();
   const [recoverEmail, setRecoverEmail] = useState("");
   const [showRecover, setShowRecover] = useState(false);
 
@@ -212,6 +219,10 @@ function MembersPage() {
 
   const handleSignUp = async (e: FormEvent) => {
     e.preventDefault();
+    if (!name.trim()) {
+      toast.error("Enter your full name.");
+      return;
+    }
     if (suNumber.replace(/[^\d]/g, "").length < 6) {
       toast.error("Enter a valid phone number.");
       return;
@@ -226,6 +237,37 @@ function MembersPage() {
     }
     setBusy(true);
     try {
+      // Prove phone ownership with an SMS OTP before creating the account.
+      await sendSignupOtp(toE164(suNumber));
+      setSuOtpStep("otp");
+      signupOtpCooldown.start();
+      toast.success(`OTP sent to ${toE164(suNumber)}`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not send the OTP.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleResendSignUpOtp = async () => {
+    setBusy(true);
+    try {
+      await sendSignupOtp(toE164(suNumber));
+      signupOtpCooldown.start();
+      toast.success("OTP resent.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not resend the OTP.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleVerifySignUpOtp = async (e?: FormEvent) => {
+    e?.preventDefault();
+    if (suOtpCode.length !== 4 || busy) return;
+    setBusy(true);
+    try {
+      await verifySignupOtp(toE164(suNumber), suOtpCode);
       await signUpWithPhonePassword(
         name,
         toE164(suNumber),
@@ -234,12 +276,22 @@ function MembersPage() {
         suGender || undefined,
       );
       toast.success("Welcome — you're ready to book.");
+      setSuOtpStep("form");
+      setSuOtpCode("");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Unable to create account.");
+      toast.error(error instanceof Error ? error.message : "Invalid OTP.");
+      setSuOtpCode("");
     } finally {
       setBusy(false);
     }
   };
+
+  // Auto-verify the instant the 4th digit is typed — no extra tap needed.
+  useEffect(() => {
+    if (suOtpStep !== "otp" || suOtpCode.length !== 4 || busy) return;
+    void handleVerifySignUpOtp();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [suOtpCode, suOtpStep]);
 
   const bookingHint = redirect?.startsWith("/booking/");
 
@@ -360,6 +412,8 @@ function MembersPage() {
                     onClick={() => {
                       setMode("signin");
                       setShowRecover(false);
+                      setSuOtpStep("form");
+                      setSuOtpCode("");
                     }}
                   >
                     Sign in
@@ -407,9 +461,10 @@ function MembersPage() {
                       </div>
                       <Button
                         type="submit"
+                        variant="hero"
                         size="lg"
                         style={{ color: "#fff" }}
-                        className="w-full rounded-3xl bg-teal-600 hover:bg-teal-700 dark:bg-teal-600 dark:hover:bg-teal-500"
+                        className="w-full rounded-3xl h-11 font-semibold shadow-glow mt-1"
                         disabled={busy}
                       >
                         {busy ? (
@@ -445,6 +500,50 @@ function MembersPage() {
                       </div>
                     )}
                   </>
+                ) : suOtpStep === "otp" ? (
+                  <div className="mt-6 space-y-4">
+                    <div className="space-y-2 text-center">
+                      <Label className="text-base">Enter the 4-digit code</Label>
+                      <p className="text-sm text-muted-foreground">
+                        Sent to <span className="font-semibold">{toE164(suNumber)}</span>
+                      </p>
+                      <div className="flex justify-center pt-1">
+                        <OtpDigitsField
+                          id="mem-su-otp"
+                          value={suOtpCode}
+                          onChange={setSuOtpCode}
+                          autoFocus
+                          disabled={busy}
+                        />
+                      </div>
+                    </div>
+                    {busy && (
+                      <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+                        <Loader2 className="h-4 w-4 animate-spin" /> Verifying…
+                      </div>
+                    )}
+                    <button
+                      type="button"
+                      className="w-full text-center text-xs font-medium text-primary hover:underline disabled:opacity-50 disabled:no-underline"
+                      disabled={busy || !signupOtpCooldown.canResend}
+                      onClick={handleResendSignUpOtp}
+                    >
+                      {signupOtpCooldown.canResend
+                        ? "Resend OTP"
+                        : `Resend OTP in ${signupOtpCooldown.remaining}s`}
+                    </button>
+                    <button
+                      type="button"
+                      className="w-full text-center text-xs font-medium text-muted-foreground hover:underline"
+                      disabled={busy}
+                      onClick={() => {
+                        setSuOtpStep("form");
+                        setSuOtpCode("");
+                      }}
+                    >
+                      Change number
+                    </button>
+                  </div>
                 ) : (
                   <form onSubmit={handleSignUp} className="mt-6 space-y-2">
                     <div className="space-y-2">
@@ -514,12 +613,13 @@ function MembersPage() {
                     </div>
                     <Button
                       type="submit"
+                      variant="hero"
                       size="lg"
                       style={{ color: "#fff" }}
-                      className="w-full rounded-3xl bg-teal-600 hover:bg-teal-700 dark:bg-teal-600 dark:hover:bg-teal-500"
+                      className="w-full rounded-3xl h-11 font-semibold shadow-glow mt-1"
                       disabled={busy}
                     >
-                      {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Create Account"}
+                      {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Send OTP"}
                     </Button>
                   </form>
                 )}
