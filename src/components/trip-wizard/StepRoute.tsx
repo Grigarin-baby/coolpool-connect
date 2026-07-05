@@ -92,7 +92,25 @@ export function StepRoute({
   const [toSearching, setToSearching] = useState(false);
 
   const directionsRef = useRef<any>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // After a suggestion is chosen the cursor lands at the end of a long place
+  // name, so the single-line box scrolls right and hides the start ("…a Pur").
+  // Snap every field's view back to the first character so the city/area name
+  // is what shows.
+  const showNamesFromStart = useCallback(() => {
+    requestAnimationFrame(() => {
+      cardRef.current?.querySelectorAll<HTMLInputElement>("input").forEach((el) => {
+        try {
+          el.setSelectionRange(0, 0);
+        } catch {
+          /* input type may not support selection — scrollLeft still works */
+        }
+        el.scrollLeft = 0;
+      });
+    });
+  }, []);
   // Hold latest onAlternativesChange in a ref so useEffect doesn't re-run on every render
   const onAlternativesChangeRef = useRef(onAlternativesChange);
   useEffect(() => { onAlternativesChangeRef.current = onAlternativesChange; });
@@ -279,7 +297,8 @@ export function StepRoute({
     const updated = [...current];
     updated[idx] = { ...point, stopType: current[idx]?.stopType ?? "both" };
     onIntermediatePointsChange(updated);
-  }, [stopOptions, onIntermediatePointsChange, resolveCoords]);
+    showNamesFromStart();
+  }, [stopOptions, onIntermediatePointsChange, resolveCoords, showNamesFromStart]);
 
   // ─────────────────────────────────────────────────────────────────────────
 
@@ -296,6 +315,7 @@ export function StepRoute({
       onToChange(point);
       setToText(point.label);
     }
+    showNamesFromStart();
   };
 
   // Stable key that changes only when resolved waypoint coords change
@@ -366,7 +386,10 @@ export function StepRoute({
 
   return (
     <div className="flex flex-col gap-4 px-4 pb-6">
-      <div className="relative space-y-2 rounded-3xl border border-gray-100 bg-white p-4 shadow-sm">
+      <div
+        ref={cardRef}
+        className="relative space-y-2 rounded-3xl border border-gray-100 bg-white p-4 shadow-sm"
+      >
         {/* Pickup */}
         <div className="flex items-center gap-3">
           <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-primary/10 text-primary">

@@ -835,6 +835,23 @@ export function TripSearchForm({ variant, id }: { variant: "landing" | "page"; i
     form.setFieldsValue({ from: to ?? "", to: from ?? "" });
   };
 
+  const closeKeyboard = () => {
+    const el = document.activeElement;
+    if (!(el instanceof HTMLInputElement)) return;
+    el.blur();
+    // A chosen place name is often longer than the box; the cursor sits at its
+    // end, so the field scrolls right and hides the start ("…a Pur"). Snap the
+    // view back to the first character so the city/area name is what shows.
+    requestAnimationFrame(() => {
+      try {
+        el.setSelectionRange(0, 0);
+      } catch {
+        /* input type may not support selection — scrollLeft still works */
+      }
+      el.scrollLeft = 0;
+    });
+  };
+
   if (variant === "page") {
     return (
       <Card
@@ -853,6 +870,7 @@ export function TripSearchForm({ variant, id }: { variant: "landing" | "page"; i
               {...TRIP_SEARCH_AC_POPUP}
               options={fromOptions}
               onSearch={(text) => searchPlaces(text, "from")}
+              onSelect={closeKeyboard}
               placeholder="From"
               className={cn("bg-gray-50 rounded-2xl", TRIP_SEARCH_INPUT_COMPACT)}
               variant="borderless"
@@ -871,6 +889,7 @@ export function TripSearchForm({ variant, id }: { variant: "landing" | "page"; i
               {...TRIP_SEARCH_AC_POPUP}
               options={toOptions}
               onSearch={(text) => searchPlaces(text, "to")}
+              onSelect={closeKeyboard}
               placeholder="To"
               className={cn("bg-gray-50 rounded-2xl", TRIP_SEARCH_INPUT_COMPACT)}
               variant="borderless"
@@ -894,12 +913,6 @@ export function TripSearchForm({ variant, id }: { variant: "landing" | "page"; i
   const selectDate = (date: Dayjs) => {
     form.setFieldsValue({ date });
     form.submit();
-  };
-
-  const closeKeyboard = () => {
-    if (document.activeElement instanceof HTMLInputElement) {
-      document.activeElement.blur();
-    }
   };
 
   return (
