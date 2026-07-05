@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useState, type FormEvent, useEffect } from "react";
-import { Loader2, MapPin, Ticket, Users } from "lucide-react";
+import { Loader2, MapPin, Ticket, Users, UserCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -114,15 +114,19 @@ function MembersPage() {
     roles,
     signInWithPhonePassword,
     signUpWithPhonePassword,
-    requestPasswordRecovery,
     sendSignupOtp,
     verifySignupOtp,
+    sendPasswordResetOtp,
+    resetPasswordWithOtp,
   } = useAuth();
   const [busy, setBusy] = useState(false);
   const [mode, setMode] = useState<"signin" | "signup">("signin");
 
   const [siNumber, setSiNumber] = useState("");
   const [signInPassword, setSignInPassword] = useState("");
+  // Shown when someone tries to sign up with a number that already has an
+  // account — we flip them to Sign in with a friendly, centered notice.
+  const [existingAccountNotice, setExistingAccountNotice] = useState(false);
 
   const [name, setName] = useState("");
   const [suNumber, setSuNumber] = useState("");
@@ -132,22 +136,80 @@ function MembersPage() {
   const [suOtpStep, setSuOtpStep] = useState<"form" | "otp">("form");
   const [suOtpCode, setSuOtpCode] = useState("");
   const signupOtpCooldown = useResendCooldown();
-  const [recoverEmail, setRecoverEmail] = useState("");
-  const [showRecover, setShowRecover] = useState(false);
 
-  const handleForgotPassword = async () => {
-    const email = recoverEmail.trim();
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      toast.error("Enter the email you signed up with.");
+  // Forgot-PIN via phone OTP (works for everyone, no email needed).
+  const [forgotMode, setForgotMode] = useState(false);
+  const [forgotStep, setForgotStep] = useState<"phone" | "otp" | "newpin">("phone");
+  const [forgotNumber, setForgotNumber] = useState("");
+  const [forgotOtp, setForgotOtp] = useState("");
+  const [forgotNewPin, setForgotNewPin] = useState("");
+  const [forgotConfirmPin, setForgotConfirmPin] = useState("");
+  const forgotOtpCooldown = useResendCooldown();
+
+  const resetForgot = () => {
+    setForgotMode(false);
+    setForgotStep("phone");
+    setForgotOtp("");
+    setForgotNewPin("");
+    setForgotConfirmPin("");
+  };
+
+  const handleSendForgotOtp = async (e: FormEvent) => {
+    e.preventDefault();
+    if (forgotNumber.replace(/[^\d]/g, "").length < 6) {
+      toast.error("Enter your registered phone number.");
       return;
     }
     setBusy(true);
     try {
-      await requestPasswordRecovery(email);
-      toast.success("Password reset link sent — check your email inbox.");
-      setShowRecover(false);
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "We couldn't find an account with that email.");
+      await sendPasswordResetOtp(toE164(forgotNumber));
+      setForgotStep("otp");
+      forgotOtpCooldown.start();
+      toast.success(`OTP sent to ${toE164(forgotNumber)}`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not send the OTP.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleResendForgotOtp = async () => {
+    setBusy(true);
+    try {
+      await sendPasswordResetOtp(toE164(forgotNumber));
+      forgotOtpCooldown.start();
+      toast.success("OTP resent.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not resend the OTP.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleResetPasswordWithOtp = async (e: FormEvent) => {
+    e.preventDefault();
+    if (forgotOtp.length !== 4) {
+      toast.error("Enter the 4-digit code.");
+      return;
+    }
+    if (!/^\d{4}$/.test(forgotNewPin)) {
+      toast.error("New PIN must be exactly 4 digits.");
+      return;
+    }
+    if (forgotNewPin !== forgotConfirmPin) {
+      toast.error("PINs don't match.");
+      return;
+    }
+    setBusy(true);
+    try {
+      await resetPasswordWithOtp(toE164(forgotNumber), forgotOtp, forgotNewPin);
+      toast.success("PIN updated — sign in with your new PIN.");
+      setSiNumber(forgotNumber);
+      setSignInPassword("");
+      resetForgot();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not reset your PIN.");
+      setForgotOtp("");
     } finally {
       setBusy(false);
     }
@@ -243,7 +305,19 @@ function MembersPage() {
       signupOtpCooldown.start();
       toast.success(`OTP sent to ${toE164(suNumber)}`);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not send the OTP.");
+      const msg = error instanceof Error ? error.message : "";
+      // Number already has an account — no OTP was sent. Steer them to sign in
+      // with the number pre-filled and a friendly notice, instead of a dead end.
+      if (/already registered|already exists|sign in instead/i.test(msg)) {
+        setSiNumber(suNumber);
+        setSignInPassword("");
+        setExistingAccountNotice(true);
+        resetForgot();
+        setSuOtpStep("form");
+        setMode("signin");
+      } else {
+        toast.error(msg || "Could not send the OTP.");
+      }
     } finally {
       setBusy(false);
     }
@@ -292,6 +366,14 @@ function MembersPage() {
     void handleVerifySignUpOtp();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [suOtpCode, suOtpStep]);
+
+  // Advance the forgot flow to "set a new PIN" the instant the code is entered.
+  // The code itself is re-checked at the final "Update PIN" submit — consuming
+  // it here would burn it before the new PIN is set.
+  useEffect(() => {
+    if (forgotStep !== "otp" || forgotOtp.length !== 4) return;
+    setForgotStep("newpin");
+  }, [forgotOtp, forgotStep]);
 
   const bookingHint = redirect?.startsWith("/booking/");
 
@@ -411,7 +493,7 @@ function MembersPage() {
                     }`}
                     onClick={() => {
                       setMode("signin");
-                      setShowRecover(false);
+                      resetForgot();
                       setSuOtpStep("form");
                       setSuOtpCode("");
                     }}
@@ -427,7 +509,8 @@ function MembersPage() {
                     }`}
                     onClick={() => {
                       setMode("signup");
-                      setShowRecover(false);
+                      resetForgot();
+                      setExistingAccountNotice(false);
                     }}
                   >
                     New traveler
@@ -435,71 +518,181 @@ function MembersPage() {
                 </div>
 
                 {mode === "signin" ? (
-                  <>
-                    <form onSubmit={handleSignIn} className="mt-6 space-y-2">
-                      <PhoneField
-                        id="mem-si-phone"
-                        number={siNumber}
-                        onNumberChange={setSiNumber}
-                      />
-                      <div className="space-y-2">
-                        <Label htmlFor="mem-si-password" className="text-base">
-                          Password
-                        </Label>
-                        <PinField
-                          id="mem-si-password"
-                          value={signInPassword}
-                          onChange={setSignInPassword}
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowRecover((v) => !v)}
-                          className="ml-auto block text-xs font-semibold text-teal-700 dark:text-teal-400 hover:underline"
-                        >
-                          Forgot password?
-                        </button>
-                      </div>
-                      <Button
-                        type="submit"
-                        variant="hero"
-                        size="lg"
-                        style={{ color: "#fff" }}
-                        className="w-full rounded-3xl h-11 font-semibold shadow-glow mt-1"
-                        disabled={busy}
-                      >
-                        {busy ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          "Continue as traveler"
-                        )}
-                      </Button>
-                    </form>
-                    {showRecover && (
-                      <div className="mt-4 space-y-2 rounded-2xl border border-teal-200 bg-teal-50/60 p-4">
-                        <p className="text-sm font-semibold text-gray-800">Reset your password</p>
-                        <p className="text-xs text-gray-500">
-                          Enter the email you added at signup — we&apos;ll send a reset link.
-                        </p>
-                        <div className="flex gap-2">
-                          <Input
-                            type="email"
-                            value={recoverEmail}
-                            onChange={(e) => setRecoverEmail(e.target.value)}
-                            placeholder="you@example.com"
-                            className="h-11 rounded-xl"
+                  forgotMode ? (
+                    <div className="mt-6">
+                      {forgotStep === "phone" ? (
+                        <form onSubmit={handleSendForgotOtp} className="space-y-2">
+                          <p className="text-sm text-muted-foreground">
+                            Enter your registered number — we&apos;ll text a code to reset your PIN.
+                          </p>
+                          <PhoneField
+                            id="mem-forgot-phone"
+                            number={forgotNumber}
+                            onNumberChange={setForgotNumber}
                           />
                           <Button
-                            type="button"
-                            onClick={handleForgotPassword}
+                            type="submit"
+                            variant="hero"
+                            size="lg"
+                            style={{ color: "#fff" }}
+                            className="w-full rounded-3xl h-11 font-semibold shadow-glow mt-1"
                             disabled={busy}
-                            className="h-11 shrink-0 rounded-xl bg-teal-600 text-white hover:bg-teal-700"
                           >
-                            Send
+                            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Send OTP"}
                           </Button>
+                        </form>
+                      ) : forgotStep === "otp" ? (
+                        <div className="space-y-4">
+                          <div className="space-y-2 text-center">
+                            <Label className="text-base">Enter the 4-digit code</Label>
+                            <p className="text-sm text-muted-foreground">
+                              Sent to <span className="font-semibold">{toE164(forgotNumber)}</span>
+                            </p>
+                            <div className="flex justify-center pt-1">
+                              <OtpDigitsField
+                                id="mem-forgot-otp"
+                                value={forgotOtp}
+                                onChange={setForgotOtp}
+                                autoFocus
+                                disabled={busy}
+                              />
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            className="w-full text-center text-xs font-medium text-primary hover:underline disabled:opacity-50 disabled:no-underline"
+                            disabled={busy || !forgotOtpCooldown.canResend}
+                            onClick={handleResendForgotOtp}
+                          >
+                            {forgotOtpCooldown.canResend
+                              ? "Resend OTP"
+                              : `Resend OTP in ${forgotOtpCooldown.remaining}s`}
+                          </button>
+                          <button
+                            type="button"
+                            className="w-full text-center text-xs font-medium text-muted-foreground hover:underline"
+                            disabled={busy}
+                            onClick={() => {
+                              setForgotStep("phone");
+                              setForgotOtp("");
+                            }}
+                          >
+                            Change number
+                          </button>
                         </div>
-                      </div>
-                    )}
-                  </>
+                      ) : (
+                        <form onSubmit={handleResetPasswordWithOtp} className="space-y-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="mem-forgot-new-pin" className="text-base">
+                              New 4-digit PIN
+                            </Label>
+                            <PinField
+                              id="mem-forgot-new-pin"
+                              value={forgotNewPin}
+                              onChange={setForgotNewPin}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="mem-forgot-confirm-pin" className="text-base">
+                              Confirm new PIN
+                            </Label>
+                            <PinField
+                              id="mem-forgot-confirm-pin"
+                              value={forgotConfirmPin}
+                              onChange={setForgotConfirmPin}
+                            />
+                          </div>
+                          <Button
+                            type="submit"
+                            variant="hero"
+                            size="lg"
+                            style={{ color: "#fff" }}
+                            className="w-full rounded-3xl h-11 font-semibold shadow-glow mt-1"
+                            disabled={busy}
+                          >
+                            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Update PIN"}
+                          </Button>
+                        </form>
+                      )}
+                      <button
+                        type="button"
+                        className="mt-4 w-full text-center text-sm font-medium text-primary hover:underline"
+                        onClick={resetForgot}
+                      >
+                        Back to sign in
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      {existingAccountNotice && (
+                        <div className="mt-6 rounded-2xl border border-teal-500/30 bg-teal-50/70 p-4 text-center dark:bg-teal-500/10">
+                          <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-white dark:bg-card">
+                            <UserCheck className="h-5 w-5 text-teal-700 dark:text-teal-300" />
+                          </div>
+                          <p className="text-sm font-semibold text-teal-800 dark:text-teal-200">
+                            You already have an account
+                          </p>
+                          <p className="mt-1 text-xs text-teal-700/90 dark:text-teal-300/90">
+                            {toE164(siNumber)} is registered. Enter your 4-digit PIN to sign in.
+                          </p>
+                        </div>
+                      )}
+                      <form onSubmit={handleSignIn} className="mt-6 space-y-2">
+                        <PhoneField
+                          id="mem-si-phone"
+                          number={siNumber}
+                          onNumberChange={setSiNumber}
+                        />
+                        <div className="space-y-2">
+                          <Label htmlFor="mem-si-password" className="text-base">
+                            Password
+                          </Label>
+                          <PinField
+                            id="mem-si-password"
+                            value={signInPassword}
+                            onChange={setSignInPassword}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setForgotNumber(siNumber);
+                              setForgotStep("phone");
+                              setForgotMode(true);
+                            }}
+                            className="ml-auto block text-xs font-semibold text-teal-700 dark:text-teal-400 hover:underline"
+                          >
+                            Forgot your PIN?
+                          </button>
+                        </div>
+                        <Button
+                          type="submit"
+                          variant="hero"
+                          size="lg"
+                          style={{ color: "#fff" }}
+                          className="w-full rounded-3xl h-11 font-semibold shadow-glow mt-1"
+                          disabled={busy}
+                        >
+                          {busy ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            "Continue as traveler"
+                          )}
+                        </Button>
+                      </form>
+                      {existingAccountNotice && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setExistingAccountNotice(false);
+                            setMode("signup");
+                          }}
+                          className="mt-4 w-full text-center text-xs font-medium text-muted-foreground hover:underline"
+                        >
+                          Not you? Use a different number
+                        </button>
+                      )}
+                    </>
+                  )
                 ) : suOtpStep === "otp" ? (
                   <div className="mt-6 space-y-4">
                     <div className="space-y-2 text-center">

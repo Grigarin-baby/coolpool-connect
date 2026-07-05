@@ -139,6 +139,18 @@ export const sendPowerstextOtp = createServerFn({ method: "POST" })
     const { db, otpCol } = appwriteEnv();
     const databases = new Databases(adminClient());
 
+    // Block signup for a number that already has an account — before any SMS is
+    // sent — so the user is steered to sign in instead of wasting an OTP and
+    // hitting a 409 only after verifying. (login/password_reset need the number
+    // to exist, so they are intentionally not checked here.)
+    if (data.purpose === "signup") {
+      const users = new Users(adminClient());
+      const existing = await users.list([Query.equal("phone", data.phone), Query.limit(1)]);
+      if (existing.total > 0) {
+        throw new Error("This phone number is already registered. Please sign in instead.");
+      }
+    }
+
     const code = generateOtp();
     const expiresAt = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60_000).toISOString();
     const docId = otpDocId(data.phone, data.purpose);

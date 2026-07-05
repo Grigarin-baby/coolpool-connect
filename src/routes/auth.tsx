@@ -258,7 +258,17 @@ function AuthPage() {
       signupOtpCooldown.start();
       toast.success(`OTP sent to ${toE164(suNumber)}`);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not send the OTP.");
+      const msg = error instanceof Error ? error.message : "";
+      // Number already has an account — no OTP was sent. Flip to Login with the
+      // number pre-filled instead of a dead end.
+      if (/already registered|already exists|sign in instead/i.test(msg)) {
+        toast.error("This number already has an account — please log in.");
+        setSiNumber(suNumber);
+        setSignInPassword("");
+        setTab("login");
+      } else {
+        toast.error(msg || "Could not send the OTP.");
+      }
     } finally {
       setBusy(false);
     }
