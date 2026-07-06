@@ -166,41 +166,48 @@ function AdminDashboardPage() {
           className="border-r border-border/60 backdrop-blur-xl hidden lg:block"
           style={{ position: "sticky", top: 0, height: "100vh", left: 0, zIndex: 100 }}
         >
-          <div className="p-6 text-center">
-            <img src={logo} alt="Coolpool Logo" className="h-28 w-auto mx-auto object-contain" />
-          </div>
+          {/* 3-part column: fixed logo, scrollable menu, fixed traffic card.
+              The menu scrolls on short windows so every item stays reachable,
+              and the bottom card can no longer overlap menu items. */}
+          <div className="flex h-full flex-col">
+            <div className="shrink-0 p-6 text-center">
+              <img src={logo} alt="Coolpool Logo" className="h-28 w-auto mx-auto object-contain" />
+            </div>
 
-          <Menu
-            mode="inline"
-            selectedKeys={[activeModule]}
-            onClick={({ key }) => setActiveModule(key)}
-            className="border-none px-3 mt-2"
-            items={[
-              { key: "overview",  icon: <LayoutDashboard size={20} />, label: "Overview" },
-              { key: "guests",    icon: <Ticket size={20} />,          label: "Guest Management" },
-              { key: "hosts",     icon: <Car size={20} />,             label: "Host Management" },
-              { key: "trips",     icon: <RouteIcon size={20} />,       label: "Trip Manager" },
-              { key: "bookings",  icon: <Ticket size={20} />,          label: "Booking Manager" },
-              { key: "payouts",   icon: <Wallet size={20} />,          label: "Payouts" },
-              { key: "banners",   icon: <ImageIcon size={20} />,       label: "Banners Manager" },
-              { key: "deleted",   icon: <UserX size={20} />,           label: "Deleted Accounts" },
-            ]}
-          />
+            <div className="admin-sider-scroll min-h-0 flex-1 overflow-y-auto">
+              <Menu
+                mode="inline"
+                selectedKeys={[activeModule]}
+                onClick={({ key }) => setActiveModule(key)}
+                className="border-none px-3 mt-2"
+                items={[
+                  { key: "overview",  icon: <LayoutDashboard size={20} />, label: "Overview" },
+                  { key: "guests",    icon: <Ticket size={20} />,          label: "Guest Management" },
+                  { key: "hosts",     icon: <Car size={20} />,             label: "Host Management" },
+                  { key: "trips",     icon: <RouteIcon size={20} />,       label: "Trip Manager" },
+                  { key: "bookings",  icon: <Ticket size={20} />,          label: "Booking Manager" },
+                  { key: "payouts",   icon: <Wallet size={20} />,          label: "Payouts" },
+                  { key: "banners",   icon: <ImageIcon size={20} />,       label: "Banners Manager" },
+                  { key: "deleted",   icon: <UserX size={20} />,           label: "Deleted Accounts" },
+                ]}
+              />
+            </div>
 
-          <div className="absolute bottom-0 left-0 right-0 p-5">
-            <Card className="rounded-3xl bg-secondary/40 border-none backdrop-blur-md">
-              <div className="flex items-center gap-4">
-                <Badge count={trips.length} overflowCount={99} color="#6b46c1">
-                  <Avatar size={44} icon={<Activity size={18} />} className="bg-primary/20 text-primary" />
-                </Badge>
-                <div>
-                  <p className="text-sm text-muted-foreground">Active Traffic</p>
-                  <p className="text-xl font-bold leading-tight">
-                    {tripsLoading ? "…" : trips.length} routes
-                  </p>
+            <div className="shrink-0 p-5">
+              <Card className="rounded-3xl bg-secondary/40 border-none backdrop-blur-md">
+                <div className="flex items-center gap-4">
+                  <Badge count={trips.length} overflowCount={99} color="#6b46c1">
+                    <Avatar size={44} icon={<Activity size={18} />} className="bg-primary/20 text-primary" />
+                  </Badge>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Active Traffic</p>
+                    <p className="text-xl font-bold leading-tight">
+                      {tripsLoading ? "…" : trips.length} routes
+                    </p>
+                  </div>
                 </div>
-              </div>
-            </Card>
+              </Card>
+            </div>
           </div>
         </Sider>
 
