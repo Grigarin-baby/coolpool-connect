@@ -428,6 +428,11 @@ export function StepRoute({
     [alternatives],
   );
 
+  // Ask for the endpoints first: the intermediate-stop UI stays hidden until
+  // both pickup and drop-off are chosen (or the trip already has stops, e.g.
+  // when editing).
+  const showStopsUi = (!!from && !!to) || stopTexts.length > 0;
+
   return (
     <div className="flex flex-col gap-4 px-4 pb-6">
       <div
@@ -462,7 +467,7 @@ export function StepRoute({
         </div>
 
         {/* Intermediate stops */}
-        {stopTexts.map((txt, idx) => {
+        {showStopsUi && stopTexts.map((txt, idx) => {
           return (
             <div key={idx}>
               <div className="ml-[1.125rem] my-1 flex items-center text-gray-300">
@@ -504,22 +509,27 @@ export function StepRoute({
         })}
 
 
-        {/* Arrow connector */}
-        <div className="ml-[1.125rem] my-1 text-gray-300">
-          <ArrowDown size={16} />
-        </div>
+        {/* Add-stop UI appears only once the endpoints are set */}
+        {showStopsUi && (
+          <>
+            {/* Arrow connector */}
+            <div className="ml-[1.125rem] my-1 text-gray-300">
+              <ArrowDown size={16} />
+            </div>
 
-        {/* Add stop button — full width, visible */}
-        <button
-          type="button"
-          onClick={addStop}
-          className="w-full flex items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-primary/30 bg-primary/5 py-3 text-sm font-bold text-primary hover:border-primary/60 hover:bg-primary/10 active:scale-[0.98] transition-all duration-150"
-        >
-          <span className="grid h-6 w-6 place-items-center rounded-full bg-primary text-white">
-            <Plus size={14} />
-          </span>
-          Add intermediate stop
-        </button>
+            {/* Add stop button — full width, visible */}
+            <button
+              type="button"
+              onClick={addStop}
+              className="w-full flex items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-primary/30 bg-primary/5 py-3 text-sm font-bold text-primary hover:border-primary/60 hover:bg-primary/10 active:scale-[0.98] transition-all duration-150"
+            >
+              <span className="grid h-6 w-6 place-items-center rounded-full bg-primary text-white">
+                <Plus size={14} />
+              </span>
+              Add intermediate stop
+            </button>
+          </>
+        )}
 
         {/* Arrow connector to drop-off */}
         <div className="ml-[1.125rem] my-1 text-gray-300">
