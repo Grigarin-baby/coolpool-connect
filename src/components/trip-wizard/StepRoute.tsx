@@ -111,6 +111,43 @@ export function StepRoute({
       });
     });
   }, []);
+
+  // Snap ONE field back to the start of its text when the user leaves it.
+  // Selection alone isn't enough: Android keeps an input scrolled to the last
+  // cursor position after blur, so a box edited after selection drifts back to
+  // showing the middle of the name ("…a Pur…").
+  const snapFieldToStart = useCallback((e: { target: EventTarget | null }) => {
+    const el = e.target;
+    if (!(el instanceof HTMLInputElement)) return;
+    requestAnimationFrame(() => {
+      try {
+        el.setSelectionRange(0, 0);
+      } catch {
+        /* input type may not support selection — scrollLeft still works */
+      }
+      el.scrollLeft = 0;
+    });
+  }, []);
+
+  // Leaving a stop box empty while its pin is still on the map would show a
+  // blank field with a live marker — restore the chosen place name instead.
+  const handleStopBlur = useCallback(
+    (e: { target: EventTarget | null }, idx: number) => {
+      const el = e.target;
+      if (el instanceof HTMLInputElement && !el.value.trim()) {
+        const point = intermediatePointsRef.current[idx];
+        if (point?.label && (point.lat !== 0 || point.lng !== 0)) {
+          setStopTexts((prev) => {
+            const n = [...prev];
+            n[idx] = point.label;
+            return n;
+          });
+        }
+      }
+      snapFieldToStart(e);
+    },
+    [snapFieldToStart],
+  );
   // Hold latest onAlternativesChange in a ref so useEffect doesn't re-run on every render
   const onAlternativesChangeRef = useRef(onAlternativesChange);
   useEffect(() => { onAlternativesChangeRef.current = onAlternativesChange; });
@@ -142,6 +179,13 @@ export function StepRoute({
 
   // Clean up debounce on unmount
   useEffect(() => () => { if (debounceRef.current) clearTimeout(debounceRef.current); }, []);
+
+  // Returning to this step with the route already filled re-mounts the fields
+  // without any selection firing — snap them to the start once on mount.
+  useEffect(() => {
+    showNamesFromStart();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Initialize Directions service once maps is ready
   useEffect(() => {
@@ -402,6 +446,7 @@ export function StepRoute({
               onSearch={(v) => { setFromText(v); searchCities(v, "from"); }}
               onSelect={(v) => { if (v === "__out_of_area__") return; void handleSelect("from", v); }}
               onChange={(v) => setFromText(typeof v === "string" ? v : "")}
+              onBlur={snapFieldToStart}
               optionRender={renderCityOption}
               placeholder="Pickup city or area"
               className="w-full"
@@ -434,6 +479,7 @@ export function StepRoute({
                     onSearch={(v) => searchStop(v, idx)}
                     onSelect={(v) => void selectStop(v, idx)}
                     onChange={(v) => setStopTexts((prev) => { const n = [...prev]; n[idx] = typeof v === "string" ? v : ""; return n; })}
+                    onBlur={(e) => handleStopBlur(e, idx)}
                     placeholder={`Stop ${idx + 1} city or area`}
                     className="w-full"
                     variant="borderless"
@@ -492,6 +538,7 @@ export function StepRoute({
               onSearch={(v) => { setToText(v); searchCities(v, "to"); }}
               onSelect={(v) => { if (v === "__out_of_area__") return; void handleSelect("to", v); }}
               onChange={(v) => setToText(typeof v === "string" ? v : "")}
+              onBlur={snapFieldToStart}
               optionRender={renderCityOption}
               placeholder="Drop-off city or area"
               className="w-full"

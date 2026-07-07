@@ -835,6 +835,22 @@ export function TripSearchForm({ variant, id }: { variant: "landing" | "page"; i
     form.setFieldsValue({ from: to ?? "", to: from ?? "" });
   };
 
+  // Snap a field back to the start of its text when the user leaves it —
+  // Android keeps inputs scrolled to the last cursor position after blur, so
+  // an edited field drifts back to showing the middle of the place name.
+  const snapFieldToStart = (e: { target: EventTarget | null }) => {
+    const el = e.target;
+    if (!(el instanceof HTMLInputElement)) return;
+    requestAnimationFrame(() => {
+      try {
+        el.setSelectionRange(0, 0);
+      } catch {
+        /* input type may not support selection — scrollLeft still works */
+      }
+      el.scrollLeft = 0;
+    });
+  };
+
   const closeKeyboard = () => {
     const el = document.activeElement;
     if (!(el instanceof HTMLInputElement)) return;
@@ -870,7 +886,7 @@ export function TripSearchForm({ variant, id }: { variant: "landing" | "page"; i
               {...TRIP_SEARCH_AC_POPUP}
               options={fromOptions}
               onSearch={(text) => searchPlaces(text, "from")}
-              onSelect={closeKeyboard}
+              onSelect={closeKeyboard} onBlur={snapFieldToStart}
               placeholder="From"
               className={cn("bg-gray-50 rounded-2xl", TRIP_SEARCH_INPUT_COMPACT)}
               variant="borderless"
@@ -889,7 +905,7 @@ export function TripSearchForm({ variant, id }: { variant: "landing" | "page"; i
               {...TRIP_SEARCH_AC_POPUP}
               options={toOptions}
               onSearch={(text) => searchPlaces(text, "to")}
-              onSelect={closeKeyboard}
+              onSelect={closeKeyboard} onBlur={snapFieldToStart}
               placeholder="To"
               className={cn("bg-gray-50 rounded-2xl", TRIP_SEARCH_INPUT_COMPACT)}
               variant="borderless"
@@ -945,7 +961,7 @@ export function TripSearchForm({ variant, id }: { variant: "landing" | "page"; i
                     {...TRIP_SEARCH_AC_POPUP}
                     options={fromOptions}
                     onSearch={(t) => searchPlaces(t, "from")}
-                    onSelect={closeKeyboard}
+                    onSelect={closeKeyboard} onBlur={snapFieldToStart}
                     placeholder="City or area"
                     variant="borderless"
                     className={TRIP_SEARCH_INPUT}
@@ -973,7 +989,7 @@ export function TripSearchForm({ variant, id }: { variant: "landing" | "page"; i
                     {...TRIP_SEARCH_AC_POPUP}
                     options={toOptions}
                     onSearch={(t) => searchPlaces(t, "to")}
-                    onSelect={closeKeyboard}
+                    onSelect={closeKeyboard} onBlur={snapFieldToStart}
                     placeholder="Where to?"
                     variant="borderless"
                     className={TRIP_SEARCH_INPUT}
@@ -1046,7 +1062,7 @@ export function TripSearchForm({ variant, id }: { variant: "landing" | "page"; i
                     {...TRIP_SEARCH_AC_POPUP}
                     options={fromOptions}
                     onSearch={(t) => searchPlaces(t, "from")}
-                    onSelect={closeKeyboard}
+                    onSelect={closeKeyboard} onBlur={snapFieldToStart}
                     placeholder="City"
                     variant="borderless"
                     className={TRIP_SEARCH_INPUT}
@@ -1076,7 +1092,7 @@ export function TripSearchForm({ variant, id }: { variant: "landing" | "page"; i
                     {...TRIP_SEARCH_AC_POPUP}
                     options={toOptions}
                     onSearch={(t) => searchPlaces(t, "to")}
-                    onSelect={closeKeyboard}
+                    onSelect={closeKeyboard} onBlur={snapFieldToStart}
                     placeholder="Where to?"
                     variant="borderless"
                     className={TRIP_SEARCH_INPUT}
