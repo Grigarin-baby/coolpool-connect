@@ -600,6 +600,11 @@ function DriverDashboardPage() {
     // Build trip_stops the way the legacy handler does: origin (pickup),
     // intermediates (both), destination (drop). distanceFromOriginKm comes
     // from the wizard's polyline projection.
+    // Sort intermediates by distance from origin — StepReview keys segmentPrices
+    // over this exact ordering, so stop_index and the price-matrix keys line up.
+    const orderedStops = result.stops
+      .slice()
+      .sort((a, b) => a.distanceFromOriginKm - b.distanceFromOriginKm);
     const allStops = [
       {
         stopIndex: 0,
@@ -610,7 +615,7 @@ function DriverDashboardPage() {
         distanceFromOriginKm: 0,
         priceFromOrigin: 0,
       },
-      ...result.stops.map((s, i) => ({
+      ...orderedStops.map((s, i) => ({
         stopIndex: i + 1,
         location: s.label,
         lat: s.lat,
@@ -620,14 +625,14 @@ function DriverDashboardPage() {
         priceFromOrigin: result.segmentPrices[`0-${i + 1}`] ?? 0,
       })),
       {
-        stopIndex: result.stops.length + 1,
+        stopIndex: orderedStops.length + 1,
         location: result.to.label,
         lat: result.to.lat,
         lng: result.to.lng,
         stopType: "drop" as const,
         distanceFromOriginKm: Math.round(result.totalDistanceKm * 10) / 10,
         priceFromOrigin:
-          result.segmentPrices[`0-${result.stops.length + 1}`] ?? result.pricePerSeat,
+          result.segmentPrices[`0-${orderedStops.length + 1}`] ?? result.pricePerSeat,
       },
     ];
     const payload = {
@@ -656,6 +661,10 @@ function DriverDashboardPage() {
         vehicleId: result.vehicleId,
         assignedDriverId: result.driverId,
         seatConfig: result.seatConfig,
+        // Persist the host's full per-segment price table. The per-stop
+        // priceFromOrigin above can only express prices that add up along the
+        // route — a flat "every segment ₹2" collapses to ₹0 without this.
+        segmentPrices: result.segmentPrices,
       },
       stopsData: allStops,
     };

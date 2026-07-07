@@ -22,6 +22,15 @@ export function getSegmentPrice(
   fromStopIndex: number,
   toStopIndex: number,
 ): number {
+  // Trips created after per-segment pricing was persisted carry the host's
+  // exact price table — use it verbatim. The cumulative subtraction below can
+  // only express prices that add up along the route (a flat "every segment
+  // ₹2" comes out as 2 − 2 = ₹0), so the table always wins when present.
+  const exact = trip.segmentPrices?.[`${fromStopIndex}-${toStopIndex}`];
+  if (typeof exact === "number" && Number.isFinite(exact) && exact >= 0) {
+    return exact === 0 ? 0 : Math.max(1, Math.round(exact));
+  }
+
   const sorted = [...stops].sort((a, b) => a.stopIndex - b.stopIndex);
   const lastStop = sorted[sorted.length - 1];
   const fromStop = sorted.find((s) => s.stopIndex === fromStopIndex);

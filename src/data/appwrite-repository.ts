@@ -34,6 +34,23 @@ import type {
 
 type Doc = Models.Document;
 
+/** Parse the JSON segment-price matrix column; null/garbage → null (legacy trips). */
+function parseSegmentPrices(raw: unknown): Record<string, number> | null {
+  if (typeof raw !== "string" || !raw.trim()) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
+    const out: Record<string, number> = {};
+    for (const [k, v] of Object.entries(parsed)) {
+      const n = Number(v);
+      if (Number.isFinite(n) && n >= 0) out[k] = n;
+    }
+    return Object.keys(out).length > 0 ? out : null;
+  } catch {
+    return null;
+  }
+}
+
 function toTrip(doc: any): Trip {
   return {
     id: doc.$id,
@@ -58,6 +75,7 @@ function toTrip(doc: any): Trip {
     vehicleModel: doc.vehicle_model ? String(doc.vehicle_model) : undefined,
     vehicleColor: doc.vehicle_color ? String(doc.vehicle_color) : undefined,
     tripCode: doc.trip_code ? String(doc.trip_code) : null,
+    segmentPrices: parseSegmentPrices(doc.segment_prices),
     status: String(doc.status || "scheduled") as TripStatus,
     notes: doc.notes ? String(doc.notes) : null,
     vehicleId: doc.vehicle_id ? String(doc.vehicle_id) : undefined,
@@ -273,6 +291,8 @@ export interface CreateTripInput {
   seatConfig?: string[];
   /** Human-readable trip ID minted once at creation, e.g. "2606-CPTR-0001". */
   tripCode?: string | null;
+  /** Per-segment prices keyed "fromStopIndex-toStopIndex", exactly as the host set them. */
+  segmentPrices?: Record<string, number> | null;
 }
 
 export interface CreateTripStopInput {
@@ -431,6 +451,10 @@ export async function createTrip(input: CreateTripInput): Promise<Trip> {
       assigned_driver_id: input.assignedDriverId ?? null,
       seat_config: input.seatConfig ?? [],
       trip_code: input.tripCode ?? null,
+      segment_prices:
+        input.segmentPrices && Object.keys(input.segmentPrices).length > 0
+          ? JSON.stringify(input.segmentPrices)
+          : null,
     },
     [
       // Public read so travelers can search trips without an Appwrite session (e.g. homepage modal).
@@ -474,6 +498,14 @@ export async function updateTrip(tripId: string, input: Partial<CreateTripInput>
     vehicle_id: input.vehicleId,
     assigned_driver_id: input.assignedDriverId,
     seat_config: input.seatConfig,
+    // Only touch the price matrix when the caller provided one (undefined
+    // fields are dropped by the SDK; an explicit empty table clears it).
+    segment_prices:
+      input.segmentPrices !== undefined
+        ? input.segmentPrices && Object.keys(input.segmentPrices).length > 0
+          ? JSON.stringify(input.segmentPrices)
+          : null
+        : undefined,
   });
   return toTrip(doc);
 }

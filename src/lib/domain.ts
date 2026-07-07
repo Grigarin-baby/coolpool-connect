@@ -65,6 +65,12 @@ export interface Trip {
   vehicleColor?: string;
   /** Human-readable trip ID, e.g. "2606-CPTR-0001". Null on trips created before this existed. */
   tripCode?: string | null;
+  /**
+   * Host-entered per-segment prices, keyed "fromStopIndex-toStopIndex"
+   * (e.g. "1-2": 2). Null on trips created before this existed — those fall
+   * back to the cumulative priceFromOrigin subtraction in segment-pricing.ts.
+   */
+  segmentPrices?: Record<string, number> | null;
   status: TripStatus;
   notes: string | null;
   vehicleId?: string;
