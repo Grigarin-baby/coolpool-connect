@@ -13,7 +13,6 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useAuth } from "@/hooks/useAuth";
 import {
-  createBookingWithSeatReservations,
   getTripById,
   getHostPreferences,
   getVehicleByDriverUserId,
@@ -24,6 +23,7 @@ import {
   listTravelerBookings,
 } from "@/data/appwrite-repository";
 import { account } from "@/integrations/appwrite/client";
+import { finalizeBookingServer } from "@/integrations/appwrite/booking-server";
 import { createRazorpayOrder, verifyRazorpayPayment } from "@/integrations/razorpay/payment";
 import { formatCurrency } from "@/lib/pricing";
 import { normalizePhone } from "@/lib/identity-normalizers";
@@ -331,7 +331,11 @@ function BookingTripPage() {
     return { codes, trimmed, primaryPhone };
   };
 
-  const confirmBooking = async (razorpayPaymentId?: string) => {
+  const confirmBooking = async (payment: {
+    razorpay_order_id: string;
+    razorpay_payment_id: string;
+    razorpay_signature: string;
+  }) => {
     if (!user || !tripQuery.data) throw new Error("Not signed in.");
     const { codes, trimmed, primaryPhone } = buildBookingPayload();
 
@@ -357,22 +361,27 @@ function BookingTripPage() {
       gender: passenger.gender as PassengerGender,
     }));
 
-    return createBookingWithSeatReservations({
-      tripId: tripQuery.data.id,
-      travelerId: user.$id,
-      hostId: tripQuery.data.hostId,
-      fromStopIndex: segment.fromStopIndex,
-      toStopIndex: segment.toStopIndex,
-      seatsBooked: codes.length,
-      segmentPrice: Math.round(pricePerSeat * codes.length * 100) / 100,
-      passengerName: joinedName,
-      passengerPhone: joinedPhone,
-      passengers: structuredPassengers,
-      status: "confirmed",
-      seatCodes: codes,
-      paymentMethod: "pay_online" as const,
-      paymentReference: razorpayPaymentId ?? null,
+    // Booking creation runs SERVER-SIDE with admin rights: the document must
+    // grant read/update to the trip host, which a traveler's browser session
+    // is not allowed to do (Appwrite rejects cross-user permission grants).
+    // The server re-verifies the Razorpay signature before writing anything.
+    const { bookingId } = await finalizeBookingServer({
+      data: {
+        booking: {
+          tripId: tripQuery.data.id,
+          travelerId: user.$id,
+          fromStopIndex: segment.fromStopIndex,
+          toStopIndex: segment.toStopIndex,
+          segmentPrice: Math.round(pricePerSeat * codes.length * 100) / 100,
+          passengerName: joinedName,
+          passengerPhone: joinedPhone,
+          passengers: structuredPassengers,
+          seatCodes: codes,
+        },
+        payment,
+      },
     });
+    return { bookingId };
   };
 
   const handlePayOnline = async () => {
@@ -449,7 +458,7 @@ function BookingTripPage() {
 
             let booking;
             try {
-              booking = await confirmBooking(response.razorpay_payment_id);
+              booking = await confirmBooking(response);
             } catch (e) {
               console.error("[payment] booking creation failed after payment", e, response);
               throw new Error(
@@ -461,7 +470,7 @@ function BookingTripPage() {
             toast.success("Payment successful! Booking confirmed.");
             await queryClient.invalidateQueries({ queryKey: ["trip-seat-reservations", tripId] });
             await queryClient.invalidateQueries({ queryKey: ["traveler-bookings"] });
-            navigate({ to: "/trips", search: { booking: booking.id } as any });
+            navigate({ to: "/trips", search: { booking: booking.bookingId } as any });
           } catch (e) {
             toast.error(e instanceof Error ? e.message : "Something went wrong after payment.", {
               duration: 12000,
