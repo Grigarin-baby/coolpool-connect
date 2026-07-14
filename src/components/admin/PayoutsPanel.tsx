@@ -5,20 +5,24 @@ import {
   Typography,
   Table,
   Tag,
-  Space,
   Button,
   Select,
   Modal,
   Form,
   Input,
+  InputNumber,
   message,
   Drawer,
 } from "antd";
-import { CheckCircle2, XCircle, Clock3, WalletCards } from "lucide-react";
+import { Plus, WalletCards } from "lucide-react";
 import { listDriverProfiles, listAllTrips, listAllBookings } from "@/data/appwrite-repository";
 import { hostNetEarnings, estimateFeeFromNet, PLATFORM_FEE_PERCENT } from "@/lib/pricing";
 import type { PayoutRequest, PayoutStatus } from "@/lib/domain";
-import { listPayoutRequestsAsAdmin, updatePayoutRequestAsAdmin } from "./adminUserApi";
+import {
+  createPayoutEntryAsAdmin,
+  listPayoutRequestsAsAdmin,
+  updatePayoutRequestAsAdmin,
+} from "./adminUserApi";
 
 const { Title, Text } = Typography;
 
@@ -27,7 +31,30 @@ const STATUS_COLORS: Record<PayoutStatus, string> = {
   processing: "processing",
   paid: "success",
   rejected: "error",
+  part_paid: "purple",
 };
+
+const STATUS_LABELS: Record<PayoutStatus, string> = {
+  pending: "Pending",
+  processing: "Processing",
+  paid: "Paid",
+  rejected: "Rejected",
+  part_paid: "Part paid",
+};
+
+const ALL_STATUSES: PayoutStatus[] = ["pending", "processing", "part_paid", "paid", "rejected"];
+
+/** What the host should actually receive on this row: amount − deduction. */
+function payableOf(r: PayoutRequest): number {
+  return Math.max(0, r.amount - (r.deduction ?? 0));
+}
+
+/** How much of this row has actually been transferred. */
+function transferredOf(r: PayoutRequest): number {
+  if (r.status === "paid") return payableOf(r);
+  if (r.status === "part_paid") return Math.min(r.paidAmount ?? 0, payableOf(r));
+  return 0;
+}
 
 function maskAccountNumber(accountNumber: string): string {
   if (accountNumber.length <= 4) return accountNumber;
@@ -61,14 +88,32 @@ function CommissionCell({ request }: { request: PayoutRequest }) {
 
 export function PayoutsPanel() {
   const queryClient = useQueryClient();
-  const [statusFilter, setStatusFilter] = useState<"all" | "pending" | "processing" | "rejected">(
-    "all",
-  );
+  const [statusFilter, setStatusFilter] = useState<"all" | PayoutStatus>("all");
   const [actionRequest, setActionRequest] = useState<PayoutRequest | null>(null);
-  const [actionType, setActionType] = useState<"paid" | "rejected" | null>(null);
+  const [actionType, setActionType] = useState<
+    "paid" | "rejected" | "part_paid" | "deduction" | null
+  >(null);
   const [detailHostId, setDetailHostId] = useState<string | null>(null);
   const [detailRequestId, setDetailRequestId] = useState<string | null>(null);
-  const [form] = Form.useForm<{ paymentReference?: string; adminNote?: string }>();
+  const [addOpen, setAddOpen] = useState(false);
+  const [form] = Form.useForm<{
+    paymentReference?: string;
+    adminNote?: string;
+    deduction?: number;
+    paidAmount?: number;
+  }>();
+  const [addForm] = Form.useForm<{
+    driverUserId: string;
+    tripId?: string;
+    amount: number;
+    deduction?: number;
+    status: PayoutStatus;
+    paymentReference?: string;
+    adminNote?: string;
+    paidAmount?: number;
+  }>();
+  const addHostId = Form.useWatch("driverUserId", addForm);
+  const addStatus = Form.useWatch("status", addForm);
 
   const { data: requests = [], isLoading: requestsLoading } = useQuery({
     queryKey: ["admin-payout-requests"],
@@ -122,33 +167,40 @@ export function PayoutsPanel() {
     return net;
   }, [trips, bookings]);
 
+  // Actually transferred per host: paid rows settle their payable (amount −
+  // deduction); part-paid rows count what's been sent so far.
   const paidByHost = useMemo(() => {
     const m = new Map<string, number>();
     for (const r of requests) {
-      if (r.status === "paid") m.set(r.driverUserId, (m.get(r.driverUserId) ?? 0) + r.amount);
+      const sent = transferredOf(r);
+      if (sent > 0) m.set(r.driverUserId, (m.get(r.driverUserId) ?? 0) + sent);
     }
     return m;
   }, [requests]);
 
   // Platform commission per host, split by whether it's already realized
-  // (paid payouts) or still open (pending/processing requests).
+  // (paid payouts) or still open (pending/processing/part-paid requests).
   const commissionByHost = useMemo(() => {
     const paid = new Map<string, number>();
     const open = new Map<string, number>();
     for (const r of requests) {
       const { fee } = feeFor(r);
       if (r.status === "paid") paid.set(r.driverUserId, (paid.get(r.driverUserId) ?? 0) + fee);
-      else if (r.status === "pending" || r.status === "processing")
+      else if (r.status === "pending" || r.status === "processing" || r.status === "part_paid")
         open.set(r.driverUserId, (open.get(r.driverUserId) ?? 0) + fee);
     }
     return { paid, open };
   }, [requests]);
 
+  // Still-owed commitments: open requests in full, plus the unpaid remainder
+  // of part-paid rows.
   const openByHost = useMemo(() => {
     const m = new Map<string, number>();
     for (const r of requests) {
-      if (r.status === "pending" || r.status === "processing")
-        m.set(r.driverUserId, (m.get(r.driverUserId) ?? 0) + r.amount);
+      let openAmount = 0;
+      if (r.status === "pending" || r.status === "processing") openAmount = payableOf(r);
+      else if (r.status === "part_paid") openAmount = payableOf(r) - transferredOf(r);
+      if (openAmount > 0) m.set(r.driverUserId, (m.get(r.driverUserId) ?? 0) + openAmount);
     }
     return m;
   }, [requests]);
@@ -196,50 +248,70 @@ export function PayoutsPanel() {
       status: PayoutStatus;
       paymentReference?: string;
       adminNote?: string;
+      deduction?: number | null;
+      paidAmount?: number | null;
     }) =>
       updatePayoutRequestAsAdmin(vars.id, {
         status: vars.status,
         paymentReference: vars.paymentReference,
         adminNote: vars.adminNote,
+        deduction: vars.deduction,
+        paidAmount: vars.paidAmount,
       }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["admin-payout-requests"] });
-      message.success("Payout request updated.");
+      message.success("Payout updated.");
       setActionRequest(null);
       setActionType(null);
       form.resetFields();
     },
-    onError: (error: any) => message.error(error.message || "Failed to update payout request."),
+    onError: (error: any) => message.error(error.message || "Failed to update payout."),
   });
 
-  const processingMutation = useMutation({
-    mutationFn: (id: string) => updatePayoutRequestAsAdmin(id, { status: "processing" }),
+  const simpleStatusMutation = useMutation({
+    mutationFn: (vars: { id: string; status: PayoutStatus }) =>
+      updatePayoutRequestAsAdmin(vars.id, { status: vars.status }),
+    onSuccess: (_, vars) => {
+      void queryClient.invalidateQueries({ queryKey: ["admin-payout-requests"] });
+      message.success(`Marked as ${STATUS_LABELS[vars.status].toLowerCase()}.`);
+    },
+    onError: (error: any) => message.error(error.message || "Failed to update payout."),
+  });
+
+  const addMutation = useMutation({
+    mutationFn: (vars: {
+      driverUserId: string;
+      amount: number;
+      tripId?: string | null;
+      deduction?: number;
+      status: PayoutStatus;
+      paymentReference?: string;
+      adminNote?: string;
+      paidAmount?: number;
+    }) => createPayoutEntryAsAdmin(vars),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["admin-payout-requests"] });
-      message.success("Marked as processing.");
+      message.success("Payment recorded.");
+      setAddOpen(false);
+      addForm.resetFields();
     },
-    onError: (error: any) => message.error(error.message || "Failed to update payout request."),
+    onError: (error: any) => message.error(error.message || "Failed to record the payment."),
   });
 
-  const activeRequests = useMemo(() => requests.filter((r) => r.status !== "paid"), [requests]);
-
-  const paidRequests = useMemo(() => requests.filter((r) => r.status === "paid"), [requests]);
-
+  // One unified ledger — the status filter is the archive.
   const filteredRequests =
-    statusFilter === "all"
-      ? activeRequests
-      : activeRequests.filter((r) => r.status === statusFilter);
+    statusFilter === "all" ? requests : requests.filter((r) => r.status === statusFilter);
 
-  const totalPending = requests
-    .filter((r) => r.status === "pending" || r.status === "processing")
-    .reduce((sum, r) => sum + r.amount, 0);
+  const totalPending = requests.reduce((sum, r) => {
+    if (r.status === "pending" || r.status === "processing") return sum + payableOf(r);
+    if (r.status === "part_paid") return sum + payableOf(r) - transferredOf(r);
+    return sum;
+  }, 0);
 
-  const totalPaid = requests
-    .filter((r) => r.status === "paid")
-    .reduce((sum, r) => sum + r.amount, 0);
+  const totalPaid = requests.reduce((sum, r) => sum + transferredOf(r), 0);
 
   const totalCommissionOpen = requests
-    .filter((r) => r.status === "pending" || r.status === "processing")
+    .filter((r) => r.status === "pending" || r.status === "processing" || r.status === "part_paid")
     .reduce((sum, r) => sum + feeFor(r).fee, 0);
 
   const totalCommissionPaid = requests
@@ -247,13 +319,21 @@ export function PayoutsPanel() {
     .reduce((sum, r) => sum + feeFor(r).fee, 0);
 
   const openRequestCount = requests.filter(
-    (r) => r.status === "pending" || r.status === "processing",
+    (r) => r.status === "pending" || r.status === "processing" || r.status === "part_paid",
   ).length;
 
-  const openAction = (record: PayoutRequest, type: "paid" | "rejected") => {
+  const openAction = (
+    record: PayoutRequest,
+    type: "paid" | "rejected" | "part_paid" | "deduction",
+  ) => {
     setActionRequest(record);
     setActionType(type);
     form.resetFields();
+    form.setFieldsValue({
+      paymentReference: record.paymentReference ?? undefined,
+      deduction: record.deduction ?? 0,
+      paidAmount: record.paidAmount || undefined,
+    });
   };
 
   const openDetails = (record: PayoutRequest) => {
@@ -261,7 +341,12 @@ export function PayoutsPanel() {
     setDetailRequestId(record.id);
   };
 
-  const submitAction = (values: { paymentReference?: string; adminNote?: string }) => {
+  const submitAction = (values: {
+    paymentReference?: string;
+    adminNote?: string;
+    deduction?: number;
+    paidAmount?: number;
+  }) => {
     if (!actionRequest || !actionType) return;
     if (actionType === "paid") {
       const payableHeadroom = rawAvailableFor(actionRequest.driverUserId) + actionRequest.amount;
@@ -277,9 +362,12 @@ export function PayoutsPanel() {
     }
     updateMutation.mutate({
       id: actionRequest.id,
-      status: actionType,
+      // "deduction" edits keep the row's current status.
+      status: actionType === "deduction" ? actionRequest.status : actionType,
       paymentReference: values.paymentReference,
       adminNote: values.adminNote,
+      deduction: values.deduction,
+      paidAmount: values.paidAmount,
     });
   };
 
@@ -292,7 +380,7 @@ export function PayoutsPanel() {
     detailRequests.find((r) => r.id === detailRequestId) ?? detailRequests[0] ?? null;
   const detailHostName = detailHostId ? driverNameByUserId.get(detailHostId) || "Unknown" : "";
   const detailOpenRequests = detailRequests.filter(
-    (r) => r.status === "pending" || r.status === "processing",
+    (r) => r.status === "pending" || r.status === "processing" || r.status === "part_paid",
   );
   const detailPaidRequests = detailRequests.filter((r) => r.status === "paid");
   const detailRejectedRequests = detailRequests.filter((r) => r.status === "rejected");
@@ -301,73 +389,54 @@ export function PayoutsPanel() {
   const detailOpen = detailHostId ? (openByHost.get(detailHostId) ?? 0) : 0;
   const detailAvailable = detailHostId ? availableFor(detailHostId) : 0;
 
-  const renderPayoutActions = (record: PayoutRequest) => {
-    if (record.status !== "pending" && record.status !== "processing") {
-      return (
-        <Text type="secondary">
-          {record.processedAt ? new Date(record.processedAt).toLocaleDateString("en-IN") : "—"}
-        </Text>
-      );
-    }
-
-    const payableHeadroom = rawAvailableFor(record.driverUserId) + record.amount;
-    const canPay = record.amount <= payableHeadroom;
+  // Same-line status chips: the current status is highlighted; tapping another
+  // one transitions the row (Paid/Part paid/Rejected go through a small modal
+  // for UTR / amount-sent / reason; Pending & Processing switch directly).
+  const renderStatusChips = (record: PayoutRequest) => {
+    const changeTo = (status: PayoutStatus) => {
+      if (status === record.status) return;
+      if (status === "pending" || status === "processing") {
+        simpleStatusMutation.mutate({ id: record.id, status });
+        return;
+      }
+      if (status === "paid") {
+        const payableHeadroom = rawAvailableFor(record.driverUserId) + record.amount;
+        if (record.amount > payableHeadroom) {
+          message.error(
+            `Cannot pay ${formatMoney(record.amount)}. Only ${formatMoney(Math.max(0, payableHeadroom))} is payable after earlier payouts.`,
+          );
+          return;
+        }
+      }
+      openAction(record, status as "paid" | "rejected" | "part_paid");
+    };
 
     return (
-      <Space direction="vertical" size="small">
-        {record.status === "pending" && (
-          <Button
-            size="small"
-            icon={<Clock3 size={14} />}
-            loading={processingMutation.isPending}
-            onClick={(event) => {
-              event.stopPropagation();
-              processingMutation.mutate(record.id);
-            }}
-          >
-            Mark Processing
-          </Button>
-        )}
-        <Button
-          type="primary"
-          size="small"
-          icon={<CheckCircle2 size={14} />}
-          disabled={!canPay}
-          title={
-            canPay
-              ? undefined
-              : `Only ${formatMoney(Math.max(0, payableHeadroom))} is payable after earlier payouts`
-          }
-          onClick={(event) => {
-            event.stopPropagation();
-            if (!canPay) {
-              message.error(
-                `Cannot pay ${formatMoney(record.amount)}. Only ${formatMoney(Math.max(0, payableHeadroom))} is payable after earlier payouts.`,
-              );
-              return;
-            }
-            openAction(record, "paid");
-          }}
-        >
-          Mark Paid
-        </Button>
-        {!canPay && (
-          <Text type="danger" className="text-xs">
-            Over request by {formatMoney(record.amount - Math.max(0, payableHeadroom))}
+      <div className="flex flex-wrap gap-1 max-w-[210px]">
+        {ALL_STATUSES.map((status) => {
+          const active = record.status === status;
+          return (
+            <Tag.CheckableTag
+              key={status}
+              checked={active}
+              onChange={() => changeTo(status)}
+              onClick={(e) => e.stopPropagation()}
+              className={`!m-0 rounded-full border px-2 py-0.5 text-xs ${
+                active
+                  ? "!bg-primary !text-white border-transparent font-semibold"
+                  : "border-gray-200 text-gray-500 hover:border-primary/50 hover:text-primary"
+              }`}
+            >
+              {STATUS_LABELS[status]}
+            </Tag.CheckableTag>
+          );
+        })}
+        {record.status === "part_paid" && (
+          <Text type="secondary" className="w-full text-xs">
+            {formatMoney(record.paidAmount ?? 0)} of {formatMoney(payableOf(record))} sent
           </Text>
         )}
-        <Button
-          danger
-          size="small"
-          icon={<XCircle size={14} />}
-          onClick={(event) => {
-            event.stopPropagation();
-            openAction(record, "rejected");
-          }}
-        >
-          Reject
-        </Button>
-      </Space>
+      </div>
     );
   };
 
@@ -433,19 +502,35 @@ export function PayoutsPanel() {
       </div>
 
       <Card className="rounded-3xl border-none shadow-card bg-white/90 backdrop-blur-md p-2 overflow-hidden">
-        <div className="p-4 flex items-center justify-between">
-          <Text strong>Payout requests</Text>
-          <Select
-            value={statusFilter}
-            onChange={setStatusFilter}
-            style={{ width: 180 }}
-            options={[
-              { value: "all", label: "All requests" },
-              { value: "pending", label: "Pending" },
-              { value: "processing", label: "Processing" },
-              { value: "rejected", label: "Rejected" },
-            ]}
-          />
+        <div className="p-4 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <Text strong>Payout requests</Text>
+            <div className="text-xs text-muted-foreground">
+              Host requests and admin-recorded payments in one ledger. Tap a status chip to update a
+              row.
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Select
+              value={statusFilter}
+              onChange={setStatusFilter}
+              style={{ width: 170 }}
+              options={[
+                { value: "all", label: "All payments" },
+                ...ALL_STATUSES.map((s) => ({ value: s, label: STATUS_LABELS[s] })),
+              ]}
+            />
+            <Button
+              type="primary"
+              icon={<Plus size={14} />}
+              onClick={() => {
+                addForm.resetFields();
+                setAddOpen(true);
+              }}
+            >
+              Add payment
+            </Button>
+          </div>
         </div>
         <Table
           rowKey="id"
@@ -458,6 +543,23 @@ export function PayoutsPanel() {
             className: "cursor-pointer",
           })}
           columns={[
+            {
+              title: "Recorded",
+              dataIndex: "requestedAt",
+              key: "requestedAt",
+              render: (date: string, r) => (
+                <div className="text-sm">
+                  <div>{formatDateTime(date)}</div>
+                  <Tag
+                    bordered={false}
+                    className="mt-1 text-[10px] uppercase tracking-wide"
+                    color={r.entrySource === "admin" ? "geekblue" : "default"}
+                  >
+                    {r.entrySource === "admin" ? "Added by admin" : "Requested by host"}
+                  </Tag>
+                </div>
+              ),
+            },
             {
               title: "Host",
               key: "driver",
@@ -483,6 +585,10 @@ export function PayoutsPanel() {
                           : `⚠ ₹${r.amount} > ₹${Math.max(0, headroom).toLocaleString("en-IN")} payable`}
                       </div>
                     )}
+                    <div className="text-xs text-muted-foreground">
+                      {r.accountHolderName} · {maskAccountNumber(r.accountNumber)} · {r.ifscCode}
+                      {r.upiId ? ` · UPI: ${r.upiId}` : ""}
+                    </div>
                   </div>
                 );
               },
@@ -492,152 +598,72 @@ export function PayoutsPanel() {
               key: "trip",
               render: (_, r) =>
                 tripCodeFor(r.tripId) ? (
-                  <Text className="font-mono text-sm">{tripCodeFor(r.tripId)}</Text>
+                  <div className="text-sm">
+                    <Text className="font-mono text-sm">{tripCodeFor(r.tripId)}</Text>
+                    {r.tripRoute && (
+                      <div className="text-xs text-muted-foreground">{r.tripRoute}</div>
+                    )}
+                  </div>
                 ) : (
                   <Text type="secondary">—</Text>
                 ),
-            },
-            {
-              title: "Amount",
-              dataIndex: "amount",
-              key: "amount",
-              render: (amount: number) => formatMoney(amount),
-            },
-            {
-              title: "Platform commission",
-              key: "platformFee",
-              render: (_, r) => <CommissionCell request={r} />,
-            },
-            {
-              title: "Bank details",
-              key: "bank",
-              render: (_, r) => (
-                <div className="text-sm">
-                  <div>{r.accountHolderName}</div>
-                  <div className="text-muted-foreground">
-                    {maskAccountNumber(r.accountNumber)} · {r.ifscCode}
-                  </div>
-                  {r.upiId && <div className="text-muted-foreground">UPI: {r.upiId}</div>}
-                </div>
-              ),
-            },
-            {
-              title: "Requested",
-              dataIndex: "requestedAt",
-              key: "requestedAt",
-              render: (date: string) => formatDateTime(date),
             },
             {
               title: "Status",
               key: "status",
-              render: (_, r) => (
-                <div className="flex flex-col gap-1">
-                  <Tag
-                    color={STATUS_COLORS[r.status]}
-                    bordered={false}
-                    className="capitalize w-fit"
-                  >
-                    {r.status}
-                  </Tag>
-                  {r.paymentReference && (
-                    <Text type="secondary" className="text-xs">
-                      Ref: {r.paymentReference}
-                    </Text>
-                  )}
-                  {r.adminNote && (
-                    <Text type="secondary" className="text-xs">
-                      Note: {r.adminNote}
-                    </Text>
-                  )}
-                </div>
-              ),
+              render: (_, r) => renderStatusChips(r),
             },
             {
-              title: "Actions",
-              key: "actions",
-              render: (_, r) => renderPayoutActions(r),
-            },
-          ]}
-        />
-      </Card>
-
-      <Card className="rounded-3xl border-none shadow-card bg-white/90 backdrop-blur-md p-2 overflow-hidden">
-        <div className="p-4">
-          <Text strong>Paid payouts</Text>
-          <div className="text-xs text-muted-foreground">
-            Completed transfers are kept here, away from active payout requests.
-          </div>
-        </div>
-        <Table
-          rowKey="id"
-          loading={requestsLoading || driversLoading}
-          dataSource={paidRequests}
-          locale={{ emptyText: "No paid payouts yet." }}
-          pagination={{ pageSize: 10 }}
-          onRow={(record) => ({
-            onClick: () => openDetails(record),
-            className: "cursor-pointer",
-          })}
-          columns={[
-            {
-              title: "Host",
-              key: "driver",
-              render: (_, r) => (
-                <div>
-                  <Text strong>{driverNameByUserId.get(r.driverUserId) || "Unknown"}</Text>
-                  <div className="text-xs text-muted-foreground">
-                    Paid from request dated {new Date(r.requestedAt).toLocaleDateString("en-IN")}
-                  </div>
-                </div>
-              ),
-            },
-            {
-              title: "Trip",
-              key: "trip",
-              render: (_, r) =>
-                tripCodeFor(r.tripId) ? (
-                  <Text className="font-mono text-sm">{tripCodeFor(r.tripId)}</Text>
-                ) : (
-                  <Text type="secondary">—</Text>
-                ),
-            },
-            {
-              title: "Amount",
-              dataIndex: "amount",
-              key: "amount",
-              render: (amount: number) => formatMoney(amount),
-            },
-            {
-              title: "Commission",
-              key: "platformFee",
-              render: (_, r) => <CommissionCell request={r} />,
-            },
-            {
-              title: "Bank snapshot",
-              key: "bank",
-              render: (_, r) => (
-                <div className="text-sm">
-                  <div>{r.accountHolderName}</div>
-                  <div className="text-muted-foreground">
-                    {maskAccountNumber(r.accountNumber)} · {r.ifscCode}
-                  </div>
-                  {r.upiId && <div className="text-muted-foreground">UPI: {r.upiId}</div>}
-                </div>
-              ),
-            },
-            {
-              title: "Paid on",
-              key: "processedAt",
-              render: (_, r) => formatDateTime(r.processedAt),
-            },
-            {
-              title: "Reference",
+              title: "UTR / Ref",
               key: "reference",
               render: (_, r) => (
-                <div className="text-sm">
-                  <Text strong>{r.paymentReference || "—"}</Text>
-                  {r.adminNote && <div className="text-muted-foreground">Note: {r.adminNote}</div>}
+                <div className="text-sm max-w-[140px]">
+                  <Text className="font-mono text-xs break-all">{r.paymentReference || "—"}</Text>
+                  {r.adminNote && (
+                    <div className="text-xs text-muted-foreground">Note: {r.adminNote}</div>
+                  )}
                 </div>
+              ),
+            },
+            {
+              title: "Total",
+              key: "amount",
+              render: (_, r) => (
+                <div className="text-sm">
+                  <Text strong>{formatMoney(r.amount)}</Text>
+                  <div className="text-xs text-muted-foreground">
+                    fee <CommissionCell request={r} />
+                  </div>
+                </div>
+              ),
+            },
+            {
+              title: "Deduction",
+              key: "deduction",
+              render: (_, r) => (
+                <button
+                  type="button"
+                  className="text-left"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openAction(r, "deduction");
+                  }}
+                  title="Edit deduction"
+                >
+                  <Text className={r.deduction ? "!text-rose-600 font-semibold" : ""}>
+                    {formatMoney(r.deduction ?? 0)}
+                  </Text>
+                  <div className="text-[10px] text-muted-foreground underline">edit</div>
+                </button>
+              ),
+            },
+            {
+              title: "Payable",
+              key: "payable",
+              render: (_, r) => (
+                <Text strong className="!text-emerald-600">
+                  {formatMoney(payableOf(r))}
+                </Text>
               ),
             },
           ]}
@@ -731,12 +757,8 @@ export function PayoutsPanel() {
                       Requested {formatDateTime(detailRequest.requestedAt)}
                     </div>
                   </div>
-                  <Tag
-                    color={STATUS_COLORS[detailRequest.status]}
-                    bordered={false}
-                    className="capitalize"
-                  >
-                    {detailRequest.status}
+                  <Tag color={STATUS_COLORS[detailRequest.status]} bordered={false}>
+                    {STATUS_LABELS[detailRequest.status]}
                   </Tag>
                 </div>
                 <div className="grid gap-3 sm:grid-cols-2">
@@ -809,7 +831,7 @@ export function PayoutsPanel() {
                     <div className="font-semibold">{detailRequest.adminNote || "—"}</div>
                   </div>
                 </div>
-                <div className="mt-4">{renderPayoutActions(detailRequest)}</div>
+                <div className="mt-4">{renderStatusChips(detailRequest)}</div>
               </section>
             )}
 
@@ -846,12 +868,10 @@ export function PayoutsPanel() {
                           <div className="text-sm text-muted-foreground">UPI: {request.upiId}</div>
                         )}
                       </div>
-                      <Tag
-                        color={STATUS_COLORS[request.status]}
-                        bordered={false}
-                        className="capitalize"
-                      >
-                        {request.status}
+                      <Tag color={STATUS_COLORS[request.status]} bordered={false}>
+                        {STATUS_LABELS[request.status]}
+                        {request.status === "part_paid" &&
+                          ` · ${formatMoney(request.paidAmount ?? 0)} sent`}
                       </Tag>
                     </div>
                   </button>
@@ -942,7 +962,15 @@ export function PayoutsPanel() {
 
       <Modal
         open={!!actionRequest}
-        title={actionType === "paid" ? "Mark payout as paid" : "Reject payout request"}
+        title={
+          actionType === "paid"
+            ? "Mark payout as paid"
+            : actionType === "part_paid"
+              ? "Record a part payment"
+              : actionType === "deduction"
+                ? "Edit deduction (fine)"
+                : "Reject payout request"
+        }
         onCancel={() => {
           setActionRequest(null);
           setActionType(null);
@@ -950,21 +978,66 @@ export function PayoutsPanel() {
         footer={null}
         destroyOnClose
       >
+        {actionRequest && (
+          <div className="mt-2 rounded-xl bg-slate-50 p-3 text-sm">
+            {driverNameByUserId.get(actionRequest.driverUserId) || "Unknown"} ·{" "}
+            {formatMoney(actionRequest.amount)} total
+            {(actionRequest.deduction ?? 0) > 0 &&
+              ` · ${formatMoney(actionRequest.deduction ?? 0)} deduction`}{" "}
+            · payable {formatMoney(payableOf(actionRequest))}
+          </div>
+        )}
         <Form form={form} layout="vertical" onFinish={submitAction} className="mt-4">
-          {actionType === "paid" && (
+          {(actionType === "paid" || actionType === "part_paid") && (
             <Form.Item
-              label="Payment reference (UTR / Transaction ID)"
+              label="Transaction ID (UTR no)"
               name="paymentReference"
               rules={[{ required: true, message: "Enter the transfer reference number" }]}
             >
-              <Input placeholder="e.g. 308812345678" />
+              <Input placeholder="e.g. SBIN426190882312" />
             </Form.Item>
           )}
-          <Form.Item label="Note (optional)" name="adminNote">
+          {actionType === "part_paid" && (
+            <Form.Item
+              label="Amount sent so far"
+              name="paidAmount"
+              rules={[{ required: true, message: "Enter how much has been transferred" }]}
+            >
+              <InputNumber min={1} prefix="₹" style={{ width: "100%" }} />
+            </Form.Item>
+          )}
+          {actionType === "deduction" && (
+            <Form.Item
+              label="Deduction amount (fine)"
+              name="deduction"
+              rules={[{ required: true, message: "Enter the deduction (0 to clear it)" }]}
+            >
+              <InputNumber min={0} prefix="₹" style={{ width: "100%" }} />
+            </Form.Item>
+          )}
+          <Form.Item
+            label={
+              actionType === "rejected"
+                ? "Reason (shown to the host)"
+                : actionType === "deduction"
+                  ? "Reason for the deduction (shown to the host)"
+                  : "Note (optional)"
+            }
+            name="adminNote"
+            rules={
+              actionType === "rejected" || actionType === "deduction"
+                ? [{ required: true, message: "A reason is required" }]
+                : []
+            }
+          >
             <Input.TextArea
               rows={3}
               placeholder={
-                actionType === "paid" ? "Any internal notes…" : "Reason for rejecting this request"
+                actionType === "rejected"
+                  ? "Why this payout is being rejected"
+                  : actionType === "deduction"
+                    ? "e.g. Late-start fine for trip 2606-CPTR-0006"
+                    : "Any internal notes…"
               }
             />
           </Form.Item>
@@ -975,7 +1048,109 @@ export function PayoutsPanel() {
             loading={updateMutation.isPending}
             block
           >
-            {actionType === "paid" ? "Confirm Paid" : "Confirm Reject"}
+            {actionType === "paid"
+              ? "Confirm Paid"
+              : actionType === "part_paid"
+                ? "Save part payment"
+                : actionType === "deduction"
+                  ? "Save deduction"
+                  : "Confirm Reject"}
+          </Button>
+        </Form>
+      </Modal>
+
+      <Modal
+        open={addOpen}
+        title="Add payment"
+        onCancel={() => setAddOpen(false)}
+        footer={null}
+        destroyOnClose
+      >
+        <Form
+          form={addForm}
+          layout="vertical"
+          className="mt-4"
+          initialValues={{ status: "paid", deduction: 0 }}
+          onFinish={(values) =>
+            addMutation.mutate({
+              driverUserId: values.driverUserId,
+              amount: values.amount,
+              tripId: values.tripId || null,
+              deduction: values.deduction ?? 0,
+              status: values.status,
+              paymentReference: values.paymentReference,
+              adminNote: values.adminNote,
+              paidAmount: values.paidAmount,
+            })
+          }
+        >
+          <Form.Item
+            label="Host"
+            name="driverUserId"
+            rules={[{ required: true, message: "Pick the host you paid" }]}
+          >
+            <Select
+              showSearch
+              optionFilterProp="label"
+              placeholder="Select host"
+              options={drivers.map((d) => ({
+                value: d.userId,
+                label: `${d.fullName} — owed ${formatMoney(availableFor(d.userId))}`,
+              }))}
+            />
+          </Form.Item>
+          <Form.Item label="Trip (optional)" name="tripId">
+            <Select
+              allowClear
+              showSearch
+              optionFilterProp="label"
+              placeholder="No specific trip"
+              options={trips
+                .filter((t) => t.hostId === addHostId && t.status === "completed")
+                .map((t) => ({
+                  value: t.id,
+                  label: `${t.tripCode ?? `#${t.id.slice(-6).toUpperCase()}`} · ${t.fromLocation.split(",")[0]} → ${t.toLocation.split(",")[0]}`,
+                }))}
+            />
+          </Form.Item>
+          <div className="grid grid-cols-2 gap-3">
+            <Form.Item
+              label="Total amount"
+              name="amount"
+              rules={[{ required: true, message: "Enter the amount" }]}
+            >
+              <InputNumber min={1} prefix="₹" style={{ width: "100%" }} />
+            </Form.Item>
+            <Form.Item label="Deduction (fine)" name="deduction">
+              <InputNumber min={0} prefix="₹" style={{ width: "100%" }} />
+            </Form.Item>
+          </div>
+          <Form.Item label="Status" name="status" rules={[{ required: true }]}>
+            <Select options={ALL_STATUSES.map((s) => ({ value: s, label: STATUS_LABELS[s] }))} />
+          </Form.Item>
+          {addStatus === "part_paid" && (
+            <Form.Item
+              label="Amount sent so far"
+              name="paidAmount"
+              rules={[{ required: true, message: "Enter how much has been transferred" }]}
+            >
+              <InputNumber min={1} prefix="₹" style={{ width: "100%" }} />
+            </Form.Item>
+          )}
+          {(addStatus === "paid" || addStatus === "part_paid") && (
+            <Form.Item
+              label="Transaction ID (UTR no)"
+              name="paymentReference"
+              rules={[{ required: true, message: "Enter the transfer reference number" }]}
+            >
+              <Input placeholder="e.g. SBIN426190882312" />
+            </Form.Item>
+          )}
+          <Form.Item label="Note (required if deduction)" name="adminNote">
+            <Input.TextArea rows={2} placeholder="e.g. reason for a fine, or internal notes" />
+          </Form.Item>
+          <Button type="primary" htmlType="submit" loading={addMutation.isPending} block>
+            Record payment
           </Button>
         </Form>
       </Modal>

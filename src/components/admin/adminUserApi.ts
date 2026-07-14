@@ -1,5 +1,6 @@
 import { account } from "@/integrations/appwrite/client";
 import {
+  adminCreatePayoutEntry,
   adminCreateUser,
   adminGetUserCodes,
   adminListPayoutRequests,
@@ -66,6 +67,8 @@ export async function updatePayoutRequestAsAdmin(
     status: PayoutStatus;
     paymentReference?: string | null;
     adminNote?: string | null;
+    deduction?: number | null;
+    paidAmount?: number | null;
   },
 ): Promise<PayoutRequest> {
   const { jwt } = await account.createJWT();
@@ -77,8 +80,28 @@ export async function updatePayoutRequestAsAdmin(
         status: input.status,
         paymentReference: input.paymentReference,
         adminNote: input.adminNote,
+        deduction: input.deduction,
+        paidAmount: input.paidAmount,
       },
     }),
-    "Payout update is taking too long. Please reload localhost and try again.",
+    "Payout update is taking too long. Please reload and try again.",
+  );
+}
+
+/** Admin records a payment made to a host directly — the "+ Add payment" ledger row. */
+export async function createPayoutEntryAsAdmin(input: {
+  driverUserId: string;
+  amount: number;
+  tripId?: string | null;
+  deduction?: number;
+  status?: PayoutStatus;
+  paymentReference?: string | null;
+  adminNote?: string | null;
+  paidAmount?: number | null;
+}): Promise<PayoutRequest> {
+  const { jwt } = await account.createJWT();
+  return withTimeout(
+    adminCreatePayoutEntry({ data: { jwt, ...input } }),
+    "Recording the payment is taking too long. Please reload and try again.",
   );
 }

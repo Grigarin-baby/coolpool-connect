@@ -260,6 +260,9 @@ function toPayoutRequest(doc: any): PayoutRequest {
     tripId: doc.trip_id ? String(doc.trip_id) : null,
     tripRoute: doc.trip_route ? String(doc.trip_route) : null,
     tripDate: doc.trip_date ? String(doc.trip_date) : null,
+    deduction: doc.deduction != null ? Number(doc.deduction) : 0,
+    paidAmount: doc.paid_amount != null ? Number(doc.paid_amount) : 0,
+    entrySource: doc.entry_source === "admin" ? "admin" : "host",
   };
 }
 

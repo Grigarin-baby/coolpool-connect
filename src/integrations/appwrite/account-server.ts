@@ -5,7 +5,7 @@
 // synthetic phone email and never reach this resolver (login tries the
 // synthetic email first).
 import { createServerFn } from "@tanstack/react-start";
-import { Client, Users, Account, Databases, Query, ID } from "node-appwrite";
+import { Client, Users, Account, Databases, Query, ID, Permission, Role } from "node-appwrite";
 import { normalizeEmail, normalizeLicense, normalizePhone } from "@/lib/identity-normalizers";
 import { formatMemberCode, type MemberCodeRole } from "@/lib/memberCode";
 import { nextMemberCodeSequence } from "@/integrations/appwrite/member-code-counter.server";
@@ -65,6 +65,9 @@ function toPayoutRequest(doc: any): PayoutRequest {
     tripId: doc.trip_id ? String(doc.trip_id) : null,
     tripRoute: doc.trip_route ? String(doc.trip_route) : null,
     tripDate: doc.trip_date ? String(doc.trip_date) : null,
+    deduction: doc.deduction != null ? Number(doc.deduction) : 0,
+    paidAmount: doc.paid_amount != null ? Number(doc.paid_amount) : 0,
+    entrySource: doc.entry_source === "admin" ? "admin" : "host",
   };
 }
 
@@ -73,7 +76,8 @@ function normalizePayoutStatus(status: string): PayoutStatus {
     status === "pending" ||
     status === "processing" ||
     status === "paid" ||
-    status === "rejected"
+    status === "rejected" ||
+    status === "part_paid"
   ) {
     return status;
   }
@@ -307,6 +311,8 @@ export const adminUpdatePayoutRequestStatus = createServerFn({ method: "POST" })
       status: PayoutStatus;
       paymentReference?: string | null;
       adminNote?: string | null;
+      deduction?: number | null;
+      paidAmount?: number | null;
     }) => ({
       jwt: String(input?.jwt ?? "").trim(),
       requestId: String(input?.requestId ?? "").trim(),
@@ -314,25 +320,169 @@ export const adminUpdatePayoutRequestStatus = createServerFn({ method: "POST" })
       paymentReference:
         input?.paymentReference == null ? null : String(input.paymentReference).trim(),
       adminNote: input?.adminNote == null ? null : String(input.adminNote).trim(),
+      deduction: input?.deduction == null ? null : Math.max(0, Number(input.deduction) || 0),
+      paidAmount: input?.paidAmount == null ? null : Math.max(0, Number(input.paidAmount) || 0),
     }),
   )
   .handler(async ({ data }): Promise<PayoutRequest> => {
     await assertAdmin(data.jwt);
     if (!data.requestId) throw new Error("Missing payout request.");
     const { db, payoutsCol } = payoutEnv();
-    const payload: Record<string, string> = {
-      status: data.status,
-    };
+    const databases = new Databases(adminClient());
+
+    const existing = toPayoutRequest(await databases.getDocument(db, payoutsCol, data.requestId));
+    const deduction = data.deduction ?? existing.deduction ?? 0;
+    if (deduction > existing.amount) {
+      throw new Error("Deduction cannot exceed the payout amount.");
+    }
+    if (deduction > 0 && !(data.adminNote || existing.adminNote)) {
+      throw new Error("Add a note explaining the deduction.");
+    }
+    if (data.status === "rejected" && !(data.adminNote || existing.adminNote)) {
+      throw new Error("Add a reason for rejecting this payout.");
+    }
+    const payable = existing.amount - deduction;
+    if (data.status === "part_paid") {
+      const paidSoFar = data.paidAmount ?? existing.paidAmount ?? 0;
+      if (paidSoFar <= 0) throw new Error("Enter how much has been sent so far.");
+      if (paidSoFar >= payable) {
+        throw new Error(
+          `₹${paidSoFar} covers the full payable ₹${payable} — mark it Paid instead.`,
+        );
+      }
+    }
+
+    const payload: Record<string, unknown> = { status: data.status };
     if (data.paymentReference) payload.payment_reference = data.paymentReference;
     if (data.adminNote) payload.admin_note = data.adminNote;
-    if (data.status === "paid" || data.status === "rejected") {
+    if (data.deduction != null) payload.deduction = data.deduction;
+    if (data.paidAmount != null) payload.paid_amount = data.paidAmount;
+    if (data.status === "paid") {
+      // A full payment settles the whole payable amount.
+      payload.paid_amount = payable;
       payload.processed_at = new Date().toISOString();
     }
-    const doc = await new Databases(adminClient()).updateDocument(
+    if (data.status === "rejected") {
+      payload.processed_at = new Date().toISOString();
+    }
+    const doc = await databases.updateDocument(db, payoutsCol, data.requestId, payload);
+    return toPayoutRequest(doc);
+  });
+
+/**
+ * Admin records a payment they made to a host directly (the "+ Add payment"
+ * ledger row) — no host request needed. Bank details are snapshotted from the
+ * host's saved account; the trip snapshot is optional.
+ */
+export const adminCreatePayoutEntry = createServerFn({ method: "POST" })
+  .inputValidator(
+    (input: {
+      jwt: string;
+      driverUserId: string;
+      amount: number;
+      tripId?: string | null;
+      deduction?: number;
+      status?: PayoutStatus;
+      paymentReference?: string | null;
+      adminNote?: string | null;
+      paidAmount?: number | null;
+    }) => ({
+      jwt: String(input?.jwt ?? "").trim(),
+      driverUserId: String(input?.driverUserId ?? "").trim(),
+      amount: Number(input?.amount ?? 0),
+      tripId: input?.tripId ? String(input.tripId).trim() : null,
+      deduction: Math.max(0, Number(input?.deduction ?? 0) || 0),
+      status: normalizePayoutStatus(String(input?.status ?? "pending")),
+      paymentReference:
+        input?.paymentReference == null ? null : String(input.paymentReference).trim(),
+      adminNote: input?.adminNote == null ? null : String(input.adminNote).trim(),
+      paidAmount: input?.paidAmount == null ? null : Math.max(0, Number(input.paidAmount) || 0),
+    }),
+  )
+  .handler(async ({ data }): Promise<PayoutRequest> => {
+    await assertAdmin(data.jwt);
+    if (!data.driverUserId) throw new Error("Pick a host.");
+    if (!Number.isFinite(data.amount) || data.amount <= 0) {
+      throw new Error("Enter a valid amount.");
+    }
+    if (data.deduction > data.amount) {
+      throw new Error("Deduction cannot exceed the payout amount.");
+    }
+    if (data.deduction > 0 && !data.adminNote) {
+      throw new Error("Add a note explaining the deduction.");
+    }
+    const { db, payoutsCol } = payoutEnv();
+    const bankCol =
+      readEnv("VITE_APPWRITE_COLLECTION_BANK_ACCOUNTS") ||
+      readEnv("APPWRITE_COLLECTION_BANK_ACCOUNTS") ||
+      "coolpool_bank_accounts";
+    const databases = new Databases(adminClient());
+
+    // Snapshot the host's saved bank account (same as host-initiated requests).
+    const bankRes = await databases.listDocuments(db, bankCol, [
+      Query.equal("driver_user_id", data.driverUserId),
+      Query.limit(1),
+    ]);
+    const bank = bankRes.documents[0];
+    if (!bank) {
+      throw new Error("This host has no saved bank account — ask them to add one first.");
+    }
+
+    // Optional trip snapshot, matching host-initiated per-trip requests.
+    let tripRoute: string | null = null;
+    let tripDate: string | null = null;
+    if (data.tripId) {
+      const tripsCol =
+        readEnv("VITE_APPWRITE_COLLECTION_TRIPS") || readEnv("APPWRITE_COLLECTION_TRIPS");
+      if (tripsCol) {
+        const trip = await databases.getDocument(db, tripsCol, data.tripId).catch(() => null);
+        if (trip) {
+          const from = String(trip.from_location || "")
+            .split(",")[0]
+            .trim();
+          const to = String(trip.to_location || "")
+            .split(",")[0]
+            .trim();
+          tripRoute = from && to ? `${from} → ${to}` : null;
+          tripDate = trip.departure_at ? String(trip.departure_at) : null;
+        }
+      }
+    }
+
+    const now = new Date().toISOString();
+    const payable = data.amount - data.deduction;
+    const doc = await databases.createDocument(
       db,
       payoutsCol,
-      data.requestId,
-      payload,
+      ID.unique(),
+      {
+        driver_user_id: data.driverUserId,
+        amount: data.amount,
+        gross_amount: null,
+        platform_fee: null,
+        status: data.status,
+        requested_at: now,
+        account_holder_name: String(bank.account_holder_name || ""),
+        account_number: String(bank.account_number || ""),
+        ifsc_code: String(bank.ifsc_code || ""),
+        upi_id: bank.upi_id ? String(bank.upi_id) : null,
+        trip_id: data.tripId,
+        trip_route: tripRoute,
+        trip_date: tripDate,
+        deduction: data.deduction,
+        paid_amount:
+          data.status === "paid"
+            ? payable
+            : data.status === "part_paid"
+              ? (data.paidAmount ?? 0)
+              : 0,
+        entry_source: "admin",
+        ...(data.paymentReference ? { payment_reference: data.paymentReference } : {}),
+        ...(data.adminNote ? { admin_note: data.adminNote } : {}),
+        ...(data.status === "paid" || data.status === "rejected" ? { processed_at: now } : {}),
+      },
+      // Host can see the row on their own payouts page.
+      [Permission.read(Role.user(data.driverUserId))],
     );
     return toPayoutRequest(doc);
   });
@@ -514,10 +664,17 @@ export const adminGetUserCodes = createServerFn({ method: "POST" })
 /** Admin-only: update a driver/host profile's verification status using the API key. */
 export const adminUpdateDriverVerification = createServerFn({ method: "POST" })
   .inputValidator(
-    (input: { jwt: string; driverId: string; status: "approved" | "rejected"; note?: string | null }) => ({
+    (input: {
+      jwt: string;
+      driverId: string;
+      status: "approved" | "rejected";
+      note?: string | null;
+    }) => ({
       jwt: String(input?.jwt ?? "").trim(),
       driverId: String(input?.driverId ?? "").trim(),
-      status: (["approved", "rejected"].includes(String(input?.status)) ? input.status : "rejected") as "approved" | "rejected",
+      status: (["approved", "rejected"].includes(String(input?.status))
+        ? input.status
+        : "rejected") as "approved" | "rejected",
       note: input?.note == null ? null : String(input.note).trim(),
     }),
   )
@@ -536,10 +693,17 @@ export const adminUpdateDriverVerification = createServerFn({ method: "POST" })
 /** Admin-only: update a vehicle's verification status using the API key. */
 export const adminUpdateVehicleVerification = createServerFn({ method: "POST" })
   .inputValidator(
-    (input: { jwt: string; vehicleId: string; status: "approved" | "rejected"; note?: string | null }) => ({
+    (input: {
+      jwt: string;
+      vehicleId: string;
+      status: "approved" | "rejected";
+      note?: string | null;
+    }) => ({
       jwt: String(input?.jwt ?? "").trim(),
       vehicleId: String(input?.vehicleId ?? "").trim(),
-      status: (["approved", "rejected"].includes(String(input?.status)) ? input.status : "rejected") as "approved" | "rejected",
+      status: (["approved", "rejected"].includes(String(input?.status))
+        ? input.status
+        : "rejected") as "approved" | "rejected",
       note: input?.note == null ? null : String(input.note).trim(),
     }),
   )

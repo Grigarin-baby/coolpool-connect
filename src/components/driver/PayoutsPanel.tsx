@@ -1,16 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import {
-  Card,
-  Typography,
-  Form,
-  Input,
-  Button,
-  Tag,
-  message,
-  Spin,
-  Modal,
-} from "antd";
+import { Card, Typography, Form, Input, Button, Tag, message, Spin, Modal } from "antd";
 import {
   Wallet,
   History as HistoryIcon,
@@ -45,6 +35,15 @@ const STATUS_COLORS: Record<PayoutStatus, string> = {
   processing: "processing",
   paid: "success",
   rejected: "error",
+  part_paid: "purple",
+};
+
+const STATUS_LABELS: Record<PayoutStatus, string> = {
+  pending: "Pending",
+  processing: "Processing",
+  paid: "Paid",
+  rejected: "Rejected",
+  part_paid: "Part paid",
 };
 
 interface BankAccountFormValues {
@@ -185,9 +184,9 @@ function TripEarningsCard({
           <Tag
             color={STATUS_COLORS[payoutStatus]}
             bordered={false}
-            className="capitalize text-sm shrink-0 mt-1"
+            className="text-sm shrink-0 mt-1"
           >
-            {payoutStatus}
+            {STATUS_LABELS[payoutStatus]}
           </Tag>
         )}
       </div>
@@ -199,12 +198,18 @@ function TripEarningsCard({
           <div className="text-lg font-extrabold">₹{collected.toLocaleString("en-IN")}</div>
         </div>
         <div className="rounded-2xl bg-amber-50 p-3 text-center">
-          <div className="text-xs text-amber-600 font-semibold mb-1">Fee ({PLATFORM_FEE_PERCENT}%)</div>
-          <div className="text-lg font-extrabold text-amber-600">₹{fee.toLocaleString("en-IN")}</div>
+          <div className="text-xs text-amber-600 font-semibold mb-1">
+            Fee ({PLATFORM_FEE_PERCENT}%)
+          </div>
+          <div className="text-lg font-extrabold text-amber-600">
+            ₹{fee.toLocaleString("en-IN")}
+          </div>
         </div>
         <div className="rounded-2xl bg-emerald-50 p-3 text-center">
           <div className="text-xs text-emerald-600 font-semibold mb-1">Net</div>
-          <div className="text-lg font-extrabold text-emerald-600">₹{net.toLocaleString("en-IN")}</div>
+          <div className="text-lg font-extrabold text-emerald-600">
+            ₹{net.toLocaleString("en-IN")}
+          </div>
         </div>
       </div>
 
@@ -281,15 +286,7 @@ export function PayoutsPanel() {
   });
 
   const requestPayoutMutation = useMutation({
-    mutationFn: ({
-      trip,
-      net,
-      grossAmount,
-    }: {
-      trip: Trip;
-      net: number;
-      grossAmount: number;
-    }) => {
+    mutationFn: ({ trip, net, grossAmount }: { trip: Trip; net: number; grossAmount: number }) => {
       if (!userId || !bankAccount) throw new Error("Add your bank details first.");
       return createPayoutRequest({
         driverUserId: userId,
@@ -321,12 +318,21 @@ export function PayoutsPanel() {
     const lifetime = hostNetEarnings(gross);
     const lifetimeCommission = Math.max(0, gross - lifetime);
 
-    const paidOut = payoutRequests
-      .filter((r) => r.status === "paid")
-      .reduce((sum, r) => sum + r.amount, 0);
-    const pending = payoutRequests
-      .filter((r) => r.status === "pending" || r.status === "processing")
-      .reduce((sum, r) => sum + r.amount, 0);
+    // Paid rows settle amount − deduction; part-paid rows count what's been
+    // sent so far, with the remainder staying in "pending".
+    const paidOut = payoutRequests.reduce((sum, r) => {
+      const payable = Math.max(0, r.amount - (r.deduction ?? 0));
+      if (r.status === "paid") return sum + payable;
+      if (r.status === "part_paid") return sum + Math.min(r.paidAmount ?? 0, payable);
+      return sum;
+    }, 0);
+    const pending = payoutRequests.reduce((sum, r) => {
+      const payable = Math.max(0, r.amount - (r.deduction ?? 0));
+      if (r.status === "pending" || r.status === "processing") return sum + payable;
+      if (r.status === "part_paid")
+        return sum + Math.max(0, payable - Math.min(r.paidAmount ?? 0, payable));
+      return sum;
+    }, 0);
     const available = Math.max(0, lifetime - paidOut - pending);
 
     return { lifetime, lifetimeCommission, paidOut, pending, available };
@@ -340,19 +346,14 @@ export function PayoutsPanel() {
         const tripBookings = bookings.filter(
           (b) => b.tripId === trip.id && b.status !== "cancelled",
         );
-        const collected = tripBookings.reduce(
-          (sum, b) => sum + b.segmentPrice * b.seatsBooked,
-          0,
-        );
+        const collected = tripBookings.reduce((sum, b) => sum + b.segmentPrice * b.seatsBooked, 0);
         if (collected === 0) return null;
         const fee = platformFee(collected);
         const net = hostNetEarnings(collected);
         // Find the most recent payout request for this trip
         const tripRequests = payoutRequests
           .filter((r) => r.tripId === trip.id)
-          .sort(
-            (a, b) => new Date(b.requestedAt).getTime() - new Date(a.requestedAt).getTime(),
-          );
+          .sort((a, b) => new Date(b.requestedAt).getTime() - new Date(a.requestedAt).getTime());
         const latestRequest = tripRequests[0] ?? null;
         const payoutStatus = latestRequest
           ? latestRequest.status === "rejected"
@@ -363,8 +364,7 @@ export function PayoutsPanel() {
       })
       .filter(Boolean)
       .sort(
-        (a, b) =>
-          new Date(b!.trip.departureAt).getTime() - new Date(a!.trip.departureAt).getTime(),
+        (a, b) => new Date(b!.trip.departureAt).getTime() - new Date(a!.trip.departureAt).getTime(),
       ) as Array<{
       trip: Trip;
       collected: number;
@@ -376,10 +376,7 @@ export function PayoutsPanel() {
   }, [trips, bookings, payoutRequests]);
 
   // Legacy bulk requests (no tripId) shown in History
-  const legacyRequests = useMemo(
-    () => payoutRequests.filter((r) => !r.tripId),
-    [payoutRequests],
-  );
+  const legacyRequests = useMemo(() => payoutRequests.filter((r) => !r.tripId), [payoutRequests]);
 
   const loading = bankLoading || tripsLoading || bookingsLoading || requestsLoading;
 
@@ -549,21 +546,23 @@ export function PayoutsPanel() {
                   className="rounded-2xl border border-black/5 bg-white p-4 space-y-2"
                 >
                   <div className="flex items-center justify-between">
-                    <Text className="text-lg font-bold">
-                      ₹{r.amount.toLocaleString("en-IN")}
-                    </Text>
-                    <Tag
-                      color={STATUS_COLORS[r.status]}
-                      bordered={false}
-                      className="capitalize text-sm"
-                    >
-                      {r.status}
+                    <Text className="text-lg font-bold">₹{r.amount.toLocaleString("en-IN")}</Text>
+                    <Tag color={STATUS_COLORS[r.status]} bordered={false} className="text-sm">
+                      {STATUS_LABELS[r.status]}
+                      {r.status === "part_paid" &&
+                        ` · ₹${(r.paidAmount ?? 0).toLocaleString("en-IN")} sent`}
                     </Tag>
                   </div>
                   <div className="text-sm text-muted-foreground">
                     {new Date(r.requestedAt).toLocaleDateString("en-IN")} · Commission ₹
                     {fee.toLocaleString("en-IN")}
                   </div>
+                  {(r.deduction ?? 0) > 0 && (
+                    <div className="text-sm text-rose-600">
+                      Deduction ₹{(r.deduction ?? 0).toLocaleString("en-IN")}
+                      {r.adminNote ? ` — ${r.adminNote}` : ""}
+                    </div>
+                  )}
                   {r.paymentReference && (
                     <div className="text-sm">
                       <Text type="secondary">Ref: </Text>
@@ -756,8 +755,7 @@ export function PayoutsPanel() {
           <Form.Item
             label={
               <span className="text-base font-semibold">
-                UPI ID{" "}
-                <span className="text-sm font-normal text-muted-foreground">(optional)</span>
+                UPI ID <span className="text-sm font-normal text-muted-foreground">(optional)</span>
               </span>
             }
             name="upiId"

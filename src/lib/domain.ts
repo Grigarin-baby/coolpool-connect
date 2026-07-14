@@ -18,7 +18,7 @@ export type TripStatus = "scheduled" | "in_progress" | "completed" | "cancelled"
 export type BookingStatus = "pending" | "confirmed" | "cancelled" | "completed" | "no_show";
 export type PassengerGender = "male" | "female";
 export type VerificationStatus = "pending" | "approved" | "rejected";
-export type PayoutStatus = "pending" | "processing" | "paid" | "rejected";
+export type PayoutStatus = "pending" | "processing" | "paid" | "rejected" | "part_paid";
 
 export interface PricingRule {
   id: string;
@@ -243,6 +243,12 @@ export interface PayoutRequest {
   tripRoute?: string | null;
   /** Snapshot of the trip departure date (ISO string). */
   tripDate?: string | null;
+  /** Fine/penalty withheld from this payout. Payable = amount − deduction. */
+  deduction?: number;
+  /** Amount actually transferred so far — drives the "part_paid" status ("₹X of ₹Y"). */
+  paidAmount?: number;
+  /** Who created the row: the host requesting ("host") or admin recording a payment ("admin"). */
+  entrySource?: "host" | "admin";
 }
 
 export interface HeroBanner {
