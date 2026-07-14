@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import { Maximize2, X } from "lucide-react";
 import { appwriteConfig } from "@/integrations/appwrite/client";
 import { message } from "antd";
 
@@ -12,6 +13,22 @@ interface RideRouteMapProps {
   liveLocation?: { lat: number; lng: number } | null;
 }
 
+// Top-view car on a soft white halo — readable on any map background.
+const CAR_ICON_SVG = `
+<svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" viewBox="0 0 44 44">
+  <circle cx="22" cy="22" r="20" fill="white" fill-opacity="0.9"/>
+  <g>
+    <rect x="14" y="8" width="16" height="28" rx="6.5" fill="#16A34A" stroke="white" stroke-width="2"/>
+    <rect x="12.6" y="14" width="2.6" height="7" rx="1.3" fill="#0f7a37"/>
+    <rect x="28.8" y="14" width="2.6" height="7" rx="1.3" fill="#0f7a37"/>
+    <rect x="12.6" y="25" width="2.6" height="7" rx="1.3" fill="#0f7a37"/>
+    <rect x="28.8" y="25" width="2.6" height="7" rx="1.3" fill="#0f7a37"/>
+    <rect x="16.5" y="13" width="11" height="6.5" rx="2.5" fill="#bbf7d0"/>
+    <rect x="16.5" y="26.5" width="11" height="5" rx="2" fill="#bbf7d0"/>
+  </g>
+</svg>`;
+const CAR_ICON_URL = `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(CAR_ICON_SVG)}`;
+
 export function RideRouteMap({
   fromLat,
   fromLng,
@@ -24,7 +41,10 @@ export function RideRouteMap({
   const mapRef = useRef<HTMLDivElement>(null);
   const googleMapRef = useRef<any>(null);
   const carMarkerRef = useRef<any>(null);
+  // Last bounds the route was fitted to — re-applied when toggling fullscreen.
+  const boundsRef = useRef<any>(null);
   const [mapsReady, setMapsReady] = useState(false);
+  const [fullscreen, setFullscreen] = useState(false);
 
   useEffect(() => {
     // If google maps is already loaded
@@ -36,7 +56,7 @@ export function RideRouteMap({
     const scriptId = "google-maps-script";
     const existingScript =
       (document.getElementById(scriptId) as HTMLScriptElement) ||
-      (document.querySelector('script[data-google-maps]') as HTMLScriptElement);
+      (document.querySelector("script[data-google-maps]") as HTMLScriptElement);
 
     if (existingScript) {
       if (existingScript.dataset.loaded === "true") {
@@ -111,6 +131,7 @@ export function RideRouteMap({
 
       const bounds = new google.maps.LatLngBounds();
       path.forEach((latLng: any) => bounds.extend(latLng));
+      boundsRef.current = bounds;
       map.fitBounds(bounds, 40); // 40px padding for better view
     } else {
       // Fallback: Use Directions API if polyline is just a straight line or missing
@@ -150,6 +171,7 @@ export function RideRouteMap({
             const bounds = new google.maps.LatLngBounds();
             bounds.extend({ lat: fromLat, lng: fromLng });
             bounds.extend({ lat: toLat, lng: toLng });
+            boundsRef.current = bounds;
             map.fitBounds(bounds, 40);
           }
         },
@@ -214,12 +236,9 @@ export function RideRouteMap({
         position,
         map,
         icon: {
-          path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
-          scale: 6,
-          fillColor: "#16A34A",
-          fillOpacity: 1,
-          strokeWeight: 2,
-          strokeColor: "#FFFFFF",
+          url: CAR_ICON_URL,
+          scaledSize: new google.maps.Size(44, 44),
+          anchor: new google.maps.Point(22, 22),
         },
         title: "Your ride",
         zIndex: 999,
@@ -227,7 +246,13 @@ export function RideRouteMap({
     } else {
       carMarkerRef.current.setPosition(position);
     }
-  }, [mapsReady, liveLocation]);
+
+    // In fullscreen the map follows the car; the small card stays still so it
+    // doesn't fight the user's scrolling.
+    if (fullscreen) {
+      map.panTo(position);
+    }
+  }, [mapsReady, liveLocation, fullscreen]);
 
   useEffect(() => {
     return () => {
@@ -235,9 +260,63 @@ export function RideRouteMap({
     };
   }, []);
 
+  // Fullscreen is a CSS toggle on the SAME map container (no reparenting, so
+  // the live map keeps running) — Google Maps just needs a resize nudge and a
+  // re-center after the container jumps size.
+  useEffect(() => {
+    const google = (window as any).google;
+    const map = googleMapRef.current;
+    if (!google?.maps || !map) return;
+    google.maps.event.trigger(map, "resize");
+    if (fullscreen && liveLocation) {
+      map.panTo({ lat: liveLocation.lat, lng: liveLocation.lng });
+      map.setZoom(15);
+    } else if (boundsRef.current) {
+      map.fitBounds(boundsRef.current, 40);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fullscreen]);
+
+  // Lock page scroll + close on Escape while fullscreen.
+  useEffect(() => {
+    if (!fullscreen) return;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setFullscreen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [fullscreen]);
+
   return (
-    <div className="w-full h-48 rounded-2xl overflow-hidden border border-gray-100 shadow-sm relative">
+    <div
+      className={
+        fullscreen
+          ? "fixed inset-0 z-[2000] bg-black"
+          : "w-full h-48 rounded-2xl overflow-hidden border border-gray-100 shadow-sm relative"
+      }
+    >
       <div ref={mapRef} className="w-full h-full" />
+      <button
+        type="button"
+        aria-label={fullscreen ? "Close full screen map" : "View map full screen"}
+        onClick={() => setFullscreen((v) => !v)}
+        className={`absolute z-10 flex items-center justify-center rounded-full bg-white/95 text-gray-700 shadow-md transition hover:text-primary active:scale-95 ${
+          fullscreen ? "right-4 top-4 h-11 w-11" : "right-2 top-2 h-9 w-9"
+        }`}
+      >
+        {fullscreen ? <X size={20} /> : <Maximize2 size={16} />}
+      </button>
+      {fullscreen && liveLocation && (
+        <div className="absolute bottom-6 left-1/2 z-10 -translate-x-1/2 rounded-full bg-white/95 px-4 py-2 text-sm font-semibold text-gray-700 shadow-md">
+          <span className="mr-2 inline-block h-2 w-2 animate-pulse rounded-full bg-emerald-500" />
+          Live — following the car
+        </div>
+      )}
     </div>
   );
 }
