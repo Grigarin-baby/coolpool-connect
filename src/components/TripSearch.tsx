@@ -525,22 +525,43 @@ export function TripSearchProvider({ children }: { children: ReactNode }) {
             };
             // Fall back after 5 s if the geocoder stalls (bad/expired API key, network issue).
             const timeoutId = setTimeout(() => settle({ valid: true, coords: null }), 5000);
-            geocoder.geocode({ address }, (geoResults: any, status: any) => {
-              clearTimeout(timeoutId);
-              if (status === "OK" && geoResults?.[0]) {
-                let state = "";
-                for (const component of geoResults[0].address_components) {
-                  if (component.types.includes("administrative_area_level_1")) {
-                    state = component.long_name.toLowerCase();
-                  }
+            // Bias ambiguous names toward the service region: a bare
+            // "Kamalanagar" otherwise top-hits Kamla Nagar (Delhi) and a valid
+            // Andhra Pradesh place gets rejected.
+            const southIndiaBounds = new (window as any).google.maps.LatLngBounds(
+              { lat: 7.9, lng: 73.5 }, // SW — below Kanyakumari, west of Goa
+              { lat: 20.0, lng: 85.0 }, // NE — northern AP/Telangana border
+            );
+            geocoder.geocode(
+              { address, bounds: southIndiaBounds, region: "IN" },
+              (geoResults: any, status: any) => {
+                clearTimeout(timeoutId);
+                if (status === "OK" && geoResults?.length) {
+                  const stateOf = (r: any) => {
+                    for (const component of r.address_components ?? []) {
+                      if (component.types.includes("administrative_area_level_1")) {
+                        return String(component.long_name).toLowerCase();
+                      }
+                    }
+                    return "";
+                  };
+                  // Accept if ANY match is in the service region — one
+                  // out-of-region top hit must not veto a valid southern place
+                  // that shares its name.
+                  const hit = geoResults.find((r: any) => {
+                    const st = stateOf(r);
+                    return SOUTH_INDIA_STATES.some((s) => st.includes(s));
+                  });
+                  const loc = (hit ?? geoResults[0]).geometry?.location;
+                  settle({
+                    valid: !!hit,
+                    coords: loc ? { lat: loc.lat(), lng: loc.lng() } : null,
+                  });
+                } else {
+                  settle({ valid: true, coords: null });
                 }
-                const valid = SOUTH_INDIA_STATES.some((s) => state.includes(s));
-                const loc = geoResults[0].geometry?.location;
-                settle({ valid, coords: loc ? { lat: loc.lat(), lng: loc.lng() } : null });
-              } else {
-                settle({ valid: true, coords: null });
-              }
-            });
+              },
+            );
           });
         };
 
@@ -694,8 +715,11 @@ export function TripSearchForm({ variant, id }: { variant: "landing" | "page"; i
           const response = await fetch("https://ipapi.co/json/");
           const data = await response.json();
           if (data && data.city && !form.getFieldValue("from")) {
-            form.setFieldsValue({ from: data.city });
-            import("sonner").then((m) => m.toast.success(`Detected via IP: ${data.city}`));
+            // Include the state (ipapi's `region`) so the search-time geocoder
+            // can't mistake the city for a same-named place elsewhere.
+            const label = data.region ? `${data.city}, ${data.region}` : data.city;
+            form.setFieldsValue({ from: label });
+            import("sonner").then((m) => m.toast.success(`Detected via IP: ${label}`));
           }
         } catch (e) {
           console.error("IP Fallback failed:", e);
@@ -715,11 +739,14 @@ export function TripSearchForm({ variant, id }: { variant: "landing" | "page"; i
                 if (status === "OK" && results && results.length > 0) {
                   let city = "";
                   let state = "";
+                  let stateDisplay = "";
 
                   for (const component of results[0].address_components) {
                     const types = component.types;
-                    if (types.includes("administrative_area_level_1"))
+                    if (types.includes("administrative_area_level_1")) {
                       state = component.long_name.toLowerCase();
+                      stateDisplay = component.long_name;
+                    }
                     if (
                       types.includes("locality") ||
                       types.includes("administrative_area_level_2") ||
@@ -749,8 +776,12 @@ export function TripSearchForm({ variant, id }: { variant: "landing" | "page"; i
                       ),
                     );
                   } else if (city && !form.getFieldValue("from")) {
-                    form.setFieldsValue({ from: city });
-                    import("sonner").then((m) => m.toast.success(`Location detected: ${city}`));
+                    // Always include the state: a bare locality name (e.g.
+                    // "Kamalanagar") can geocode to a same-named place in
+                    // another state at search time and fail region validation.
+                    const label = stateDisplay ? `${city}, ${stateDisplay}` : city;
+                    form.setFieldsValue({ from: label });
+                    import("sonner").then((m) => m.toast.success(`Location detected: ${label}`));
                   }
                 }
                 setLocating(false);
