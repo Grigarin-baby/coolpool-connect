@@ -93,7 +93,7 @@ function LiveTripTracker({ trip }: { trip: Trip }) {
   const live = liveQuery.data ?? trip;
   const liveLocation =
     live.currentLat != null && live.currentLng != null
-      ? { lat: live.currentLat, lng: live.currentLng }
+      ? { lat: live.currentLat, lng: live.currentLng, heading: live.currentHeading ?? null }
       : null;
 
   return (

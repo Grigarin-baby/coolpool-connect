@@ -78,6 +78,8 @@ export interface Trip {
   seatConfig?: string[]; // e.g. ["front_p", "back_l", "back_c", "back_r"]
   currentLat?: number;
   currentLng?: number;
+  /** Direction of travel in degrees clockwise from north — rotates the live car icon. */
+  currentHeading?: number;
   locationUpdatedAt?: string;
   /** Host can pause a trip (hidden from search) without cancelling it. */
   active?: boolean;

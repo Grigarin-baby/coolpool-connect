@@ -20,6 +20,18 @@ export function haversineKm(a: LatLng, b: LatLng): number {
   return 2 * R_KM * Math.asin(Math.sqrt(h));
 }
 
+/** Initial bearing from a → b in degrees clockwise from north (0–360). */
+export function bearingDegrees(a: LatLng, b: LatLng): number {
+  const toRad = (deg: number) => (deg * Math.PI) / 180;
+  const lat1 = toRad(a.lat);
+  const lat2 = toRad(b.lat);
+  const dLng = toRad(b.lng - a.lng);
+  const y = Math.sin(dLng) * Math.cos(lat2);
+  const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLng);
+  const deg = (Math.atan2(y, x) * 180) / Math.PI;
+  return (deg + 360) % 360;
+}
+
 /** Google encoded polyline → array of LatLng */
 export function decodePolyline(encoded: string): LatLng[] {
   const points: LatLng[] = [];

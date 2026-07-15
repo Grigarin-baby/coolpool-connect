@@ -84,6 +84,7 @@ function toTrip(doc: any): Trip {
       doc.seat_config && Array.isArray(doc.seat_config) ? doc.seat_config.map(String) : undefined,
     currentLat: doc.current_lat != null ? Number(doc.current_lat) : undefined,
     currentLng: doc.current_lng != null ? Number(doc.current_lng) : undefined,
+    currentHeading: doc.current_heading != null ? Number(doc.current_heading) : undefined,
     locationUpdatedAt: doc.location_updated_at ? String(doc.location_updated_at) : undefined,
     active: doc.active !== false,
   };
@@ -513,12 +514,22 @@ export async function updateTrip(tripId: string, input: Partial<CreateTripInput>
   return toTrip(doc);
 }
 
-export async function updateTripLocation(tripId: string, lat: number, lng: number): Promise<void> {
+export async function updateTripLocation(
+  tripId: string,
+  lat: number,
+  lng: number,
+  heading?: number,
+): Promise<void> {
   const c = ids();
   await databases.updateDocument(appwriteConfig.databaseId, c.trips, tripId, {
     current_lat: lat,
     current_lng: lng,
     location_updated_at: new Date().toISOString(),
+    // Stationary pings carry no heading — keep the last known direction
+    // instead of wiping it, so the car doesn't snap back to north at stops.
+    ...(heading != null && Number.isFinite(heading)
+      ? { current_heading: Math.round(heading) % 360 }
+      : {}),
   });
 }
 

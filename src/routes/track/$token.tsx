@@ -165,7 +165,7 @@ function TrackRidePage() {
   const isLive = trip.status === "in_progress";
   const liveLocation =
     isLive && trip.currentLat != null && trip.currentLng != null
-      ? { lat: trip.currentLat, lng: trip.currentLng }
+      ? { lat: trip.currentLat, lng: trip.currentLng, heading: trip.currentHeading ?? null }
       : null;
   const hostPhone = hostProfile?.phone;
 

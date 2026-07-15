@@ -10,14 +10,16 @@ interface RideRouteMapProps {
   toLng: number;
   polyline: string;
   isAirportDrop?: boolean;
-  liveLocation?: { lat: number; lng: number } | null;
+  liveLocation?: { lat: number; lng: number; heading?: number | null } | null;
 }
 
-// Top-view car on a soft white halo — readable on any map background.
-const CAR_ICON_SVG = `
+// Top-view car on a soft white halo — readable on any map background. The car
+// artwork points north (up); `heading` rotates it to the direction of travel.
+function carIconUrl(heading: number): string {
+  const svg = `
 <svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" viewBox="0 0 44 44">
   <circle cx="22" cy="22" r="20" fill="white" fill-opacity="0.9"/>
-  <g>
+  <g transform="rotate(${heading} 22 22)">
     <rect x="14" y="8" width="16" height="28" rx="6.5" fill="#16A34A" stroke="white" stroke-width="2"/>
     <rect x="12.6" y="14" width="2.6" height="7" rx="1.3" fill="#0f7a37"/>
     <rect x="28.8" y="14" width="2.6" height="7" rx="1.3" fill="#0f7a37"/>
@@ -27,7 +29,14 @@ const CAR_ICON_SVG = `
     <rect x="16.5" y="26.5" width="11" height="5" rx="2" fill="#bbf7d0"/>
   </g>
 </svg>`;
-const CAR_ICON_URL = `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(CAR_ICON_SVG)}`;
+  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
+}
+
+/** Round to 10° steps so the icon isn't regenerated on every tiny GPS wobble. */
+function roundedHeading(heading: number | null | undefined): number {
+  if (heading == null || !Number.isFinite(heading)) return 0;
+  return (Math.round(heading / 10) * 10 + 360) % 360;
+}
 
 export function RideRouteMap({
   fromLat,
@@ -41,6 +50,7 @@ export function RideRouteMap({
   const mapRef = useRef<HTMLDivElement>(null);
   const googleMapRef = useRef<any>(null);
   const carMarkerRef = useRef<any>(null);
+  const lastHeadingRef = useRef<number | null>(null);
   // Last bounds the route was fitted to — re-applied when toggling fullscreen.
   const boundsRef = useRef<any>(null);
   const [mapsReady, setMapsReady] = useState(false);
@@ -230,21 +240,29 @@ export function RideRouteMap({
     }
 
     const position = { lat: liveLocation.lat, lng: liveLocation.lng };
+    const heading = roundedHeading(liveLocation.heading);
+    const icon = {
+      url: carIconUrl(heading),
+      scaledSize: new google.maps.Size(44, 44),
+      anchor: new google.maps.Point(22, 22),
+    };
 
     if (!carMarkerRef.current) {
       carMarkerRef.current = new google.maps.Marker({
         position,
         map,
-        icon: {
-          url: CAR_ICON_URL,
-          scaledSize: new google.maps.Size(44, 44),
-          anchor: new google.maps.Point(22, 22),
-        },
+        icon,
         title: "Your ride",
         zIndex: 999,
       });
+      lastHeadingRef.current = heading;
     } else {
       carMarkerRef.current.setPosition(position);
+      // Re-render the icon only when the direction meaningfully changes.
+      if (lastHeadingRef.current !== heading) {
+        carMarkerRef.current.setIcon(icon);
+        lastHeadingRef.current = heading;
+      }
     }
 
     // In fullscreen the map follows the car; the small card stays still so it

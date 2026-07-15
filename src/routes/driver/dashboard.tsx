@@ -122,7 +122,7 @@ import type { Trip, TripStop, DriverProfile, Booking, BookingStatus, Review } fr
 import { shareTrip, getTripShareUrl } from "@/lib/share-trip";
 import { APP_FONT_FAMILY } from "@/lib/fonts";
 import { calcPricePerKm, hostNetEarnings } from "@/lib/pricing";
-import { stripCountrySuffix } from "@/lib/geo";
+import { stripCountrySuffix, haversineKm, bearingDegrees } from "@/lib/geo";
 import { findDuplicateVehicle } from "@/lib/duplicateChecks";
 import { mintTripCode } from "@/integrations/appwrite/trip-server";
 import { formatVehicleCode } from "@/lib/vehicleCode";
@@ -477,9 +477,21 @@ function DriverDashboardPage() {
           if (locationWatchIdRef.current != null) {
             navigator.geolocation.clearWatch(locationWatchIdRef.current);
           }
+          // Heading rotates the live car icon on riders' maps. GPS heading is
+          // null/NaN when stationary or unsupported — fall back to the bearing
+          // between fixes once we've moved far enough for it to mean anything.
+          let lastFix = { lat: pos.coords.latitude, lng: pos.coords.longitude };
           locationWatchIdRef.current = navigator.geolocation.watchPosition(
             (p) => {
-              void updateTripLocation(tripId, p.coords.latitude, p.coords.longitude);
+              const cur = { lat: p.coords.latitude, lng: p.coords.longitude };
+              let heading = Number.isFinite(p.coords.heading as number)
+                ? (p.coords.heading as number)
+                : undefined;
+              if (heading == null && haversineKm(lastFix, cur) * 1000 > 15) {
+                heading = bearingDegrees(lastFix, cur);
+              }
+              lastFix = cur;
+              void updateTripLocation(tripId, cur.lat, cur.lng, heading);
             },
             (err) => console.error("Location watch error", err),
             { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 },
