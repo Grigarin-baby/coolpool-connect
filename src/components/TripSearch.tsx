@@ -696,6 +696,12 @@ export function TripSearchForm({ variant, id }: { variant: "landing" | "page"; i
   const { loading, fromOptions, toOptions, searchPlaces, onSearch, summary } =
     useTripSearchContext();
   const [form] = Form.useForm();
+  // Unfocused search fields render a plain-text overlay instead of the input —
+  // plain text always draws from the first character, so Android's input
+  // scroll-position quirks (mid-name or blank-looking views) can't show.
+  const fromValue = Form.useWatch("from", form);
+  const toValue = Form.useWatch("to", form);
+  const [searchFocus, setSearchFocus] = useState<null | "from" | "to">(null);
   const selectedDate = Form.useWatch("date", form);
   const [locating, setLocating] = useState(false);
 
@@ -912,17 +918,34 @@ export function TripSearchForm({ variant, id }: { variant: "landing" | "page"; i
           onFinish={onSearch}
           className="flex items-center gap-3"
         >
-          <Form.Item name="from" className="m-0 flex-1">
-            <AutoComplete
-              {...TRIP_SEARCH_AC_POPUP}
-              options={fromOptions}
-              onSearch={(text) => searchPlaces(text, "from")}
-              onSelect={closeKeyboard} onBlur={snapFieldToStart}
-              placeholder="From"
-              className={cn("bg-gray-50 rounded-2xl", TRIP_SEARCH_INPUT_COMPACT)}
-              variant="borderless"
-            />
-          </Form.Item>
+          <div className="relative m-0 flex-1 min-w-0">
+            <Form.Item name="from" className="m-0">
+              <AutoComplete
+                {...TRIP_SEARCH_AC_POPUP}
+                options={fromOptions}
+                onSearch={(text) => searchPlaces(text, "from")}
+                onSelect={closeKeyboard}
+                onFocus={() => setSearchFocus("from")}
+                onBlur={(e) => {
+                  setSearchFocus(null);
+                  snapFieldToStart(e);
+                }}
+                placeholder="From"
+                className={cn("bg-gray-50 rounded-2xl", TRIP_SEARCH_INPUT_COMPACT)}
+                variant="borderless"
+              />
+            </Form.Item>
+            {searchFocus !== "from" && !!fromValue && (
+              <div className="pointer-events-none absolute inset-0 z-[5] flex items-center overflow-hidden rounded-2xl bg-gray-50 px-[11px]">
+                <span
+                  className="w-full truncate text-sm"
+                  style={{ fontWeight: 800, color: "oklch(0.15 0.02 260)" }}
+                >
+                  {fromValue}
+                </span>
+              </div>
+            )}
+          </div>
           <button
             type="button"
             onClick={swapLocations}
@@ -931,17 +954,34 @@ export function TripSearchForm({ variant, id }: { variant: "landing" | "page"; i
           >
             <ArrowLeftRight size={16} />
           </button>
-          <Form.Item name="to" className="m-0 flex-1">
-            <AutoComplete
-              {...TRIP_SEARCH_AC_POPUP}
-              options={toOptions}
-              onSearch={(text) => searchPlaces(text, "to")}
-              onSelect={closeKeyboard} onBlur={snapFieldToStart}
-              placeholder="To"
-              className={cn("bg-gray-50 rounded-2xl", TRIP_SEARCH_INPUT_COMPACT)}
-              variant="borderless"
-            />
-          </Form.Item>
+          <div className="relative m-0 flex-1 min-w-0">
+            <Form.Item name="to" className="m-0">
+              <AutoComplete
+                {...TRIP_SEARCH_AC_POPUP}
+                options={toOptions}
+                onSearch={(text) => searchPlaces(text, "to")}
+                onSelect={closeKeyboard}
+                onFocus={() => setSearchFocus("to")}
+                onBlur={(e) => {
+                  setSearchFocus(null);
+                  snapFieldToStart(e);
+                }}
+                placeholder="To"
+                className={cn("bg-gray-50 rounded-2xl", TRIP_SEARCH_INPUT_COMPACT)}
+                variant="borderless"
+              />
+            </Form.Item>
+            {searchFocus !== "to" && !!toValue && (
+              <div className="pointer-events-none absolute inset-0 z-[5] flex items-center overflow-hidden rounded-2xl bg-gray-50 px-[11px]">
+                <span
+                  className="w-full truncate text-sm"
+                  style={{ fontWeight: 800, color: "oklch(0.15 0.02 260)" }}
+                >
+                  {toValue}
+                </span>
+              </div>
+            )}
+          </div>
           <UiButton
             type="submit"
             variant="hero"
@@ -983,21 +1023,38 @@ export function TripSearchForm({ variant, id }: { variant: "landing" | "page"; i
                     <span className="h-3 w-3 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
                   )}
                 </p>
-                <Form.Item
-                  name="from"
-                  rules={[{ required: true }]}
-                  className="trip-search-form-item"
-                >
-                  <AutoComplete
-                    {...TRIP_SEARCH_AC_POPUP}
-                    options={fromOptions}
-                    onSearch={(t) => searchPlaces(t, "from")}
-                    onSelect={closeKeyboard} onBlur={snapFieldToStart}
-                    placeholder="City or area"
-                    variant="borderless"
-                    className={TRIP_SEARCH_INPUT}
-                  />
-                </Form.Item>
+                <div className="relative">
+                  <Form.Item
+                    name="from"
+                    rules={[{ required: true }]}
+                    className="trip-search-form-item"
+                  >
+                    <AutoComplete
+                      {...TRIP_SEARCH_AC_POPUP}
+                      options={fromOptions}
+                      onSearch={(t) => searchPlaces(t, "from")}
+                      onSelect={closeKeyboard}
+                      onFocus={() => setSearchFocus("from")}
+                      onBlur={(e) => {
+                        setSearchFocus(null);
+                        snapFieldToStart(e);
+                      }}
+                      placeholder="City or area"
+                      variant="borderless"
+                      className={TRIP_SEARCH_INPUT}
+                    />
+                  </Form.Item>
+                  {searchFocus !== "from" && !!fromValue && (
+                    <div className="pointer-events-none absolute inset-0 z-[5] flex items-center overflow-hidden bg-white">
+                      <span
+                        className="w-full truncate text-[48px]"
+                        style={{ fontWeight: 800, color: "oklch(0.15 0.02 260)" }}
+                      >
+                        {fromValue}
+                      </span>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Destination */}
@@ -1011,21 +1068,38 @@ export function TripSearchForm({ variant, id }: { variant: "landing" | "page"; i
                   <ArrowUpDown size={18} />
                 </button>
                 <p className={TRIP_SEARCH_LABEL}>Destination</p>
-                <Form.Item
-                  name="to"
-                  rules={[{ required: true }]}
-                  className="trip-search-form-item"
-                >
-                  <AutoComplete
-                    {...TRIP_SEARCH_AC_POPUP}
-                    options={toOptions}
-                    onSearch={(t) => searchPlaces(t, "to")}
-                    onSelect={closeKeyboard} onBlur={snapFieldToStart}
-                    placeholder="Where to?"
-                    variant="borderless"
-                    className={TRIP_SEARCH_INPUT}
-                  />
-                </Form.Item>
+                <div className="relative">
+                  <Form.Item
+                    name="to"
+                    rules={[{ required: true }]}
+                    className="trip-search-form-item"
+                  >
+                    <AutoComplete
+                      {...TRIP_SEARCH_AC_POPUP}
+                      options={toOptions}
+                      onSearch={(t) => searchPlaces(t, "to")}
+                      onSelect={closeKeyboard}
+                      onFocus={() => setSearchFocus("to")}
+                      onBlur={(e) => {
+                        setSearchFocus(null);
+                        snapFieldToStart(e);
+                      }}
+                      placeholder="Where to?"
+                      variant="borderless"
+                      className={TRIP_SEARCH_INPUT}
+                    />
+                  </Form.Item>
+                  {searchFocus !== "to" && !!toValue && (
+                    <div className="pointer-events-none absolute inset-0 z-[5] flex items-center overflow-hidden bg-white">
+                      <span
+                        className="w-full truncate text-[48px]"
+                        style={{ fontWeight: 800, color: "oklch(0.15 0.02 260)" }}
+                      >
+                        {toValue}
+                      </span>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Date section */}
@@ -1084,21 +1158,38 @@ export function TripSearchForm({ variant, id }: { variant: "landing" | "page"; i
                     <span className="h-3 w-3 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
                   )}
                 </p>
-                <Form.Item
-                  name="from"
-                  rules={[{ required: true }]}
-                  className="trip-search-form-item"
-                >
-                  <AutoComplete
-                    {...TRIP_SEARCH_AC_POPUP}
-                    options={fromOptions}
-                    onSearch={(t) => searchPlaces(t, "from")}
-                    onSelect={closeKeyboard} onBlur={snapFieldToStart}
-                    placeholder="City"
-                    variant="borderless"
-                    className={TRIP_SEARCH_INPUT}
-                  />
-                </Form.Item>
+                <div className="relative">
+                  <Form.Item
+                    name="from"
+                    rules={[{ required: true }]}
+                    className="trip-search-form-item"
+                  >
+                    <AutoComplete
+                      {...TRIP_SEARCH_AC_POPUP}
+                      options={fromOptions}
+                      onSearch={(t) => searchPlaces(t, "from")}
+                      onSelect={closeKeyboard}
+                      onFocus={() => setSearchFocus("from")}
+                      onBlur={(e) => {
+                        setSearchFocus(null);
+                        snapFieldToStart(e);
+                      }}
+                      placeholder="City"
+                      variant="borderless"
+                      className={TRIP_SEARCH_INPUT}
+                    />
+                  </Form.Item>
+                  {searchFocus !== "from" && !!fromValue && (
+                    <div className="pointer-events-none absolute inset-0 z-[5] flex items-center overflow-hidden bg-white">
+                      <span
+                        className="w-full truncate text-[32px]"
+                        style={{ fontWeight: 800, color: "oklch(0.15 0.02 260)" }}
+                      >
+                        {fromValue}
+                      </span>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Destination row */}
@@ -1114,21 +1205,38 @@ export function TripSearchForm({ variant, id }: { variant: "landing" | "page"; i
                 <p className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-1">
                   Destination
                 </p>
-                <Form.Item
-                  name="to"
-                  rules={[{ required: true }]}
-                  className="trip-search-form-item"
-                >
-                  <AutoComplete
-                    {...TRIP_SEARCH_AC_POPUP}
-                    options={toOptions}
-                    onSearch={(t) => searchPlaces(t, "to")}
-                    onSelect={closeKeyboard} onBlur={snapFieldToStart}
-                    placeholder="Where to?"
-                    variant="borderless"
-                    className={TRIP_SEARCH_INPUT}
-                  />
-                </Form.Item>
+                <div className="relative">
+                  <Form.Item
+                    name="to"
+                    rules={[{ required: true }]}
+                    className="trip-search-form-item"
+                  >
+                    <AutoComplete
+                      {...TRIP_SEARCH_AC_POPUP}
+                      options={toOptions}
+                      onSearch={(t) => searchPlaces(t, "to")}
+                      onSelect={closeKeyboard}
+                      onFocus={() => setSearchFocus("to")}
+                      onBlur={(e) => {
+                        setSearchFocus(null);
+                        snapFieldToStart(e);
+                      }}
+                      placeholder="Where to?"
+                      variant="borderless"
+                      className={TRIP_SEARCH_INPUT}
+                    />
+                  </Form.Item>
+                  {searchFocus !== "to" && !!toValue && (
+                    <div className="pointer-events-none absolute inset-0 z-[5] flex items-center overflow-hidden bg-white">
+                      <span
+                        className="w-full truncate text-[32px]"
+                        style={{ fontWeight: 800, color: "oklch(0.15 0.02 260)" }}
+                      >
+                        {toValue}
+                      </span>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Date section */}
