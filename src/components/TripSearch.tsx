@@ -702,6 +702,28 @@ export function TripSearchForm({ variant, id }: { variant: "landing" | "page"; i
   const fromValue = Form.useWatch("from", form);
   const toValue = Form.useWatch("to", form);
   const [searchFocus, setSearchFocus] = useState<null | "from" | "to">(null);
+  // Focus/blur are handled on the WRAPPER divs via React capture events —
+  // this antd version silently ignores onFocus/onBlur props on AutoComplete
+  // (verified in-browser: the handlers never fired, which is why earlier
+  // blur-based fixes never ran). Tap-to-retype: focusing a filled field
+  // clears it (a focused input must never hold a long name — mobile renders
+  // it scrolled mid-name); leaving without choosing restores the old value.
+  const prevSearchValue = useRef<{ from?: string; to?: string }>({});
+  const searchFieldFocus = (key: "from" | "to") => {
+    setSearchFocus(key);
+    const v = form.getFieldValue(key);
+    if (typeof v === "string" && v) {
+      prevSearchValue.current[key] = v;
+      form.setFieldsValue({ [key]: "" });
+    }
+  };
+  const searchFieldBlur = (key: "from" | "to") => {
+    setSearchFocus(null);
+    const v = form.getFieldValue(key);
+    if (!(typeof v === "string" && v.trim()) && prevSearchValue.current[key]) {
+      form.setFieldsValue({ [key]: prevSearchValue.current[key] });
+    }
+  };
   const selectedDate = Form.useWatch("date", form);
   const [locating, setLocating] = useState(false);
 
@@ -872,22 +894,6 @@ export function TripSearchForm({ variant, id }: { variant: "landing" | "page"; i
     form.setFieldsValue({ from: to ?? "", to: from ?? "" });
   };
 
-  // Snap a field back to the start of its text when the user leaves it —
-  // Android keeps inputs scrolled to the last cursor position after blur, so
-  // an edited field drifts back to showing the middle of the place name.
-  const snapFieldToStart = (e: { target: EventTarget | null }) => {
-    const el = e.target;
-    if (!(el instanceof HTMLInputElement)) return;
-    requestAnimationFrame(() => {
-      try {
-        el.setSelectionRange(0, 0);
-      } catch {
-        /* input type may not support selection — scrollLeft still works */
-      }
-      el.scrollLeft = 0;
-    });
-  };
-
   const closeKeyboard = () => {
     const el = document.activeElement;
     if (!(el instanceof HTMLInputElement)) return;
@@ -918,18 +924,17 @@ export function TripSearchForm({ variant, id }: { variant: "landing" | "page"; i
           onFinish={onSearch}
           className="flex items-center gap-3"
         >
-          <div className="relative m-0 flex-1 min-w-0">
+          <div
+            className="relative m-0 flex-1 min-w-0"
+            onFocusCapture={() => searchFieldFocus("from")}
+            onBlurCapture={() => searchFieldBlur("from")}
+          >
             <Form.Item name="from" className="m-0">
               <AutoComplete
                 {...TRIP_SEARCH_AC_POPUP}
                 options={fromOptions}
                 onSearch={(text) => searchPlaces(text, "from")}
                 onSelect={closeKeyboard}
-                onFocus={() => setSearchFocus("from")}
-                onBlur={(e) => {
-                  setSearchFocus(null);
-                  snapFieldToStart(e);
-                }}
                 placeholder="From"
                 className={cn("bg-gray-50 rounded-2xl", TRIP_SEARCH_INPUT_COMPACT)}
                 variant="borderless"
@@ -954,18 +959,17 @@ export function TripSearchForm({ variant, id }: { variant: "landing" | "page"; i
           >
             <ArrowLeftRight size={16} />
           </button>
-          <div className="relative m-0 flex-1 min-w-0">
+          <div
+            className="relative m-0 flex-1 min-w-0"
+            onFocusCapture={() => searchFieldFocus("to")}
+            onBlurCapture={() => searchFieldBlur("to")}
+          >
             <Form.Item name="to" className="m-0">
               <AutoComplete
                 {...TRIP_SEARCH_AC_POPUP}
                 options={toOptions}
                 onSearch={(text) => searchPlaces(text, "to")}
                 onSelect={closeKeyboard}
-                onFocus={() => setSearchFocus("to")}
-                onBlur={(e) => {
-                  setSearchFocus(null);
-                  snapFieldToStart(e);
-                }}
                 placeholder="To"
                 className={cn("bg-gray-50 rounded-2xl", TRIP_SEARCH_INPUT_COMPACT)}
                 variant="borderless"
@@ -1023,7 +1027,11 @@ export function TripSearchForm({ variant, id }: { variant: "landing" | "page"; i
                     <span className="h-3 w-3 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
                   )}
                 </p>
-                <div className="relative">
+                <div
+                  className="relative"
+                  onFocusCapture={() => searchFieldFocus("from")}
+                  onBlurCapture={() => searchFieldBlur("from")}
+                >
                   <Form.Item
                     name="from"
                     rules={[{ required: true }]}
@@ -1034,11 +1042,6 @@ export function TripSearchForm({ variant, id }: { variant: "landing" | "page"; i
                       options={fromOptions}
                       onSearch={(t) => searchPlaces(t, "from")}
                       onSelect={closeKeyboard}
-                      onFocus={() => setSearchFocus("from")}
-                      onBlur={(e) => {
-                        setSearchFocus(null);
-                        snapFieldToStart(e);
-                      }}
                       placeholder="City or area"
                       variant="borderless"
                       className={TRIP_SEARCH_INPUT}
@@ -1068,7 +1071,11 @@ export function TripSearchForm({ variant, id }: { variant: "landing" | "page"; i
                   <ArrowUpDown size={18} />
                 </button>
                 <p className={TRIP_SEARCH_LABEL}>Destination</p>
-                <div className="relative">
+                <div
+                  className="relative"
+                  onFocusCapture={() => searchFieldFocus("to")}
+                  onBlurCapture={() => searchFieldBlur("to")}
+                >
                   <Form.Item
                     name="to"
                     rules={[{ required: true }]}
@@ -1079,11 +1086,6 @@ export function TripSearchForm({ variant, id }: { variant: "landing" | "page"; i
                       options={toOptions}
                       onSearch={(t) => searchPlaces(t, "to")}
                       onSelect={closeKeyboard}
-                      onFocus={() => setSearchFocus("to")}
-                      onBlur={(e) => {
-                        setSearchFocus(null);
-                        snapFieldToStart(e);
-                      }}
                       placeholder="Where to?"
                       variant="borderless"
                       className={TRIP_SEARCH_INPUT}
@@ -1158,7 +1160,11 @@ export function TripSearchForm({ variant, id }: { variant: "landing" | "page"; i
                     <span className="h-3 w-3 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
                   )}
                 </p>
-                <div className="relative">
+                <div
+                  className="relative"
+                  onFocusCapture={() => searchFieldFocus("from")}
+                  onBlurCapture={() => searchFieldBlur("from")}
+                >
                   <Form.Item
                     name="from"
                     rules={[{ required: true }]}
@@ -1169,11 +1175,6 @@ export function TripSearchForm({ variant, id }: { variant: "landing" | "page"; i
                       options={fromOptions}
                       onSearch={(t) => searchPlaces(t, "from")}
                       onSelect={closeKeyboard}
-                      onFocus={() => setSearchFocus("from")}
-                      onBlur={(e) => {
-                        setSearchFocus(null);
-                        snapFieldToStart(e);
-                      }}
                       placeholder="City"
                       variant="borderless"
                       className={TRIP_SEARCH_INPUT}
@@ -1205,7 +1206,11 @@ export function TripSearchForm({ variant, id }: { variant: "landing" | "page"; i
                 <p className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-1">
                   Destination
                 </p>
-                <div className="relative">
+                <div
+                  className="relative"
+                  onFocusCapture={() => searchFieldFocus("to")}
+                  onBlurCapture={() => searchFieldBlur("to")}
+                >
                   <Form.Item
                     name="to"
                     rules={[{ required: true }]}
@@ -1216,11 +1221,6 @@ export function TripSearchForm({ variant, id }: { variant: "landing" | "page"; i
                       options={toOptions}
                       onSearch={(t) => searchPlaces(t, "to")}
                       onSelect={closeKeyboard}
-                      onFocus={() => setSearchFocus("to")}
-                      onBlur={(e) => {
-                        setSearchFocus(null);
-                        snapFieldToStart(e);
-                      }}
                       placeholder="Where to?"
                       variant="borderless"
                       className={TRIP_SEARCH_INPUT}

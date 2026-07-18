@@ -112,42 +112,6 @@ export function StepRoute({
     });
   }, []);
 
-  // Snap ONE field back to the start of its text when the user leaves it.
-  // Selection alone isn't enough: Android keeps an input scrolled to the last
-  // cursor position after blur, so a box edited after selection drifts back to
-  // showing the middle of the name ("…a Pur…").
-  const snapFieldToStart = useCallback((e: { target: EventTarget | null }) => {
-    const el = e.target;
-    if (!(el instanceof HTMLInputElement)) return;
-    requestAnimationFrame(() => {
-      try {
-        el.setSelectionRange(0, 0);
-      } catch {
-        /* input type may not support selection — scrollLeft still works */
-      }
-      el.scrollLeft = 0;
-    });
-  }, []);
-
-  // Leaving a stop box empty while its pin is still on the map would show a
-  // blank field with a live marker — restore the chosen place name instead.
-  const handleStopBlur = useCallback(
-    (e: { target: EventTarget | null }, idx: number) => {
-      const el = e.target;
-      if (el instanceof HTMLInputElement && !el.value.trim()) {
-        const point = intermediatePointsRef.current[idx];
-        if (point?.label && (point.lat !== 0 || point.lng !== 0)) {
-          setStopTexts((prev) => {
-            const n = [...prev];
-            n[idx] = point.label;
-            return n;
-          });
-        }
-      }
-      snapFieldToStart(e);
-    },
-    [snapFieldToStart],
-  );
   // Hold latest onAlternativesChange in a ref so useEffect doesn't re-run on every render
   const onAlternativesChangeRef = useRef(onAlternativesChange);
   useEffect(() => { onAlternativesChangeRef.current = onAlternativesChange; });
@@ -368,6 +332,8 @@ export function StepRoute({
     const updated = [...current];
     updated[idx] = { ...point, stopType: current[idx]?.stopType ?? "both" };
     onIntermediatePointsChange(updated);
+    // Flip the field back to the plain-text overlay display.
+    (document.activeElement as HTMLElement | null)?.blur?.();
     showNamesFromStart();
   }, [stopOptions, onIntermediatePointsChange, resolveCoords, showNamesFromStart]);
 
@@ -386,6 +352,9 @@ export function StepRoute({
       onToChange(point);
       setToText(point.label);
     }
+    // antd keeps the input focused after selecting — blur so the field flips
+    // back to the plain-text overlay (the only guaranteed-correct display).
+    (document.activeElement as HTMLElement | null)?.blur?.();
     showNamesFromStart();
   };
 
@@ -471,18 +440,27 @@ export function StepRoute({
           <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-primary/10 text-primary">
             <MapPin size={18} />
           </span>
-          <div className="relative flex-1 min-w-0">
+          {/* Focus/blur handled on the wrapper: this antd version silently
+              ignores onFocus/onBlur props on AutoComplete (verified in-browser
+              — the handlers never fired), so React's capture events on a plain
+              div are the reliable hook. Tap-to-retype: a focused input must
+              never hold a long name (mobile renders it scrolled mid-name), so
+              focusing clears it; the self-heal effect restores the label on
+              blur when nothing new is chosen. */}
+          <div
+            className="relative flex-1 min-w-0"
+            onFocusCapture={() => {
+              setFocusedField("from");
+              setFromText("");
+            }}
+            onBlurCapture={() => setFocusedField(null)}
+          >
             <AutoComplete
               value={fromText}
               options={fromOptions}
               onSearch={(v) => { setFromText(v); searchCities(v, "from"); }}
               onSelect={(v) => { if (v === "__out_of_area__") return; void handleSelect("from", v); }}
               onChange={(v) => setFromText(typeof v === "string" ? v : "")}
-              onFocus={() => setFocusedField("from")}
-              onBlur={(e) => {
-                setFocusedField(null);
-                snapFieldToStart(e);
-              }}
               optionRender={renderCityOption}
               placeholder="Pickup city or area"
               className="w-full"
@@ -518,18 +496,24 @@ export function StepRoute({
                 <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-amber-50 text-amber-500 border border-amber-200 text-xs font-bold">
                   {idx + 1}
                 </span>
-                <div className="relative flex-1 min-w-0">
+                <div
+                  className="relative flex-1 min-w-0"
+                  onFocusCapture={() => {
+                    setFocusedField(`stop-${idx}`);
+                    setStopTexts((prev) => {
+                      const n = [...prev];
+                      n[idx] = "";
+                      return n;
+                    });
+                  }}
+                  onBlurCapture={() => setFocusedField(null)}
+                >
                   <AutoComplete
                     value={txt}
                     options={stopOptions[idx] ?? []}
                     onSearch={(v) => searchStop(v, idx)}
                     onSelect={(v) => void selectStop(v, idx)}
                     onChange={(v) => setStopTexts((prev) => { const n = [...prev]; n[idx] = typeof v === "string" ? v : ""; return n; })}
-                    onFocus={() => setFocusedField(`stop-${idx}`)}
-                    onBlur={(e) => {
-                      setFocusedField(null);
-                      handleStopBlur(e, idx);
-                    }}
                     placeholder={`Stop ${idx + 1} city or area`}
                     className="w-full"
                     variant="borderless"
@@ -594,18 +578,20 @@ export function StepRoute({
           <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-pink-500/10 text-pink-600">
             <MapPin size={18} />
           </span>
-          <div className="relative flex-1 min-w-0">
+          <div
+            className="relative flex-1 min-w-0"
+            onFocusCapture={() => {
+              setFocusedField("to");
+              setToText("");
+            }}
+            onBlurCapture={() => setFocusedField(null)}
+          >
             <AutoComplete
               value={toText}
               options={toOptions}
               onSearch={(v) => { setToText(v); searchCities(v, "to"); }}
               onSelect={(v) => { if (v === "__out_of_area__") return; void handleSelect("to", v); }}
               onChange={(v) => setToText(typeof v === "string" ? v : "")}
-              onFocus={() => setFocusedField("to")}
-              onBlur={(e) => {
-                setFocusedField(null);
-                snapFieldToStart(e);
-              }}
               optionRender={renderCityOption}
               placeholder="Drop-off city or area"
               className="w-full"
