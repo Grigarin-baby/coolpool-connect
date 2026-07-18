@@ -162,6 +162,33 @@ export function StepRoute({
   const intermediatePointsRef = useRef(intermediatePoints);
   useEffect(() => { intermediatePointsRef.current = intermediatePoints; });
 
+  // Which field the user is editing right now ("from" | "to" | "stop-N").
+  // Unfocused fields render a plain-text overlay instead of relying on input
+  // scroll position — browsers always draw plain text from the first character
+  // with a trailing ellipsis, so mid-name views ("…a Pur…") become impossible.
+  const [focusedField, setFocusedField] = useState<string | null>(null);
+
+  // Self-heal: if a field's text got blanked (Android quirks, races) while its
+  // location is still resolved, restore the location's label. Never touches
+  // the field being edited.
+  useEffect(() => {
+    if (focusedField !== "from" && !fromText.trim() && from?.label) setFromText(from.label);
+    if (focusedField !== "to" && !toText.trim() && to?.label) setToText(to.label);
+    setStopTexts((prev) => {
+      let changed = false;
+      const next = prev.map((t, i) => {
+        if (focusedField === `stop-${i}`) return t;
+        const p = intermediatePoints[i];
+        if (!t.trim() && p?.label && (p.lat !== 0 || p.lng !== 0)) {
+          changed = true;
+          return p.label;
+        }
+        return t;
+      });
+      return changed ? next : prev;
+    });
+  }, [focusedField, fromText, toText, from, to, intermediatePoints]);
+
   // Sync local array lengths when stops are added or removed from outside
   // (guards against desync after rapid add/remove or component remount)
   useEffect(() => {
@@ -451,15 +478,29 @@ export function StepRoute({
               onSearch={(v) => { setFromText(v); searchCities(v, "from"); }}
               onSelect={(v) => { if (v === "__out_of_area__") return; void handleSelect("from", v); }}
               onChange={(v) => setFromText(typeof v === "string" ? v : "")}
-              onBlur={snapFieldToStart}
+              onFocus={() => setFocusedField("from")}
+              onBlur={(e) => {
+                setFocusedField(null);
+                snapFieldToStart(e);
+              }}
               optionRender={renderCityOption}
               placeholder="Pickup city or area"
               className="w-full"
               variant="borderless"
               classNames={{ popup: { root: "trip-search-ac-dropdown" } }}
             />
+            {/* Plain-text display while not editing — always renders from the
+                first character with a trailing ellipsis, immune to input
+                scroll-position quirks on Android. */}
+            {focusedField !== "from" && !!(fromText || from?.label) && (
+              <div className="pointer-events-none absolute inset-0 z-[5] flex items-center overflow-hidden bg-white pl-[11px] pr-6">
+                <span className="w-full truncate text-[16px] text-gray-900">
+                  {fromText || from?.label}
+                </span>
+              </div>
+            )}
             {fromSearching && (
-              <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-gray-400">
+              <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 z-10 text-gray-400">
                 <Loader2 size={14} className="animate-spin" />
               </span>
             )}
@@ -484,14 +525,26 @@ export function StepRoute({
                     onSearch={(v) => searchStop(v, idx)}
                     onSelect={(v) => void selectStop(v, idx)}
                     onChange={(v) => setStopTexts((prev) => { const n = [...prev]; n[idx] = typeof v === "string" ? v : ""; return n; })}
-                    onBlur={(e) => handleStopBlur(e, idx)}
+                    onFocus={() => setFocusedField(`stop-${idx}`)}
+                    onBlur={(e) => {
+                      setFocusedField(null);
+                      handleStopBlur(e, idx);
+                    }}
                     placeholder={`Stop ${idx + 1} city or area`}
                     className="w-full"
                     variant="borderless"
                     classNames={{ popup: { root: "trip-search-ac-dropdown" } }}
                   />
+                  {focusedField !== `stop-${idx}` &&
+                    !!(txt || intermediatePoints[idx]?.label) && (
+                      <div className="pointer-events-none absolute inset-0 z-[5] flex items-center overflow-hidden bg-white pl-[11px] pr-6">
+                        <span className="w-full truncate text-[16px] text-gray-900">
+                          {txt || intermediatePoints[idx]?.label}
+                        </span>
+                      </div>
+                    )}
                   {stopSearching[idx] && (
-                    <span className="pointer-events-none absolute right-8 top-1/2 -translate-y-1/2 text-gray-400">
+                    <span className="pointer-events-none absolute right-8 top-1/2 -translate-y-1/2 z-10 text-gray-400">
                       <Loader2 size={13} className="animate-spin" />
                     </span>
                   )}
@@ -548,15 +601,26 @@ export function StepRoute({
               onSearch={(v) => { setToText(v); searchCities(v, "to"); }}
               onSelect={(v) => { if (v === "__out_of_area__") return; void handleSelect("to", v); }}
               onChange={(v) => setToText(typeof v === "string" ? v : "")}
-              onBlur={snapFieldToStart}
+              onFocus={() => setFocusedField("to")}
+              onBlur={(e) => {
+                setFocusedField(null);
+                snapFieldToStart(e);
+              }}
               optionRender={renderCityOption}
               placeholder="Drop-off city or area"
               className="w-full"
               variant="borderless"
               classNames={{ popup: { root: "trip-search-ac-dropdown" } }}
             />
+            {focusedField !== "to" && !!(toText || to?.label) && (
+              <div className="pointer-events-none absolute inset-0 z-[5] flex items-center overflow-hidden bg-white pl-[11px] pr-6">
+                <span className="w-full truncate text-[16px] text-gray-900">
+                  {toText || to?.label}
+                </span>
+              </div>
+            )}
             {toSearching && (
-              <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-gray-400">
+              <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 z-10 text-gray-400">
                 <Loader2 size={14} className="animate-spin" />
               </span>
             )}
